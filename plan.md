@@ -1,6 +1,6 @@
 # UpdateBar CLI Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a production-quality, distributable `updatebar` CLI that can register arbitrary update targets, check current/latest versions deterministically, update approved targets, import/export recipes, and use OpenRouter only for assisted `add`/diagnostics.
 
@@ -422,7 +422,7 @@ Rules:
 - Create: `Sources/UpdateBarCore/Versioning/VersionComparator.swift`
 - Create: `Tests/UpdateBarCoreTests/VersionComparatorTests.swift`
 
-- [ ] Create git repo if missing.
+- [x] Create git repo if missing.
 
 Run:
 
@@ -442,7 +442,7 @@ Then run:
 rtk git init
 ```
 
-- [ ] Add SwiftPM package with products `updatebar`, `UpdateBarCore`, and `UpdateBarTestSupport`.
+- [x] Add SwiftPM package with products `updatebar`, `UpdateBarCore`, and `UpdateBarTestSupport`.
 
 `Package.swift` package decisions:
 
@@ -452,7 +452,7 @@ rtk git init
 - Platforms:
   - macOS 13+
 
-- [ ] Add minimal CLI entry.
+- [x] Add minimal CLI entry.
 
 First command:
 
@@ -466,7 +466,7 @@ Expected:
 {"version":"0.1.0"}
 ```
 
-- [ ] Add a first unit test for semantic version comparison.
+- [x] Add a first unit test for semantic version comparison.
 
 Test cases:
 
@@ -477,7 +477,7 @@ Test cases:
 1.0.0-beta < 1.0.0
 ```
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test
@@ -485,7 +485,7 @@ rtk swift test
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Package.swift .gitignore .swift-format version.env Sources Tests
@@ -505,7 +505,7 @@ rtk git commit -m "chore: initialize SwiftPM CLI"
 - Create: `Tests/UpdateBarCoreTests/StatusSnapshotTests.swift`
 - Create: `Fixtures/manifests/valid-basic.json`
 
-- [ ] Write decoding tests for the manifest object shape.
+- [x] Write decoding tests for the manifest object shape.
 
 Cover:
 
@@ -515,7 +515,7 @@ Cover:
 - `trust`.
 - Missing `sync`.
 
-- [ ] Write status priority tests.
+- [x] Write status priority tests.
 
 Expected priority:
 
@@ -523,7 +523,7 @@ Expected priority:
 disabled > pinned > untrusted > error > checking > ok/outdated/differs
 ```
 
-- [ ] Implement `Codable`, `Equatable`, and focused helper methods.
+- [x] Implement `Codable`, `Equatable`, and focused helper methods.
 
 Required helpers:
 
@@ -536,7 +536,7 @@ Recipe.commandFingerprints
 StatusSnapshot.from(manifest:state:now:)
 ```
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter Manifest
@@ -545,7 +545,7 @@ rtk swift test --filter StatusSnapshot
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCore/Models Tests Fixtures
@@ -562,7 +562,7 @@ rtk git commit -m "feat: add manifest and status models"
 - Create: `Tests/UpdateBarCoreTests/ManifestValidatorTests.swift`
 - Create: `Fixtures/manifests/invalid-missing-required.json`
 
-- [ ] Write validator tests before implementation.
+- [x] Write validator tests before implementation.
 
 Cases:
 
@@ -577,7 +577,7 @@ Cases:
 - Reject both `regex` and `jq` in `version_parse`.
 - Reject `sync` when present.
 
-- [ ] Implement validators with precise error paths.
+- [x] Implement validators with precise error paths.
 
 Error format:
 
@@ -585,7 +585,7 @@ Error format:
 items[0].latest.cmd: required when latest.strategy is cmd
 ```
 
-- [ ] Add CLI `validate`.
+- [x] Add CLI `validate`.
 
 Command behavior:
 
@@ -605,7 +605,7 @@ Invalid expected stdout:
 {"valid":false,"errors":["items[0].name: required"]}
 ```
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter ManifestValidator
@@ -613,7 +613,7 @@ rtk swift test --filter ManifestValidator
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCore/Validation Sources/UpdateBarCLI/Commands/ValidateCommand.swift Tests Fixtures
@@ -630,7 +630,7 @@ rtk git commit -m "feat: validate manifests"
 - Create: `Tests/UpdateBarCoreTests/ManifestStoreTests.swift`
 - Create: `Tests/UpdateBarCoreTests/StateStoreTests.swift`
 
-- [ ] Write tests using a temporary home directory.
+- [x] Write tests using a temporary home directory.
 
 Cases:
 
@@ -639,7 +639,7 @@ Cases:
 - Corrupt manifest returns a clear error.
 - Store never creates files outside configured `UPDATEBAR_HOME`.
 
-- [ ] Implement `AppPaths`.
+- [x] Implement `AppPaths`.
 
 Resolution order:
 
@@ -648,7 +648,7 @@ UPDATEBAR_HOME
 ~/.updatebar
 ```
 
-- [ ] Implement atomic JSON read/write.
+- [x] Implement atomic JSON read/write.
 
 Rules:
 
@@ -657,7 +657,7 @@ Rules:
 - `state.json` permissions: `0600`.
 - Use file lock or single-process lock to avoid concurrent writes in one process.
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter Store
@@ -665,7 +665,7 @@ rtk swift test --filter Store
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCore/Config Sources/UpdateBarCore/Registry Tests
@@ -682,7 +682,7 @@ rtk git commit -m "feat: add atomic manifest and state stores"
 - Create: `Tests/UpdateBarCoreTests/ConfigStoreTests.swift`
 - Create: `Sources/UpdateBarCLI/Commands/ConfigCommand.swift`
 
-- [ ] Write config tests.
+- [x] Write config tests.
 
 Defaults:
 
@@ -704,7 +704,7 @@ allow_plaintext_secret_file = false
 enabled = true
 ```
 
-- [ ] Implement minimal TOML support.
+- [x] Implement minimal TOML support.
 
 Scope:
 
@@ -712,7 +712,7 @@ Scope:
 - Preserve no comments in v1.
 - Reject unknown sections/keys in `config set`.
 
-- [ ] Implement commands.
+- [x] Implement commands.
 
 Examples:
 
@@ -721,7 +721,7 @@ rtk swift run updatebar config get provider.default --json
 rtk swift run updatebar config set refresh.interval 30m
 ```
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter Config
@@ -729,7 +729,7 @@ rtk swift test --filter Config
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCore/Config Sources/UpdateBarCLI/Commands/ConfigCommand.swift Tests
@@ -748,7 +748,7 @@ rtk git commit -m "feat: add config store"
 - Create: `Tests/UpdateBarCoreTests/AuthTests.swift`
 - Create: `Tests/UpdateBarCLITests/AuthCommandTests.swift`
 
-- [ ] Write credential tests.
+- [x] Write credential tests.
 
 Cases:
 
@@ -757,7 +757,7 @@ Cases:
 - Secret values are redacted in descriptions.
 - `auth status --json` never prints the key.
 
-- [ ] Implement `CredentialStore`.
+- [x] Implement `CredentialStore`.
 
 Interface:
 
@@ -770,7 +770,7 @@ public protocol CredentialStore {
 }
 ```
 
-- [ ] Implement macOS Keychain.
+- [x] Implement macOS Keychain.
 
 Keychain item:
 
@@ -784,7 +784,7 @@ Linux behavior:
 - `read` checks `OPENROUTER_API_KEY`.
 - `write` fails with an actionable message unless file fallback is explicitly enabled.
 
-- [ ] Implement `auth` commands.
+- [x] Implement `auth` commands.
 
 Commands:
 
@@ -800,7 +800,7 @@ Expected `status --json`:
 {"provider":"openrouter","available":true,"source":"keychain"}
 ```
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter Auth
@@ -808,7 +808,7 @@ rtk swift test --filter Auth
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCore/Auth Sources/UpdateBarCLI/Commands/AuthCommand.swift Tests
@@ -823,7 +823,7 @@ rtk git commit -m "feat: store OpenRouter credentials"
 - Modify: `Sources/UpdateBarCore/Versioning/VersionComparator.swift`
 - Create: `Tests/UpdateBarCoreTests/VersionComparatorTests.swift`
 
-- [ ] Expand tests.
+- [x] Expand tests.
 
 Cases:
 
@@ -835,7 +835,7 @@ Cases:
 - Regex extraction with one capture group.
 - Regex with zero or two capture groups fails validation.
 
-- [ ] Implement comparison outputs.
+- [x] Implement comparison outputs.
 
 Output:
 
@@ -854,7 +854,7 @@ Mapping:
 - `commit differs` -> `outdated`.
 - `opaque differs` -> `differs`.
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter Version
@@ -862,7 +862,7 @@ rtk swift test --filter Version
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCore/Versioning Tests/UpdateBarCoreTests/VersionComparatorTests.swift
@@ -879,7 +879,7 @@ rtk git commit -m "feat: compare version schemes"
 - Create: `Sources/UpdateBarCore/Security/SecretRedactor.swift`
 - Create: `Tests/UpdateBarCoreTests/ExecutionPolicyTests.swift`
 
-- [ ] Write tests.
+- [x] Write tests.
 
 Cases:
 
@@ -890,7 +890,7 @@ Cases:
 - `cwd` must exist.
 - Command output size is capped.
 
-- [ ] Implement shell execution.
+- [x] Implement shell execution.
 
 Rules:
 
@@ -906,7 +906,7 @@ Rules:
   - `GITHUB_TOKEN`
   - `GH_TOKEN`
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter Execution
@@ -914,7 +914,7 @@ rtk swift test --filter Execution
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCore/Execution Sources/UpdateBarCore/Security Tests
@@ -930,7 +930,7 @@ rtk git commit -m "feat: execute commands with policy"
 - Create: `Sources/UpdateBarCore/Security/UntrustedRecipeGate.swift`
 - Create: `Tests/UpdateBarCoreTests/ExecutionPolicyTests.swift`
 
-- [ ] Write tests.
+- [x] Write tests.
 
 Cases:
 
@@ -942,7 +942,7 @@ Cases:
 - `check` refuses unapproved `check.cmd`.
 - `update` refuses unapproved `update.cmd`.
 
-- [ ] Implement command fingerprints.
+- [x] Implement command fingerprints.
 
 Fingerprint input:
 
@@ -956,7 +956,7 @@ Hash:
 SHA-256 hex
 ```
 
-- [ ] Store approvals in manifest item `trust.approved_commands`.
+- [x] Store approvals in manifest item `trust.approved_commands`.
 
 Example:
 
@@ -967,7 +967,7 @@ Example:
 }
 ```
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter Trust
@@ -976,7 +976,7 @@ rtk swift test --filter ExecutionPolicy
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCore/Execution Sources/UpdateBarCore/Security Tests
@@ -997,7 +997,7 @@ rtk git commit -m "feat: gate untrusted recipe commands"
 - Create: `Fixtures/npm/claude-code-registry-response.json`
 - Create: `Fixtures/github/releases.json`
 
-- [ ] Write strategy tests with mocked HTTP and command executor.
+- [x] Write strategy tests with mocked HTTP and command executor.
 
 Cases:
 
@@ -1009,7 +1009,7 @@ Cases:
 - `http_regex` extracts first capture.
 - `cmd` uses command executor and version parser.
 
-- [ ] Implement per-strategy interfaces.
+- [x] Implement per-strategy interfaces.
 
 Interface:
 
@@ -1019,11 +1019,11 @@ public protocol LatestStrategy {
 }
 ```
 
-- [ ] Implement HTTP client abstraction.
+- [x] Implement HTTP client abstraction.
 
 Avoid real network in unit tests.
 
-- [ ] Add optional GitHub token usage.
+- [x] Add optional GitHub token usage.
 
 Source:
 
@@ -1035,7 +1035,7 @@ config provider.github_token only if later explicitly supported
 
 Do not persist GitHub token in v1 config by default.
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter LatestStrategy
@@ -1043,7 +1043,7 @@ rtk swift test --filter LatestStrategy
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCore/Latest Tests Fixtures
@@ -1060,7 +1060,7 @@ rtk git commit -m "feat: add latest version strategies"
 - Create: `Tests/UpdateBarCoreTests/RegistryServiceTests.swift`
 - Create: `Tests/UpdateBarCLITests/CheckCommandTests.swift`
 
-- [ ] Write tests.
+- [x] Write tests.
 
 Cases:
 
@@ -1073,7 +1073,7 @@ Cases:
 - `check` honors TTL unless `--force`.
 - `check --json` stdout contains item results only.
 
-- [ ] Implement check pipeline.
+- [x] Implement check pipeline.
 
 Pipeline:
 
@@ -1090,7 +1090,7 @@ write state atomically
 return CheckResult list
 ```
 
-- [ ] Implement CLI `check`.
+- [x] Implement CLI `check`.
 
 Examples:
 
@@ -1099,7 +1099,7 @@ rtk swift run updatebar check --json
 rtk swift run updatebar check claude-code --force --json
 ```
 
-- [ ] Verify exit code `10`.
+- [x] Verify exit code `10`.
 
 Run fixture check where an item is outdated.
 
@@ -1109,7 +1109,7 @@ Expected:
 process exits 10 unless --exit-zero-on-outdated is set
 ```
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter Check
@@ -1118,7 +1118,7 @@ rtk swift test --filter RegistryService
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCore/Models Sources/UpdateBarCore/Registry Sources/UpdateBarCLI/Commands/CheckCommand.swift Tests
@@ -1133,7 +1133,7 @@ rtk git commit -m "feat: check registered items"
 - Create: `Sources/UpdateBarCLI/Commands/ListCommand.swift`
 - Create: `Tests/UpdateBarCLITests/StatusCommandTests.swift`
 
-- [ ] Write tests.
+- [x] Write tests.
 
 Cases:
 
@@ -1143,7 +1143,7 @@ Cases:
 - `status --json` matches menu bar contract.
 - `list --json` returns manifest items without state mutation.
 
-- [ ] Implement `status`.
+- [x] Implement `status`.
 
 Rules:
 
@@ -1151,7 +1151,7 @@ Rules:
 - No network.
 - Stable item ordering by `name`, then `id`.
 
-- [ ] Implement `list`.
+- [x] Implement `list`.
 
 Human output columns:
 
@@ -1159,7 +1159,7 @@ Human output columns:
 ID  NAME  CATEGORY  ENABLED  PINNED  TRUST
 ```
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter Status
@@ -1167,7 +1167,7 @@ rtk swift test --filter Status
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCLI/Commands/StatusCommand.swift Sources/UpdateBarCLI/Commands/ListCommand.swift Tests
@@ -1184,7 +1184,7 @@ rtk git commit -m "feat: report status and list items"
 - Create: `Tests/UpdateBarCoreTests/UpdateRunnerTests.swift`
 - Create: `Tests/UpdateBarCLITests/UpdateCommandTests.swift`
 
-- [ ] Write tests.
+- [x] Write tests.
 
 Cases:
 
@@ -1198,7 +1198,7 @@ Cases:
 - Partial failure exits `2`.
 - Redact secrets from output.
 
-- [ ] Implement update planning.
+- [x] Implement update planning.
 
 Planner outputs:
 
@@ -1211,7 +1211,7 @@ skipped_not_outdated
 missing
 ```
 
-- [ ] Implement update execution.
+- [x] Implement update execution.
 
 Rules:
 
@@ -1220,7 +1220,7 @@ Rules:
 - Human confirmation prints full command.
 - `--json` includes command fingerprint, not command output unless safe and redacted.
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter Update
@@ -1228,7 +1228,7 @@ rtk swift test --filter Update
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCore/Update Sources/UpdateBarCLI/Commands/UpdateCommand.swift Tests
@@ -1245,7 +1245,7 @@ rtk git commit -m "feat: update approved items"
 - Modify: `Sources/UpdateBarCore/Registry/RegistryService.swift`
 - Create: `Tests/UpdateBarCLITests/UpdateCommandTests.swift`
 
-- [ ] Write tests.
+- [x] Write tests.
 
 Cases:
 
@@ -1257,7 +1257,7 @@ Cases:
 - `remove <id>` requires confirmation unless `--yes`.
 - State is removed when manifest item is removed.
 
-- [ ] Implement commands.
+- [x] Implement commands.
 
 Expected examples:
 
@@ -1267,7 +1267,7 @@ rtk swift run updatebar disable claude-code
 rtk swift run updatebar remove claude-code --yes
 ```
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter Pin
@@ -1276,7 +1276,7 @@ rtk swift test --filter Remove
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCLI/Commands Sources/UpdateBarCore/Registry Tests
@@ -1291,7 +1291,7 @@ rtk git commit -m "feat: manage registered items"
 - Create: `Tests/UpdateBarCLITests/ExportImportCommandTests.swift`
 - Create: `Fixtures/manifests/untrusted-import.json`
 
-- [ ] Write tests.
+- [x] Write tests.
 
 Cases:
 
@@ -1302,7 +1302,7 @@ Cases:
 - Import never executes commands.
 - Import rejects unsupported schema version.
 
-- [ ] Implement export.
+- [x] Implement export.
 
 Commands:
 
@@ -1311,7 +1311,7 @@ rtk swift run updatebar export exported.json
 rtk swift run updatebar export --json
 ```
 
-- [ ] Implement import.
+- [x] Implement import.
 
 Default behavior:
 
@@ -1319,7 +1319,7 @@ Default behavior:
 - Reject duplicate ids with clear message.
 - Mark all imported command-bearing recipes as `untrusted`.
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter ExportImport
@@ -1327,7 +1327,7 @@ rtk swift test --filter ExportImport
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCLI/Commands/ExportImportCommands.swift Tests Fixtures
@@ -1342,7 +1342,7 @@ rtk git commit -m "feat: import and export manifests"
 - Modify: `Sources/UpdateBarCore/Registry/RegistryService.swift`
 - Create: `Tests/UpdateBarCLITests/AddCommandTests.swift`
 
-- [ ] Write tests.
+- [x] Write tests.
 
 Cases:
 
@@ -1352,7 +1352,7 @@ Cases:
 - Duplicate id fails.
 - `--dry-run` prints recipe but does not write manifest.
 
-- [ ] Implement JSON add.
+- [x] Implement JSON add.
 
 Command:
 
@@ -1365,7 +1365,7 @@ Behavior:
 - Accept either a full manifest object with one item or a single recipe object.
 - Print validation result.
 
-- [ ] Implement wizard add.
+- [x] Implement wizard add.
 
 Prompt fields:
 
@@ -1386,7 +1386,7 @@ update.cwd
 notify
 ```
 
-- [ ] Implement command approval prompt.
+- [x] Implement command approval prompt.
 
 Show:
 
@@ -1398,7 +1398,7 @@ update.cmd: <command>
 
 Require exact `yes`.
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter AddCommand
@@ -1406,7 +1406,7 @@ rtk swift test --filter AddCommand
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCLI/Commands/AddCommand.swift Sources/UpdateBarCore/Registry Tests
@@ -1425,7 +1425,7 @@ rtk git commit -m "feat: add recipes manually"
 - Create: `Tests/UpdateBarCoreTests/ProviderTests.swift`
 - Create: `Tests/UpdateBarCLITests/AddCommandTests.swift`
 
-- [ ] Write provider tests with mocked HTTP.
+- [x] Write provider tests with mocked HTTP.
 
 Cases:
 
@@ -1436,7 +1436,7 @@ Cases:
 - Never logs API key.
 - AI-created recipe is untrusted.
 
-- [ ] Implement provider interface.
+- [x] Implement provider interface.
 
 Interface:
 
@@ -1451,7 +1451,7 @@ public protocol CompletionProvider {
 }
 ```
 
-- [ ] Implement OpenRouter chat completion call.
+- [x] Implement OpenRouter chat completion call.
 
 Endpoint:
 
@@ -1465,7 +1465,7 @@ Request model:
 google/gemini-3.5-flash
 ```
 
-- [ ] Build recipe prompt.
+- [x] Build recipe prompt.
 
 Prompt must instruct:
 
@@ -1474,7 +1474,7 @@ Prompt must instruct:
 - Prefer deterministic package manager or VCS commands.
 - Mark uncertain fields conservatively.
 
-- [ ] Implement `add --ai`.
+- [x] Implement `add --ai`.
 
 Flow:
 
@@ -1489,7 +1489,7 @@ require approval
 save as untrusted until approved fingerprints are stored
 ```
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter Provider
@@ -1498,7 +1498,7 @@ rtk swift test --filter AddCommand
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCore/Providers Sources/UpdateBarCLI/Commands/AddCommand.swift Tests
@@ -1513,7 +1513,7 @@ rtk git commit -m "feat: add OpenRouter assisted registration"
 - Modify: `Sources/UpdateBarCore/Registry/RegistryService.swift`
 - Create: `Tests/UpdateBarCLITests/EditCommandTests.swift`
 
-- [ ] Write tests.
+- [x] Write tests.
 
 Cases:
 
@@ -1522,7 +1522,7 @@ Cases:
 - Command changes invalidate affected approvals.
 - Invalid edit leaves original manifest unchanged.
 
-- [ ] Implement edit command.
+- [x] Implement edit command.
 
 Rules:
 
@@ -1531,7 +1531,7 @@ Rules:
 - Validate after editor exits.
 - Save atomically through `ManifestStore`.
 
-- [ ] Run tests.
+- [x] Run tests.
 
 ```bash
 rtk swift test --filter EditCommand
@@ -1539,7 +1539,7 @@ rtk swift test --filter EditCommand
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources/UpdateBarCLI/Commands/EditCommand.swift Sources/UpdateBarCore/Registry Tests
@@ -1555,7 +1555,7 @@ rtk git commit -m "feat: edit recipes safely"
 - Modify: all command files.
 - Create: `Tests/UpdateBarCLITests/*`
 
-- [ ] Write CLI output tests.
+- [x] Write CLI output tests.
 
 Cases:
 
@@ -1566,7 +1566,7 @@ Cases:
 - Missing API key prints `updatebar auth set openrouter`.
 - Invalid args return exit `1`.
 
-- [ ] Implement unified errors.
+- [x] Implement unified errors.
 
 Categories:
 
@@ -1582,11 +1582,11 @@ partialFailure
 outdated
 ```
 
-- [ ] Add `--verbose` for debug-safe extra context.
+- [x] Add `--verbose` for debug-safe extra context.
 
 Verbose still redacts secrets.
 
-- [ ] Run full tests.
+- [x] Run full tests.
 
 ```bash
 rtk swift test
@@ -1594,7 +1594,7 @@ rtk swift test
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Sources Tests
@@ -1609,7 +1609,7 @@ rtk git commit -m "feat: standardize CLI output and errors"
 - Create: `Scripts/install-local.sh`
 - Create: `Fixtures/manifests/valid-basic.json`
 
-- [ ] Create smoke test script.
+- [x] Create smoke test script.
 
 Smoke flow:
 
@@ -1628,7 +1628,7 @@ swift run updatebar status --json --exit-zero-on-outdated
 swift run updatebar auth status --json
 ```
 
-- [ ] Run smoke test.
+- [x] Run smoke test.
 
 ```bash
 rtk bash Scripts/smoke-test.sh
@@ -1636,7 +1636,7 @@ rtk bash Scripts/smoke-test.sh
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Scripts Fixtures
@@ -1655,7 +1655,7 @@ rtk git commit -m "test: add CLI smoke test"
 - Create: `docs/security.md`
 - Create: `docs/release.md`
 
-- [ ] Write README.
+- [x] Write README.
 
 Must include:
 
@@ -1670,7 +1670,7 @@ Must include:
 - No telemetry.
 - v1 scope exclusions.
 
-- [ ] Write CLI docs.
+- [x] Write CLI docs.
 
 For every command:
 
@@ -1680,11 +1680,11 @@ For every command:
 - JSON output when supported.
 - Exit-code behavior.
 
-- [ ] Write manifest docs.
+- [x] Write manifest docs.
 
 Include full schema example and trust model.
 
-- [ ] Write security docs.
+- [x] Write security docs.
 
 Include:
 
@@ -1694,7 +1694,7 @@ Include:
 - Secret redaction.
 - `status` vs `check`.
 
-- [ ] Run docs check.
+- [x] Run docs check.
 
 ```bash
 rtk grep "TO[D]O|TB[D]|PLACEHOLDER" README.md docs
@@ -1702,7 +1702,7 @@ rtk grep "TO[D]O|TB[D]|PLACEHOLDER" README.md docs
 
 Expected: no matches.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add README.md CHANGELOG.md LICENSE docs
@@ -1715,7 +1715,7 @@ rtk git commit -m "docs: document UpdateBar CLI"
 
 - Create: `.github/workflows/ci.yml`
 
-- [ ] Add CI jobs.
+- [x] Add CI jobs.
 
 Jobs:
 
@@ -1733,9 +1733,9 @@ bash Scripts/smoke-test.sh
 swift-format lint --recursive Sources Tests
 ```
 
-- [ ] Add dependency caching for SwiftPM.
+- [x] Add dependency caching for SwiftPM.
 
-- [ ] Verify locally where possible.
+- [x] Verify locally where possible.
 
 ```bash
 rtk swift build
@@ -1745,7 +1745,7 @@ rtk bash Scripts/smoke-test.sh
 
 Expected: pass.
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add .github/workflows/ci.yml
@@ -1762,7 +1762,7 @@ rtk git commit -m "ci: add build and test workflow"
 - Modify: `version.env`
 - Modify: `docs/release.md`
 
-- [ ] Implement release build script.
+- [x] Implement release build script.
 
 Script behavior:
 
@@ -1773,7 +1773,7 @@ codesign ad-hoc for local smoke if Developer ID not present
 archive binary as updatebar-macos-arm64.tar.gz or updatebar-linux-x86_64.tar.gz
 ```
 
-- [ ] Add formula.
+- [x] Add formula.
 
 Formula must:
 
@@ -1781,7 +1781,7 @@ Formula must:
 - Install `bin/updatebar`.
 - Run `updatebar version --json` in test block.
 
-- [ ] Add release workflow.
+- [x] Add release workflow.
 
 Trigger:
 
@@ -1795,7 +1795,7 @@ Outputs:
 - Linux x86_64 CLI archive.
 - Checksums.
 
-- [ ] Run local release build.
+- [x] Run local release build.
 
 ```bash
 rtk bash Scripts/build-release.sh
@@ -1807,7 +1807,7 @@ Expected:
 dist/updatebar-<platform>.tar.gz
 ```
 
-- [ ] Commit.
+- [x] Commit.
 
 ```bash
 rtk git add Scripts/build-release.sh Packaging/homebrew/updatebar.rb .github/workflows/release.yml docs/release.md version.env
@@ -1820,7 +1820,7 @@ rtk git commit -m "build: add release packaging"
 
 - Modify: focused files found by review.
 
-- [ ] Run full verification.
+- [x] Run full verification.
 
 ```bash
 rtk swift build -c release
@@ -1836,7 +1836,7 @@ Expected:
 - Smoke passes.
 - `OPENROUTER_API_KEY` appears only in docs/tests where intended, never in logged fixture output.
 
-- [ ] Manual CLI dogfood with temp home.
+- [x] Manual CLI dogfood with temp home.
 
 ```bash
 export UPDATEBAR_HOME="$(mktemp -d)"
@@ -1855,7 +1855,7 @@ Expected:
 - Clear error if auth missing.
 - `status` returns immediately.
 
-- [ ] Review against PRD.
+- [x] Review against PRD.
 
 Coverage checklist:
 
@@ -1869,7 +1869,7 @@ Coverage checklist:
 - Telemetry: absent.
 - Security gate: implemented.
 
-- [ ] Commit fixes.
+- [x] Commit fixes.
 
 ```bash
 rtk git add .

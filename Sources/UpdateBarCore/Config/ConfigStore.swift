@@ -1,0 +1,83 @@
+import Foundation
+
+public struct ConfigStore {
+    private let paths: AppPaths
+    private let fileManager: FileManager
+
+    public init(paths: AppPaths = AppPaths(), fileManager: FileManager = .default) {
+        self.paths = paths
+        self.fileManager = fileManager
+    }
+
+    public func load() throws -> Config {
+        try fileManager.createDirectory(at: paths.homeDirectory, withIntermediateDirectories: true)
+        if !fileManager.fileExists(atPath: paths.configFile.path) {
+            let config = Config.default
+            try save(config)
+            return config
+        }
+        let text = try String(contentsOf: paths.configFile, encoding: .utf8)
+        return try parse(text)
+    }
+
+    public func save(_ config: Config) throws {
+        try fileManager.createDirectory(at: paths.homeDirectory, withIntermediateDirectories: true)
+        try AtomicFileWriter.write(Data(render(config).utf8), to: paths.configFile, fileManager: fileManager)
+    }
+
+    public func renderForDisplay(_ config: Config) -> String {
+        render(config)
+    }
+
+    private func parse(_ text: String) throws -> Config {
+        var config = Config.default
+        var section = ""
+        for rawLine in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            if line.isEmpty || line.hasPrefix("#") { continue }
+            if line.hasPrefix("[") && line.hasSuffix("]") {
+                section = String(line.dropFirst().dropLast())
+                continue
+            }
+            let parts = line.split(separator: "=", maxSplits: 1).map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }
+            guard parts.count == 2, !section.isEmpty else {
+                throw ConfigError.corruptConfig("invalid line \(line)")
+            }
+            if section == "provider" {
+                continue
+            }
+            let key = "\(section).\(parts[0])"
+            if key == "security.allow_plaintext_secret_file" {
+                continue
+            }
+            let value = unquote(parts[1])
+            try config.set(key, value: value)
+        }
+        return config
+    }
+
+    private func render(_ config: Config) -> String {
+        """
+        [refresh]
+        interval = "\(config.refresh.interval)"
+        concurrency = \(config.refresh.concurrency)
+
+        [security]
+        allow_import_exec = \(config.security.allowImportExec)
+        require_https_source = \(config.security.requireHTTPSSource)
+
+        [notify]
+        enabled = \(config.notify.enabled)
+
+        """
+    }
+
+    private func unquote(_ value: String) -> String {
+        if value.hasPrefix("\"") && value.hasSuffix("\"") {
+            return String(value.dropFirst().dropLast())
+        }
+        return value
+    }
+}

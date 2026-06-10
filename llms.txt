@@ -1,0 +1,33 @@
+# UpdateBar Agent Guide
+
+UpdateBar is a CLI for tracking and updating user-approved recipes. It does not
+generate recipes or commands. External agents may write recipe JSON; UpdateBar
+validates it, stores it untrusted by default, and runs only user-approved command
+fingerprints.
+
+Use this workflow:
+
+```bash
+updatebar schema --json
+updatebar guide agent
+updatebar guide recipe
+updatebar template recipe --kind npm --id my-tool --source my-tool > recipe.json
+updatebar template manifest --kind npm --id my-tool --source my-tool > manifest.json
+updatebar validate recipe.json --json --explain
+updatebar add --from recipe.json --dry-run --json
+updatebar add --from recipe.json --json
+updatebar approvals my-tool --json
+```
+
+Do not approve commands silently. Show `check.cmd`, `latest.cmd`, and `update.cmd`
+to the user, then call `updatebar approve <id> --field <field> --json` only after
+explicit confirmation.
+
+Security facts:
+
+- imported and templated recipes are untrusted by default
+- `status --json` is read-only and does not run shell/network
+- approved recipe commands are not sandboxed
+- child processes receive an allowlisted environment only
+- `version_parse.regex` is supported; `version_parse.jq` is rejected
+- background checks are opt-in via `updatebar background install --yes`

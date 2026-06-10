@@ -1,0 +1,37 @@
+import XCTest
+
+final class DocumentationSnapshotTests: XCTestCase {
+    func testRootHelpListsAgentContractCommands() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        let result = try CLIProcess.run(["--help"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        for command in ["guide", "schema", "template", "validate", "approve", "revoke"] {
+            XCTAssertTrue(result.stdout.contains(command), "missing \(command)")
+        }
+    }
+
+    func testGuideAgentDocumentsExitCodeTable() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        let result = try CLIProcess.run(["guide", "agent"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("Exit codes:"))
+        XCTAssertTrue(result.stdout.contains("1 usage/config/validation error"))
+        XCTAssertTrue(result.stdout.contains("2 partial update failure"))
+        XCTAssertTrue(result.stdout.contains("3 update blocked on command approval"))
+        XCTAssertTrue(result.stdout.contains("10 outdated items exist for check/status"))
+    }
+
+    func testUpdateHelpDocumentsHeadlessJSONFlags() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        let result = try CLIProcess.run(["update", "--help"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("--yes"))
+        XCTAssertTrue(result.stdout.contains("--json"))
+    }
+}

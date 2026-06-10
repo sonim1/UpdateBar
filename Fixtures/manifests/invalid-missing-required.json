@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "id": "broken",
+      "category": "cli",
+      "source": {
+        "kind": "npm",
+        "ref": "broken-package",
+        "branch": null
+      },
+      "version_scheme": "semver",
+      "check": { "cmd": "broken --version" },
+      "latest": {
+        "strategy": "npm_registry",
+        "cmd": null,
+        "pattern": null
+      },
+      "version_parse": { "regex": "([0-9]+\\.[0-9]+\\.[0-9]+)" },
+      "update": {
+        "cmd": "npm i -g broken-package@latest",
+        "requires_write": true,
+        "cwd": null
+      },
+      "pin": null,
+      "enabled": true,
+      "notify": true,
+      "trust": {
+        "level": "trusted",
+        "approved_commands": {}
+      }
+    }
+  ],
+  "provenance": {
+    "created_by": "updatebar",
+    "created_at": "2026-06-09T00:00:00Z",
+    "updated_at": "2026-06-09T00:00:00Z"
+  }
+}

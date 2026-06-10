@@ -1,0 +1,6 @@
+{
+  "name": "@anthropic-ai/claude-code",
+  "dist-tags": {
+    "latest": "1.5.0"
+  }
+}

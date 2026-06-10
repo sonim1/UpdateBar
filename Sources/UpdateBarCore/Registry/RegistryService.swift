@@ -1,0 +1,430 @@
+import Foundation
+
+public struct RegistryService {
+    private let manifestStore: ManifestStore
+    private let stateStore: StateStore
+    private let config: Config
+    private let httpClient: HTTPClient
+    private let commandRunner: CommandRunning
+    private let now: () -> Date
+    private let githubToken: String?
+
+    public init(
+        manifestStore: ManifestStore = ManifestStore(),
+        stateStore: StateStore = StateStore(),
+        config: Config = .default,
+        httpClient: HTTPClient = URLSessionHTTPClient(),
+        commandRunner: CommandRunning = CommandExecutor(),
+        now: @escaping () -> Date = { Date() },
+        githubToken: String? = nil
+    ) {
+        self.manifestStore = manifestStore
+        self.stateStore = stateStore
+        self.config = config
+        self.httpClient = httpClient
+        self.commandRunner = commandRunner
+        self.now = now
+        self.githubToken = githubToken
+    }
+
+    public func check(ids: [String] = [], force: Bool = false) throws -> [CheckResult] {
+        let manifest = try manifestStore.load()
+        try validate(manifest)
+
+        let selected = try selectedRecipes(from: manifest, ids: ids)
+        return try stateStore.withExclusiveLock {
+            let checkDate = now()
+            var state = try stateStore.load(now: checkDate)
+            var results: [CheckResult] = []
+
+            for recipe in selected {
+                let existing = state.items[recipe.id]
+
+                if !recipe.enabled {
+                    let itemState = ItemState(
+                        current: existing?.current,
+                        latest: existing?.latest,
+                        status: .disabled,
+                        lastChecked: checkDate,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                    state.items[recipe.id] = itemState
+                    results.append(result(for: recipe, state: itemState))
+                    continue
+                }
+
+                if recipe.pin != nil {
+                    let itemState = ItemState(
+                        current: existing?.current,
+                        latest: existing?.latest,
+                        status: .pinned,
+                        lastChecked: checkDate,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                    state.items[recipe.id] = itemState
+                    results.append(result(for: recipe, state: itemState))
+                    continue
+                }
+
+                if !isCheckApproved(recipe) {
+                    let itemState = ItemState(
+                        current: existing?.current,
+                        latest: existing?.latest,
+                        status: .untrusted,
+                        lastChecked: checkDate,
+                        error: "commands are not approved",
+                        backoffUntil: nil
+                    )
+                    state.items[recipe.id] = itemState
+                    results.append(result(for: recipe, state: itemState))
+                    continue
+                }
+
+                if !force, let existing, isFresh(existing, now: checkDate) {
+                    results.append(result(for: recipe, state: existing))
+                    continue
+                }
+
+                do {
+                    let current = try currentVersion(for: recipe)
+                    let latest = try latestVersion(for: recipe)
+                    let status = try VersionComparator.status(
+                        current: current,
+                        latest: latest,
+                        scheme: recipe.versionScheme
+                    )
+                    let itemState = ItemState(
+                        current: current,
+                        latest: latest,
+                        status: status,
+                        lastChecked: checkDate,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                    state.items[recipe.id] = itemState
+                    results.append(result(for: recipe, state: itemState))
+                } catch {
+                    let itemState = ItemState(
+                        current: existing?.current,
+                        latest: existing?.latest,
+                        status: .error,
+                        lastChecked: checkDate,
+                        error: SecretRedactor.redact(String(describing: error)),
+                        backoffUntil: nil
+                    )
+                    state.items[recipe.id] = itemState
+                    results.append(result(for: recipe, state: itemState))
+                }
+            }
+
+            state.generatedAt = checkDate
+            try stateStore.save(state)
+            return results
+        }
+    }
+
+    public func pin(id: String, version: String? = nil) throws -> Recipe {
+        try manifestStore.withExclusiveLock {
+            var manifest = try manifestStore.load()
+            guard var recipe = manifest.item(id: id) else {
+                throw RegistryError.itemNotFound(id)
+            }
+            let pinVersion: String
+            if let version {
+                pinVersion = version
+            } else {
+                let state = try stateStore.load(now: now())
+                guard let current = state.items[id]?.current else {
+                    throw RegistryError.missingCurrentVersion(id)
+                }
+                pinVersion = current
+            }
+            recipe.pin = pinVersion
+            manifest = manifest.replacing(item: recipe)
+            manifest.provenance.updatedAt = now()
+            try manifestStore.save(manifest)
+            return recipe
+        }
+    }
+
+    public func unpin(id: String) throws -> Recipe {
+        try manifestStore.withExclusiveLock {
+            var manifest = try manifestStore.load()
+            guard var recipe = manifest.item(id: id) else {
+                throw RegistryError.itemNotFound(id)
+            }
+            recipe.pin = nil
+            manifest = manifest.replacing(item: recipe)
+            manifest.provenance.updatedAt = now()
+            try manifestStore.save(manifest)
+            return recipe
+        }
+    }
+
+    public func setEnabled(id: String, enabled: Bool) throws -> Recipe {
+        try manifestStore.withExclusiveLock {
+            var manifest = try manifestStore.load()
+            guard var recipe = manifest.item(id: id) else {
+                throw RegistryError.itemNotFound(id)
+            }
+            recipe.enabled = enabled
+            manifest = manifest.replacing(item: recipe)
+            manifest.provenance.updatedAt = now()
+            try manifestStore.save(manifest)
+            return recipe
+        }
+    }
+
+    public func approve(id: String, field: String? = nil) throws -> Recipe {
+        try manifestStore.withExclusiveLock {
+            var manifest = try manifestStore.load()
+            guard var recipe = manifest.item(id: id) else {
+                throw RegistryError.itemNotFound(id)
+            }
+            let fingerprints = recipe.commandFingerprints()
+            if let field {
+                guard let fingerprint = fingerprints[field] else {
+                    throw RegistryError.commandFieldNotFound(field)
+                }
+                recipe.trust.approvedCommands[field] = fingerprint
+                recipe.trust.level = .trusted
+            } else {
+                TrustPolicy.approveAllCommands(in: &recipe)
+            }
+            manifest = manifest.replacing(item: recipe)
+            manifest.provenance.updatedAt = now()
+            try manifestStore.save(manifest)
+            return recipe
+        }
+    }
+
+    public func revokeApproval(id: String, field: String) throws -> Recipe {
+        try manifestStore.withExclusiveLock {
+            var manifest = try manifestStore.load()
+            guard var recipe = manifest.item(id: id) else {
+                throw RegistryError.itemNotFound(id)
+            }
+            guard recipe.commandFingerprints()[field] != nil else {
+                throw RegistryError.commandFieldNotFound(field)
+            }
+            recipe.trust.approvedCommands.removeValue(forKey: field)
+            if recipe.trust.approvedCommands.isEmpty {
+                recipe.trust.level = .untrusted
+            }
+            manifest = manifest.replacing(item: recipe)
+            manifest.provenance.updatedAt = now()
+            try manifestStore.save(manifest)
+            return recipe
+        }
+    }
+
+    public func remove(id: String) throws {
+        try manifestStore.withExclusiveLock {
+            var manifest = try manifestStore.load()
+            guard manifest.item(id: id) != nil else {
+                throw RegistryError.itemNotFound(id)
+            }
+            manifest = manifest.removing(id: id)
+            manifest.provenance.updatedAt = now()
+            try manifestStore.save(manifest)
+        }
+
+        try stateStore.withExclusiveLock {
+            var state = try stateStore.load(now: now())
+            state.items.removeValue(forKey: id)
+            state.generatedAt = now()
+            try stateStore.save(state)
+        }
+    }
+
+    public func exportManifest() throws -> Manifest {
+        try manifestStore.load()
+    }
+
+    public func addRecipe(_ recipe: Recipe, replace: Bool) throws {
+        let incoming = Manifest(
+            schemaVersion: 1,
+            items: [recipe],
+            provenance: Provenance(createdBy: "updatebar", createdAt: now(), updatedAt: now())
+        )
+        try validate(incoming)
+        try manifestStore.withExclusiveLock {
+            var manifest = try manifestStore.load()
+            if manifest.item(id: recipe.id) != nil, !replace {
+                throw RegistryError.duplicateItem(recipe.id)
+            }
+            manifest = manifest.replacing(item: recipe)
+            manifest.provenance.updatedAt = now()
+            try manifestStore.save(manifest)
+        }
+    }
+
+    public func importManifest(_ incoming: Manifest, replace: Bool) throws -> ImportSummary {
+        try validate(incoming)
+        return try manifestStore.withExclusiveLock {
+            var manifest = try manifestStore.load()
+            var added: [String] = []
+            var replaced: [String] = []
+
+            for incomingItem in incoming.items {
+                let item = TrustPolicy.untrustedCopy(incomingItem)
+                if manifest.item(id: item.id) != nil {
+                    guard replace else {
+                        throw RegistryError.duplicateItem(item.id)
+                    }
+                    manifest = manifest.replacing(item: item)
+                    replaced.append(item.id)
+                } else {
+                    manifest = manifest.replacing(item: item)
+                    added.append(item.id)
+                }
+            }
+
+            manifest.provenance.updatedAt = now()
+            try manifestStore.save(manifest)
+            return ImportSummary(added: added, replaced: replaced)
+        }
+    }
+
+    private func validate(_ manifest: Manifest) throws {
+        let data = try JSONEncoder.updateBar.encode(manifest)
+        let result = try ManifestValidator.validate(data: data)
+        if !result.isValid {
+            throw RegistryError.invalidManifest(result.errors)
+        }
+    }
+
+    private func selectedRecipes(from manifest: Manifest, ids: [String]) throws -> [Recipe] {
+        if ids.isEmpty {
+            return manifest.items
+        }
+        return try ids.map { id in
+            guard let item = manifest.item(id: id) else {
+                throw RegistryError.itemNotFound(id)
+            }
+            return item
+        }
+    }
+
+    private func isCheckApproved(_ recipe: Recipe) -> Bool {
+        if case .command = recipe.check, !TrustPolicy.isApproved(recipe, field: "check.cmd") {
+            return false
+        }
+        if recipe.latest.strategy == .cmd, !TrustPolicy.isApproved(recipe, field: "latest.cmd") {
+            return false
+        }
+        return recipe.trust.level == .trusted
+    }
+
+    private func isFresh(_ state: ItemState, now: Date) -> Bool {
+        guard let lastChecked = state.lastChecked else { return false }
+        return now.timeIntervalSince(lastChecked) < TimeInterval(config.refresh.interval.seconds)
+    }
+
+    private func currentVersion(for recipe: Recipe) throws -> String {
+        switch recipe.check {
+        case let .command(command):
+            let result = try commandRunner.run(
+                ShellCommand(command: command, cwd: nil),
+                policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)
+            )
+            guard result.exitCode == 0 else {
+                throw RegistryError.commandFailed("check.cmd exited \(result.exitCode): \(result.stderr)")
+            }
+            return try VersionParser.extract(
+                from: "\(result.stdout)\n\(result.stderr)",
+                using: recipe.versionParse
+            )
+        case let .file(path, _):
+            let data = try Data(contentsOf: URL(fileURLWithPath: expandedPath(path)))
+            return try VersionParser.extract(from: String(decoding: data, as: UTF8.self), using: recipe.versionParse)
+        }
+    }
+
+    private func latestVersion(for recipe: Recipe) throws -> String {
+        let context = LatestContext(
+            httpClient: httpClient,
+            commandRunner: commandRunner,
+            githubToken: githubToken
+        )
+        return try latestStrategy(for: recipe.latest.strategy).latest(for: recipe, context: context)
+    }
+
+    private func latestStrategy(for kind: LatestStrategyKind) -> any LatestStrategy {
+        switch kind {
+        case .gitTags:
+            GitLatestStrategy(mode: .tags)
+        case .gitHead:
+            GitLatestStrategy(mode: .head)
+        case .npmRegistry:
+            NPMRegistryLatestStrategy()
+        case .githubRelease:
+            GitHubReleaseLatestStrategy()
+        case .brew:
+            BrewLatestStrategy()
+        case .httpRegex:
+            HTTPLatestStrategy()
+        case .cmd:
+            CommandLatestStrategy()
+        }
+    }
+
+    private func result(for recipe: Recipe, state: ItemState) -> CheckResult {
+        CheckResult(
+            id: recipe.id,
+            name: recipe.name,
+            current: state.current,
+            latest: state.latest,
+            status: state.status,
+            lastChecked: state.lastChecked,
+            error: state.error
+        )
+    }
+
+    private func expandedPath(_ path: String) -> String {
+        guard path == "~" || path.hasPrefix("~/") else {
+            return path
+        }
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        if path == "~" { return home }
+        return home + String(path.dropFirst())
+    }
+}
+
+public enum RegistryError: Error, CustomStringConvertible, Equatable {
+    case itemNotFound(String)
+    case missingCurrentVersion(String)
+    case duplicateItem(String)
+    case invalidManifest([String])
+    case commandFailed(String)
+    case commandFieldNotFound(String)
+
+    public var description: String {
+        switch self {
+        case let .itemNotFound(id):
+            return "\(id): item not found"
+        case let .missingCurrentVersion(id):
+            return "\(id): current version is unavailable"
+        case let .duplicateItem(id):
+            return "\(id): duplicate item; pass --replace to overwrite"
+        case let .invalidManifest(errors):
+            return "manifest invalid: \(errors.joined(separator: "; "))"
+        case let .commandFailed(message):
+            return message
+        case let .commandFieldNotFound(field):
+            return "\(field): command field not found"
+        }
+    }
+}
+
+public struct ImportSummary: Codable, Equatable {
+    public var added: [String]
+    public var replaced: [String]
+
+    public init(added: [String], replaced: [String]) {
+        self.added = added
+        self.replaced = replaced
+    }
+}

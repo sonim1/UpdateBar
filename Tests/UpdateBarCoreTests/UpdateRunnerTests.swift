@@ -1,0 +1,174 @@
+import XCTest
+import UpdateBarCore
+import UpdateBarTestSupport
+
+final class UpdateRunnerTests: XCTestCase {
+    private let now = Date(timeIntervalSince1970: 1_800)
+
+    func testPlannerSelectsOnlyOutdatedApprovedItemsForUpdate() throws {
+        let ready = recipe(id: "ready")
+        var pinned = recipe(id: "pinned")
+        pinned.pin = "1.0.0"
+        var disabled = recipe(id: "disabled")
+        disabled.enabled = false
+        var untrusted = recipe(id: "untrusted")
+        untrusted.trust.level = .untrusted
+
+        let planner = UpdatePlanner(
+            manifest: manifest(items: [ready, pinned, disabled, untrusted, recipe(id: "ok")]),
+            state: State(schemaVersion: 1, generatedAt: now, items: [
+                "ready": itemState(status: .outdated),
+                "pinned": itemState(status: .outdated),
+                "disabled": itemState(status: .outdated),
+                "untrusted": itemState(status: .outdated),
+                "ok": itemState(status: .ok)
+            ])
+        )
+
+        let plan = planner.plan(ids: [], all: true)
+
+        XCTAssertEqual(plan.map(\.id), ["ready", "pinned", "disabled", "untrusted", "ok"])
+        XCTAssertEqual(
+            plan.map(\.decision),
+            [.willUpdate, .skippedPinned, .skippedDisabled, .skippedUntrusted, .skippedNotOutdated]
+        )
+    }
+
+    func testRunnerUpdatesItemAndChecksItAfterSuccess() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "tool")]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "tool": itemState(status: .outdated)
+        ]))
+        let commands = MockCommandExecutor(results: [
+            "tool update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
+            "tool current": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
+            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: "")
+        ])
+        let runner = updateRunner(paths: paths, commands: commands)
+
+        let results = try runner.update(ids: ["tool"], all: false, assumeYes: true)
+        let state = try StateStore(paths: paths).load()
+
+        XCTAssertEqual(results.map(\.outcome), [.updated])
+        XCTAssertEqual(commands.commands.map(\.command), ["tool update", "tool current", "tool latest"])
+        XCTAssertEqual(state.items["tool"]?.status, .ok)
+        XCTAssertEqual(state.items["tool"]?.current, "1.1.0")
+    }
+
+    func testRunnerReturnsPartialFailureAndRedactsErrors() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "bad"), recipe(id: "good")]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "bad": itemState(status: .outdated),
+            "good": itemState(status: .outdated)
+        ]))
+        let githubToken = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+        let commands = MockCommandExecutor(results: [
+            "bad update": CommandResult(exitCode: 1, stdout: "", stderr: "failed sk-or-v1-secret \(githubToken)"),
+            "good update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
+            "good current": CommandResult(exitCode: 0, stdout: "good 1.1.0", stderr: ""),
+            "good latest": CommandResult(exitCode: 0, stdout: "good 1.1.0", stderr: "")
+        ])
+        let runner = updateRunner(paths: paths, commands: commands)
+
+        let results = try runner.update(ids: [], all: true, assumeYes: true)
+
+        XCTAssertEqual(results.map(\.id), ["bad", "good"])
+        XCTAssertEqual(results.map(\.outcome), [.failed, .updated])
+        XCTAssertFalse(results[0].error?.contains("sk-or-v1-secret") ?? true)
+        XCTAssertFalse(results[0].error?.contains(githubToken) ?? true)
+        let state = try StateStore(paths: paths).load()
+        XCTAssertFalse(state.items["bad"]?.error?.contains("sk-or-v1-secret") ?? true)
+        XCTAssertFalse(state.items["bad"]?.error?.contains(githubToken) ?? true)
+    }
+
+    func testRunnerSkipsPinnedDisabledUntrustedAndNotOutdatedItemsWithoutCommands() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        var pinned = recipe(id: "pinned")
+        pinned.pin = "1.0.0"
+        var disabled = recipe(id: "disabled")
+        disabled.enabled = false
+        var untrusted = recipe(id: "untrusted")
+        untrusted.trust.level = .untrusted
+        try ManifestStore(paths: paths).save(manifest(items: [pinned, disabled, untrusted, recipe(id: "ok")]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "pinned": itemState(status: .outdated),
+            "disabled": itemState(status: .outdated),
+            "untrusted": itemState(status: .outdated),
+            "ok": itemState(status: .ok)
+        ]))
+        let commands = MockCommandExecutor(results: [:])
+        let runner = updateRunner(paths: paths, commands: commands)
+
+        let results = try runner.update(ids: [], all: true, assumeYes: true)
+
+        XCTAssertEqual(
+            results.map(\.outcome),
+            [.skippedPinned, .skippedDisabled, .skippedUntrusted, .skippedNotOutdated]
+        )
+        XCTAssertTrue(commands.commands.isEmpty)
+    }
+
+    private func updateRunner(paths: AppPaths, commands: MockCommandExecutor) -> UpdateRunner {
+        UpdateRunner(
+            manifestStore: ManifestStore(paths: paths),
+            stateStore: StateStore(paths: paths),
+            config: Config.default,
+            httpClient: MockHTTPClient(responses: [:]),
+            commandRunner: commands,
+            now: { self.now },
+            confirm: { _ in true }
+        )
+    }
+
+    private func manifest(items: [Recipe]) -> Manifest {
+        Manifest(
+            schemaVersion: 1,
+            items: items,
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        )
+    }
+
+    private func recipe(id: String) -> Recipe {
+        var item = Recipe(
+            id: id,
+            name: id,
+            category: "cli",
+            path: nil,
+            source: Source(kind: .custom, ref: id, branch: nil),
+            versionScheme: .semver,
+            check: .command("\(id) current"),
+            latest: LatestSpec(strategy: .cmd, cmd: "\(id) latest", pattern: nil),
+            versionParse: .regex("([0-9]+\\.[0-9]+\\.[0-9]+)"),
+            update: UpdateSpec(cmd: "\(id) update", cwd: nil),
+            pin: nil,
+            enabled: true,
+            notify: true,
+            trust: Trust(level: .trusted, approvedCommands: [:])
+        )
+        TrustPolicy.approveAllCommands(in: &item)
+        return item
+    }
+
+    private func itemState(status: ItemStatus) -> ItemState {
+        ItemState(
+            current: status == .ok ? "1.1.0" : "1.0.0",
+            latest: "1.1.0",
+            status: status,
+            lastChecked: now,
+            error: nil,
+            backoffUntil: nil
+        )
+    }
+
+    private func temporaryDirectory() throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("updatebar-update-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+}
