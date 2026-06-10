@@ -19,19 +19,32 @@ case "$(uname -m)" in
   *) echo "unsupported arch: $(uname -m)" >&2; exit 1 ;;
 esac
 
-"$SWIFT_BIN" build -c release --product updatebar
+BUILD_ROOT="$(pwd -P)"
+"$SWIFT_BIN" build -c release --product updatebar \
+  -Xswiftc -debug-prefix-map -Xswiftc "${BUILD_ROOT}=." \
+  -Xswiftc -file-prefix-map -Xswiftc "${BUILD_ROOT}=." \
+  -Xlinker -no_uuid
 
 rm -rf dist
 mkdir -p "dist/stage/updatebar-${VERSION}"
 cp .build/release/updatebar "dist/stage/updatebar-${VERSION}/updatebar"
 chmod 0755 "dist/stage/updatebar-${VERSION}/updatebar"
 
-if [[ "$PLATFORM" == "macos" ]] && command -v codesign >/dev/null 2>&1; then
+if command -v strip >/dev/null 2>&1; then
+  strip -S -x "dist/stage/updatebar-${VERSION}/updatebar" >/dev/null 2>&1 || true
+fi
+
+if [[ "${UPDATEBAR_AD_HOC_CODESIGN:-0}" == "1" ]] && [[ "$PLATFORM" == "macos" ]] && command -v codesign >/dev/null 2>&1; then
   codesign -s - "dist/stage/updatebar-${VERSION}/updatebar" >/dev/null 2>&1 || true
 fi
 
+touch -t 202001010000 "dist/stage/updatebar-${VERSION}/updatebar"
+
 ARCHIVE="dist/updatebar-${VERSION}-${PLATFORM}-${ARCH}.tar.gz"
-tar -C "dist/stage/updatebar-${VERSION}" -czf "$ARCHIVE" updatebar
+TAR_ARCHIVE="${ARCHIVE%.gz}"
+COPYFILE_DISABLE=1 tar --format ustar --uid 0 --gid 0 --uname root --gname wheel \
+  -C "dist/stage/updatebar-${VERSION}" -cf "$TAR_ARCHIVE" updatebar
+gzip -n -f "$TAR_ARCHIVE"
 
 if command -v shasum >/dev/null 2>&1; then
   shasum -a 256 "$ARCHIVE" >"${ARCHIVE}.sha256"

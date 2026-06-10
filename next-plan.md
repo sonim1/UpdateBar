@@ -217,10 +217,15 @@ Work:
   by `Scripts/generate-version-source.sh`; test asserts `version --json` matches `version.env`.
 - ~~Fix the stale CHANGELOG~~ — done in `1d6ef97`; the `0.1.0` entry now carries the
   breaking-change section for the CLI-only reset.
-- Confirm real GitHub repo slug and release URLs (Q-DIST-1; propagates into formula and docs).
-  Current working tree has no `origin`; formula currently uses `kendrick/UpdateBar`.
+- Done locally: release URLs now target `sonim1/UpdateBar`; Homebrew tap target is
+  `sonim1/homebrew-tap`. GitHub did not resolve either repo from this working tree
+  at review time, so create/push them before publishing.
 - Done for local artifact: rebuilt release archive and updated Homebrew formula SHA from
   `dist/updatebar-0.1.0-macos-arm64.tar.gz`.
+- Done: `Scripts/build-release.sh` now emits stable clean-build archives by stripping
+  release binaries, removing Mach-O UUIDs, fixing archive metadata, and using `gzip -n`.
+- Done: clean source-copy release dry run passes with formula URL/SHA checks for
+  `sonim1/UpdateBar`.
 - Done: Homebrew formula style passes locally.
 - Done: **archive-install smoke:** install the built archive into a temp bin and run
   `version --json`, `guide agent`, `template recipe --kind npm`.
@@ -337,7 +342,8 @@ Only the ones that block actionable work:
 
 - **Q-SEC-1** (blocks M0 gate): real sandbox vs honest best-effort execution boundary —
   and `docs/security.md` must match the answer.
-- **Q-DIST-1** (blocks M2): final GitHub repo slug and Homebrew tap location.
+- **Q-DIST-1** (blocks M2 publish, not local dry-run): GitHub repo `sonim1/UpdateBar`
+  and tap `sonim1/homebrew-tap` must exist before tagging/publishing.
 - **Q-APPLE-1** (blocks M4): pay the $99/yr and ship a signed app, or stay CLI-only longer.
 
 Resolved/ratified: background helper is opt-in (M3). Formula now, cask with M4 (M2/M4).
@@ -383,6 +389,6 @@ Parked deliberately. Each has a written re-entry trigger; none carries design de
 Next recommended work:
 
 ```text
-1. M2: confirm repo slug/Homebrew tap, final release dry run from clean checkout.
+1. M2: create/push `sonim1/UpdateBar` and `sonim1/homebrew-tap`, then tag/release.
 2. M4: decide Apple Developer Program go/no-go, then build menu bar MVP.
 ```
