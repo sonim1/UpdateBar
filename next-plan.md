@@ -291,8 +291,9 @@ any signing work starts.
 App distribution (required to ship — M2 covers CLI archives only):
 
 - Apple Developer Program membership + Developer ID Application certificate (human prerequisites).
-- `Scripts/package-app.sh`: assemble the `.app` (SwiftPM cannot emit one), `LSUIElement=true`,
-  versions from `version.env`, the signed CLI bundled inside and invoked by absolute path.
+- Done locally: `Scripts/package-app.sh` assembles an unsigned `.app` (SwiftPM cannot emit one),
+  `LSUIElement=true`, versions from `version.env`, the CLI bundled inside and invoked by absolute path.
+- Remaining for public app distribution: sign inside-out with Developer ID after Apple go/no-go.
 - Sign inside-out with Hardened Runtime + `--timestamp`; notarize via `notarytool`; staple.
 - Homebrew cask installs the app, symlinks the bundled CLI via `binary` stanza,
   `conflicts_with` the CLI formula.

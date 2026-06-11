@@ -22,6 +22,8 @@ jobs:
         run: bash Scripts/smoke-test.sh
       - name: Archive smoke
         run: bash Scripts/archive-smoke-test.sh
+      - name: App package smoke
+        run: bash Scripts/package-app.sh
       - name: Format
         run: |
           if command -v swift-format >/dev/null 2>&1; then

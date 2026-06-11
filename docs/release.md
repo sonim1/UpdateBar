@@ -5,10 +5,12 @@ Release checklist:
 ```bash
 swift build
 swift build -c release --product updatebar
+swift build -c release --product updatebar-menubar
 swift test
 bash Scripts/smoke-test.sh
 Scripts/build-release.sh
 bash Scripts/archive-smoke-test.sh
+Scripts/package-app.sh
 ```
 
 Build a local release archive:
@@ -32,6 +34,16 @@ Archive smoke test:
 ```bash
 bash Scripts/archive-smoke-test.sh
 ```
+
+Local unsigned app package:
+
+```bash
+Scripts/package-app.sh
+```
+
+The app packaging script creates `dist/UpdateBar.app` with the menu bar executable
+in `Contents/MacOS/UpdateBar` and the CLI in `Contents/Resources/updatebar`.
+Signing/notarization are not part of the CLI release.
 
 Release identity:
 

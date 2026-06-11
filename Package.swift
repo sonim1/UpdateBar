@@ -9,7 +9,9 @@ let package = Package(
     ],
     products: [
         .executable(name: "updatebar", targets: ["UpdateBarCLI"]),
+        .executable(name: "updatebar-menubar", targets: ["UpdateBarMenuBarApp"]),
         .library(name: "UpdateBarCore", targets: ["UpdateBarCore"]),
+        .library(name: "UpdateBarMenuBar", targets: ["UpdateBarMenuBar"]),
         .library(name: "UpdateBarTestSupport", targets: ["UpdateBarTestSupport"])
     ],
     dependencies: [
@@ -25,6 +27,14 @@ let package = Package(
         ),
         .target(name: "UpdateBarCore"),
         .target(
+            name: "UpdateBarMenuBar",
+            dependencies: ["UpdateBarCore"]
+        ),
+        .executableTarget(
+            name: "UpdateBarMenuBarApp",
+            dependencies: ["UpdateBarCore", "UpdateBarMenuBar"]
+        ),
+        .target(
             name: "UpdateBarTestSupport",
             dependencies: ["UpdateBarCore"]
         ),
@@ -35,6 +45,10 @@ let package = Package(
         .testTarget(
             name: "UpdateBarCLITests",
             dependencies: ["UpdateBarCore", "UpdateBarTestSupport"]
+        ),
+        .testTarget(
+            name: "UpdateBarMenuBarTests",
+            dependencies: ["UpdateBarCore", "UpdateBarMenuBar"]
         )
     ]
 )
