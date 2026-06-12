@@ -7,6 +7,7 @@
     @main
     @MainActor
     final class UpdateBarMenuBarApp: NSObject, NSApplicationDelegate {
+        private static var bootstrapDelegate: UpdateBarMenuBarApp?
         private var statusItem: NSStatusItem!
         private var client: UpdateBarCLIClient!
         private let formatter = MenuBarStatusFormatter()
@@ -23,17 +24,42 @@
         static func main() {
             let app = NSApplication.shared
             let delegate = UpdateBarMenuBarApp()
+            bootstrapDelegate = delegate
             app.delegate = delegate
             app.setActivationPolicy(.accessory)
+            debugLog("UpdateBarMenuBar main starting")
             app.run()
         }
 
         func applicationDidFinishLaunching(_ notification: Notification) {
-            client = UpdateBarCLIClient(executablePath: Self.resolveCLIPath())
+            let cliPath = Self.resolveCLIPath()
+            Self.debugLog("resolved updatebar path: \(cliPath)")
+            client = UpdateBarCLIClient(executablePath: cliPath)
             statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-            statusItem.button?.title = "UB"
+            statusItem.autosaveName = "UpdateBarStatusItem"
+            statusItem.isVisible = true
+            guard let statusButton = statusItem.button else {
+                showError(MenuBarStartupError.missingStatusBarButton)
+                return
+            }
+
+            statusButton.title = "UB"
+            if let image = NSImage(
+                systemSymbolName: "arrow.triangle.2.circlepath",
+                accessibilityDescription: "UpdateBar"
+            ) {
+                image.isTemplate = true
+                statusButton.image = image
+                statusButton.imagePosition = .imageLeading
+            }
             rebuildMenu()
+            ProcessInfo.processInfo.disableAutomaticTermination("UpdateBar menu bar app running")
             refreshStatus(refresh: false)
+        }
+
+        func applicationWillTerminate(_ notification: Notification) {
+            ProcessInfo.processInfo.enableAutomaticTermination("UpdateBar menu bar app terminated")
+            Self.bootstrapDelegate = nil
         }
 
         @objc private func checkNow() {
@@ -212,6 +238,10 @@
             statusItem.button?.title = title
         }
 
+        private static func debugLog(_ message: String) {
+            FileHandle.standardError.write(Data(( "UpdateBarMenuBar: \(message)\n").utf8))
+        }
+
         private func actionItem(_ title: String, action: Selector) -> NSMenuItem {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
             item.target = self
@@ -227,11 +257,13 @@
         private static func resolveCLIPath() -> String {
             let environment = ProcessInfo.processInfo.environment
             if let override = environment["UPDATEBAR_CLI"], !override.isEmpty {
+                debugLog("using UPDATEBAR_CLI override: \(override)")
                 return override
             }
             if let bundled = Bundle.main.resourceURL?.appendingPathComponent("updatebar"),
                 FileManager.default.isExecutableFile(atPath: bundled.path)
             {
+                debugLog("using bundled updatebar: \(bundled.path)")
                 return bundled.path
             }
             let paths =
@@ -242,9 +274,11 @@
                 let candidate = URL(fileURLWithPath: directory).appendingPathComponent("updatebar")
                     .path
                 if FileManager.default.isExecutableFile(atPath: candidate) {
+                    debugLog("found updatebar in PATH: \(candidate)")
                     return candidate
                 }
             }
+            debugLog("falling back to /opt/homebrew/bin/updatebar")
             return "/opt/homebrew/bin/updatebar"
         }
     }
@@ -264,6 +298,17 @@
         init(id: String, field: String) {
             self.id = id
             self.field = field
+        }
+    }
+
+    private enum MenuBarStartupError: Error, CustomStringConvertible {
+        case missingStatusBarButton
+
+        var description: String {
+            switch self {
+            case .missingStatusBarButton:
+                return "Failed to create menu bar button"
+            }
         }
     }
 #else
