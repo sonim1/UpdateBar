@@ -29,3 +29,21 @@ UPDATEBAR_CLI=.build/debug/updatebar .build/debug/updatebar-menubar
 The local app is intentionally unsigned. Developer ID signing, notarization,
 stapling, and the Homebrew cask are deferred until the Apple Developer Program
 go/no-go decision.
+
+Troubleshooting a missing icon:
+
+```bash
+pkill -f UpdateBar
+UPDATEBAR_CLI=/full/path/to/updatebar ./dist/UpdateBar.app/Contents/MacOS/UpdateBar \
+  >/tmp/updatebar-menubar.log 2>&1 &
+sleep 2
+tail -n 60 /tmp/updatebar-menubar.log
+```
+
+When `UpdateBarMenuBar: UpdateBarMenuBar main starting` is not printed, the binary
+isn't launching. If it starts but no menu icon appears, try:
+
+```bash
+open dist/UpdateBar.app
+pgrep -ax UpdateBar
+```
