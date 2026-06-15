@@ -1,11 +1,11 @@
 # UpdateBar — Current Implementation Architecture
 
-Status inspected from the current repo under `~/projects/UpdateBar` after the CLI-only reset.
+Status inspected from the current repo under `~/projects/UpdateBar` (current release includes optional macOS menu bar app).
 
 Scope:
 
-- CLI only
-- no macOS app
+- CLI + optional macOS menu bar app
+- macOS menu bar app supported (thin local wrapper around CLI status snapshot)
 - no daemon
 - no built-in AI generation
 - no provider auth storage
@@ -18,15 +18,18 @@ Scope:
 UpdateBar
 ├── executable: updatebar
 │   └── target: Sources/UpdateBarCLI
+├── executable: updatebar-menubar
+│   └── target: Sources/UpdateBarMenuBarApp
 ├── library: UpdateBarCore
 │   └── target: Sources/UpdateBarCore
+├── library: UpdateBarMenuBar
+│   └── target: Sources/UpdateBarMenuBar
 └── library: UpdateBarTestSupport
     └── target: Sources/UpdateBarTestSupport
 ```
 
 Missing today:
 
-- macOS menu bar app
 - background helper / LaunchAgent
 - Sparkle integration
 - recipe signing
@@ -57,6 +60,8 @@ UpdateBarCore
 ```
 
 UpdateBar does not author commands. Humans or external agents write recipe JSON. UpdateBar validates, stores as untrusted by default, and runs only approved command fingerprints.
+
+The menu bar app (`updatebar-menubar`) is a read-only wrapper that invokes CLI commands internally and never reads/writes manifest/state/config files directly.
 
 ---
 

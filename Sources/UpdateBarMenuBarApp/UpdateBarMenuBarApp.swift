@@ -44,6 +44,9 @@
             }
 
             statusButton.title = "UB"
+            statusButton.toolTip = "UpdateBar"
+            statusButton.setAccessibilityIdentifier("updatebar-status-button")
+            statusButton.setAccessibilityLabel("UpdateBar status")
             if let image = NSImage(
                 systemSymbolName: "arrow.triangle.2.circlepath",
                 accessibilityDescription: "UpdateBar"
@@ -251,6 +254,7 @@
         private func disabledItem(_ title: String) -> NSMenuItem {
             let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
             item.isEnabled = false
+            item.toolTip = title
             return item
         }
 

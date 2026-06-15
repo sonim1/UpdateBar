@@ -17,6 +17,25 @@ Or use the local installer:
 Scripts/install-local.sh
 ```
 
+### Menu bar app
+
+`updatebar-menubar` ships as an optional macOS wrapper around the CLI in the same release pipeline (`Scripts/package-app.sh`).
+It uses the bundled or environment-selected `updatebar` binary and exposes:
+
+- check now
+- update selected
+- update all approved outdated
+- per-command approve/revoke
+- reveal manifest
+- quit
+
+Build a local unsigned app:
+
+```bash
+Scripts/package-app.sh
+open dist/UpdateBar.app
+```
+
 ## Quick Start
 
 ```bash
@@ -42,7 +61,8 @@ updatebar list --json
 
 ## Scope
 
-v1 ships the CLI and a stable `status --json` contract for future menu bar use. Built-in AI generation, OAuth providers, and local LLM providers are removed by design — recipe authoring belongs to external agents. Sync, community registries, recipe signing, `diff`, and `doctor` are not planned until real external demand appears (see `next-plan.md`).
+v1 ships the CLI first, with an optional macOS menu bar app that reads only CLI status snapshots and runs user-approved actions.
+Built-in AI generation, OAuth providers, and local LLM providers are removed by design — recipe authoring belongs to external agents. Sync, community registries, recipe signing, `diff`, and `doctor` are not planned until real external demand appears (see `next-plan.md`).
 
 UpdateBar has no telemetry.
 

@@ -10,7 +10,7 @@ public struct MenuBarState: Equatable {
     public var okItems: [StatusItem]
 
     public var needsAttentionCount: Int {
-        approvalItems.count + errorItems.count
+        outdatedItems.count + approvalItems.count + errorItems.count
     }
 
     public init(
