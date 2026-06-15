@@ -22,16 +22,20 @@ esac
 BUILD_ROOT="$(pwd -P)"
 "$SWIFT_BIN" build -c release --product updatebar \
   -Xswiftc -debug-prefix-map -Xswiftc "${BUILD_ROOT}=." \
-  -Xswiftc -file-prefix-map -Xswiftc "${BUILD_ROOT}=." \
-  -Xlinker -no_uuid
+  -Xswiftc -file-prefix-map -Xswiftc "${BUILD_ROOT}=."
 
 rm -rf dist
 mkdir -p "dist/stage/updatebar-${VERSION}"
 cp .build/release/updatebar "dist/stage/updatebar-${VERSION}/updatebar"
 chmod 0755 "dist/stage/updatebar-${VERSION}/updatebar"
 
-if command -v strip >/dev/null 2>&1; then
-  strip -S -x "dist/stage/updatebar-${VERSION}/updatebar" >/dev/null 2>&1 || true
+if [[ "${UPDATEBAR_STRIP_BINARY:-0}" == "1" ]]; then
+  if command -v strip >/dev/null 2>&1; then
+    # Stripping this binary removes required load commands on current Swift toolchains.
+    # Keep release artifacts runnable by default; set UPDATEBAR_STRIP_BINARY=1 only
+    # when you have a validated stripping workflow for your platform.
+    strip -S -x "dist/stage/updatebar-${VERSION}/updatebar" >/dev/null 2>&1 || true
+  fi
 fi
 
 if [[ "${UPDATEBAR_AD_HOC_CODESIGN:-0}" == "1" ]] && [[ "$PLATFORM" == "macos" ]] && command -v codesign >/dev/null 2>&1; then

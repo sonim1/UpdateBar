@@ -24,8 +24,10 @@ from `version.env` before compiling. If `version.env` changes during development
 `Scripts/generate-version-source.sh` before tests.
 
 The CLI archive is intentionally unsigned in M2. `Scripts/build-release.sh`
-strips the binary, removes the Mach-O UUID, fixes archive metadata, and uses
-`gzip -n` so repeated clean builds produce the same SHA. Set
+builds a reproducible archive payload, normalizes timestamps, and uses `gzip -n`
+so repeated clean builds produce the same SHA. By default, the binary is kept
+unstripped to preserve runtime compatibility; if you need stripping in a known-good
+toolchain, run with `UPDATEBAR_STRIP_BINARY=1`. Set
 `UPDATEBAR_AD_HOC_CODESIGN=1` only for local experiments; M4 handles real
 Developer ID signing for the app.
 
