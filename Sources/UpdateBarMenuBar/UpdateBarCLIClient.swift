@@ -15,6 +15,8 @@ public struct CommandApprovalStatus: Decodable, Equatable, Sendable {
     public var field: String
     public var approved: Bool
     public var fingerprint: String
+    public var command: String
+    public var cwd: String?
 }
 
 public protocol UpdateBarProcessRunning: AnyObject, Sendable {
@@ -99,6 +101,7 @@ public struct UpdateBarCLIClient: Sendable {
 
 public enum UpdateBarCLIClientError: Error, CustomStringConvertible, Equatable, Sendable {
     case failed(exitCode: Int32, stderr: String)
+    case timedOut
 
     public var description: String {
         switch self {
@@ -106,12 +109,20 @@ public enum UpdateBarCLIClientError: Error, CustomStringConvertible, Equatable, 
             let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             return detail.isEmpty
                 ? "updatebar exited \(exitCode)" : "updatebar exited \(exitCode): \(detail)"
+        case .timedOut:
+            return "updatebar timed out"
         }
     }
 }
 
 public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
-    public init() {}
+    private let timeout: TimeInterval
+    private let maxOutputBytes: Int
+
+    public init(timeout: TimeInterval = 30, maxOutputBytes: Int = 1_048_576) {
+        self.timeout = timeout
+        self.maxOutputBytes = maxOutputBytes
+    }
 
     public func run(executablePath: String, arguments: [String]) throws -> CommandResult {
         let process = Process()
@@ -122,16 +133,74 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
         let stderr = Pipe()
         process.standardOutput = stdout
         process.standardError = stderr
+        let stdoutData = LockedData(maxBytes: maxOutputBytes)
+        let stderrData = LockedData(maxBytes: maxOutputBytes)
 
         try process.run()
-        process.waitUntilExit()
+        let readersFinished = DispatchGroup()
+        readersFinished.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            Self.drain(stdout.fileHandleForReading, into: stdoutData)
+            readersFinished.leave()
+        }
+        readersFinished.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            Self.drain(stderr.fileHandleForReading, into: stderrData)
+            readersFinished.leave()
+        }
+
+        let finished = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).async {
+            process.waitUntilExit()
+            finished.signal()
+        }
+
+        if finished.wait(timeout: .now() + timeout) == .timedOut {
+            process.terminate()
+            _ = finished.wait(timeout: .now() + 2)
+            _ = readersFinished.wait(timeout: .now() + 2)
+            throw UpdateBarCLIClientError.timedOut
+        }
+        readersFinished.wait()
 
         return CommandResult(
             exitCode: process.terminationStatus,
-            stdout: String(
-                decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
-            stderr: String(
-                decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            stdout: String(decoding: stdoutData.data(), as: UTF8.self),
+            stderr: String(decoding: stderrData.data(), as: UTF8.self)
         )
+    }
+
+    private static func drain(_ handle: FileHandle, into output: LockedData) {
+        while true {
+            let data = handle.availableData
+            if data.isEmpty { break }
+            output.append(data)
+        }
+    }
+}
+
+private final class LockedData: @unchecked Sendable {
+    private let lock = NSLock()
+    private let maxBytes: Int
+    private var storage = Data()
+
+    init(maxBytes: Int) {
+        self.maxBytes = max(0, maxBytes)
+    }
+
+    func append(_ data: Data) {
+        guard !data.isEmpty else { return }
+        lock.lock()
+        let remaining = maxBytes - storage.count
+        if remaining > 0 {
+            storage.append(data.prefix(remaining))
+        }
+        lock.unlock()
+    }
+
+    func data() -> Data {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
     }
 }

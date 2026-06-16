@@ -37,6 +37,21 @@ Archive smoke test:
 bash Scripts/archive-smoke-test.sh
 ```
 
+Edge-case CLI checks:
+
+```bash
+Scripts/e2e-edgecases.sh
+```
+
+This runs an intentionally strict import/add/validate/remove/check flow against a temp home
+directory and asserts expected success/failure exit codes for risky paths (including
+`config` unknown key handling, duplicate prevention, and missing-item removal failures).
+Use a prebuilt binary if needed:
+
+```bash
+UPDATEBAR_BIN=.build/debug/updatebar Scripts/e2e-edgecases.sh
+```
+
 Local unsigned app package:
 
 ```bash
@@ -57,8 +72,7 @@ Release identity:
 Before tagging:
 
 - `CHANGELOG.md` has an entry matching `version.env`.
-- Git remote and formula URLs match `sonim1/UpdateBar`. This working tree may not
-  have `origin` configured yet; create/push the GitHub repo before tagging.
+- Git remote and formula URLs match `sonim1/UpdateBar`.
 - Smoke test passes from a clean `UPDATEBAR_HOME`.
 - Archive-install smoke passes: unpack the archive, run `updatebar version --json`,
   `updatebar guide agent`, and `updatebar template recipe --kind npm`.

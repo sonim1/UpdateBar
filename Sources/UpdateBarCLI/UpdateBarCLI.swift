@@ -1207,12 +1207,16 @@ struct ApprovalsCommand: ParsableCommand {
         guard let recipe = manifest.item(id: id) else {
             throw RegistryError.itemNotFound(id)
         }
+        let commandTexts = recipe.commandTexts()
+        let commandCwds = recipe.commandWorkingDirectories()
         let rows = recipe.commandFingerprints()
             .map { field, fingerprint in
                 ApprovalPayload(
                     field: field,
                     approved: recipe.trust.level == .trusted && recipe.trust.approvedCommands[field] == fingerprint,
-                    fingerprint: fingerprint
+                    fingerprint: fingerprint,
+                    command: commandTexts[field] ?? "",
+                    cwd: commandCwds[field]
                 )
             }
             .sorted { $0.field < $1.field }
@@ -1271,6 +1275,8 @@ private struct ApprovalPayload: Encodable {
     var field: String
     var approved: Bool
     var fingerprint: String
+    var command: String
+    var cwd: String?
 }
 
 struct ExportCommand: ParsableCommand {

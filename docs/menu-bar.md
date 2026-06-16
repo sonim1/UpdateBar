@@ -8,6 +8,7 @@ Current M4 scope:
 - runs actions by invoking the bundled CLI subprocess
 - never writes `manifest.json`, `state.json`, or config directly
 - shows outdated items separately from recipes that need command approval
+- shows command text before approve/revoke actions
 - supports check now, update selected, update all approved outdated, approve/revoke command fields,
   reveal manifest, and quit
 

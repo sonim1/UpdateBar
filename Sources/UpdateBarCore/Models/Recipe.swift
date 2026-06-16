@@ -52,6 +52,23 @@ public struct Recipe: Codable, Equatable {
         !commandFingerprints().isEmpty
     }
 
+    public func commandTexts() -> [String: String] {
+        var commands: [String: String] = [:]
+        if case let .command(cmd) = check {
+            commands["check.cmd"] = cmd
+        }
+        if latest.strategy == .cmd, let cmd = latest.cmd {
+            commands["latest.cmd"] = cmd
+        }
+        commands["update.cmd"] = update.cmd
+        return commands
+    }
+
+    public func commandWorkingDirectories() -> [String: String] {
+        guard let cwd = update.cwd else { return [:] }
+        return ["update.cmd": cwd]
+    }
+
     public func commandFingerprints() -> [String: String] {
         var commands: [String: String] = [:]
         if case let .command(cmd) = check {

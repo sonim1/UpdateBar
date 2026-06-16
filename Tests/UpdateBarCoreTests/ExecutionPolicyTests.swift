@@ -74,10 +74,14 @@ final class ExecutionPolicyTests: XCTestCase {
     func testCommandExecutorCapsOutput() throws {
         let executor = CommandExecutor()
         let result = try executor.run(
-            ShellCommand(command: "python3 - <<'PY'\nprint('x' * 2000)\nPY", cwd: nil),
+            ShellCommand(
+                command: "i=0; while [ $i -lt 200 ]; do printf x; i=$((i + 1)); done",
+                cwd: nil
+            ),
             policy: ExecutionPolicy(timeout: 5, maxOutputBytes: 32)
         )
 
+        XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stdout.count, 32)
     }
 

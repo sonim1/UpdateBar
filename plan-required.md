@@ -4,7 +4,7 @@ These items are intentionally not automated in the local build. Resolve them bef
 
 ## Repository And Release Coordinates
 
-- Confirm the public GitHub repository slug. The current Homebrew formula, release workflow, and release docs assume `kendrick/UpdateBar`.
+- Confirm the public GitHub repository slug remains `sonim1/UpdateBar` before tagging.
 - Rebuild release archives from the final tagged commit and update the Homebrew formula SHA256 from the actual uploaded artifact. Local `dist/` archives are ignored and should not be treated as canonical.
 - Run the release workflow from a real `v*` tag and verify both macOS arm64 and Linux x86_64 artifacts upload successfully.
 - Confirm the repository allows `swift-actions/setup-swift@v2` and GitHub release creation from workflow `contents: write` permissions.
@@ -26,4 +26,4 @@ These items are intentionally not automated in the local build. Resolve them bef
 ## Distribution Notes
 
 - Homebrew formula syntax has been checked locally, but `brew install`/`brew test` requires the final public release archive URL.
-- Current release archives are CLI-only and ad-hoc signed on macOS when possible. Developer ID signing and notarization are deferred unless direct-download distribution requires them.
+- Current release archives are CLI-only and unsigned by default. Optional ad-hoc signing is local-only via `UPDATEBAR_AD_HOC_CODESIGN=1`. Developer ID signing and notarization are deferred unless direct-download distribution requires them.

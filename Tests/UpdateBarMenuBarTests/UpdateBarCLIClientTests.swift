@@ -68,8 +68,8 @@ final class UpdateBarCLIClientTests: XCTestCase {
                 exitCode: 0,
                 stdout: """
                     [
-                      {"approved":false,"field":"latest.cmd","fingerprint":"abc"},
-                      {"approved":true,"field":"update.cmd","fingerprint":"def"}
+                      {"approved":false,"field":"latest.cmd","fingerprint":"abc","command":"tool latest"},
+                      {"approved":true,"field":"update.cmd","fingerprint":"def","command":"tool update","cwd":"/tmp/tool"}
                     ]
                     """,
                 stderr: ""
@@ -83,6 +83,8 @@ final class UpdateBarCLIClientTests: XCTestCase {
 
         XCTAssertEqual(approvals.map(\.field), ["latest.cmd", "update.cmd"])
         XCTAssertEqual(approvals.map(\.approved), [false, true])
+        XCTAssertEqual(approvals.map(\.command), ["tool latest", "tool update"])
+        XCTAssertEqual(approvals.map(\.cwd), [nil, "/tmp/tool"])
         XCTAssertEqual(
             runner.calls,
             [
@@ -95,6 +97,19 @@ final class UpdateBarCLIClientTests: XCTestCase {
                     executablePath: "/tmp/updatebar",
                     arguments: ["revoke", "tool", "--field", "update.cmd", "--json"]),
             ])
+    }
+
+    func testProcessRunnerCapsLargeOutput() throws {
+        let runner = ProcessRunner(timeout: 5, maxOutputBytes: 8)
+
+        let result = try runner.run(
+            executablePath: "/bin/sh",
+            arguments: ["-c", "printf '1234567890abcdef'; printf 'fedcba0987654321' >&2"]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stdout, "12345678")
+        XCTAssertEqual(result.stderr, "fedcba09")
     }
 }
 

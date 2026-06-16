@@ -20,7 +20,7 @@ Scripts/install-local.sh
 ### Install from GitHub (single command)
 
 ```bash
-TAG=$(curl -fsSL https://api.github.com/repos/sonim1/UpdateBar/releases/latest | awk -F'\"' '/"tag_name"/{print $4; exit}'); ARCH=$(uname -m | sed 's/aarch64/arm64/; s/amd64/x86_64/'); ARCHIVE="updatebar-${TAG#v}-macos-${ARCH}.tar.gz"; curl -fsSL -o /tmp/$ARCHIVE https://github.com/sonim1/UpdateBar/releases/download/$TAG/$ARCHIVE && mkdir -p /tmp/updatebar && tar -xzf /tmp/$ARCHIVE -C /tmp/updatebar && sudo install -m 755 /tmp/updatebar/updatebar-${TAG#v}/updatebar /usr/local/bin/updatebar && updatebar version --json
+TAG=$(curl -fsSL https://api.github.com/repos/sonim1/UpdateBar/releases/latest | awk -F'\"' '/"tag_name"/{print $4; exit}'); ARCH=$(uname -m | sed 's/aarch64/arm64/; s/amd64/x86_64/'); ARCHIVE="updatebar-${TAG#v}-macos-${ARCH}.tar.gz"; curl -fsSL -o /tmp/$ARCHIVE https://github.com/sonim1/UpdateBar/releases/download/$TAG/$ARCHIVE && mkdir -p /tmp/updatebar && tar -xzf /tmp/$ARCHIVE -C /tmp/updatebar && sudo install -m 755 /tmp/updatebar/updatebar /usr/local/bin/updatebar && updatebar version --json
 ```
 
 If your shell is not macOS or you prefer not to use a temp location, adjust `ARCHIVE` and prefix with your preferred install path.

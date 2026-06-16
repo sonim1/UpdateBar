@@ -5,8 +5,8 @@ Status inspected from the current repo under `~/projects/UpdateBar` (current rel
 Scope:
 
 - CLI + optional macOS menu bar app
-- macOS menu bar app supported (thin local wrapper around CLI status snapshot)
-- no daemon
+- macOS menu bar app supported (thin local wrapper around CLI status/actions)
+- no bundled always-on daemon; optional LaunchAgent runs `check` only when installed by the user
 - no built-in AI generation
 - no provider auth storage
 
@@ -30,7 +30,6 @@ UpdateBar
 
 Missing today:
 
-- background helper / LaunchAgent
 - Sparkle integration
 - recipe signing
 - registry
@@ -61,7 +60,7 @@ UpdateBarCore
 
 UpdateBar does not author commands. Humans or external agents write recipe JSON. UpdateBar validates, stores as untrusted by default, and runs only approved command fingerprints.
 
-The menu bar app (`updatebar-menubar`) is a read-only wrapper that invokes CLI commands internally and never reads/writes manifest/state/config files directly.
+The menu bar app (`updatebar-menubar`) reads status and invokes user-triggered CLI actions internally. It never reads/writes manifest/state/config files directly.
 
 ---
 

@@ -116,15 +116,21 @@
         }
 
         private func refreshStatus(refresh: Bool) {
-            setTitle("...")
+            setTitle("...", accessibilityLabel: "UpdateBar checking")
             DispatchQueue.global(qos: .userInitiated).async { [client, formatter] in
                 do {
                     guard let client else { return }
                     let snapshot = try client.status(refresh: refresh)
-                    let state = formatter.makeState(from: snapshot)
+                    var state = formatter.makeState(from: snapshot)
                     var approvals: [String: [CommandApprovalStatus]] = [:]
-                    for item in state.approvalItems {
-                        approvals[item.id] = try client.approvals(id: item.id)
+                    for item in state.allItems {
+                        let itemApprovals = try client.approvals(id: item.id)
+                        if !itemApprovals.isEmpty {
+                            approvals[item.id] = itemApprovals
+                        }
+                    }
+                    state.approvalItems = state.allItems.filter { item in
+                        approvals[item.id]?.contains { !$0.approved } ?? false
                     }
                     DispatchQueue.main.async {
                         self.latestState = state
@@ -140,7 +146,7 @@
         }
 
         private func runAction(_ action: @escaping @Sendable () throws -> Void) {
-            setTitle("...")
+            setTitle("...", accessibilityLabel: "UpdateBar running")
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
                     try action()
@@ -156,7 +162,10 @@
         }
 
         private func rebuildMenu() {
-            setTitle(latestState.badgeValue ?? "UB")
+            setTitle(
+                latestState.badgeValue ?? "UB",
+                accessibilityLabel: accessibilityLabel(for: latestState)
+            )
             let menu = NSMenu()
             menu.addItem(disabledItem(latestState.title))
             if latestState.needsAttentionCount > 0 {
@@ -202,8 +211,16 @@
                     let selector =
                         approval.approved ? #selector(revokeField(_:)) : #selector(approveField(_:))
                     let verb = approval.approved ? "Revoke" : "Approve"
+                    let command = approval.command.replacingOccurrences(
+                        of: #"\s+"#,
+                        with: " ",
+                        options: .regularExpression
+                    )
+                    let cwd = approval.cwd.map { " [cwd: \($0)]" } ?? ""
                     let action = actionItem(
-                        "\(verb) \(approval.field) for \(item.name)", action: selector)
+                        "\(verb) \(approval.field) for \(item.name): \(command)\(cwd)",
+                        action: selector)
+                    action.toolTip = "\(approval.field): \(approval.command)\(cwd)"
                     action.representedObject = ApprovalAction(id: item.id, field: approval.field)
                     menu.addItem(action)
                 }
@@ -226,7 +243,7 @@
         }
 
         private func showError(_ error: Error) {
-            setTitle("!")
+            setTitle("!", accessibilityLabel: "UpdateBar error")
             let menu = NSMenu()
             menu.addItem(disabledItem("UpdateBar Error"))
             menu.addItem(disabledItem(String(describing: error)))
@@ -237,8 +254,16 @@
             statusItem.menu = menu
         }
 
-        private func setTitle(_ title: String) {
+        private func setTitle(_ title: String, accessibilityLabel: String? = nil) {
             statusItem.button?.title = title
+            statusItem.button?.setAccessibilityLabel(accessibilityLabel ?? "UpdateBar \(title)")
+        }
+
+        private func accessibilityLabel(for state: MenuBarState) -> String {
+            if state.needsAttentionCount > 0 {
+                return "UpdateBar \(state.title), \(state.needsAttentionCount) need attention"
+            }
+            return "UpdateBar \(state.title)"
         }
 
         private static func debugLog(_ message: String) {

@@ -92,7 +92,8 @@ Already done in current branch (audited, with evidence):
 - SemVer ambiguity rejection (`VersionComparatorTests.swift:12`)
 - `--exit-zero-on-outdated` on `check` and `status`, documented and tested
 - `docs/security.md` states "not sandboxed" with the real guarantee list (`docs/security.md:27`)
-- CHANGELOG rewritten for the CLI-only reset, with the breaking-change entry
+- CHANGELOG has an Unreleased CLI-only reset entry; move it under the tagged version
+  during release finalization
 - README states the agent-facing stance and points to `guide agent`
 
 Status after implementation pass:
@@ -215,15 +216,15 @@ Work:
 
 - Done: `version` reads generated `UpdateBarVersion.swift`, produced from `version.env`
   by `Scripts/generate-version-source.sh`; test asserts `version --json` matches `version.env`.
-- ~~Fix the stale CHANGELOG~~ — done in `1d6ef97`; the `0.1.0` entry now carries the
-  breaking-change section for the CLI-only reset.
+- CHANGELOG currently carries the CLI-only reset under `Unreleased`; move it under
+  the tagged version during release finalization.
 - Done locally: release URLs now target `sonim1/UpdateBar`; Homebrew tap target is
-  `sonim1/homebrew-tap`. GitHub did not resolve either repo from this working tree
-  at review time, so create/push them before publishing.
+  `sonim1/homebrew-tap`.
 - Done for local artifact: rebuilt release archive and updated Homebrew formula SHA from
   `dist/updatebar-0.1.0-macos-arm64.tar.gz`.
-- Done: `Scripts/build-release.sh` now emits stable clean-build archives by stripping
-  release binaries, removing Mach-O UUIDs, fixing archive metadata, and using `gzip -n`.
+- Done: `Scripts/build-release.sh` now emits stable clean-build archives by normalizing
+  archive metadata and using `gzip -n`; binaries remain unstripped by default for
+  Swift runtime compatibility.
 - Done: clean source-copy release dry run passes with formula URL/SHA checks for
   `sonim1/UpdateBar`.
 - Done: Homebrew formula style passes locally.
@@ -341,13 +342,12 @@ brew install --cask works and does not conflict with the CLI formula
 
 Only the ones that block actionable work:
 
-- **Q-SEC-1** (blocks M0 gate): real sandbox vs honest best-effort execution boundary —
-  and `docs/security.md` must match the answer.
 - **Q-DIST-1** (blocks M2 publish, not local dry-run): GitHub repo `sonim1/UpdateBar`
   and tap `sonim1/homebrew-tap` must exist before tagging/publishing.
 - **Q-APPLE-1** (blocks M4): pay the $99/yr and ship a signed app, or stay CLI-only longer.
 
-Resolved/ratified: background helper is opt-in (M3). Formula now, cask with M4 (M2/M4).
+Resolved/ratified: execution boundary is honest best-effort, not a sandbox (M0);
+background helper is opt-in (M3). Formula now, cask with M4 (M2/M4).
 UI-copy questions moved inline into M4.
 
 ---

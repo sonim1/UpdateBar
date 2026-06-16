@@ -8,9 +8,10 @@ public struct MenuBarState: Equatable {
     public var approvalItems: [StatusItem]
     public var errorItems: [StatusItem]
     public var okItems: [StatusItem]
+    public var allItems: [StatusItem]
 
     public var needsAttentionCount: Int {
-        outdatedItems.count + approvalItems.count + errorItems.count
+        approvalItems.count + errorItems.count
     }
 
     public init(
@@ -19,7 +20,8 @@ public struct MenuBarState: Equatable {
         outdatedItems: [StatusItem],
         approvalItems: [StatusItem],
         errorItems: [StatusItem],
-        okItems: [StatusItem]
+        okItems: [StatusItem],
+        allItems: [StatusItem] = []
     ) {
         self.title = title
         self.badgeValue = badgeValue
@@ -27,6 +29,7 @@ public struct MenuBarState: Equatable {
         self.approvalItems = approvalItems
         self.errorItems = errorItems
         self.okItems = okItems
+        self.allItems = allItems
     }
 }
 
@@ -46,7 +49,8 @@ public struct MenuBarStatusFormatter: Sendable {
             outdatedItems: outdated,
             approvalItems: approvals,
             errorItems: errors,
-            okItems: ok
+            okItems: ok,
+            allItems: snapshot.items
         )
     }
 

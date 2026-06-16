@@ -81,6 +81,10 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertTrue(list.stdout.contains("update.cmd\tapproved"))
         XCTAssertTrue(list.stdout.contains("check.cmd\tunapproved"))
 
+        let listJSON = try CLIProcess.run(["approvals", "tool", "--json"], home: home)
+        XCTAssertEqual(listJSON.exitCode, 0)
+        XCTAssertTrue(listJSON.stdout.contains(#""command":"printf updated""#))
+
         let revoke = try CLIProcess.run(["revoke", "tool", "--field", "update.cmd"], home: home)
         manifest = try ManifestStore(paths: paths).load()
         stored = try XCTUnwrap(manifest.item(id: "tool"))

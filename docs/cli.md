@@ -109,7 +109,8 @@ Approves all command fields for an item, or one field such as `check.cmd`, `late
 
 ### `updatebar approvals <id> [--json]`
 
-Lists each command field and whether its current fingerprint is approved.
+Lists each command field, current command text, optional working directory,
+fingerprint, and whether the fingerprint is approved.
 
 ### `updatebar revoke <id> --field <command-field> [--json]`
 
