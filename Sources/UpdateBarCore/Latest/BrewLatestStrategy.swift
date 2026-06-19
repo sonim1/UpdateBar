@@ -4,7 +4,7 @@ public struct BrewLatestStrategy: LatestStrategy {
     public init() {}
 
     public func latest(for recipe: Recipe, context: LatestContext) throws -> String {
-        let command = "brew info --json=v2 \(recipe.source.ref)"
+        let command = "brew info --json=v2 -- \(ShellQuote.single(recipe.source.ref))"
         let result = try context.commandRunner.run(
             ShellCommand(command: command, cwd: nil),
             policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)

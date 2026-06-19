@@ -17,12 +17,19 @@ public struct GitHubReleaseLatestStrategy: LatestStrategy {
         if let token = context.githubToken {
             headers["Authorization"] = "Bearer \(token)"
         }
-        let data = try context.httpClient.get(url: url, headers: headers)
+        let data = try context.httpClient.get(
+            url: url,
+            headers: headers,
+            requireHTTPSFinalURL: true
+        )
         let releases = try JSONDecoder().decode([Release].self, from: data)
         guard let release = releases.first(where: { !$0.draft && !$0.prerelease }) else {
             throw LatestError.parseFailed("no stable GitHub release found")
         }
-        return release.tagName.hasPrefix("v") ? String(release.tagName.dropFirst()) : release.tagName
+        if release.tagName.hasPrefix("v") {
+            return String(release.tagName.dropFirst())
+        }
+        return release.tagName
     }
 
     private struct Release: Decodable {

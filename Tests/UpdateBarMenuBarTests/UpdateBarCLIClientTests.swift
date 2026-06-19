@@ -52,7 +52,26 @@ final class UpdateBarCLIClientTests: XCTestCase {
             [
                 CommandCall(
                     executablePath: "/tmp/updatebar",
-                    arguments: ["check", "--json", "--exit-zero-on-outdated"]),
+                    arguments: ["check", "--json", "--force", "--exit-zero-on-outdated"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["update", "tool", "--yes", "--json"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["update", "--all", "--yes", "--json"]),
+            ])
+    }
+
+    func testUpdateActionsAllowPartialFailureExitCode() throws {
+        let runner = RecordingRunner(result: CommandResult(exitCode: 2, stdout: "[]", stderr: ""))
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        try client.update(id: "tool")
+        try client.updateAllApproved()
+
+        XCTAssertEqual(
+            runner.calls,
+            [
                 CommandCall(
                     executablePath: "/tmp/updatebar",
                     arguments: ["update", "tool", "--yes", "--json"]),

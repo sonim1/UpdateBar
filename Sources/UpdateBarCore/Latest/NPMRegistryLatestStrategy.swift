@@ -6,7 +6,11 @@ public struct NPMRegistryLatestStrategy: LatestStrategy {
     public func latest(for recipe: Recipe, context: LatestContext) throws -> String {
         let encoded = percentEncode(recipe.source.ref)
         let url = URL(string: "https://registry.npmjs.org/\(encoded)")!
-        let data = try context.httpClient.get(url: url, headers: [:])
+        let data = try context.httpClient.get(
+            url: url,
+            headers: [:],
+            requireHTTPSFinalURL: true
+        )
         let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         guard let tags = object?["dist-tags"] as? [String: Any],
             let latest = tags["latest"] as? String

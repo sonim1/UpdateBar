@@ -1,6 +1,6 @@
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class ManifestStoreTests: XCTestCase {
     func testDecodesManifestObjectShape() throws {
@@ -53,6 +53,23 @@ final class ManifestStoreTests: XCTestCase {
 
         XCTAssertNotEqual(original["update.cmd"], changed["update.cmd"])
         XCTAssertEqual(original["check.cmd"], changed["check.cmd"])
+    }
+
+    func testUpdateFingerprintChangesWhenSourceOrLatestInputChanges() throws {
+        let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
+        let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        var item = try XCTUnwrap(manifest.item(id: "claude-code"))
+
+        let original = item.commandFingerprints()
+        item.source.ref = "@anthropic-ai/other-tool"
+        let changedSource = item.commandFingerprints()
+        item.source.ref = "@anthropic-ai/claude-code"
+        item.latest.pattern = #"([0-9]+\.[0-9]+)"#
+        let changedLatest = item.commandFingerprints()
+
+        XCTAssertNotEqual(original["update.cmd"], changedSource["update.cmd"])
+        XCTAssertNotEqual(original["update.cmd"], changedLatest["update.cmd"])
+        XCTAssertEqual(original["check.cmd"], changedSource["check.cmd"])
     }
 
     func testManifestStoreInitializesEmptyManifestInUpdateBarHome() throws {

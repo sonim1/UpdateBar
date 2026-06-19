@@ -172,7 +172,7 @@
                 menu.addItem(disabledItem("\(latestState.needsAttentionCount) need attention"))
             }
             menu.addItem(.separator())
-            menu.addItem(actionItem("Check Now", action: #selector(refreshFromMenu)))
+            menu.addItem(actionItem("Check Now", action: #selector(checkNow)))
             menu.addItem(
                 actionItem("Update All Approved Outdated", action: #selector(updateAllApproved)))
             menu.addItem(.separator())
@@ -243,12 +243,13 @@
         }
 
         private func showError(_ error: Error) {
+            Self.debugLog("showing error: \(error)")
             setTitle("!", accessibilityLabel: "UpdateBar error")
             let menu = NSMenu()
             menu.addItem(disabledItem("UpdateBar Error"))
             menu.addItem(disabledItem(String(describing: error)))
             menu.addItem(.separator())
-            menu.addItem(actionItem("Check Now", action: #selector(refreshFromMenu)))
+            menu.addItem(actionItem("Check Now", action: #selector(checkNow)))
             menu.addItem(actionItem("Reveal Manifest", action: #selector(revealManifest)))
             menu.addItem(actionItem("Quit", action: #selector(quit)))
             statusItem.menu = menu
@@ -267,7 +268,7 @@
         }
 
         private static func debugLog(_ message: String) {
-            FileHandle.standardError.write(Data(( "UpdateBarMenuBar: \(message)\n").utf8))
+            FileHandle.standardError.write(Data(("UpdateBarMenuBar: \(message)\n").utf8))
         }
 
         private func actionItem(_ title: String, action: Selector) -> NSMenuItem {

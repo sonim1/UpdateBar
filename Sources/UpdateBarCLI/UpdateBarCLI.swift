@@ -291,14 +291,21 @@ private struct BackgroundLaunchAgentManager {
 
     private var executablePath: String {
         let argument = CommandLine.arguments[0]
-        let url: URL
         if argument.hasPrefix("/") {
-            url = URL(fileURLWithPath: argument)
-        } else {
-            url = URL(fileURLWithPath: fileManager.currentDirectoryPath)
-                .appendingPathComponent(argument)
+            return URL(fileURLWithPath: argument).standardizedFileURL.path
         }
-        return url.standardizedFileURL.path
+        if argument.contains("/") {
+            return URL(fileURLWithPath: fileManager.currentDirectoryPath)
+                .appendingPathComponent(argument).standardizedFileURL.path
+        }
+        for directory in (environment["PATH"] ?? "").split(separator: ":") {
+            let candidate = URL(fileURLWithPath: String(directory)).appendingPathComponent(argument)
+            if fileManager.isExecutableFile(atPath: candidate.path) {
+                return candidate.standardizedFileURL.path
+            }
+        }
+        return URL(fileURLWithPath: fileManager.currentDirectoryPath)
+            .appendingPathComponent(argument).standardizedFileURL.path
     }
 }
 

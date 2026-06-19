@@ -20,14 +20,14 @@ Scripts/install-local.sh
 ### Install from GitHub (single command)
 
 ```bash
-TAG=$(curl -fsSL https://api.github.com/repos/sonim1/UpdateBar/releases/latest | awk -F'\"' '/"tag_name"/{print $4; exit}'); ARCH=$(uname -m | sed 's/aarch64/arm64/; s/amd64/x86_64/'); ARCHIVE="updatebar-${TAG#v}-macos-${ARCH}.tar.gz"; curl -fsSL -o /tmp/$ARCHIVE https://github.com/sonim1/UpdateBar/releases/download/$TAG/$ARCHIVE && mkdir -p /tmp/updatebar && tar -xzf /tmp/$ARCHIVE -C /tmp/updatebar && sudo install -m 755 /tmp/updatebar/updatebar /usr/local/bin/updatebar && updatebar version --json
+TAG=$(curl -fsSL https://api.github.com/repos/sonim1/UpdateBar/releases/latest | awk -F'\"' '/"tag_name"/{print $4; exit}'); OS=$(uname -s); CPU=$(uname -m); case "$OS/$CPU" in Darwin/arm64|Darwin/aarch64) PLATFORM=macos; ARCH=arm64 ;; Linux/x86_64|Linux/amd64) PLATFORM=linux; ARCH=x86_64 ;; *) echo "No prebuilt UpdateBar archive for $OS/$CPU; build from source instead." >&2; exit 1 ;; esac; TMP_DIR=$(mktemp -d); trap 'rm -rf "$TMP_DIR"' EXIT; ARCHIVE="updatebar-${TAG#v}-${PLATFORM}-${ARCH}.tar.gz"; curl -fsSL -o "$TMP_DIR/$ARCHIVE" "https://github.com/sonim1/UpdateBar/releases/download/$TAG/$ARCHIVE" && tar -xzf "$TMP_DIR/$ARCHIVE" -C "$TMP_DIR" && sudo install -m 755 "$TMP_DIR/updatebar" /usr/local/bin/updatebar && updatebar version --json
 ```
 
-If your shell is not macOS or you prefer not to use a temp location, adjust `ARCHIVE` and prefix with your preferred install path.
+Prebuilt archives currently cover Apple Silicon macOS and Linux x86_64. Other platforms should build from source.
 
 ### Menu bar app
 
-`updatebar-menubar` ships as an optional macOS wrapper around the CLI in the same release pipeline (`Scripts/package-app.sh`).
+`updatebar-menubar` ships as an optional macOS wrapper around the CLI. Release tags publish an unsigned Apple Silicon app archive, and `Scripts/package-app.sh` builds the same local bundle from source.
 It uses the bundled or environment-selected `updatebar` binary and exposes:
 
 - check now
@@ -54,6 +54,7 @@ updatebar validate recipe.json --json
 updatebar add --from recipe.json --dry-run --json
 updatebar add --from recipe.json
 updatebar approvals example-npm-tool --json
+updatebar approve example-npm-tool --field check.cmd --json
 updatebar approve example-npm-tool --field update.cmd --json
 updatebar check
 updatebar status --json

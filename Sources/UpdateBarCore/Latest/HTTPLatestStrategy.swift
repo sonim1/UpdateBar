@@ -7,10 +7,17 @@ public struct HTTPLatestStrategy: LatestStrategy {
         guard let url = URL(string: recipe.source.ref) else {
             throw LatestError.invalidSource(recipe.source.ref)
         }
+        if context.requireHTTPSSource, url.scheme?.lowercased() != "https" {
+            throw LatestError.invalidSource("\(recipe.source.ref): https source required")
+        }
         guard let pattern = recipe.latest.pattern else {
             throw LatestError.missingField("latest.pattern")
         }
-        let data = try context.httpClient.get(url: url, headers: [:])
+        let data = try context.httpClient.get(
+            url: url,
+            headers: [:],
+            requireHTTPSFinalURL: context.requireHTTPSSource
+        )
         let text = String(decoding: data, as: UTF8.self)
         return try VersionParser.extract(from: text, using: .regex(pattern))
     }

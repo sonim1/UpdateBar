@@ -60,11 +60,14 @@ Scripts/package-app.sh
 
 The app packaging script creates `dist/UpdateBar.app` with the menu bar executable
 in `Contents/MacOS/UpdateBar` and the CLI in `Contents/Resources/updatebar`.
-Signing/notarization are not part of the CLI release.
+Tagged macOS releases also upload an unsigned
+`UpdateBar-<version>-macos-arm64.app.tar.gz` archive. Signing/notarization are not
+part of the CLI release.
 
 Release identity:
 
 - GitHub repo slug: `sonim1/UpdateBar`.
+- Prebuilt archives currently target Apple Silicon macOS and Linux x86_64.
 - Homebrew tap target: `sonim1/homebrew-tap`.
 - Formula source lives in `Packaging/homebrew/updatebar.rb`; copy it to the tap as
   `Formula/updatebar.rb` when publishing the first Homebrew release.

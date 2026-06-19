@@ -45,7 +45,7 @@ public struct UpdateBarCLIClient: Sendable {
     public func checkNow() throws {
         let result = try runner.run(
             executablePath: executablePath,
-            arguments: ["check", "--json", "--exit-zero-on-outdated"]
+            arguments: ["check", "--json", "--force", "--exit-zero-on-outdated"]
         )
         try ensureSuccess(result, allowedExitCodes: [0, 10])
     }
@@ -55,7 +55,7 @@ public struct UpdateBarCLIClient: Sendable {
             executablePath: executablePath,
             arguments: ["update", id, "--yes", "--json"]
         )
-        try ensureSuccess(result, allowedExitCodes: [0])
+        try ensureSuccess(result, allowedExitCodes: [0, 2])
     }
 
     public func updateAllApproved() throws {
@@ -63,7 +63,7 @@ public struct UpdateBarCLIClient: Sendable {
             executablePath: executablePath,
             arguments: ["update", "--all", "--yes", "--json"]
         )
-        try ensureSuccess(result, allowedExitCodes: [0])
+        try ensureSuccess(result, allowedExitCodes: [0, 2])
     }
 
     public func approvals(id: String) throws -> [CommandApprovalStatus] {

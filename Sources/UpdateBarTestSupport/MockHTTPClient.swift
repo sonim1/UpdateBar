@@ -3,6 +3,7 @@ import UpdateBarCore
 
 public final class MockHTTPClient: HTTPClient {
     public var responses: [String: Data]
+    public var finalURLs: [String: String]
     public var postResponses: [String: [Data]]
     public var postErrors: [String: Error]
     public private(set) var requestedURLs: [String] = []
@@ -10,18 +11,32 @@ public final class MockHTTPClient: HTTPClient {
 
     public init(
         responses: [String: Data] = [:],
+        finalURLs: [String: String] = [:],
         postResponses: [String: [Data]] = [:],
         postErrors: [String: Error] = [:]
     ) {
         self.responses = responses
+        self.finalURLs = finalURLs
         self.postResponses = postResponses
         self.postErrors = postErrors
     }
 
-    public func get(url: URL, headers: [String: String]) throws -> Data {
-        requestedURLs.append(url.absoluteString)
-        guard let data = responses[url.absoluteString] else {
-            throw MockError.missingResponse(url.absoluteString)
+    public func get(
+        url: URL,
+        headers: [String: String],
+        requireHTTPSFinalURL: Bool = false
+    ) throws -> Data {
+        let key = url.absoluteString
+        requestedURLs.append(key)
+        if requireHTTPSFinalURL,
+            let finalURL = finalURLs[key].flatMap({ URL(string: $0) }),
+            finalURL.scheme?.lowercased() != "https"
+        {
+            let message = "\(finalURL.absoluteString): https redirect not allowed"
+            throw LatestError.invalidSource(message)
+        }
+        guard let data = responses[key] else {
+            throw MockError.missingResponse(key)
         }
         return data
     }

@@ -16,15 +16,23 @@ public struct GitLatestStrategy: LatestStrategy {
         switch mode {
         case .head:
             let branch = recipe.source.branch ?? "HEAD"
-            let command = "git ls-remote \(recipe.source.ref) refs/heads/\(branch)"
+            let command = [
+                "git",
+                "ls-remote",
+                "--",
+                ShellQuote.single(recipe.source.ref),
+                ShellQuote.single("refs/heads/\(branch)"),
+            ].joined(separator: " ")
             let result = try context.commandRunner.run(
                 ShellCommand(command: command, cwd: nil),
                 policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)
             )
             guard result.exitCode == 0 else { throw LatestError.commandFailed(result.stderr) }
-            return result.stdout.split { $0 == "\t" || $0 == " " || $0 == "\n" }.first.map(String.init) ?? ""
+            let fields = result.stdout.split { $0 == "\t" || $0 == " " || $0 == "\n" }
+            return fields.first.map(String.init) ?? ""
         case .tags:
-            let command = "git ls-remote --tags \(recipe.source.ref)"
+            let command =
+                "git ls-remote --tags -- \(ShellQuote.single(recipe.source.ref))"
             let result = try context.commandRunner.run(
                 ShellCommand(command: command, cwd: nil),
                 policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)
@@ -37,11 +45,14 @@ public struct GitLatestStrategy: LatestStrategy {
                 if tag.hasPrefix("v") { tag.removeFirst() }
                 return tag
             }
-            return try tags.max { lhs, rhs in
-                (try? VersionComparator.compareSemVer(lhs, rhs)) == .orderedAscending
-            } ?? {
+            let latest = tags.max { lhs, rhs in
+                let comparison = try? VersionComparator.compareSemVer(lhs, rhs)
+                return comparison == .orderedAscending
+            }
+            guard let latest else {
                 throw LatestError.parseFailed("no git tags found")
-            }()
+            }
+            return latest
         }
     }
 }

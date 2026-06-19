@@ -106,6 +106,49 @@ run_case_empty_home() {
   fi
 }
 
+run_case_background_install_from_path() {
+  if [[ "$(uname -s)" != "Darwin" ]]; then
+    echo "[CASE] background install from PATH (non-macOS) skipped"
+    return 0
+  fi
+  if [[ -z "$UPDATEBAR_BIN" ]]; then
+    echo "[CASE] background install from PATH skipped without UPDATEBAR_BIN"
+    return 0
+  fi
+
+  local bin_dir target plist output rc
+  bin_dir="$TMP_HOME/bin"
+  mkdir -p "$bin_dir"
+  case "$UPDATEBAR_BIN" in
+    /*) target="$UPDATEBAR_BIN" ;;
+    *) target="$PWD/$UPDATEBAR_BIN" ;;
+  esac
+  ln -sf "$target" "$bin_dir/updatebar"
+  plist="$TMP_HOME/Library/LaunchAgents/com.updatebar.check.plist"
+
+  printf "\n[CASE] background install from PATH\n"
+  set +e
+  output=$(PATH="$bin_dir:/usr/bin:/bin" HOME="$TMP_HOME" UPDATEBAR_HOME="$TMP_HOME" updatebar background install --yes --json 2>&1)
+  rc=$?
+  set -e
+  printf "%s\n" "$output"
+  printf "exit=%s\n" "$rc"
+
+  if [[ "$rc" -ne 0 ]]; then
+    echo "Expected exit code 0, got $rc" >&2
+    return 1
+  fi
+  if [[ ! -f "$plist" ]]; then
+    echo "Expected LaunchAgent plist at $plist" >&2
+    return 1
+  fi
+  if ! grep -F "<string>$bin_dir/updatebar</string>" "$plist" >/dev/null; then
+    echo "LaunchAgent plist did not store resolved PATH executable" >&2
+    cat "$plist" >&2
+    return 1
+  fi
+}
+
 # Positive flow: import baseline fixture via stdin, then list and status.
 run_case_ok "import from stdin" import - < Fixtures/manifests/valid-basic.json
 run_case_contains "approvals include command text" 0 '"command":' approvals claude-code --json
@@ -146,5 +189,6 @@ run_case_ok "config set known key" config set security.allow_import_exec false
 run_case_ok "config get known key" config get security.allow_import_exec
 run_case_fail "remove missing item should fail" remove missing-item --yes
 run_case_empty_home "background status (macOS only)" background status --json
+run_case_background_install_from_path
 
 printf "\nE2E edgecase checks complete\n"

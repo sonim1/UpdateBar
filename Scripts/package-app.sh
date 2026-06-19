@@ -58,4 +58,36 @@ PLIST
 plutil -lint "$CONTENTS_DIR/Info.plist" >/dev/null
 "$RESOURCES_DIR/updatebar" version --json >/dev/null
 
+if [[ "$(uname -s)" == "Darwin" && "${UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE:-0}" != "1" ]]; then
+  launch_log="$(mktemp)"
+  "$MACOS_DIR/UpdateBar" >"$launch_log" 2>&1 &
+  app_pid=$!
+  sleep 2
+  if ! kill -0 "$app_pid" 2>/dev/null; then
+    echo "Packaged menu bar app failed to stay running" >&2
+    cat "$launch_log" >&2
+    rm -f "$launch_log"
+    exit 1
+  fi
+  if ! grep -F "using bundled updatebar:" "$launch_log" >/dev/null; then
+    echo "Packaged menu bar app did not resolve the bundled CLI" >&2
+    cat "$launch_log" >&2
+    kill "$app_pid" 2>/dev/null || true
+    wait "$app_pid" 2>/dev/null || true
+    rm -f "$launch_log"
+    exit 1
+  fi
+  if grep -F "showing error:" "$launch_log" >/dev/null; then
+    echo "Packaged menu bar app reported a startup error" >&2
+    cat "$launch_log" >&2
+    kill "$app_pid" 2>/dev/null || true
+    wait "$app_pid" 2>/dev/null || true
+    rm -f "$launch_log"
+    exit 1
+  fi
+  kill "$app_pid" 2>/dev/null || true
+  wait "$app_pid" 2>/dev/null || true
+  rm -f "$launch_log"
+fi
+
 echo "$APP_DIR"

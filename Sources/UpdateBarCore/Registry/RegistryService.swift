@@ -347,7 +347,8 @@ public struct RegistryService {
         let context = LatestContext(
             httpClient: httpClient,
             commandRunner: commandRunner,
-            githubToken: githubToken
+            githubToken: githubToken,
+            requireHTTPSSource: config.security.requireHTTPSSource
         )
         return try latestStrategy(for: recipe.latest.strategy).latest(for: recipe, context: context)
     }
