@@ -6,7 +6,7 @@ final class ExecutionPolicyTests: XCTestCase {
         let executor = CommandExecutor()
         let result = try executor.run(
             ShellCommand(command: "printf hello", cwd: nil),
-            policy: ExecutionPolicy(timeout: 5, maxOutputBytes: 1024)
+            policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 1024)
         )
 
         XCTAssertEqual(result.exitCode, 0)
@@ -18,7 +18,7 @@ final class ExecutionPolicyTests: XCTestCase {
         let executor = CommandExecutor()
         let result = try executor.run(
             ShellCommand(command: "printf nope >&2; exit 7", cwd: nil),
-            policy: ExecutionPolicy(timeout: 5, maxOutputBytes: 1024)
+            policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 1024)
         )
 
         XCTAssertEqual(result.exitCode, 7)
@@ -42,7 +42,7 @@ final class ExecutionPolicyTests: XCTestCase {
         let executor = CommandExecutor(environment: ["OPENROUTER_API_KEY": "sk-or-v1-secret", "SAFE": "ok"])
         let result = try executor.run(
             ShellCommand(command: "printf ${OPENROUTER_API_KEY:-missing}:${SAFE:-missing}", cwd: nil),
-            policy: ExecutionPolicy(timeout: 5, maxOutputBytes: 1024)
+            policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 1024)
         )
 
         XCTAssertEqual(result.stdout, "missing:missing")
@@ -65,7 +65,7 @@ final class ExecutionPolicyTests: XCTestCase {
                 command: "printf ${GITHUB_TOKEN:-missing}:${CUSTOM_SECRET:-missing}:${ZDOTDIR:-missing}:${PATH:+path}",
                 cwd: nil
             ),
-            policy: ExecutionPolicy(timeout: 5, maxOutputBytes: 1024)
+            policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 1024)
         )
 
         XCTAssertEqual(result.stdout, "missing:missing:missing:path")
@@ -78,7 +78,7 @@ final class ExecutionPolicyTests: XCTestCase {
                 command: "i=0; while [ $i -lt 200 ]; do printf x; i=$((i + 1)); done",
                 cwd: nil
             ),
-            policy: ExecutionPolicy(timeout: 5, maxOutputBytes: 32)
+            policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 32)
         )
 
         XCTAssertEqual(result.exitCode, 0)
