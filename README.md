@@ -23,7 +23,9 @@ Scripts/install-local.sh
 OS=$(uname -s); CPU=$(uname -m); case "$OS/$CPU" in Darwin/arm64|Darwin/aarch64) PLATFORM=macos; ARCH=arm64 ;; Linux/x86_64|Linux/amd64) PLATFORM=linux; ARCH=x86_64 ;; *) echo "No prebuilt UpdateBar archive for $OS/$CPU; build from source instead." >&2; exit 1 ;; esac; URL=$(curl -fsSL https://api.github.com/repos/sonim1/UpdateBar/releases | awk -F'\"' -v platform="$PLATFORM" -v arch="$ARCH" '$2=="browser_download_url" && $4 ~ "/updatebar-[0-9][^\"]*-" platform "-" arch "\\.tar\\.gz$" { print $4; exit }'); test -n "$URL" || { echo "No CLI archive found for $PLATFORM/$ARCH; build from source instead." >&2; exit 1; }; TMP_DIR=$(mktemp -d); trap 'rm -rf "$TMP_DIR"' EXIT; mkdir -p "$TMP_DIR/dist"; ARCHIVE=$(basename "$URL"); curl -fsSL -o "$TMP_DIR/dist/$ARCHIVE" "$URL" && curl -fsSL -o "$TMP_DIR/dist/$ARCHIVE.sha256" "$URL.sha256" && (cd "$TMP_DIR" && { if command -v shasum >/dev/null 2>&1; then shasum -a 256 -c "dist/$ARCHIVE.sha256"; else sha256sum -c "dist/$ARCHIVE.sha256"; fi; }) && tar -xzf "$TMP_DIR/dist/$ARCHIVE" -C "$TMP_DIR" && sudo install -m 755 "$TMP_DIR/updatebar" /usr/local/bin/updatebar && updatebar version --json
 ```
 
-Prebuilt archives currently cover Apple Silicon macOS and Linux x86_64. Other platforms should build from source.
+Published prebuilt archives currently cover Apple Silicon macOS. The tag workflow
+also builds Linux x86_64 archives for the next release. Other platforms should
+build from source.
 
 ### Menu bar app
 
@@ -49,6 +51,7 @@ open dist/UpdateBar.app
 ```bash
 updatebar guide agent
 updatebar schema --json
+printf 'demo-tool 1.0.0' > demo-tool-version.txt
 cat > recipe.json <<'JSON'
 {
   "id": "demo-tool",
@@ -57,10 +60,10 @@ cat > recipe.json <<'JSON'
   "path": null,
   "source": { "kind": "custom", "ref": "demo-tool", "branch": null },
   "version_scheme": "semver",
-  "check": { "cmd": "printf 'demo-tool 1.0.0'" },
+  "check": { "cmd": "cat demo-tool-version.txt" },
   "latest": { "strategy": "cmd", "cmd": "printf 'demo-tool 1.1.0'", "pattern": null },
   "version_parse": { "regex": "([0-9]+\\.[0-9]+\\.[0-9]+)" },
-  "update": { "cmd": "printf updated", "requires_write": true, "cwd": null },
+  "update": { "cmd": "printf 'demo-tool 1.1.0' > demo-tool-version.txt", "requires_write": true, "cwd": null },
   "pin": null,
   "enabled": true,
   "notify": true,

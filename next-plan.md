@@ -238,8 +238,8 @@ Work:
   Implemented as `Scripts/archive-smoke-test.sh`.
 - Done: **Linux CI lane** exists in `.github/workflows/ci.yml`.
 - Done: Homebrew formula platform story is explicit: macOS CLI formula now; cask
-  arrives with signed app distribution; Linux install claims are backed by the
-  Linux CI lane.
+  arrives with signed app distribution; Linux CI/release lanes are ready, but
+  public Linux download claims wait for the next tagged release asset.
 - Keep `version.env` as single source of truth.
 
 Gate:
