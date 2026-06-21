@@ -2,7 +2,7 @@
 
 UpdateBar is a safe, scriptable CLI for tracking and updating user-approved recipes covering local tools, CLIs, packages, and custom install targets. It keeps a manifest of registered items, checks current/latest versions on demand, and only runs update commands that have been explicitly trusted.
 
-UpdateBar does not generate recipes or commands itself. External agents (or you) author recipe JSON; UpdateBar remains the validation, trust, and execution boundary. Run `updatebar guide agent` for the agent workflow.
+UpdateBar can scan local package managers for untrusted recipe candidates, but it does not auto-register or auto-trust them. External agents (or you) can still author recipe JSON; UpdateBar remains the validation, trust, and execution boundary. Run `updatebar guide agent` for the agent workflow.
 
 ## Install From Source
 
@@ -49,6 +49,7 @@ open dist/UpdateBar.app
 ## Quick Start
 
 ```bash
+updatebar scan
 updatebar guide agent
 updatebar schema --json
 printf 'demo-tool 1.0.0' > demo-tool-version.txt

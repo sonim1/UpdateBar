@@ -28,13 +28,14 @@ struct UpdateBar: ParsableCommand {
             PinCommand.self,
             RemoveCommand.self,
             RevokeCommand.self,
+            ScanCommand.self,
             SchemaCommand.self,
             StatusCommand.self,
             TemplateCommand.self,
             UnpinCommand.self,
             UpdateCommand.self,
             ValidateCommand.self,
-            VersionCommand.self
+            VersionCommand.self,
         ]
     )
 }
@@ -130,6 +131,94 @@ struct VersionCommand: ParsableCommand {
         } else {
             print(payload.version)
         }
+    }
+}
+
+struct ScanCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "scan",
+        abstract: "Scan installed local tools without modifying UpdateBar state."
+    )
+
+    @Flag(name: .long)
+    var json = false
+
+    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known.")
+    var detectors: String?
+
+    @Option(name: .long, help: "Filter by category, such as ai-agent or cloud-devops.")
+    var category: String?
+
+    func run() throws {
+        let selectedDetectors = try parseDetectors()
+        let service = ScanService()
+        var report = try service.scan(detectors: selectedDetectors)
+        if let category {
+            report.candidates = report.candidates.filter { $0.category == category }
+        }
+
+        if json {
+            try printJSON(report)
+        } else {
+            printHuman(report)
+        }
+    }
+
+    private func parseDetectors() throws -> [ScanDetector] {
+        guard let detectors, !detectors.isEmpty else {
+            return ScanDetector.allCases
+        }
+        let values = detectors.split(separator: ",").map {
+            String($0).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard !values.isEmpty else {
+            throw ValidationError("detectors: expected brew, npm_global, or known")
+        }
+        return try values.map { value in
+            guard let detector = ScanDetector(rawValue: value) else {
+                throw ValidationError(
+                    "\(value): unknown detector; expected brew, npm_global, or known")
+            }
+            return detector
+        }
+    }
+
+    private func printHuman(_ report: ScanReport) {
+        print("Found \(report.candidates.count) candidate(s)")
+        print("")
+        let recommended = report.candidates.filter { $0.capability == .full }
+        let needsReview = report.candidates.filter { $0.capability != .full }
+        let nextIndex = printSection("Recommended", candidates: recommended, startIndex: 1)
+        _ = printSection("Needs Review", candidates: needsReview, startIndex: nextIndex)
+        if !report.errors.isEmpty {
+            print("")
+            print("Errors")
+            for error in report.errors {
+                print("- \(error.detector.rawValue): \(error.message)")
+            }
+        }
+    }
+
+    private func printSection(
+        _ title: String,
+        candidates: [ScanCandidate],
+        startIndex: Int
+    ) -> Int {
+        guard !candidates.isEmpty else { return startIndex }
+        print(title)
+        for (index, candidate) in candidates.enumerated() {
+            let version = candidate.installedVersion.map { " \($0)" } ?? ""
+            let name = "[\(startIndex + index)] \(candidate.name)\(version)"
+            let fields = [
+                name,
+                candidate.category,
+                candidate.detector.rawValue,
+                candidate.capability.rawValue,
+            ]
+            print(fields.joined(separator: "\t"))
+        }
+        print("")
+        return startIndex + candidates.count
     }
 }
 

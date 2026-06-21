@@ -79,6 +79,12 @@ Adds one recipe from a recipe JSON file, stdin (`--from -`), a single-item manif
 
 `--trust` approves all command fields after confirmation. Use `--yes` only after the user has reviewed the commands.
 
+### `updatebar scan [--json] [--detectors <list>] [--category <category>]`
+
+Scans installed local tools and prints recipe candidates without changing `manifest.json`, `state.json`, config, or approvals.
+
+V1 detectors are `brew`, `npm_global`, and `known`. `--detectors` accepts a comma-separated list. `--category` filters the displayed candidates after scanning.
+
 ### `updatebar import <file|-> [--replace] [--json]`
 
 Validates and merges a manifest. Imported items are marked untrusted. Duplicate ids require `--replace`.
