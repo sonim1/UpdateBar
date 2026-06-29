@@ -3,7 +3,7 @@
 ## Goal
 
 `updatebar scan` discovers installed local tools without changing files. `updatebar init`
-will later use scan results to let the user choose which tools to register.
+uses scan results to let the user choose which tools to register.
 
 ## Product Rules
 
@@ -113,6 +113,9 @@ updatebar scan
 updatebar scan --json
 updatebar scan --detectors brew,npm_global,known
 updatebar scan --category ai-agent
+updatebar init
+updatebar init --select brew.gh,npm.typescript
+updatebar init --category ai-agent
 ```
 
 Human output groups candidates into:
@@ -131,8 +134,8 @@ JSON output prints:
 
 ## Guided Init
 
-`updatebar init` will reuse scan results, show numbered `full` candidates, and add
-only selected recipes. It will not approve commands.
+`updatebar init` reuses scan results, shows numbered `full` candidates, and adds
+only selected recipes. It does not approve commands.
 
 Initial UX:
 
@@ -145,6 +148,16 @@ Recommended
 
 Select items to add: 1,2
 ```
+
+Headless UX:
+
+```bash
+updatebar init --select brew.gh,brew.jq
+updatebar init --replace --select npm.typescript
+```
+
+Duplicate ids are skipped by default. `--replace` overwrites existing recipes.
+Unsupported `check-only` candidates are visible in `scan` but rejected by `init`.
 
 Non-goals for v1:
 

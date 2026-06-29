@@ -85,6 +85,14 @@ Scans installed local tools and prints recipe candidates without changing `manif
 
 V1 detectors are `brew`, `npm_global`, and `known`. `--detectors` accepts a comma-separated list. `--category` filters the displayed candidates after scanning.
 
+### `updatebar init [--json] [--detectors <list>] [--category <category>] [--select <ids>] [--replace]`
+
+Scans installed local tools, lets the user select importable candidates, and stores selected recipes as untrusted manifest items.
+
+Without `--select`, `init` prints numbered importable candidates and reads comma-separated numbers or candidate ids from stdin. `--select` accepts comma-separated candidate ids such as `brew.gh,npm.typescript`.
+
+Duplicate ids are skipped by default. Pass `--replace` to overwrite existing recipes. `init` never approves commands.
+
 ### `updatebar import <file|-> [--replace] [--json]`
 
 Validates and merges a manifest. Imported items are marked untrusted. Duplicate ids require `--replace`.

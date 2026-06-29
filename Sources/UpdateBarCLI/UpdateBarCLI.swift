@@ -24,6 +24,7 @@ struct UpdateBar: ParsableCommand {
             ExportCommand.self,
             GuideCommand.self,
             ImportCommand.self,
+            InitCommand.self,
             ListCommand.self,
             PinCommand.self,
             RemoveCommand.self,
@@ -219,6 +220,184 @@ struct ScanCommand: ParsableCommand {
         }
         print("")
         return startIndex + candidates.count
+    }
+}
+
+struct InitCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "init",
+        abstract: "Scan installed local tools and register selected recipes."
+    )
+
+    @Flag(name: .long)
+    var json = false
+
+    @Flag(name: .long)
+    var replace = false
+
+    @Option(name: .long, help: "Comma-separated scan candidate ids.")
+    var select: String?
+
+    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known.")
+    var detectors: String?
+
+    @Option(name: .long, help: "Filter by category, such as ai-agent or cloud-devops.")
+    var category: String?
+
+    func run() throws {
+        let selectedDetectors = try parseDetectors()
+        let report = try filteredReport(detectors: selectedDetectors)
+        let selectedIDs = try parseSelection(from: report)
+
+        do {
+            let summary = try InitService().register(
+                candidates: report.candidates,
+                selectedIDs: selectedIDs,
+                replace: replace
+            )
+            try output(InitPayload(summary: summary, errors: []))
+        } catch let error as InitServiceError {
+            try output(
+                InitPayload(
+                    added: [],
+                    replaced: [],
+                    skipped: [],
+                    errors: [error.description]
+                )
+            )
+            throw ExitCode.failure
+        }
+    }
+
+    private func filteredReport(detectors: [ScanDetector]) throws -> ScanReport {
+        var report = try ScanService().scan(detectors: detectors)
+        if let category {
+            report.candidates = report.candidates.filter { $0.category == category }
+        }
+        return report
+    }
+
+    private func parseDetectors() throws -> [ScanDetector] {
+        guard let detectors, !detectors.isEmpty else {
+            return ScanDetector.allCases
+        }
+        let values = detectors.split(separator: ",").map {
+            String($0).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard !values.isEmpty else {
+            throw ValidationError("detectors: expected brew, npm_global, or known")
+        }
+        return try values.map { value in
+            guard let detector = ScanDetector(rawValue: value) else {
+                throw ValidationError(
+                    "\(value): unknown detector; expected brew, npm_global, or known")
+            }
+            return detector
+        }
+    }
+
+    private func parseSelection(from report: ScanReport) throws -> [String] {
+        if let select {
+            let values = select.split(separator: ",").map {
+                String($0).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            guard !values.isEmpty else {
+                throw ValidationError("select: expected at least one candidate id")
+            }
+            return values
+        }
+
+        let importable = report.candidates.filter {
+            $0.capability == .full && $0.recipe != nil
+        }
+        printImportable(importable)
+        FileHandle.standardError.write(Data("Select items to add: ".utf8))
+        guard let line = readLine(),
+            !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            throw ValidationError("selection required")
+        }
+        return try parseInteractiveSelection(line, candidates: importable)
+    }
+
+    private func parseInteractiveSelection(
+        _ line: String,
+        candidates: [ScanCandidate]
+    ) throws -> [String] {
+        let values = line.split(separator: ",").map {
+            String($0).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard !values.isEmpty else {
+            throw ValidationError("selection required")
+        }
+        return try values.map { value in
+            if let index = Int(value) {
+                guard index >= 1, index <= candidates.count else {
+                    throw ValidationError("\(value): selection out of range")
+                }
+                return candidates[index - 1].id
+            }
+            return value
+        }
+    }
+
+    private func printImportable(_ candidates: [ScanCandidate]) {
+        print("Found \(candidates.count) importable candidate(s)")
+        print("")
+        print("Recommended")
+        for (index, candidate) in candidates.enumerated() {
+            let version = candidate.installedVersion.map { " \($0)" } ?? ""
+            let name = "[\(index + 1)] \(candidate.name)\(version)"
+            let fields = [
+                name,
+                candidate.category,
+                candidate.detector.rawValue,
+                candidate.id,
+            ]
+            print(fields.joined(separator: "\t"))
+        }
+        print("")
+    }
+
+    private func output(_ payload: InitPayload) throws {
+        if json {
+            try printJSON(payload)
+        } else if payload.ok {
+            let message = [
+                "added \(payload.added.count)",
+                "replaced \(payload.replaced.count)",
+                "skipped \(payload.skipped.count)",
+            ].joined(separator: ", ")
+            print(message)
+        } else {
+            for error in payload.errors {
+                FileHandle.standardError.write(Data((error + "\n").utf8))
+            }
+        }
+    }
+}
+
+private struct InitPayload: Encodable {
+    var ok: Bool
+    var added: [String]
+    var replaced: [String]
+    var skipped: [String]
+    var errors: [String]
+
+    init(summary: InitSummary, errors: [String]) {
+        self.ok = errors.isEmpty
+        self.added = summary.added
+        self.replaced = summary.replaced
+        self.skipped = summary.skipped
+        self.errors = errors
+    }
+
+    init(added: [String], replaced: [String], skipped: [String], errors: [String]) {
+        self.ok = errors.isEmpty
+        self.added = added
+        self.replaced = replaced
+        self.skipped = skipped
+        self.errors = errors
     }
 }
 
