@@ -33,7 +33,7 @@ For development without packaging:
 ```bash
 swift build --product updatebar
 swift build --product updatebar-menubar
-UPDATEBAR_CLI=.build/debug/updatebar .build/debug/updatebar-menubar
+UPDATEBAR_BIN=.build/debug/updatebar .build/debug/updatebar-menubar
 ```
 
 Use the fallback adapter explicitly:
@@ -43,7 +43,8 @@ UPDATEBAR_MENUBAR_ADAPTER=cli UPDATEBAR_BIN=.build/debug/updatebar .build/debug/
 ```
 
 View logs from the menu bar app at `~/Library/Logs/UpdateBar/updatebar-menubar.log`.
-If that file does not exist yet, the menu item opens the UpdateBar home directory.
+If that file does not exist yet, the menu item opens the UpdateBar home directory
+instead. The same fallback is used by `Open Config`.
 Long item lists in the menu are compacted with overflow summaries.
 Recent logs are retained automatically with a rotating local cap.
 

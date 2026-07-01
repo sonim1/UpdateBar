@@ -115,6 +115,7 @@ are listed for review but not importable until manual-update recipes exist.
 updatebar scan
 updatebar scan --json
 updatebar scan --detectors brew,npm_global,known
+updatebar scan --detectors " brew , npm_global "
 updatebar scan --category ai-agent
 updatebar init
 updatebar init --select brew.gh,npm.typescript
