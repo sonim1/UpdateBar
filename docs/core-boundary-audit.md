@@ -34,13 +34,7 @@ The Swift CLI should keep command parsing and presentation behavior:
 The Ink TUI and macOS Menu Bar should add their own presentation behavior on top
 of stable Core or CLI machine contracts.
 
-## Remaining CLI-Only Logic To Move Or Share
-
-The audit still tracks these non-presentation concerns outside `UpdateBarCore`:
-
-- `BackgroundLaunchAgentManager` currently lives in the CLI source file. If Menu
-  Bar owns background checks or launch-at-login behavior, this should move to a
-  shared macOS support module or a dedicated Core-facing adapter.
+## Resolved Boundary Items
 
 Resolved since the initial audit:
 
@@ -50,6 +44,9 @@ Resolved since the initial audit:
   `MachineEvent`; stdout writing remains in the CLI layer.
 - Binary path resolution is documented and implemented for the Node/Ink TUI and
   Menu Bar subprocess fallback paths.
+- Background LaunchAgent plist generation, install state detection, executable
+  resolution, and uninstall behavior moved into Core
+  `BackgroundLaunchAgentManager`; CLI command handling remains in the CLI layer.
 
 ## Output Boundary
 
