@@ -4,13 +4,24 @@ import {createDefaultClient, type UpdateBarClient} from './client.js';
 import type {CheckReport, MachineEvent, ScanCandidate, ScanReport, StatusItem, StatusSnapshot} from './types.js';
 
 type Screen = 'menu' | 'status' | 'logs' | 'scan' | 'updating';
-type CheckSummaryCountKey = Exclude<keyof CheckReport['summary'], 'total'>;
+type SummaryCountField<TKey extends string> = readonly [TKey, string];
+type CheckSummaryCountKey = Exclude<Extract<keyof CheckReport['summary'], string>, 'total'>;
+type StatusSummaryCountKey = Exclude<Extract<keyof StatusSnapshot['summary'], string>, 'total' | 'outdated'>;
 
-const CHECK_SUMMARY_COUNT_FIELDS: Array<[CheckSummaryCountKey, string]> = [
+const CHECK_SUMMARY_COUNT_FIELDS: Array<SummaryCountField<CheckSummaryCountKey>> = [
   ['outdated', 'outdated'],
   ['errors', 'errors'],
   ['untrusted', 'untrusted'],
   ['differs', 'differs'],
+  ['pinned', 'pinned'],
+  ['disabled', 'disabled']
+];
+
+const STATUS_SUMMARY_COUNT_FIELDS: Array<SummaryCountField<StatusSummaryCountKey>> = [
+  ['errors', 'errors'],
+  ['untrusted', 'untrusted'],
+  ['differs', 'differs'],
+  ['checking', 'checking'],
   ['pinned', 'pinned'],
   ['disabled', 'disabled']
 ];
@@ -296,12 +307,12 @@ function formatStatusSummary(status: StatusSnapshot) {
     `${status.summary.total} tracked`,
     `${status.summary.outdated} outdated`
   ];
-  if (status.summary.errors > 0) parts.push(`${status.summary.errors} errors`);
-  if (status.summary.untrusted > 0) parts.push(`${status.summary.untrusted} untrusted`);
-  if (status.summary.differs > 0) parts.push(`${status.summary.differs} differs`);
-  if (status.summary.checking > 0) parts.push(`${status.summary.checking} checking`);
-  if (status.summary.pinned > 0) parts.push(`${status.summary.pinned} pinned`);
-  if (status.summary.disabled > 0) parts.push(`${status.summary.disabled} disabled`);
+  for (const [key, label] of STATUS_SUMMARY_COUNT_FIELDS) {
+    const count = status.summary[key];
+    if (count > 0) {
+      parts.push(`${count} ${label}`);
+    }
+  }
   return parts.join(' · ');
 }
 
