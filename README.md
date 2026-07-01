@@ -90,7 +90,7 @@ updatebar init
 # or add scan candidates directly:
 updatebar init --select <candidate-id-from-scan>
 updatebar guide agent
-updatebar schema --json
+updatebar schema
 printf 'demo-tool 1.0.0' > demo-tool-version.txt
 cat > recipe.json <<'JSON'
 {

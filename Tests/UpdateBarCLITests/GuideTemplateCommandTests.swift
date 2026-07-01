@@ -43,7 +43,7 @@ final class GuideTemplateCommandTests: XCTestCase {
     func testSchemaCommandPrintsRecipeJSONSchema() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-schema-tests")
 
-        let result = try CLIProcess.run(["schema", "--json"], home: home)
+        let result = try CLIProcess.run(["schema"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
         let object = try JSONSerialization.jsonObject(with: Data(result.stdout.utf8)) as? [String: Any]

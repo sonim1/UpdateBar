@@ -189,7 +189,7 @@ commands for automation, release checks, and recipe authoring.
 
 Prints the CLI version.
 
-### `updatebar schema [--json]`
+### `updatebar schema`
 
 Prints the manifest/recipe JSON Schema. The schema documents currently executable fields only; `version_parse.jq` is rejected until runtime support exists.
 

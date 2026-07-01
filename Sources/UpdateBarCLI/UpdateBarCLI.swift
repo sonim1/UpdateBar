@@ -1041,9 +1041,6 @@ struct GuideCommand: ParsableCommand {
 struct SchemaCommand: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "schema", shouldDisplay: false)
 
-    @Flag(name: .long)
-    var json = false
-
     func run() throws {
         print(Self.recipeSchema)
     }
