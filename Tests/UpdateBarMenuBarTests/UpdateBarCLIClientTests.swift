@@ -162,6 +162,17 @@ final class UpdateBarCLIClientTests: XCTestCase {
             XCTAssertEqual(error as? UpdateBarCLIClientError, .cancelled)
         }
     }
+
+    func testProcessRunnerTimesOut() throws {
+        let runner = ProcessRunner(timeout: 0.2)
+
+        XCTAssertThrowsError(try runner.run(
+            executablePath: "/bin/sh",
+            arguments: ["-c", "sleep 5"]
+        )) { error in
+            XCTAssertEqual(error as? UpdateBarCLIClientError, .timedOut)
+        }
+    }
 }
 
 private final class RecordingRunner: UpdateBarProcessRunning, @unchecked Sendable {

@@ -227,7 +227,7 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
         while true {
             let remaining = deadline.timeIntervalSinceNow
             if remaining <= 0 {
-                process.terminate()
+                terminateProcess(process, gracefully: true)
                 _ = finished.wait(timeout: .now() + 2)
                 _ = readersFinished.wait(timeout: .now() + 2)
                 throw UpdateBarCLIClientError.timedOut
@@ -236,7 +236,7 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
                 break
             }
             if cancellationToken?.isCancelled == true {
-                process.terminate()
+                terminateProcess(process, gracefully: true)
                 _ = finished.wait(timeout: .now() + 2)
                 _ = readersFinished.wait(timeout: .now() + 2)
                 throw UpdateBarCLIClientError.cancelled
@@ -249,6 +249,26 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
             stdout: String(decoding: stdoutData.data(), as: UTF8.self),
             stderr: String(decoding: stderrData.data(), as: UTF8.self)
         )
+    }
+
+    private func terminateProcess(_ process: Process, gracefully: Bool) {
+        if !gracefully {
+            process.terminate()
+            return
+        }
+
+        process.interrupt()
+        let softDeadline = Date().addingTimeInterval(0.5)
+        while process.isRunning {
+            if Date() >= softDeadline {
+                break
+            }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+
+        if process.isRunning {
+            process.terminate()
+        }
     }
 
     private static func drain(_ handle: FileHandle, into output: LockedData) {
