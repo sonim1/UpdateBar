@@ -96,6 +96,22 @@ describe('CLIUpdateBarClient', () => {
     expect(runner.runOptions[0]?.signal).toBe(controller.signal);
   });
 
+  it('summarizes differs check results from the Swift CLI contract', async () => {
+    const runner = new FakeRunner({
+      exitCode: 10,
+      stdout:
+        '[{"id":"brew.gh","name":"gh","current":"2.74.0","latest":"2.75.0","status":"differs","last_checked":"2026-06-30T00:00:00Z"}]',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    const report = await client.checkNow();
+
+    expect(report.summary.total).toBe(1);
+    expect(report.summary.outdated).toBe(0);
+    expect(report.summary.differs).toBe(1);
+  });
+
   it('surfaces JSON error payloads from failed commands', async () => {
     const runner = new FakeRunner({
       exitCode: 1,

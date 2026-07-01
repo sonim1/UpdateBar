@@ -449,6 +449,10 @@ function checkSummaryLines(report: CheckReport) {
     lines.push(`untrusted: ${report.summary.untrusted}`);
   }
 
+  if (report.summary.differs > 0) {
+    lines.push(`differs: ${report.summary.differs}`);
+  }
+
   if (report.summary.disabled > 0) {
     lines.push(`disabled: ${report.summary.disabled}`);
   }

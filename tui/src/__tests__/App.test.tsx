@@ -452,9 +452,25 @@ describe('App', () => {
               current: '2.74.0',
               latest: '2.75.0',
               last_checked: '2026-06-30T00:00:00Z'
+            },
+            {
+              id: 'local.tool',
+              name: 'local-tool',
+              status: 'differs',
+              current: 'local',
+              latest: 'remote',
+              last_checked: '2026-06-30T00:00:00Z'
             }
           ],
-          summary: {total: 1, outdated: 1, errors: 0, untrusted: 0, disabled: 0, pinned: 0}
+          summary: {
+            total: 2,
+            outdated: 1,
+            differs: 1,
+            errors: 0,
+            untrusted: 0,
+            disabled: 0,
+            pinned: 0
+          }
         };
       }
     });
@@ -466,9 +482,10 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await wait();
     view.stdin.write('\r');
-    await waitForFrame(view, 'checked 1 items');
+    await waitForFrame(view, 'checked 2 items');
 
     expect(view.lastFrame()).toContain('outdated: 1');
+    expect(view.lastFrame()).toContain('differs: 1');
     expect(view.lastFrame()).toContain('errors: 0');
   });
 

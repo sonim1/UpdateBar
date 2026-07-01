@@ -207,7 +207,8 @@ function summarizeCheck(results: CheckResult[]): CheckSummary {
     errors: 0,
     untrusted: 0,
     disabled: 0,
-    pinned: 0
+    pinned: 0,
+    differs: 0
   };
 
   for (const result of results) {
@@ -216,6 +217,7 @@ function summarizeCheck(results: CheckResult[]): CheckSummary {
     if (result.status === 'pinned') summary.pinned += 1;
     if (result.status === 'disabled') summary.disabled += 1;
     if (result.status === 'untrusted') summary.untrusted += 1;
+    if (result.status === 'differs') summary.differs += 1;
   }
 
   return summary;

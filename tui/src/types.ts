@@ -145,4 +145,5 @@ export interface CheckSummary {
   untrusted: number;
   disabled: number;
   pinned: number;
+  differs: number;
 }
