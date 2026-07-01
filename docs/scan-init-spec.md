@@ -118,6 +118,9 @@ updatebar init --select brew.gh,npm.typescript
 updatebar init --category ai-agent
 ```
 
+Human `scan` output includes importable candidate ids and a ready-to-run
+`updatebar init --select ...` command. `init --select` accepts those ids exactly.
+
 Human output groups candidates into:
 
 - `Recommended`: `full` capability.

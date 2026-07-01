@@ -203,6 +203,7 @@ struct ScanCommand: ParsableCommand {
         let needsReview = report.candidates.filter { $0.capability != .full }
         let nextIndex = printSection("Recommended", candidates: recommended, startIndex: 1)
         _ = printSection("Needs Review", candidates: needsReview, startIndex: nextIndex)
+        printNextStep(recommended)
         if !report.errors.isEmpty {
             print("")
             print("Errors")
@@ -224,6 +225,7 @@ struct ScanCommand: ParsableCommand {
             let name = "[\(startIndex + index)] \(candidate.name)\(version)"
             let fields = [
                 name,
+                candidate.id,
                 candidate.category,
                 candidate.detector.rawValue,
                 candidate.capability.rawValue,
@@ -232,6 +234,16 @@ struct ScanCommand: ParsableCommand {
         }
         print("")
         return startIndex + candidates.count
+    }
+
+    private func printNextStep(_ candidates: [ScanCandidate]) {
+        let ids = candidates.compactMap { candidate in
+            candidate.recipe == nil ? nil : candidate.id
+        }
+        guard !ids.isEmpty else { return }
+        print("Next")
+        print("updatebar init --select \(ids.joined(separator: ","))")
+        print("")
     }
 }
 

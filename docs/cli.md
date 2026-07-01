@@ -89,6 +89,10 @@ Scans installed local tools and prints recipe candidates without changing `manif
 
 V1 detectors are `brew`, `npm_global`, and `known`. `--detectors` accepts a comma-separated list. `--category` filters the displayed candidates after scanning.
 
+Human output includes each candidate id, such as `brew.gh`, plus a ready-to-run
+`updatebar init --select ...` command for importable candidates. JSON output
+returns the same ids in `candidates[].id`.
+
 ### `updatebar init [--json] [--detectors <list>] [--category <category>] [--select <ids>] [--replace]`
 
 Scans installed local tools, lets the user select importable candidates, and stores selected recipes as untrusted manifest items.
