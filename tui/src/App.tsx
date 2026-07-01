@@ -40,12 +40,12 @@ export function App({client: providedClient}: AppProps) {
 
   useInput(
     (_input, key) => {
-      if (_input === 'q') {
-        exit();
+      if ((_input === 'c' || _input === 'q') && abortController) {
+        abortController.abort();
         return;
       }
-      if (_input === 'c' && abortController) {
-        abortController.abort();
+      if (_input === 'q') {
+        exit();
         return;
       }
       if (_input === 'm' && screen !== 'menu' && !abortController) {
@@ -296,7 +296,7 @@ function canRegister(candidate: ScanCandidate) {
 }
 
 function helpText(screen: Screen, canCancel: boolean) {
-  if (canCancel) return 'c cancel · q quit';
+  if (canCancel) return 'c/q cancel';
   if (screen === 'scan') return '↑/↓ navigate · space select · enter add · m menu · q quit';
   if (screen !== 'menu') return 'm menu · q quit';
   return '↑/↓ navigate · enter select · q quit';

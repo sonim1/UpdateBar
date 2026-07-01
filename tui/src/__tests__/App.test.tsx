@@ -203,6 +203,31 @@ describe('App', () => {
     expect(aborted).toBe(true);
   });
 
+  it('cancels an active check before quitting', async () => {
+    let aborted = false;
+    const client = createClient({
+      async checkNow(options?: {signal?: AbortSignal}) {
+        options?.signal?.addEventListener('abort', () => {
+          aborted = true;
+        });
+        return new Promise(() => {});
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\r');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('q');
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(aborted).toBe(true);
+  });
+
   it('shows a friendly message when update cancellation rejects', async () => {
     const client = createClient({
       async updateAll(options: StreamOptions): Promise<CommandResult> {
