@@ -137,8 +137,10 @@ final class UpdateCommandTests: XCTestCase {
         let result = try CLIProcess.run(["update", "tool", "--yes", "--json", "--json-stream"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stdout.isEmpty)
-        XCTAssertTrue(result.stderr.contains("--json and --json-stream cannot be combined"))
+        XCTAssertFalse(result.stdout.isEmpty)
+        XCTAssertTrue(result.stdout.contains("usage_error"))
+        XCTAssertTrue(result.stdout.contains("--json and --json-stream cannot be combined"))
+        XCTAssertTrue(result.stderr.isEmpty)
     }
 
     func testUpdateJSONStreamReportsCancellation() throws {

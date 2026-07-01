@@ -73,8 +73,10 @@ final class CheckCommandTests: XCTestCase {
         let result = try CLIProcess.run(["check", "--json", "--json-stream"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stdout.isEmpty)
-        XCTAssertTrue(result.stderr.contains("--json and --json-stream cannot be combined"))
+        XCTAssertFalse(result.stdout.isEmpty)
+        XCTAssertTrue(result.stdout.contains("usage_error"))
+        XCTAssertTrue(result.stdout.contains("cannot be combined"))
+        XCTAssertTrue(result.stderr.isEmpty)
     }
 
     private func saveManifest(home: URL) throws {

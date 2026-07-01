@@ -58,6 +58,10 @@ enum UpdateBarMain {
             var command = try UpdateBar.parseAsRoot()
             try command.run()
         } catch {
+            if error is ExitCode {
+                let exitCode = UpdateBar.exitCode(for: error)
+                terminate(processExitCode(for: exitCode))
+            }
             let exitCode = UpdateBar.exitCode(for: error)
             if CommandLine.arguments.contains("--json") || CommandLine.arguments.contains("--json-stream"),
                 !JSONOutputTracker.shared.didWrite
@@ -89,20 +93,20 @@ enum UpdateBarMain {
     }
 
     private static func errorCode(for error: Error, exitCode: ExitCode) -> String {
+        if exitCode == .validationFailure {
+            return "usage_error"
+        }
+        if error is ValidationError {
+            return "usage_error"
+        }
         if error is ConfigError {
             return "config_error"
         }
         if error is RegistryError {
             return "registry_error"
         }
-        if error is ValidationError {
-            return "validation_error"
-        }
         if error is DecodingError {
             return "decode_error"
-        }
-        if exitCode == .validationFailure {
-            return "usage_error"
         }
         return "runtime_error"
     }
@@ -293,6 +297,11 @@ struct InitCommand: ParsableCommand {
             let values = parseSelectionTokens(select)
             guard !values.isEmpty else {
                 throw ValidationError("select: expected at least one candidate id")
+            }
+            if values.count == 1, values[0] == "all" {
+                return report.candidates.filter {
+                    $0.capability == .full && $0.recipe != nil
+                }.map(\.id)
             }
             return values
         }
@@ -787,7 +796,8 @@ private func sanitizedErrorMessage(for error: Error) -> String {
     let rawMessage = UpdateBar.fullMessage(for: error).isEmpty
         ? String(describing: error)
         : UpdateBar.fullMessage(for: error)
-    return SecretRedactor.redact(rawMessage)
+    let normalizedMessage = rawMessage.hasPrefix("Error: ") ? String(rawMessage.dropFirst("Error: ".count)) : rawMessage
+    return SecretRedactor.redact(normalizedMessage)
 }
 
 private func writeStderr(_ message: String, addNewline: Bool = true) {
@@ -1921,6 +1931,9 @@ struct AddCommand: ParsableCommand {
     }
 
     private func printCommands(_ recipe: Recipe) {
+        guard !json else {
+            return
+        }
         for (field, _) in recipe.commandFingerprints().sorted(by: { $0.key < $1.key }) {
             let command: String
             switch field {
