@@ -1759,7 +1759,7 @@ struct UpdateCommand: ParsableCommand {
 }
 
 struct PinCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "pin")
+    static let configuration = CommandConfiguration(commandName: "pin", shouldDisplay: false)
 
     @Argument
     var id: String
@@ -1781,7 +1781,7 @@ struct PinCommand: ParsableCommand {
 }
 
 struct UnpinCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "unpin")
+    static let configuration = CommandConfiguration(commandName: "unpin", shouldDisplay: false)
 
     @Argument
     var id: String
@@ -1800,7 +1800,7 @@ struct UnpinCommand: ParsableCommand {
 }
 
 struct EnableCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "enable")
+    static let configuration = CommandConfiguration(commandName: "enable", shouldDisplay: false)
 
     @Argument
     var id: String
@@ -1819,7 +1819,7 @@ struct EnableCommand: ParsableCommand {
 }
 
 struct DisableCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "disable")
+    static let configuration = CommandConfiguration(commandName: "disable", shouldDisplay: false)
 
     @Argument
     var id: String
@@ -1838,7 +1838,7 @@ struct DisableCommand: ParsableCommand {
 }
 
 struct RemoveCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "remove")
+    static let configuration = CommandConfiguration(commandName: "remove", shouldDisplay: false)
 
     @Argument
     var id: String
@@ -1867,7 +1867,7 @@ struct RemoveCommand: ParsableCommand {
 }
 
 struct ApprovalCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "approve")
+    static let configuration = CommandConfiguration(commandName: "approve", shouldDisplay: false)
 
     @Argument
     var id: String
@@ -1912,7 +1912,7 @@ struct ApprovalsCommand: ParsableCommand {
 }
 
 struct RevokeCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "revoke")
+    static let configuration = CommandConfiguration(commandName: "revoke", shouldDisplay: false)
 
     @Argument
     var id: String
@@ -2267,7 +2267,7 @@ private struct AddPayload: Encodable {
 }
 
 struct EditCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "edit")
+    static let configuration = CommandConfiguration(commandName: "edit", shouldDisplay: false)
 
     @Argument
     var id: String

@@ -9,11 +9,15 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
-        for command in ["add", "init", "scan", "check", "status", "update", "approve", "revoke"] {
+        for command in ["add", "init", "scan", "check", "status", "update", "list", "approvals"] {
             XCTAssertTrue(output.contains(command), "missing \(command)")
         }
+        let helpLines = output.split(separator: "\n").map(String.init)
         for command in ["guide", "schema", "template", "validate", "tui"] {
-            XCTAssertFalse(output.contains("\n  \(command)"), "support command should be hidden: \(command)")
+            XCTAssertFalse(helpShowsCommand(command, in: helpLines), "support command should be hidden: \(command)")
+        }
+        for command in ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit"] {
+            XCTAssertFalse(helpShowsCommand(command, in: helpLines), "advanced manage command should be hidden: \(command)")
         }
         #if os(macOS)
         XCTAssertTrue(output.contains("\n  background"), "background command should be present on macOS")
@@ -22,6 +26,12 @@ final class DocumentationSnapshotTests: XCTestCase {
         #endif
         for section in ["SETUP SUBCOMMANDS:", "CHECK & UPDATE SUBCOMMANDS:", "MANAGE SUBCOMMANDS:", "SYSTEM SUBCOMMANDS:"] {
             XCTAssertTrue(output.contains(section), "missing section \(section)")
+        }
+    }
+
+    private func helpShowsCommand(_ command: String, in lines: [String]) -> Bool {
+        lines.contains { line in
+            line == "  \(command)" || line.hasPrefix("  \(command) ")
         }
     }
 
