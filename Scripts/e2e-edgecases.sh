@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
 
 UPDATEBAR_BIN="${UPDATEBAR_BIN:-}"
 RUNNER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-updatebar.sh"
