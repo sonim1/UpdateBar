@@ -70,6 +70,13 @@ enum UpdateBarMain {
                 terminate(processExitCode(for: exitCode))
             }
             let exitCode = UpdateBar.exitCode(for: error)
+            if exitCode == .success {
+                let message = sanitizedErrorMessage(for: error)
+                if !message.isEmpty {
+                    writeStdout(message)
+                }
+                terminate(0)
+            }
             if requestedJSONOutput(arguments),
                 !JSONOutputTracker.shared.didWrite
             {
@@ -1025,6 +1032,11 @@ private func sanitizedErrorMessage(for error: Error) -> String {
 private func writeStderr(_ message: String, addNewline: Bool = true) {
     let value = addNewline ? "\(message)\n" : message
     FileHandle.standardError.write(Data(SecretRedactor.redact(value).utf8))
+}
+
+private func writeStdout(_ message: String, addNewline: Bool = true) {
+    let value = addNewline ? "\(message)\n" : message
+    FileHandle.standardOutput.write(Data(SecretRedactor.redact(value).utf8))
 }
 
 private func writePrompt(_ prompt: String, trailingSpace: Bool = true) {

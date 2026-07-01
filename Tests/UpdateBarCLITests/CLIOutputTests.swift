@@ -104,8 +104,9 @@ final class CLIOutputTests: XCTestCase {
         let result = try CLIProcess.run(["--version"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
         XCTAssertEqual(
-            (result.stdout + result.stderr).trimmingCharacters(in: .whitespacesAndNewlines),
+            result.stdout.trimmingCharacters(in: .whitespacesAndNewlines),
             expected
         )
     }

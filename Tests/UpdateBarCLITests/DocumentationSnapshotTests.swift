@@ -5,9 +5,10 @@ final class DocumentationSnapshotTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 
         let result = try CLIProcess.run(["--help"], home: home)
-        let output = result.stdout + result.stderr
+        let output = result.stdout
 
         XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
         for command in ["add", "init", "scan", "check", "status", "update", "approve", "revoke"] {
             XCTAssertTrue(output.contains(command), "missing \(command)")
         }
@@ -41,10 +42,21 @@ final class DocumentationSnapshotTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 
         let result = try CLIProcess.run(["update", "--help"], home: home)
-        let output = result.stdout + result.stderr
+        let output = result.stdout
 
         XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
         XCTAssertTrue(output.contains("--yes"))
         XCTAssertTrue(output.contains("--json"))
+    }
+
+    func testCompletionScriptWritesToStdoutOnly() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        let result = try CLIProcess.run(["--generate-completion-script", "bash"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("complete -o filenames -F _updatebar updatebar"))
     }
 }
