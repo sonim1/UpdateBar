@@ -38,6 +38,24 @@ final class ExecutionPolicyTests: XCTestCase {
         }
     }
 
+    func testCommandExecutorCancelsRunningCommand() {
+        let token = CancellationToken()
+        let executor = CommandExecutor(cancellationToken: token)
+
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
+            token.cancel()
+        }
+
+        XCTAssertThrowsError(
+            try executor.run(
+                ShellCommand(command: "sleep 5", cwd: nil),
+                policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 1024)
+            )
+        ) { error in
+            XCTAssertEqual(error as? ExecutionError, .cancelled(command: "sleep 5"))
+        }
+    }
+
     func testCommandExecutorScrubsProviderSecretsFromEnvironment() throws {
         let executor = CommandExecutor(environment: ["OPENROUTER_API_KEY": "sk-or-v1-secret", "SAFE": "ok"])
         let result = try executor.run(

@@ -1,4 +1,9 @@
 import Foundation
+#if os(Linux)
+import Glibc
+#else
+import Darwin
+#endif
 
 public protocol CommandRunning {
     func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult
@@ -63,16 +68,14 @@ public struct CommandExecutor: CommandRunning {
         let deadline = Date().addingTimeInterval(policy.timeout)
         while process.isRunning && Date() < deadline {
             if cancellationToken?.isCancelled == true {
-                process.terminate()
-                process.waitUntilExit()
+                stopProcess(process)
                 _ = readersFinished.wait(timeout: .now() + 2)
                 throw ExecutionError.cancelled(command: command.command)
             }
             Thread.sleep(forTimeInterval: 0.01)
         }
         if process.isRunning {
-            process.terminate()
-            process.waitUntilExit()
+            stopProcess(process)
             _ = readersFinished.wait(timeout: .now() + 2)
             throw ExecutionError.timedOut(command: command.command)
         }
@@ -89,6 +92,27 @@ public struct CommandExecutor: CommandRunning {
     private func scrubbedEnvironment() -> [String: String] {
         let allowedKeys = Set(["PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "USER"])
         return environment.filter { allowedKeys.contains($0.key) }
+    }
+
+    private func stopProcess(_ process: Process) {
+        guard process.isRunning else { return }
+
+        process.interrupt()
+        if waitForExit(process, timeout: 0.5) { return }
+
+        process.terminate()
+        if waitForExit(process, timeout: 1.0) { return }
+
+        kill(process.processIdentifier, SIGKILL)
+        _ = waitForExit(process, timeout: 1.0)
+    }
+
+    private func waitForExit(_ process: Process, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        return !process.isRunning
     }
 
     private static func drain(_ handle: FileHandle, into output: LockedData) {
