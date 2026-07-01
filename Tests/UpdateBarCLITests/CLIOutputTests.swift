@@ -155,6 +155,30 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertFalse(payload.errors.isEmpty)
     }
 
+    func testStatusWithJSONEqualsProducesErrorEnvelope() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["status", "--json=true"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stdout.contains("\"ok\":false"))
+        let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertTrue(payload.errors.first?.contains("does not take any value") == true)
+        XCTAssertTrue(result.stderr.isEmpty)
+    }
+
+    func testStatusWithJSONStreamEqualsProducesErrorEnvelope() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["status", "--json-stream=true"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertEqual(payload.code, "usage_error")
+    }
+
     func testJSONErrorRedactsSecretLikePathFragments() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
         let secret = "sk-or-v1-super-secret-value"
