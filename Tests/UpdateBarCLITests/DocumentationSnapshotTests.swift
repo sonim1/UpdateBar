@@ -1,14 +1,20 @@
 import XCTest
 
 final class DocumentationSnapshotTests: XCTestCase {
-    func testRootHelpListsAgentContractCommands() throws {
+    func testRootHelpShowsPrimaryWorkflowCommandsOnly() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 
         let result = try CLIProcess.run(["--help"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
-        for command in ["guide", "schema", "template", "validate", "approve", "revoke"] {
+        for command in ["add", "init", "scan", "check", "status", "update", "approve", "revoke"] {
             XCTAssertTrue(result.stdout.contains(command), "missing \(command)")
+        }
+        for command in ["guide", "schema", "template", "validate", "version"] {
+            XCTAssertFalse(result.stdout.contains("\n  \(command)"), "support command should be hidden: \(command)")
+        }
+        for section in ["SETUP SUBCOMMANDS:", "CHECK & UPDATE SUBCOMMANDS:", "MANAGE SUBCOMMANDS:", "SYSTEM SUBCOMMANDS:"] {
+            XCTAssertTrue(result.stdout.contains(section), "missing section \(section)")
         }
     }
 

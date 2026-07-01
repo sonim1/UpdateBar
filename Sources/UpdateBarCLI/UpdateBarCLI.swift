@@ -11,32 +11,42 @@ struct UpdateBar: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "updatebar",
         abstract: "Track and update arbitrary registered tools.",
-        subcommands: [
-            AddCommand.self,
-            ApprovalCommand.self,
-            ApprovalsCommand.self,
-            BackgroundCommand.self,
-            CheckCommand.self,
-            ConfigCommand.self,
-            DisableCommand.self,
-            EditCommand.self,
-            EnableCommand.self,
-            ExportCommand.self,
-            GuideCommand.self,
-            ImportCommand.self,
-            InitCommand.self,
-            ListCommand.self,
-            PinCommand.self,
-            RemoveCommand.self,
-            RevokeCommand.self,
-            ScanCommand.self,
-            SchemaCommand.self,
-            StatusCommand.self,
-            TemplateCommand.self,
-            UnpinCommand.self,
-            UpdateCommand.self,
-            ValidateCommand.self,
-            VersionCommand.self,
+        groupedSubcommands: [
+            CommandGroup(name: "Setup", subcommands: [
+                InitCommand.self,
+                ScanCommand.self,
+                AddCommand.self,
+                ImportCommand.self,
+                ExportCommand.self,
+            ]),
+            CommandGroup(name: "Check & Update", subcommands: [
+                StatusCommand.self,
+                CheckCommand.self,
+                UpdateCommand.self,
+                ListCommand.self,
+            ]),
+            CommandGroup(name: "Manage", subcommands: [
+                ApprovalCommand.self,
+                ApprovalsCommand.self,
+                RevokeCommand.self,
+                PinCommand.self,
+                UnpinCommand.self,
+                EnableCommand.self,
+                DisableCommand.self,
+                RemoveCommand.self,
+                EditCommand.self,
+            ]),
+            CommandGroup(name: "System", subcommands: [
+                ConfigCommand.self,
+                BackgroundCommand.self,
+                VersionCommand.self,
+            ]),
+            CommandGroup(name: "Support", subcommands: [
+                GuideCommand.self,
+                SchemaCommand.self,
+                TemplateCommand.self,
+                ValidateCommand.self,
+            ]),
         ]
     )
 }
@@ -122,7 +132,7 @@ private struct ErrorEnvelope: Encodable {
 }
 
 struct VersionCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "version")
+    static let configuration = CommandConfiguration(commandName: "version", shouldDisplay: false)
 
     @Flag(name: .long)
     var json = false
@@ -615,7 +625,7 @@ private struct BackgroundUninstallPayload: Encodable {
 }
 
 struct ValidateCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "validate")
+    static let configuration = CommandConfiguration(commandName: "validate", shouldDisplay: false)
 
     @Argument(help: "Manifest file to validate.")
     var file: String
@@ -877,6 +887,7 @@ private func readInputData(_ path: String) throws -> Data {
 struct GuideCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "guide",
+        shouldDisplay: false,
         subcommands: [Agent.self, Recipe.self]
     )
 
@@ -948,7 +959,7 @@ struct GuideCommand: ParsableCommand {
 }
 
 struct SchemaCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "schema")
+    static let configuration = CommandConfiguration(commandName: "schema", shouldDisplay: false)
 
     @Flag(name: .long)
     var json = false
@@ -1048,6 +1059,7 @@ struct SchemaCommand: ParsableCommand {
 struct TemplateCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "template",
+        shouldDisplay: false,
         subcommands: [RecipeTemplate.self, ManifestTemplate.self]
     )
 
