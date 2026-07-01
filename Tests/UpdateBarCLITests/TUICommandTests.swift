@@ -62,6 +62,19 @@ echo "override:$UPDATEBAR_BIN"
         XCTAssertTrue(result.stderr.contains("Could not locate updatebar-tui."))
     }
 
+    func testTUICommandRejectsInvalidExplicitPath() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-tui-tests")
+
+        let result = try CLIProcess.run(
+            ["tui"],
+            home: home,
+            environment: ["UPDATEBAR_TUI": home.path + "/missing-binary"]
+        )
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("UPDATEBAR_TUI is set to a non-existent executable"))
+    }
+
     private func writeExecutable(_ url: URL, _ body: String) throws {
         try body.write(to: url, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)

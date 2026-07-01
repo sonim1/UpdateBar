@@ -16,8 +16,11 @@ UPDATEBAR_BIN=../.build/debug/updatebar npm start
 npm install
 npm run build
 npm link
-UPDATEBAR_BIN=/full/path/to/updatebar updatebar-tui
+UPDATEBAR_BIN=/full/path/to/updatebar updatebar tui
 ```
+
+`updatebar-tui` continues to be supported for environments where only the
+standalone TUI binary is available.
 
 The TUI calls the Swift CLI through JSON/JSONL contracts. It does not import
 Swift libraries.

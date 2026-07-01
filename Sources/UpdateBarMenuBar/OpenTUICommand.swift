@@ -14,11 +14,16 @@ public struct OpenTUICommand: Equatable, Sendable {
             updateBarHome.map { "export UPDATEBAR_HOME=\(Self.shellQuote($0))" },
         ].compactMap { $0 }
         let quotedCommand = Self.shellQuote(tuiCommand)
+        let fallbackPrompt = "\(tuiCommand) not found on PATH"
+        let fallbackHowToMessage = "Run 'updatebar tui' from this shell to set UPDATEBAR_BIN automatically."
         let launch = [
-            "if command -v \(quotedCommand) >/dev/null 2>&1",
+            "if [ -x \"$UPDATEBAR_BIN\" ]",
+            "then exec \"$UPDATEBAR_BIN\" tui",
+            "elif command -v \(quotedCommand) >/dev/null 2>&1",
             "then exec \(quotedCommand)",
-            "else printf '%s\\n' \(Self.shellQuote("\(tuiCommand) not found on PATH"))",
+            "else printf '%s\\n' \(Self.shellQuote(fallbackPrompt))",
             "printf '%s\\n' \(Self.shellQuote("Build the TUI in the UpdateBar tui directory, then run npm link."))",
+            "printf '%s\\n' \(Self.shellQuote(fallbackHowToMessage))",
             "fi",
         ]
         let script = (exports + launch).joined(separator: "; ")

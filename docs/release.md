@@ -74,8 +74,8 @@ Tagged macOS releases also upload an unsigned
 part of the CLI release.
 
 The app bundle does not currently include the Ink TUI. The `Open TUI` menu item
-launches `updatebar-tui` from the user's environment and exports `UPDATEBAR_BIN`
-to the bundled Swift CLI path.
+prefers launching `UPDATEBAR_BIN tui` when the bundled CLI is available, and
+falls back to `updatebar-tui` from the user's `PATH`.
 
 Ink TUI packaging:
 

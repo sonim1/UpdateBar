@@ -7,7 +7,7 @@ Presentation layers resolve `updatebar` using the order in
 an executable Swift CLI path:
 
 ```bash
-UPDATEBAR_BIN=/full/path/to/updatebar updatebar-tui
+UPDATEBAR_BIN=/full/path/to/updatebar updatebar tui
 ```
 
 The legacy `UPDATEBAR_CLI` variable is deprecated and retained only for
@@ -44,13 +44,14 @@ tail -n 80 /tmp/updatebar-menubar.log
 ```
 
 If Open TUI is available but not launching, check `UPDATEBAR_BIN` and that a TUI
-binary (`updatebar-tui` or equivalent) is on `PATH`.
+binary (`updatebar` CLI + `tui`, or legacy `updatebar-tui`) is on `PATH`.
 
 ## Open TUI Does Nothing
 
-The Menu Bar app opens Terminal and runs `updatebar-tui` with `UPDATEBAR_BIN`
-exported. If `updatebar-tui` is missing, the Terminal window prints a setup
-message. Build and link the TUI so it is available on `PATH`:
+The Menu Bar app opens Terminal and runs `UPDATEBAR_BIN tui` with `UPDATEBAR_BIN`
+exported. If that path is unavailable, it falls back to `updatebar-tui` on
+`PATH` with a setup message. Build and link the TUI so it is available on
+`PATH`:
 
 ```bash
 cd tui
