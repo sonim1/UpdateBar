@@ -18,6 +18,16 @@ Scripts/package-app.sh
 open dist/UpdateBar.app
 ```
 
+Install the published unsigned app with Homebrew:
+
+```bash
+brew tap sonim1/tap
+brew install --cask sonim1/tap/updatebar-app
+```
+
+The `updatebar-app` cask installs only `UpdateBar.app`. Install the CLI separately
+with `brew install sonim1/tap/updatebar`.
+
 For development without packaging:
 
 ```bash
@@ -32,8 +42,9 @@ Use the fallback adapter explicitly:
 UPDATEBAR_MENUBAR_ADAPTER=cli UPDATEBAR_BIN=.build/debug/updatebar .build/debug/updatebar-menubar
 ```
 
-The local app is intentionally unsigned. Developer ID signing, notarization,
-stapling, and the Homebrew cask are deferred until the Apple Developer Program
+The app is currently unsigned. If macOS blocks the first launch, Control-click
+`UpdateBar.app` in Finder, choose Open, then confirm Open. Developer ID signing,
+notarization, and stapling are deferred until the Apple Developer Program
 go/no-go decision.
 
 Troubleshooting a missing icon:
