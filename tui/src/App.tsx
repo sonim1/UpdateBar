@@ -468,6 +468,7 @@ function checkSummaryLines(report: CheckReport) {
   }
 
   appendItemSample(lines, report, 'outdated');
+  appendItemSample(lines, report, 'error');
   appendItemSample(lines, report, 'differs');
 
   return lines;

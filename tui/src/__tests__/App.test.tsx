@@ -468,13 +468,22 @@ describe('App', () => {
               current: '1.0.0',
               latest: '1.0.0',
               last_checked: '2026-06-30T00:00:00Z'
+            },
+            {
+              id: 'broken.tool',
+              name: 'broken-tool',
+              status: 'error',
+              current: '1.0.0',
+              latest: '2.0.0',
+              last_checked: '2026-06-30T00:00:00Z',
+              error: 'failed'
             }
           ],
           summary: {
-            total: 3,
+            total: 4,
             outdated: 1,
             differs: 1,
-            errors: 0,
+            errors: 1,
             untrusted: 0,
             disabled: 0,
             pinned: 1
@@ -490,13 +499,14 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await wait();
     view.stdin.write('\r');
-    await waitForFrame(view, 'checked 3 items');
+    await waitForFrame(view, 'checked 4 items');
 
     expect(view.lastFrame()).toContain('outdated: 1');
     expect(view.lastFrame()).toContain('differs: 1');
+    expect(view.lastFrame()).toContain('errors: 1');
     expect(view.lastFrame()).toContain('pinned: 1');
     expect(view.lastFrame()).toContain('differs sample: local-tool');
-    expect(view.lastFrame()).not.toContain('errors: 0');
+    expect(view.lastFrame()).toContain('error sample: broken-tool');
   });
 
   it('hides zero check summary counts', async () => {
