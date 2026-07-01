@@ -84,6 +84,20 @@ final class ExportImportCommandTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder.updateBar.decode(Manifest.self, from: Data(jsonResult.stdout.utf8)).items.count, 1)
     }
 
+    func testExportWithJSONDisallowsFileOutputPath() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-export-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "tool")]))
+        let output = home.appendingPathComponent("exported.json")
+
+        let result = try CLIProcess.run(["export", output.path, "--json"], home: home)
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: output.path))
+        let combined = result.stdout + result.stderr
+        XCTAssertTrue(combined.contains("export --json does not accept a file argument."))
+    }
+
     private func writeImportManifest(home: URL, items: [Recipe]) throws -> URL {
         let file = home.appendingPathComponent("import.json")
         try JSONEncoder.updateBar.encode(manifest(items: items)).write(to: file)

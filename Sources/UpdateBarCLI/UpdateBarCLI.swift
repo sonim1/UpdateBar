@@ -162,6 +162,12 @@ struct TUICommand: ParsableCommand {
 
     private func resolveTUICommand() throws -> String {
         let environment = ProcessInfo.processInfo.environment
+        if let override = environment["UPDATEBAR_TUI"], !override.isEmpty {
+            if explicitExecutablePath(override) != nil {
+                return override
+            }
+            throw ValidationError("UPDATEBAR_TUI is not executable: \(override)")
+        }
         if let resolved = commandFromPath(name: "updatebar-tui", environment: environment) {
             return resolved
         }
@@ -1792,6 +1798,9 @@ struct ExportCommand: ParsableCommand {
 
     func run() throws {
         let manifest = try RegistryService().exportManifest()
+        if json, file != nil {
+            throw ValidationError("export --json does not accept a file argument.")
+        }
         if json {
             try printJSON(manifest)
             return
