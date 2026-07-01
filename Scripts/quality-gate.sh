@@ -48,11 +48,13 @@ else
 fi
 
 if [[ "$SKIP_MENUBAR_SMOKE" != "1" ]]; then
-  if [[ "$(uname -s)" == "Darwin" && -x dist/UpdateBar.app/Contents/MacOS/UpdateBar ]]; then
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    echo "packaging menu bar app"
+    UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE=1 bash Scripts/package-app.sh >/dev/null
     echo "running menubar smoke test"
     bash Scripts/menubar-smoke-test.sh dist/UpdateBar.app
   else
-    echo "skipping menubar smoke (app not packaged)"
+    echo "skipping menubar smoke on non-macOS"
   fi
 fi
 
