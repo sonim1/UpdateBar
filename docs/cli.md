@@ -13,6 +13,17 @@ Exit codes:
 Prints the installed CLI version and exits with code `0`.
 
 Machine-readable commands print JSON or JSONL to stdout. Human warnings and errors go to stderr.
+`--json` and `--json-stream` accept explicit forms for easier shell composition:
+
+```bash
+updatebar check --json true
+updatebar update --json false
+updatebar check --json=true
+updatebar update --json=false
+```
+
+`true`/`false`, `1`/`0`, `t`/`f`, `yes`/`no`, and `on`/`off` are supported for these forms.
+
 When `--json` is present and a command fails before writing its own JSON payload,
 the CLI returns an error envelope:
 

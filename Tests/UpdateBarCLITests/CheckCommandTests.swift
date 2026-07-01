@@ -66,6 +66,18 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertEqual(events.last?.checkSummary?.outdated, 1)
     }
 
+    func testCheckWithJSONSpaceSeparatedFalseFallsBackToHumanMode() throws {
+        let home = try temporaryDirectory()
+        try saveManifest(home: home)
+
+        let result = try CLIProcess.run(["check", "--json", "false"], home: home)
+
+        XCTAssertEqual(result.exitCode, 10)
+        XCTAssertTrue(result.stderr.isEmpty)
+        XCTAssertTrue(result.stdout.contains("fixture-tool"))
+        XCTAssertFalse(result.stdout.contains("\"id\""))
+    }
+
     func testCheckRejectsJSONAndJSONStreamTogether() throws {
         let home = try temporaryDirectory()
         try saveManifest(home: home)
