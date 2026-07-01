@@ -61,7 +61,7 @@ final class CLIOutputTests: XCTestCase {
         let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
         XCTAssertEqual(results.map(\.outcome), [.failed])
         XCTAssertFalse(result.stdout.contains(secret))
-        XCTAssertNil(results.first?.error.flatMap { $0.range(of: secret) != nil ? $0.range(of: secret) : nil })
+        XCTAssertFalse(results.first?.error?.contains(secret) ?? false)
     }
 
     private func manifest(_ items: [Recipe]) -> Manifest {
