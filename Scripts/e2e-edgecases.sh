@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SWIFT_BIN="${SWIFT_BIN:-swift}"
 UPDATEBAR_BIN="${UPDATEBAR_BIN:-}"
+RUNNER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-updatebar.sh"
 CREATED_TMP_HOME=0
 if [[ -z "${TMP_HOME:-}" ]]; then
   TMP_HOME="$(mktemp -d)"
@@ -16,16 +16,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [[ -n "$UPDATEBAR_BIN" ]]; then
-  if [[ ! -x "$UPDATEBAR_BIN" ]]; then
-    echo "UPDATEBAR_BIN is not executable: $UPDATEBAR_BIN" >&2
-    exit 1
-  fi
-  RUNNER=("$UPDATEBAR_BIN")
-else
-  RUNNER=("$SWIFT_BIN" run updatebar)
-fi
-
 run_case() {
   local name="$1"
   local expected_rc="$2"
@@ -34,7 +24,7 @@ run_case() {
 
   printf "\n[CASE] %s\n" "$name"
   set +e
-  output=$({ "${RUNNER[@]}" "$@" 2>&1; })
+  output=$({ "$RUNNER" "$@" 2>&1; })
   rc=$?
   set -e
   printf "%s\n" "$output"
@@ -90,7 +80,7 @@ run_case_empty_home() {
 
   printf "\n[CASE] %s\n" "$name"
   set +e
-  output=$({ HOME="$TMP_HOME" "${RUNNER[@]}" "$@" 2>&1; })
+  output=$({ HOME="$TMP_HOME" "$RUNNER" "$@" 2>&1; })
   rc=$?
   set -e
   printf "%s\n" "$output"

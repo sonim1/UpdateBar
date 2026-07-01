@@ -5,16 +5,7 @@ TMP_HOME="$(mktemp -d)"
 trap 'rm -rf "$TMP_HOME"' EXIT
 export UPDATEBAR_HOME="$TMP_HOME"
 
-SWIFT_BIN="${SWIFT_BIN:-swift}"
-
-RUNNER=("$SWIFT_BIN" run updatebar)
-if [[ -n "${UPDATEBAR_BIN:-}" ]]; then
-  if [[ ! -x "$UPDATEBAR_BIN" ]]; then
-    echo "UPDATEBAR_BIN is not executable: $UPDATEBAR_BIN" >&2
-    exit 1
-  fi
-  RUNNER=("$UPDATEBAR_BIN")
-fi
+RUNNER=( "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-updatebar.sh" )
 
 run_updatebar() {
   local args=("$@")
