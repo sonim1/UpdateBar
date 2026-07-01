@@ -20,6 +20,8 @@ describe('CLIUpdateBarClient', () => {
     const status = await client.status();
 
     expect(status.summary.outdated).toBe(1);
+    expect(status.summary.untrusted).toBe(0);
+    expect(status.summary.pinned).toBe(0);
     expect(runner.calls[0]).toEqual(['status', '--json', '--exit-zero-on-outdated']);
   });
 

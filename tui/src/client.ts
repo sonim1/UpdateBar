@@ -76,7 +76,7 @@ export class CLIUpdateBarClient implements UpdateBarClient {
   async status(): Promise<StatusSnapshot> {
     const result = await this.runner.run(['status', '--json', '--exit-zero-on-outdated']);
     ensureExit(result, [0, 10]);
-    return JSON.parse(result.stdout) as StatusSnapshot;
+    return normalizeStatusSnapshot(JSON.parse(result.stdout) as StatusSnapshot);
   }
 
   async scan(options: RunOptions = {}): Promise<ScanReport> {
@@ -184,6 +184,17 @@ function parseJSON<T>(payload: string): T {
   } catch {
     throw new Error('updatebar check returned invalid JSON');
   }
+}
+
+function normalizeStatusSnapshot(snapshot: StatusSnapshot): StatusSnapshot {
+  return {
+    ...snapshot,
+    summary: {
+      ...snapshot.summary,
+      untrusted: snapshot.summary.untrusted ?? 0,
+      pinned: snapshot.summary.pinned ?? 0
+    }
+  };
 }
 
 function summarizeCheck(results: CheckResult[]): CheckSummary {
