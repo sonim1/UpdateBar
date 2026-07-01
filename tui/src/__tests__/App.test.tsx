@@ -4,7 +4,7 @@ import {render as renderInk} from 'ink';
 import {render} from 'ink-testing-library';
 import {describe, expect, it} from 'vitest';
 import {App} from '../App.js';
-import type {UpdateBarClient} from '../client.js';
+import type {CommandResult, StreamOptions, UpdateBarClient} from '../client.js';
 
 describe('App', () => {
   it('renders status summary from the client', async () => {
@@ -201,6 +201,34 @@ describe('App', () => {
     await new Promise(resolve => setTimeout(resolve, 20));
 
     expect(aborted).toBe(true);
+  });
+
+  it('shows a friendly message when update cancellation rejects', async () => {
+    const client = createClient({
+      async updateAll(options: StreamOptions): Promise<CommandResult> {
+        return new Promise((_resolve, reject) => {
+          options.signal?.addEventListener('abort', () => {
+            reject(new Error('exit 1'));
+          });
+        });
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\r');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('c');
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(view.lastFrame()).toContain('update cancelled');
+    expect(view.lastFrame()).not.toContain('exit 1');
   });
 
   it('renders without raw mode when stdin has no TTY support', async () => {

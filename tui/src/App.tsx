@@ -194,7 +194,7 @@ export function App({client: providedClient}: AppProps) {
       });
       await refreshStatus(activeClient, setStatus, setError);
     } catch (caught) {
-      setError(messageFor(caught));
+      setError(controller.signal.aborted ? 'update cancelled' : messageFor(caught));
     } finally {
       setAbortController(undefined);
       setScreen('logs');
