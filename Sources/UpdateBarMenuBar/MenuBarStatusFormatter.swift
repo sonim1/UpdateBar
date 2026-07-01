@@ -36,11 +36,22 @@ public struct MenuBarState: Equatable {
 public struct MenuBarStatusFormatter: Sendable {
     public init() {}
 
-    public func makeState(from snapshot: StatusSnapshot) -> MenuBarState {
-        let outdated = snapshot.items.filter { $0.status == .outdated }
-        let approvals = snapshot.items.filter { $0.status == .untrusted }
+    public func makeState(
+        from snapshot: StatusSnapshot,
+        approvalsByItemID: [String: [CommandApprovalStatus]] = [:]
+    ) -> MenuBarState {
+        let approvals = snapshot.items.filter { item in
+            if let approvalStatuses = approvalsByItemID[item.id] {
+                return approvalStatuses.contains { !$0.approved }
+            }
+            return item.status == .untrusted
+        }
+        let approvalIDs = Set(approvals.map(\.id))
+        let outdated = snapshot.items.filter {
+            $0.status == .outdated && !approvalIDs.contains($0.id)
+        }
         let errors = snapshot.items.filter { $0.status == .error }
-        let ok = snapshot.items.filter { $0.status == .ok }
+        let ok = snapshot.items.filter { $0.status == .ok && !approvalIDs.contains($0.id) }
         let updateCount = outdated.count
         let needsAttention = !approvals.isEmpty || !errors.isEmpty
 

@@ -69,6 +69,40 @@ final class MenuBarStatusFormatterTests: XCTestCase {
         XCTAssertEqual(state.needsAttentionCount, 2)
     }
 
+    func testApprovalStatusesRecomputeAttentionBadgeWhenSnapshotLooksFresh() throws {
+        let snapshot = try decodeSnapshot(
+            """
+            {
+              "generated_at": "2026-06-10T00:00:00Z",
+              "summary": { "total": 1, "outdated": 0, "errors": 0 },
+              "items": [
+                { "id": "fresh", "name": "Fresh Tool", "category": "cli", "current": "2.0.0", "latest": "2.0.0", "status": "ok", "pinned": false }
+              ]
+            }
+            """
+        )
+        let approvals = [
+            "fresh": [
+                CommandApprovalStatus(
+                    field: "update.cmd",
+                    approved: false,
+                    fingerprint: "abc",
+                    command: "fresh update",
+                    cwd: nil)
+            ]
+        ]
+
+        let state = MenuBarStatusFormatter().makeState(
+            from: snapshot,
+            approvalsByItemID: approvals)
+
+        XCTAssertEqual(state.title, "Needs attention")
+        XCTAssertEqual(state.badgeValue, "!")
+        XCTAssertEqual(state.approvalItems.map(\.id), ["fresh"])
+        XCTAssertEqual(state.okItems.map(\.id), [])
+        XCTAssertEqual(state.needsAttentionCount, 1)
+    }
+
     private func decodeSnapshot(_ json: String) throws -> StatusSnapshot {
         try JSONDecoder.updateBar.decode(StatusSnapshot.self, from: Data(json.utf8))
     }
