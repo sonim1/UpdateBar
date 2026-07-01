@@ -136,6 +136,8 @@ Lists manifest items without mutating state.
 ### `updatebar update [id...|--all] [--yes] [--json|--json-stream]`
 
 Runs approved update commands for outdated items. Returns `2` if any selected update fails.
+In machine-readable mode (`--json` or `--json-stream`), prompts are suppressed;
+omit `--yes` to skip execution and receive a `.cancelled` outcome.
 
 ### `updatebar approve <id> [--field <command-field>] [--json]`
 
