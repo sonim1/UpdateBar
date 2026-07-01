@@ -69,7 +69,7 @@ enum UpdateBarMain {
                 terminate(processExitCode(for: exitCode))
             }
             let exitCode = UpdateBar.exitCode(for: error)
-            if CommandLine.arguments.contains("--json") || CommandLine.arguments.contains("--json-stream"),
+            if requestedJSONOutput(CommandLine.arguments),
                 !JSONOutputTracker.shared.didWrite
             {
                 writeJSONError(error, code: exitCode)
@@ -81,6 +81,11 @@ enum UpdateBarMain {
             }
             terminate(processExitCode(for: exitCode))
         }
+    }
+
+    private static func requestedJSONOutput(_ arguments: [String]) -> Bool {
+        arguments.contains("--json") || arguments.contains("--json-stream")
+            || arguments.contains(where: { $0.hasPrefix("--json=") || $0.hasPrefix("--json-stream=") })
     }
 
     private static func writeJSONError(_ error: Error, code exitCode: ExitCode) {

@@ -131,6 +131,30 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertFalse(payload.errors.isEmpty)
     }
 
+    func testUnknownCommandWithJSONEqualsReturnsErrorEnvelope() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["not-a-command", "--json=true"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertFalse(payload.errors.isEmpty)
+    }
+
+    func testUnknownCommandWithJSONStreamEqualsReturnsErrorEnvelope() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["not-a-command", "--json-stream=true"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertFalse(payload.errors.isEmpty)
+    }
+
     func testJSONErrorRedactsSecretLikePathFragments() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
         let secret = "sk-or-v1-super-secret-value"
