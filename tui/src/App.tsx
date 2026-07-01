@@ -145,7 +145,7 @@ export function App({client: providedClient}: AppProps) {
       setScreen('logs');
       setLogs([
         `config path: ${getConfigPath()}`,
-        'open this file in your editor to review provider defaults and overrides'
+        'open this file in your editor to inspect configuration'
       ]);
     } else if (selected === 'View Logs') {
       setScreen('logs');
