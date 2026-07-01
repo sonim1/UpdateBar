@@ -37,7 +37,7 @@ Scripts/install-local.sh
 ### Install from GitHub (single command)
 
 ```bash
-OS=$(uname -s); CPU=$(uname -m); case "$OS/$CPU" in Darwin/arm64|Darwin/aarch64) PLATFORM=macos; ARCH=arm64 ;; Linux/x86_64|Linux/amd64) PLATFORM=linux; ARCH=x86_64 ;; *) echo "No prebuilt UpdateBar archive for $OS/$CPU; build from source instead." >&2; exit 1 ;; esac; URL=$(curl -fsSL https://api.github.com/repos/sonim1/UpdateBar/releases | awk -F'\"' -v platform="$PLATFORM" -v arch="$ARCH" '$2=="browser_download_url" && $4 ~ "/updatebar-[0-9][^\"]*-" platform "-" arch "\\.tar\\.gz$" { print $4; exit }'); test -n "$URL" || { echo "No CLI archive found for $PLATFORM/$ARCH; build from source instead." >&2; exit 1; }; TMP_DIR=$(mktemp -d); trap 'rm -rf "$TMP_DIR"' EXIT; mkdir -p "$TMP_DIR/dist"; ARCHIVE=$(basename "$URL"); curl -fsSL -o "$TMP_DIR/dist/$ARCHIVE" "$URL" && curl -fsSL -o "$TMP_DIR/dist/$ARCHIVE.sha256" "$URL.sha256" && (cd "$TMP_DIR" && { if command -v shasum >/dev/null 2>&1; then shasum -a 256 -c "dist/$ARCHIVE.sha256"; else sha256sum -c "dist/$ARCHIVE.sha256"; fi; }) && tar -xzf "$TMP_DIR/dist/$ARCHIVE" -C "$TMP_DIR" && sudo install -m 755 "$TMP_DIR/updatebar" /usr/local/bin/updatebar && updatebar version --json
+bash Scripts/install-release.sh
 ```
 
 Published prebuilt CLI archives currently cover Apple Silicon macOS and Linux
