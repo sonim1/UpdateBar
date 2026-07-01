@@ -11,8 +11,10 @@ npm --prefix tui test
 npm --prefix tui run typecheck
 npm --prefix tui run lint
 bash Scripts/smoke-test.sh
+rm -f dist/*.tar.gz dist/*.sha256
 Scripts/build-release.sh
 bash Scripts/archive-smoke-test.sh
+bash Scripts/homebrew-packaging-test.sh
 Scripts/package-app.sh
 ```
 
@@ -84,14 +86,17 @@ Scripts/tui-smoke-test.sh
 Release identity:
 
 - GitHub repo slug: `sonim1/UpdateBar`.
-- Published `v0.1.0` prebuilt archives currently cover Apple Silicon macOS. The
-  tag workflow targets Apple Silicon macOS and Linux x86_64 for the next release.
+- Published `v0.2.0` prebuilt CLI archives cover Apple Silicon macOS and Linux
+  x86_64. Release tags also publish an unsigned Apple Silicon macOS app archive.
 - Homebrew tap target: `sonim1/homebrew-tap`.
 - Formula source lives in `Packaging/homebrew/updatebar.rb`; copy it to the tap as
   `Formula/updatebar.rb` when publishing a Homebrew release. The formula SHA must
   come from the final uploaded release asset's `.sha256`, not from a later local
-  rebuild. The formula remains CLI-only; install the Ink TUI separately through
-  npm until a separate formula or cask is justified.
+  rebuild.
+- App cask source lives in `Packaging/homebrew/Casks/updatebar-app.rb`; copy it to
+  the tap as `Casks/updatebar-app.rb`. The cask installs `UpdateBar.app` only and
+  must not link the bundled CLI. The CLI remains owned by the `updatebar` formula.
+- Install the Ink TUI separately through npm until a dedicated formula is justified.
 
 Before tagging:
 
@@ -104,5 +109,8 @@ Before tagging:
 - Clean source-copy release dry run passes.
 - Formula URL/version match the tag and formula SHA matches the uploaded release
   asset's `.sha256`.
+- Cask URL/version match the tag and cask SHA matches the uploaded app archive's
+  `.sha256`.
+- `bash Scripts/homebrew-packaging-test.sh` passes.
 - `updatebar status --json` remains compatible with the documented menu bar contract.
 - Recipe command errors and child environments do not expose common provider or GitHub tokens.
