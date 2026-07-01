@@ -41,13 +41,17 @@ tail -n 80 /tmp/updatebar-menubar.log
 ```
 
 If Open TUI is available but not launching, check `UPDATEBAR_BIN` and that a TUI
-binary (`updatebar` CLI + `tui`, or `updatebar-tui`) is on `PATH`.
+binary is reachable by one of:
+
+- `UPDATEBAR_TUI` environment variable (explicit executable path),
+- bundled CLI path as `UPDATEBAR_BIN` (`UPDATEBAR_BIN tui`),
+- `updatebar-tui` on `PATH`.
 
 ## Open TUI Does Nothing
 
-The Menu Bar app opens Terminal and runs `UPDATEBAR_BIN tui` with `UPDATEBAR_BIN`
-exported. If that path is unavailable, it falls back to `updatebar-tui` on
-`PATH` with a setup message. Build and link the TUI so it is available on
+The Menu Bar app opens Terminal and runs `UPDATEBAR_TUI` if set. If not set, it
+falls back to `UPDATEBAR_BIN tui`, then `updatebar-tui` on `PATH` with a setup
+message. Build and link the TUI so it is available on `PATH`:
 `PATH`:
 
 ```bash

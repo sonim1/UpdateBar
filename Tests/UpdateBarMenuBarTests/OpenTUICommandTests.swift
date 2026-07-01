@@ -27,9 +27,22 @@ final class OpenTUICommandTests: XCTestCase {
 
         let joined = command.arguments.joined(separator: " ")
         XCTAssertTrue(joined.contains("command -v"))
-        XCTAssertTrue(joined.contains("updatebar-tui not found on PATH"))
+        XCTAssertTrue(joined.contains("updatebar-tui is not available"))
         XCTAssertTrue(joined.contains("npm link"))
         XCTAssertTrue(joined.contains("Run "))
         XCTAssertTrue(joined.contains("updatebar tui"))
+    }
+
+    func testTerminalCommandPrefersUPDATEBAR_TUIWhenProvided() {
+        let command = OpenTUICommand(
+            cliPath: "/Applications/UpdateBar.app/Contents/Resources/updatebar",
+            tuiCommand: "updatebar-tui",
+            updateBarHome: "/tmp/updatebar-home",
+            tuiCommandOverride: "/opt/homebrew/bin/updatebar-tui"
+        )
+
+        let joined = command.arguments.joined(separator: " ")
+        XCTAssertTrue(joined.contains("UPDATEBAR_TUI"))
+        XCTAssertTrue(joined.contains("/opt/homebrew/bin/updatebar-tui"))
     }
 }

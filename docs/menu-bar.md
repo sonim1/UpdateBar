@@ -54,6 +54,10 @@ The app is currently unsigned. If macOS blocks the first launch, Control-click
 notarization, and stapling are deferred until the Apple Developer Program
 go/no-go decision.
 
+Tip: `Open TUI` now also honors `UPDATEBAR_TUI` when set to a concrete binary, so
+you can point menu-bar launching at a dev-installed TUI without relying on
+`PATH`.
+
 `Open Config` opens `~/.updatebar/config.toml` when it exists; if the file is not
 present, it opens the UpdateBar home directory instead.
 
