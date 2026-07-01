@@ -71,8 +71,10 @@ User-facing categories:
 - `library`: globally installed package without a clear CLI identity.
 - `local-service`: LaunchAgent, daemon, or background service.
 
-Unknown brew formulae default to `shell-utility`. Unknown npm globals default to
-`library`.
+Versioned formulae such as `node@22` or `python@3.12` are categorized by their
+base tool name. Scoped npm agent packages such as `@openai/codex` are categorized
+by their package leaf name. Unknown brew formulae default to `shell-utility`.
+Unknown npm globals default to `library`.
 
 ## Capabilities
 
