@@ -5,7 +5,6 @@ import path from 'node:path';
 export type BinarySource =
   | 'UPDATEBAR_BIN'
   | 'configured'
-  | 'UPDATEBAR_CLI'
   | 'bundled'
   | 'PATH'
   | 'development_fallback';
@@ -42,9 +41,6 @@ export async function resolveUpdateBarBinary(
 
   const configured = await explicitPath(options.configuredPath, 'configured');
   if (configured) return configured;
-
-  const legacy = await explicitPath(env.UPDATEBAR_CLI, 'UPDATEBAR_CLI');
-  if (legacy) return legacy;
 
   if (options.bundledDirectory) {
     const bundled = path.join(options.bundledDirectory, 'updatebar');

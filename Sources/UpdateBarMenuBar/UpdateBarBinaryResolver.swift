@@ -13,7 +13,6 @@ public struct UpdateBarBinaryResolution: Equatable, Sendable {
 public enum UpdateBarBinarySource: String, Equatable, Sendable {
     case updateBarBin = "UPDATEBAR_BIN"
     case configured = "configured"
-    case updateBarCLI = "UPDATEBAR_CLI"
     case bundled = "bundled"
     case path = "PATH"
     case developmentFallback = "development_fallback"
@@ -51,9 +50,6 @@ public struct UpdateBarBinaryResolver {
             return resolution
         }
         if let resolution = try explicitPath(configuredPath, source: .configured) {
-            return resolution
-        }
-        if let resolution = try explicitPath(environment["UPDATEBAR_CLI"], source: .updateBarCLI) {
             return resolution
         }
         if let bundledDirectory,

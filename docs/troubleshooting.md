@@ -10,9 +10,6 @@ an executable Swift CLI path:
 UPDATEBAR_BIN=/full/path/to/updatebar updatebar tui
 ```
 
-The legacy `UPDATEBAR_CLI` variable is deprecated and retained only for
-backward compatibility.
-
 ## Invalid JSON Or JSONL
 
 Machine-readable commands reserve stdout for JSON or JSONL only. Human errors go
@@ -44,7 +41,7 @@ tail -n 80 /tmp/updatebar-menubar.log
 ```
 
 If Open TUI is available but not launching, check `UPDATEBAR_BIN` and that a TUI
-binary (`updatebar` CLI + `tui`, or legacy `updatebar-tui`) is on `PATH`.
+binary (`updatebar` CLI + `tui`, or `updatebar-tui`) is on `PATH`.
 
 ## Open TUI Does Nothing
 

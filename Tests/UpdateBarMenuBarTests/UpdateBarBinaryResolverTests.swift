@@ -33,19 +33,6 @@ final class UpdateBarBinaryResolverTests: XCTestCase {
         XCTAssertEqual(resolution.source, .configured)
     }
 
-    func testLegacyUpdateBarCLIOverrideStillWorks() throws {
-        let root = try temporaryDirectory()
-        let legacy = try executable(at: root.appendingPathComponent("legacy-updatebar"))
-
-        let resolution = try UpdateBarBinaryResolver().resolve(
-            environment: ["UPDATEBAR_CLI": legacy.path],
-            developmentRoot: nil
-        )
-
-        XCTAssertEqual(resolution.path, legacy.path)
-        XCTAssertEqual(resolution.source, .updateBarCLI)
-    }
-
     func testBundledBinaryWinsBeforePath() throws {
         let root = try temporaryDirectory()
         let bundled = try executable(at: root.appendingPathComponent("Resources/updatebar"))

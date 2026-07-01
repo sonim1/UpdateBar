@@ -117,9 +117,6 @@ export class CLIUpdateBarClient implements UpdateBarClient {
 
 export async function createDefaultClient(): Promise<UpdateBarClient> {
   const resolution = await resolveUpdateBarBinary();
-  if (resolution.source === 'UPDATEBAR_CLI') {
-    console.warn('UPDATEBAR_CLI is deprecated; prefer UPDATEBAR_BIN');
-  }
   return new CLIUpdateBarClient(new SubprocessRunner(resolution.path));
 }
 

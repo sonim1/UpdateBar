@@ -13,15 +13,6 @@ describe('createDefaultClient', () => {
     vi.restoreAllMocks();
   });
 
-  it('warns when resolving via deprecated UPDATEBAR_CLI', async () => {
-    mockedResolve.mockResolvedValue({path: '/tmp/updatebar', source: 'UPDATEBAR_CLI'});
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    await createDefaultClient();
-
-    expect(warnSpy).toHaveBeenCalledWith('UPDATEBAR_CLI is deprecated; prefer UPDATEBAR_BIN');
-  });
-
   it('does not warn when resolving via UPDATEBAR_BIN', async () => {
     mockedResolve.mockResolvedValue({path: '/tmp/updatebar', source: 'UPDATEBAR_BIN'});
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
