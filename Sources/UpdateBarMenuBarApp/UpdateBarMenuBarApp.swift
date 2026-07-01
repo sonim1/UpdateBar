@@ -265,14 +265,10 @@
         private func showError(_ error: Error) {
             Self.debugLog("showing error: \(error)")
             setTitle("!", accessibilityLabel: "UpdateBar error")
-            let menu = NSMenu()
-            menu.addItem(disabledItem("UpdateBar Error"))
-            menu.addItem(disabledItem(String(describing: error)))
-            menu.addItem(.separator())
-            for action in MenuBarMenuAction.errorRecovery {
-                menu.addItem(menuActionItem(action))
-            }
-            statusItem.menu = menu
+            let model = menuBuilder.makeErrorMenu(
+                errorDescription: String(describing: error)
+            )
+            statusItem.menu = makeMenu(from: model)
         }
 
         private func setTitle(_ title: String, accessibilityLabel: String? = nil) {
@@ -295,10 +291,6 @@
             let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
             item.target = self
             return item
-        }
-
-        private func menuActionItem(_ action: MenuBarMenuAction) -> NSMenuItem {
-            actionItem(action.title, action: selector(for: action))
         }
 
         private func selector(for action: MenuBarMenuItemAction) -> Selector {

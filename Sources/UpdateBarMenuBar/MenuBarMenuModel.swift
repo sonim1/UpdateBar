@@ -88,6 +88,17 @@ public struct MenuBarMenuModelBuilder: Sendable {
         return MenuBarMenuModel(entries: entries)
     }
 
+    public func makeErrorMenu(errorDescription: String) -> MenuBarMenuModel {
+        var entries: [MenuBarMenuEntry] = []
+        appendDisabled("UpdateBar Error", to: &entries)
+        appendDisabled(errorDescription, to: &entries)
+        appendSeparator(to: &entries)
+        for action in MenuBarMenuAction.errorRecovery {
+            appendAction(action.title, action: .menu(action), to: &entries)
+        }
+        return MenuBarMenuModel(entries: entries)
+    }
+
     private func appendUpdates(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
         appendSection("Updates", items: items, to: &entries) { item in
             MenuBarMenuItem(
