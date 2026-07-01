@@ -15,7 +15,7 @@ cask "updatebar-app" do
   app "UpdateBar.app"
 
   caveats <<~EOS
-    UpdateBar.app is currently unsigned. If macOS blocks the first launch,
+    If macOS blocks the first launch,
     Control-click UpdateBar.app in Finder, choose Open, then confirm Open.
 
     For the updatebar CLI, install the formula:

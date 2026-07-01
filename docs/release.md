@@ -75,6 +75,15 @@ Tagged macOS releases also upload an unsigned
 `UpdateBar-<version>-macos-arm64.app.tar.gz` archive. Signing/notarization are not
 part of the CLI release.
 
+For future signed releases, `Scripts/package-app.sh` also supports optional
+environment-based signing/notarization when `UPDATEBAR_SIGN_APP=1` and
+`UPDATEBAR_NOTARIZE_APP=1` are set. Provide these when running on macOS with
+Apple tooling:
+
+- `UPDATEBAR_SIGN_IDENTITY`: Developer ID application identity string
+- `UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE`: keychain profile name for `xcrun notarytool`
+- optional `UPDATEBAR_SIGN_ENTITLEMENTS_FILE`: entitlements file path for `codesign`
+
 The app bundle does not currently include the Ink TUI. The `Open TUI` menu item
 prefers launching `UPDATEBAR_BIN tui` when the bundled CLI is available, and
 falls back to `updatebar-tui` from the user's `PATH`.
