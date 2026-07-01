@@ -20,6 +20,10 @@ bash Scripts/install-release.sh --help
 bash Scripts/verify-homebrew-metadata.sh
 ```
 
+On macOS, `Scripts/quality-gate.sh` prefers `/Applications/Xcode.app` when it is
+available so `swift test` can find `XCTest`. Set `DEVELOPER_DIR` explicitly if
+you need a different toolchain.
+
 Build a local release archive:
 
 ```bash
