@@ -38,6 +38,35 @@ describe('CLIUpdateBarClient', () => {
     expect(runner.calls[0]).toEqual(['update', '--all', '--yes', '--json-stream']);
   });
 
+  it('reads scan candidates through the Swift CLI contract', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout:
+        '{"candidates":[{"id":"brew.gh","name":"gh","detector":"brew","category":"cloud-devops","capability":"full","confidence":"high","installed_version":"2.74.0","source_ref":"gh","recipe":{}}],"errors":[]}',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    const report = await client.scan();
+
+    expect(report.candidates[0]?.id).toBe('brew.gh');
+    expect(runner.calls[0]).toEqual(['scan', '--json']);
+  });
+
+  it('registers selected scan candidates through the Swift CLI contract', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout: '{"ok":true,"added":["brew.gh"],"replaced":[],"skipped":[],"errors":[]}',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    const result = await client.initSelected(['brew.gh']);
+
+    expect(result.added).toEqual(['brew.gh']);
+    expect(runner.calls[0]).toEqual(['init', '--select', 'brew.gh', '--json']);
+  });
+
   it('cancels subprocesses with AbortSignal', async () => {
     const runner = new SubprocessRunner('/bin/sh');
     const controller = new AbortController();

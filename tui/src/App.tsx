@@ -1,9 +1,9 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Box, Text, useApp, useInput, useStdin} from 'ink';
 import {createDefaultClient, type UpdateBarClient} from './client.js';
-import type {MachineEvent, StatusSnapshot} from './types.js';
+import type {MachineEvent, ScanCandidate, ScanReport, StatusSnapshot} from './types.js';
 
-type Screen = 'menu' | 'status' | 'logs' | 'updating';
+type Screen = 'menu' | 'status' | 'logs' | 'scan' | 'updating';
 
 export interface AppProps {
   client?: UpdateBarClient;
@@ -18,10 +18,13 @@ export function App({client: providedClient}: AppProps) {
   const [menuIndex, setMenuIndex] = useState(0);
   const [status, setStatus] = useState<StatusSnapshot | undefined>();
   const [logs, setLogs] = useState<string[]>([]);
+  const [scanReport, setScanReport] = useState<ScanReport | undefined>();
+  const [scanIndex, setScanIndex] = useState(0);
+  const [selectedScanIds, setSelectedScanIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | undefined>();
   const [abortController, setAbortController] = useState<AbortController | undefined>();
   const menu = useMemo(
-    () => ['Refresh Status', 'Check Now', 'Run Updates', 'Open Config', 'View Logs', 'Quit'],
+    () => ['Refresh Status', 'Scan & Add', 'Check Now', 'Run Updates', 'Open Config', 'View Logs', 'Quit'],
     []
   );
 
@@ -53,6 +56,10 @@ export function App({client: providedClient}: AppProps) {
         abortController.abort();
         return;
       }
+      if (screen === 'scan') {
+        handleScanInput(_input, key);
+        return;
+      }
       if (key.return) {
         void runMenuAction();
       }
@@ -60,12 +67,44 @@ export function App({client: providedClient}: AppProps) {
     {isActive: canUseKeyboard}
   );
 
+  function handleScanInput(input: string, key: {upArrow: boolean; downArrow: boolean; return: boolean}) {
+    const candidates = scanReport?.candidates ?? [];
+    if (key.upArrow) {
+      setScanIndex(index => Math.max(0, index - 1));
+      return;
+    }
+    if (key.downArrow) {
+      setScanIndex(index => Math.min(Math.max(0, candidates.length - 1), index + 1));
+      return;
+    }
+    if (input === ' ') {
+      const candidate = candidates[scanIndex];
+      if (candidate && canRegister(candidate)) {
+        setSelectedScanIds(previous => {
+          const next = new Set(previous);
+          if (next.has(candidate.id)) {
+            next.delete(candidate.id);
+          } else {
+            next.add(candidate.id);
+          }
+          return next;
+        });
+      }
+      return;
+    }
+    if (key.return) {
+      void registerSelectedScanCandidates();
+    }
+  }
+
   async function runMenuAction() {
     if (!client) return;
     const selected = menu[menuIndex];
     if (selected === 'Refresh Status') {
       setScreen('status');
       await refreshStatus(client, setStatus, setError);
+    } else if (selected === 'Scan & Add') {
+      await runScan(client);
     } else if (selected === 'Check Now') {
       setScreen('logs');
       setLogs(['check started']);
@@ -85,6 +124,42 @@ export function App({client: providedClient}: AppProps) {
       setScreen('logs');
     } else {
       exit();
+    }
+  }
+
+  async function runScan(activeClient: UpdateBarClient) {
+    setScreen('scan');
+    setScanReport(undefined);
+    setScanIndex(0);
+    setSelectedScanIds(new Set());
+    setError(undefined);
+    try {
+      setScanReport(await activeClient.scan());
+    } catch (caught) {
+      setError(messageFor(caught));
+    }
+  }
+
+  async function registerSelectedScanCandidates() {
+    if (!client) return;
+    const ids = [...selectedScanIds];
+    if (ids.length === 0) {
+      setError('Select at least one full scan candidate');
+      return;
+    }
+    setScreen('logs');
+    setLogs(['registering scan selections']);
+    try {
+      const result = await client.initSelected(ids);
+      setLogs([
+        `added ${result.added.length}`,
+        `replaced ${result.replaced.length}`,
+        `skipped ${result.skipped.length}`,
+        ...result.errors
+      ]);
+      await refreshStatus(client, setStatus, setError);
+    } catch (caught) {
+      setError(messageFor(caught));
     }
   }
 
@@ -123,6 +198,9 @@ export function App({client: providedClient}: AppProps) {
         </Box>
       )}
       {screen === 'status' && <StatusList status={status} />}
+      {screen === 'scan' && (
+        <ScanList report={scanReport} selectedIds={selectedScanIds} cursorIndex={scanIndex} />
+      )}
       {(screen === 'logs' || screen === 'updating') && (
         <Box flexDirection="column" marginTop={1}>
           {screen === 'updating' && <Text color="yellow">Running updates. Press c to cancel.</Text>}
@@ -132,7 +210,7 @@ export function App({client: providedClient}: AppProps) {
         </Box>
       )}
       <Text dimColor>
-        {canUseKeyboard ? '↑/↓ navigate · enter select · q quit' : 'non-interactive terminal'}
+        {canUseKeyboard ? helpText(screen) : 'non-interactive terminal'}
       </Text>
     </Box>
   );
@@ -158,6 +236,50 @@ function StatusList({status}: {status: StatusSnapshot | undefined}) {
       ))}
     </Box>
   );
+}
+
+function ScanList({
+  report,
+  selectedIds,
+  cursorIndex
+}: {
+  report: ScanReport | undefined;
+  selectedIds: Set<string>;
+  cursorIndex: number;
+}) {
+  if (!report) return <Text dimColor>Scanning...</Text>;
+  if (report.candidates.length === 0) return <Text dimColor>No scan candidates</Text>;
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      {report.candidates.map((candidate, index) => (
+        <Text key={candidate.id} color={index === cursorIndex ? 'cyan' : undefined}>
+          {scanMarker(candidate, selectedIds.has(candidate.id))} {candidate.id} · {candidate.name}
+          {candidate.installed_version ? ` ${candidate.installed_version}` : ''} · {candidate.category} ·{' '}
+          {candidate.detector} · {candidate.capability}
+        </Text>
+      ))}
+      {report.errors.map(error => (
+        <Text key={`${error.detector}-${error.message}`} color="yellow">
+          {error.detector}: {error.message}
+        </Text>
+      ))}
+    </Box>
+  );
+}
+
+function scanMarker(candidate: ScanCandidate, selected: boolean) {
+  if (!canRegister(candidate)) return '-';
+  return selected ? '[x]' : '[ ]';
+}
+
+function canRegister(candidate: ScanCandidate) {
+  return candidate.capability === 'full' && candidate.recipe !== undefined;
+}
+
+function helpText(screen: Screen) {
+  if (screen === 'scan') return '↑/↓ navigate · space select · enter add · q quit';
+  if (screen === 'updating') return 'c cancel · q quit';
+  return '↑/↓ navigate · enter select · q quit';
 }
 
 async function refreshStatus(

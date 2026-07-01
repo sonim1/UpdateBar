@@ -22,8 +22,9 @@ business rules in command handlers.
 
 The Ink TUI lives in `tui/` as a Node/React presentation layer. It does not
 import Swift libraries. It resolves the Swift CLI binary, calls commands such as
-`status --json`, `check --json`, and `update --json-stream`, then renders menu,
-status, progress, logs, and cancellation UI from machine-readable output.
+`status --json`, `scan --json`, `init --select`, `check --json`, and
+`update --json-stream`, then renders menu, selection, status, progress, logs,
+and cancellation UI from machine-readable output.
 
 ## macOS Menu Bar
 

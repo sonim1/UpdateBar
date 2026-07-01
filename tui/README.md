@@ -21,3 +21,6 @@ UPDATEBAR_BIN=/full/path/to/updatebar updatebar-tui
 
 The TUI calls the Swift CLI through JSON/JSONL contracts. It does not import
 Swift libraries.
+
+The first-run flow is available from `Scan & Add`: scan installed tools, select
+full candidates with space, and register them as untrusted recipes with enter.

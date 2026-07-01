@@ -8,24 +8,59 @@ import type {UpdateBarClient} from '../client.js';
 
 describe('App', () => {
   it('renders status summary from the client', async () => {
-    const client: UpdateBarClient = {
+    const client = createClient({
       async status() {
         return {
           generated_at: '2026-06-30T00:00:00Z',
           summary: {total: 2, outdated: 1, errors: 0},
           items: []
         };
-      },
-      async checkNow() {},
-      async updateAll() {
-        return {exitCode: 0, stdout: '', stderr: ''};
       }
-    };
+    });
 
     const view = render(<App client={client} />);
     await new Promise(resolve => setTimeout(resolve, 20));
 
     expect(view.lastFrame()).toContain('2 tracked · 1 outdated · 0 errors');
+  });
+
+  it('opens scan candidates from the menu', async () => {
+    const client = createClient();
+    const view = render(<App client={client} />);
+
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\r');
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(view.lastFrame()).toContain('brew.gh');
+    expect(view.lastFrame()).toContain('known.node');
+    expect(view.lastFrame()).toContain('check-only');
+  });
+
+  it('registers selected scan candidates', async () => {
+    const selected: string[][] = [];
+    const client = createClient({
+      async initSelected(ids) {
+        selected.push(ids);
+        return {ok: true, added: ids, replaced: [], skipped: [], errors: []};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\r');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write(' ');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\r');
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(selected).toEqual([['brew.gh']]);
+    expect(view.lastFrame()).toContain('added 1');
   });
 
   it('renders without raw mode when stdin has no TTY support', async () => {
@@ -53,7 +88,7 @@ describe('App', () => {
   });
 });
 
-function createClient(): UpdateBarClient {
+function createClient(overrides: Partial<UpdateBarClient> = {}): UpdateBarClient {
   return {
     async status() {
       return {
@@ -62,10 +97,42 @@ function createClient(): UpdateBarClient {
         items: []
       };
     },
+    async scan() {
+      return {
+        candidates: [
+          {
+            id: 'brew.gh',
+            name: 'gh',
+            detector: 'brew',
+            category: 'cloud-devops',
+            capability: 'full',
+            confidence: 'high',
+            installed_version: '2.74.0',
+            source_ref: 'gh',
+            recipe: {}
+          },
+          {
+            id: 'known.node',
+            name: 'node',
+            detector: 'known',
+            category: 'runtime-sdk',
+            capability: 'check-only',
+            confidence: 'medium',
+            installed_version: '24.0.0',
+            source_ref: 'node'
+          }
+        ],
+        errors: []
+      };
+    },
+    async initSelected() {
+      return {ok: true, added: ['brew.gh'], replaced: [], skipped: [], errors: []};
+    },
     async checkNow() {},
     async updateAll() {
       return {exitCode: 0, stdout: '', stderr: ''};
-    }
+    },
+    ...overrides
   };
 }
 

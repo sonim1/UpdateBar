@@ -51,6 +51,7 @@ open dist/UpdateBar.app
 ### Ink TUI
 
 The terminal UI lives in `tui/` and consumes the Swift CLI JSON/JSONL contracts.
+It supports status, checks, updates, and scan/select registration.
 
 ```bash
 cd tui

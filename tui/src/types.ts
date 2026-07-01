@@ -30,6 +30,36 @@ export interface StatusItem {
   error?: string;
 }
 
+export interface ScanReport {
+  candidates: ScanCandidate[];
+  errors: ScanError[];
+}
+
+export interface ScanCandidate {
+  id: string;
+  name: string;
+  detector: 'brew' | 'npm_global' | 'known';
+  category: string;
+  capability: 'full' | 'check-only' | 'metadata-only' | 'unsupported';
+  confidence: 'high' | 'medium' | 'low';
+  installed_version?: string;
+  source_ref?: string;
+  recipe?: unknown;
+}
+
+export interface ScanError {
+  detector: 'brew' | 'npm_global' | 'known';
+  message: string;
+}
+
+export interface InitResult {
+  ok: boolean;
+  added: string[];
+  replaced: string[];
+  skipped: string[];
+  errors: string[];
+}
+
 export type UpdateOutcome =
   | 'updated'
   | 'failed'

@@ -2,7 +2,7 @@ import {spawn} from 'node:child_process';
 import type {Readable} from 'node:stream';
 import {resolveUpdateBarBinary} from './binaryResolver.js';
 import {parseJSONLines} from './jsonl.js';
-import type {MachineEvent, StatusSnapshot} from './types.js';
+import type {InitResult, MachineEvent, ScanReport, StatusSnapshot} from './types.js';
 
 export interface CommandResult {
   exitCode: number;
@@ -64,6 +64,8 @@ export class SubprocessRunner implements CommandRunner {
 
 export interface UpdateBarClient {
   status(): Promise<StatusSnapshot>;
+  scan(): Promise<ScanReport>;
+  initSelected(ids: string[]): Promise<InitResult>;
   checkNow(): Promise<void>;
   updateAll(options: StreamOptions): Promise<CommandResult>;
 }
@@ -75,6 +77,18 @@ export class CLIUpdateBarClient implements UpdateBarClient {
     const result = await this.runner.run(['status', '--json', '--exit-zero-on-outdated']);
     ensureExit(result, [0, 10]);
     return JSON.parse(result.stdout) as StatusSnapshot;
+  }
+
+  async scan(): Promise<ScanReport> {
+    const result = await this.runner.run(['scan', '--json']);
+    ensureExit(result, [0]);
+    return JSON.parse(result.stdout) as ScanReport;
+  }
+
+  async initSelected(ids: string[]): Promise<InitResult> {
+    const result = await this.runner.run(['init', '--select', ids.join(','), '--json']);
+    ensureExit(result, [0]);
+    return JSON.parse(result.stdout) as InitResult;
   }
 
   async checkNow(): Promise<void> {
