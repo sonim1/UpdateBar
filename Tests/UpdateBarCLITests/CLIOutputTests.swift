@@ -27,6 +27,62 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertFalse(result.stderr.contains(secret))
     }
 
+    func testUpdateCommandJSONDoesNotExposeFailedCommandSecret() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+        let secret = "sk-or-v1-super-secret-value"
+        let paths = AppPaths(homeDirectory: home)
+        var recipe = Recipe(
+            id: "tool",
+            name: "Tool",
+            category: "cli",
+            path: nil,
+            source: Source(kind: .custom, ref: "tool", branch: nil),
+            versionScheme: .semver,
+            check: .command("printf 'tool 1.0.0'"),
+            latest: LatestSpec(strategy: .cmd, cmd: "printf 'tool 1.1.0'", pattern: nil),
+            versionParse: .regex("([0-9]+\\.[0-9]+\\.[0-9]+)"),
+            update: UpdateSpec(cmd: "printf '\(secret)' >&2; exit 3", cwd: nil),
+            pin: nil,
+            enabled: true,
+            notify: true,
+            trust: Trust(level: .trusted, approvedCommands: [:])
+        )
+        TrustPolicy.approveAllCommands(in: &recipe)
+        try ManifestStore(paths: paths).save(manifest(items: [recipe]))
+        try StateStore(paths: paths).save(
+            State(schemaVersion: 1, generatedAt: Date(timeIntervalSince1970: 1_800), items: [
+                "tool": itemState(status: .outdated, current: "1.0.0", latest: "1.1.0")
+            ])
+        )
+
+        let result = try CLIProcess.run(["update", "tool", "--yes", "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 2)
+        let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(results.map(\.outcome), [.failed])
+        XCTAssertFalse(result.stdout.contains(secret))
+        XCTAssertNil(results.first?.error.flatMap { $0.range(of: secret) != nil ? $0.range(of: secret) : nil })
+    }
+
+    private func manifest(_ items: [Recipe]) -> Manifest {
+        Manifest(
+            schemaVersion: 1,
+            items: items,
+            provenance: Provenance(createdBy: "test", createdAt: Date(timeIntervalSince1970: 1_800), updatedAt: Date(timeIntervalSince1970: 1_800))
+        )
+    }
+
+    private func itemState(status: ItemStatus, current: String, latest: String) -> ItemState {
+        ItemState(
+            current: current,
+            latest: latest,
+            status: status,
+            lastChecked: Date(timeIntervalSince1970: 1_800),
+            error: nil,
+            backoffUntil: nil
+        )
+    }
+
     func testValidateInvalidManifestJSONStaysMachineReadable() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
         let fixture = TestFixtures.fixtureURL("manifests", "invalid-missing-required.json")
