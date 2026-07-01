@@ -248,6 +248,33 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("jq"))
     }
 
+    func testScanFiltersCategoryAliasWithoutSeparator() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            if [ "$1" = "leaves" ]; then
+              printf 'jq\\ngh\\n'
+            elif [ "$1" = "list" ]; then
+              printf 'jq 1.7.1\\ngh 2.74.0\\n'
+            fi
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--detectors", "brew", "--category", "clouddevops"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("gh"))
+        XCTAssertFalse(result.stdout.contains("jq"))
+    }
+
     func testScanRejectsBlankCategoryFilter() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
 

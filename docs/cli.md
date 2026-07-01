@@ -31,8 +31,8 @@ the CLI returns an error envelope:
 { "ok": false, "code": "usage_error", "errors": ["..."] }
 ```
 
-Known top-level error codes: `usage_error`, `validation_error`, `config_error`,
-`registry_error`, `decode_error`, `runtime_error`.
+Known top-level error codes: `usage_error`, `config_error`, `registry_error`,
+`decode_error`, `runtime_error`.
 
 JSONL streaming mode is available for `updatebar check --json-stream` and
 `updatebar update --json-stream`. Each
