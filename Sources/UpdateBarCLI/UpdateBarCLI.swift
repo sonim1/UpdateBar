@@ -1514,14 +1514,60 @@ struct CheckCommand: ParsableCommand {
         if json {
             try printJSON(results)
         } else {
-            for result in results {
-                print("\(result.id)\t\(result.status.rawValue)")
-            }
+            try printHuman(results)
         }
 
         if !exitZeroOnOutdated, results.contains(where: { $0.status == .outdated }) {
             throw ExitCode(10)
         }
+    }
+
+    private func printHuman(_ results: [CheckResult]) throws {
+        for result in results {
+            print("\(result.id)\t\(result.status.rawValue)")
+        }
+
+        let blocked = results.filter { $0.status == .untrusted }
+        guard !blocked.isEmpty else {
+            return
+        }
+
+        let manifest = try ManifestStore().load()
+        var printedHeader = false
+        for result in blocked {
+            guard let recipe = manifest.item(id: result.id) else {
+                continue
+            }
+            let fields = approvalFieldsNeededForCheck(recipe)
+            guard !fields.isEmpty else {
+                continue
+            }
+            if !printedHeader {
+                print("")
+                print("Next")
+                printedHeader = true
+            }
+            print("updatebar approvals \(result.id)")
+            for field in fields {
+                print("updatebar approve \(result.id) --field \(field)")
+            }
+        }
+    }
+
+    private func approvalFieldsNeededForCheck(_ recipe: Recipe) -> [String] {
+        var fields: [String] = []
+        if case .command = recipe.check, !TrustPolicy.isApproved(recipe, field: "check.cmd") {
+            fields.append("check.cmd")
+        }
+        if recipe.latest.strategy == .cmd, !TrustPolicy.isApproved(recipe, field: "latest.cmd") {
+            fields.append("latest.cmd")
+        }
+        if recipe.trust.level != .trusted, fields.isEmpty {
+            fields = recipe.commandFingerprints().keys
+                .filter { !TrustPolicy.isApproved(recipe, field: $0) }
+                .sorted()
+        }
+        return fields
     }
 
     private func runJSONStream(service: RegistryService, ids: [String]) throws {

@@ -78,6 +78,24 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("\"id\""))
     }
 
+    func testCheckHumanUntrustedPrintsApprovalNextSteps() throws {
+        let home = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: home)
+        var recipe = fixtureRecipe()
+        recipe.trust.level = .untrusted
+        recipe.trust.approvedCommands = [:]
+        try ManifestStore(paths: paths).save(manifest(items: [recipe]))
+
+        let result = try CLIProcess.run(["check", "fixture-tool"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("fixture-tool\tuntrusted"))
+        XCTAssertTrue(result.stdout.contains("updatebar approvals fixture-tool"))
+        XCTAssertTrue(result.stdout.contains("updatebar approve fixture-tool --field check.cmd"))
+        XCTAssertTrue(result.stdout.contains("updatebar approve fixture-tool --field latest.cmd"))
+        XCTAssertFalse(result.stdout.contains("updatebar approve fixture-tool --field update.cmd"))
+    }
+
     func testCheckRejectsJSONAndJSONStreamTogether() throws {
         let home = try temporaryDirectory()
         try saveManifest(home: home)
@@ -104,8 +122,13 @@ final class CheckCommandTests: XCTestCase {
     }
 
     private func saveManifest(home: URL) throws {
-        let now = Date(timeIntervalSince1970: 1_800)
-        var recipe = Recipe(
+        var recipe = fixtureRecipe()
+        TrustPolicy.approveAllCommands(in: &recipe)
+        try ManifestStore(paths: AppPaths(homeDirectory: home)).save(manifest(items: [recipe]))
+    }
+
+    private func fixtureRecipe() -> Recipe {
+        Recipe(
             id: "fixture-tool",
             name: "Fixture Tool",
             category: "cli",
@@ -121,13 +144,15 @@ final class CheckCommandTests: XCTestCase {
             notify: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
-        TrustPolicy.approveAllCommands(in: &recipe)
-        let manifest = Manifest(
+    }
+
+    private func manifest(items: [Recipe]) -> Manifest {
+        let now = Date(timeIntervalSince1970: 1_800)
+        return Manifest(
             schemaVersion: 1,
-            items: [recipe],
+            items: items,
             provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
         )
-        try ManifestStore(paths: AppPaths(homeDirectory: home)).save(manifest)
     }
 
     private func temporaryDirectory() throws -> URL {
