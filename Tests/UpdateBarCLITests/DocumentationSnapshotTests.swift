@@ -76,6 +76,75 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testSystemSubcommandsHaveHelpDescriptions() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+        var expectedSubcommandsByCommand: [String: [String]] = [
+            "config": ["get", "set"],
+        ]
+        #if os(macOS)
+        expectedSubcommandsByCommand["background"] = ["install", "status", "uninstall"]
+        #endif
+
+        for (command, subcommands) in expectedSubcommandsByCommand {
+            let result = try CLIProcess.run([command, "--help"], home: home)
+            let helpLines = result.stdout.split(separator: "\n").map(String.init)
+
+            XCTAssertEqual(result.exitCode, 0, "\(command) --help should succeed")
+            XCTAssertEqual(result.stderr, "", "\(command) --help should not write stderr")
+            for subcommand in subcommands {
+                XCTAssertTrue(
+                    helpHasDescription(for: subcommand, in: helpLines),
+                    "\(command) \(subcommand) should have a help description"
+                )
+            }
+        }
+    }
+
+    func testSystemSubcommandInputsHaveHelpDescriptions() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+        var expectedOptionsByCommand: [[String]: [String]] = [
+            ["config", "get"]: ["--json"],
+            ["config", "set"]: ["--json"],
+        ]
+        #if os(macOS)
+        expectedOptionsByCommand[["background", "install"]] = ["--yes", "--json", "--interval-seconds"]
+        expectedOptionsByCommand[["background", "status"]] = ["--json"]
+        expectedOptionsByCommand[["background", "uninstall"]] = ["--json"]
+        #endif
+        let expectedArgumentsByCommand: [[String]: [String]] = [
+            ["config", "get"]: ["<key>"],
+            ["config", "set"]: ["<key>", "<value>"],
+        ]
+
+        for (commandPath, options) in expectedOptionsByCommand {
+            let result = try CLIProcess.run(commandPath + ["--help"], home: home)
+            let helpLines = result.stdout.split(separator: "\n").map(String.init)
+
+            XCTAssertEqual(result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
+            XCTAssertEqual(result.stderr, "", "\(commandPath.joined(separator: " ")) --help should not write stderr")
+            for option in options {
+                XCTAssertTrue(
+                    optionHasDescription(option, in: helpLines),
+                    "\(commandPath.joined(separator: " ")) \(option) should have a help description"
+                )
+            }
+        }
+
+        for (commandPath, arguments) in expectedArgumentsByCommand {
+            let result = try CLIProcess.run(commandPath + ["--help"], home: home)
+            let helpLines = result.stdout.split(separator: "\n").map(String.init)
+
+            XCTAssertEqual(result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
+            XCTAssertEqual(result.stderr, "", "\(commandPath.joined(separator: " ")) --help should not write stderr")
+            for argument in arguments {
+                XCTAssertTrue(
+                    optionHasDescription(argument, in: helpLines),
+                    "\(commandPath.joined(separator: " ")) \(argument) should have a help description"
+                )
+            }
+        }
+    }
+
     private func helpShowsCommand(_ command: String, in lines: [String]) -> Bool {
         lines.contains { line in
             line == "  \(command)" || line.hasPrefix("  \(command) ")

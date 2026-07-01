@@ -726,15 +726,18 @@ struct BackgroundCommand: ParsableCommand {
     )
 
     struct Install: ParsableCommand {
-        static let configuration = CommandConfiguration(commandName: "install")
+        static let configuration = CommandConfiguration(
+            commandName: "install",
+            abstract: "Install the background check LaunchAgent."
+        )
 
-        @Flag(name: .long)
+        @Flag(name: .long, help: "Install without prompting for confirmation.")
         var yes = false
 
-        @Flag(name: .long)
+        @Flag(name: .long, help: "Print machine-readable JSON.")
         var json = false
 
-        @Option(name: .long)
+        @Option(name: .long, help: "Seconds between background checks.")
         var intervalSeconds = 3600
 
         func run() throws {
@@ -761,9 +764,12 @@ struct BackgroundCommand: ParsableCommand {
     }
 
     struct Status: ParsableCommand {
-        static let configuration = CommandConfiguration(commandName: "status")
+        static let configuration = CommandConfiguration(
+            commandName: "status",
+            abstract: "Show background check LaunchAgent status."
+        )
 
-        @Flag(name: .long)
+        @Flag(name: .long, help: "Print machine-readable JSON.")
         var json = false
 
         func run() throws {
@@ -787,9 +793,12 @@ struct BackgroundCommand: ParsableCommand {
     }
 
     struct Uninstall: ParsableCommand {
-        static let configuration = CommandConfiguration(commandName: "uninstall")
+        static let configuration = CommandConfiguration(
+            commandName: "uninstall",
+            abstract: "Remove the background check LaunchAgent."
+        )
 
-        @Flag(name: .long)
+        @Flag(name: .long, help: "Print machine-readable JSON.")
         var json = false
 
         func run() throws {
@@ -907,12 +916,15 @@ struct ConfigCommand: ParsableCommand {
     )
 
     struct Get: ParsableCommand {
-        static let configuration = CommandConfiguration(commandName: "get")
+        static let configuration = CommandConfiguration(
+            commandName: "get",
+            abstract: "Read one config value or all config."
+        )
 
-        @Argument
+        @Argument(help: "Config key to read; omit to show all config.")
         var key: String?
 
-        @Flag(name: .long)
+        @Flag(name: .long, help: "Print machine-readable JSON.")
         var json = false
 
         func run() throws {
@@ -935,15 +947,18 @@ struct ConfigCommand: ParsableCommand {
     }
 
     struct Set: ParsableCommand {
-        static let configuration = CommandConfiguration(commandName: "set")
+        static let configuration = CommandConfiguration(
+            commandName: "set",
+            abstract: "Update one config value."
+        )
 
-        @Argument
+        @Argument(help: "Config key to update.")
         var key: String
 
-        @Argument
+        @Argument(help: "Value to store.")
         var value: String
 
-        @Flag(name: .long)
+        @Flag(name: .long, help: "Print machine-readable JSON.")
         var json = false
 
         func run() throws {
