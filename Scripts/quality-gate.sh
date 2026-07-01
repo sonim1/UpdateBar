@@ -8,6 +8,12 @@ SKIP_MENUBAR_SMOKE="${SKIP_MENUBAR_SMOKE:-0}"
 if [[ -z "${UPDATEBAR_BIN:-}" && -x .build/debug/updatebar ]]; then
   export UPDATEBAR_BIN="$ROOT/.build/debug/updatebar"
 fi
+if command -v shellcheck >/dev/null 2>&1; then
+  echo "running script quality checks"
+  shellcheck Scripts/*.sh
+else
+  echo "shellcheck not installed; skipping script quality checks"
+fi
 
 echo "running updatebar smoke test"
 bash Scripts/smoke-test.sh
