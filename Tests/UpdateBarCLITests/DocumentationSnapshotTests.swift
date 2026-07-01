@@ -76,6 +76,30 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testPrimaryCommandArgumentsHaveHelpDescriptions() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+        let expectedArgumentsByCommand: [String: [String]] = [
+            "import": ["<file>"],
+            "export": ["<file>"],
+            "approvals": ["<id>"],
+            "update": ["<ids>"],
+        ]
+
+        for (command, arguments) in expectedArgumentsByCommand {
+            let result = try CLIProcess.run([command, "--help"], home: home)
+            let helpLines = result.stdout.split(separator: "\n").map(String.init)
+
+            XCTAssertEqual(result.exitCode, 0, "\(command) --help should succeed")
+            XCTAssertEqual(result.stderr, "", "\(command) --help should not write stderr")
+            for argument in arguments {
+                XCTAssertTrue(
+                    optionHasDescription(argument, in: helpLines),
+                    "\(command) \(argument) should have a help description"
+                )
+            }
+        }
+    }
+
     func testInitHelpDocumentsSelectNumbersAndAll() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 

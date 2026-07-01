@@ -1924,7 +1924,7 @@ struct ApprovalsCommand: ParsableCommand {
         abstract: "Show command approval status for an item."
     )
 
-    @Argument
+    @Argument(help: "Item id to inspect.")
     var id: String
 
     @Flag(name: .long, help: "Print machine-readable JSON.")
@@ -1989,7 +1989,7 @@ struct ExportCommand: ParsableCommand {
         abstract: "Export registered recipes as a manifest."
     )
 
-    @Argument
+    @Argument(help: "Output file path; omit when using --json.")
     var file: String?
 
     @Flag(name: .long, help: "Print machine-readable JSON.")
@@ -2018,7 +2018,7 @@ struct ImportCommand: ParsableCommand {
         abstract: "Import recipes from a manifest file or stdin."
     )
 
-    @Argument
+    @Argument(help: "Manifest file path, or '-' for stdin.")
     var file: String
 
     @Flag(name: .long, help: "Overwrite existing items with matching ids.")
