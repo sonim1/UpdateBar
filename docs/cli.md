@@ -26,8 +26,10 @@ Consumers should parse each line independently and ignore unknown fields.
 
 Event fields:
 
-- `event`: one of `started`, `log`, `item_started`, `item_finished`, `cancelled`, `failed`, or `finished`
-- `operation`: currently `update`
+- `type`: one of `started`, `log`, `item_started`, `item_finished`, `cancelled`, `failed`, or `finished`
+- `event`: same value as `type`, retained for existing consumers
+- `operation`: currently `check` or `update`
+- `run_id`: stable id shared by every event from one JSONL command run
 - `timestamp`: ISO-8601 timestamp
 - `item_id`: present for item events
 - `message` and `level`: present for log events

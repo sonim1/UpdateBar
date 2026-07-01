@@ -102,7 +102,9 @@ export type MachineEventType =
 
 export interface MachineEvent {
   event: MachineEventType;
+  type?: MachineEventType;
   operation: 'update' | 'check';
+  run_id?: string;
   timestamp: string;
   item_id?: string;
   message?: string;

@@ -34,21 +34,22 @@ The Swift CLI should keep command parsing and presentation behavior:
 The Ink TUI and macOS Menu Bar should add their own presentation behavior on top
 of stable Core or CLI machine contracts.
 
-## CLI-Only Logic To Move Or Share
+## Remaining CLI-Only Logic To Move Or Share
 
-The audit found these non-presentation concerns outside `UpdateBarCore`:
+The audit still tracks these non-presentation concerns outside `UpdateBarCore`:
 
-- `status --refresh` stale-state calculation and snapshot assembly lived in
-  `StatusCommand`. This should move into a Core `StatusService` so CLI and Menu
-  Bar can share the same status behavior.
 - `BackgroundLaunchAgentManager` currently lives in the CLI source file. If Menu
   Bar owns background checks or launch-at-login behavior, this should move to a
   shared macOS support module or a dedicated Core-facing adapter.
-- Machine-readable JSONL event models are not yet centralized. The event schema
-  should become a shared contract, with stdout writing kept in the CLI layer.
-- Binary path resolution is duplicated between CLI packaging expectations and
-  the Menu Bar app. It should become a documented resolver used by Node/Ink and
-  app bundling code.
+
+Resolved since the initial audit:
+
+- `status --refresh` stale-state calculation and snapshot assembly moved into
+  Core `StatusService`.
+- Machine-readable JSONL event models are centralized in `UpdateBarCore` under
+  `MachineEvent`; stdout writing remains in the CLI layer.
+- Binary path resolution is documented and implemented for the Node/Ink TUI and
+  Menu Bar subprocess fallback paths.
 
 ## Output Boundary
 

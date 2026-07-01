@@ -34,6 +34,7 @@ final class CheckCommandTests: XCTestCase {
 
         let result = try CLIProcess.run(["check", "--json-stream"], home: home)
         let events = try decodeEvents(result.stdout)
+        let rawEvents = try decodeRawEvents(result.stdout)
 
         XCTAssertEqual(result.exitCode, 10)
         XCTAssertTrue(result.stderr.isEmpty)
@@ -42,6 +43,12 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertEqual(events[1].itemId, "fixture-tool")
         XCTAssertEqual(events[2].checkResult?.status, .outdated)
         XCTAssertEqual(events[3].checkSummary?.outdated, 1)
+        XCTAssertEqual(
+            rawEvents.compactMap { $0["type"] as? String },
+            ["started", "item_started", "item_finished", "finished"]
+        )
+        XCTAssertEqual(Set(rawEvents.compactMap { $0["run_id"] as? String }).count, 1)
+        XCTAssertTrue(rawEvents.allSatisfy { ($0["run_id"] as? String)?.isEmpty == false })
     }
 
     func testCheckJSONStreamExitZeroOnOutdatedFlagReturnsSuccess() throws {
@@ -93,6 +100,13 @@ final class CheckCommandTests: XCTestCase {
     private func decodeEvents(_ stdout: String) throws -> [MachineEvent] {
         try stdout.split(separator: "\n").map { line in
             try JSONDecoder.updateBar.decode(MachineEvent.self, from: Data(line.utf8))
+        }
+    }
+
+    private func decodeRawEvents(_ stdout: String) throws -> [[String: Any]] {
+        try stdout.split(separator: "\n").map { line in
+            let object = try JSONSerialization.jsonObject(with: Data(line.utf8))
+            return try XCTUnwrap(object as? [String: Any])
         }
     }
 }

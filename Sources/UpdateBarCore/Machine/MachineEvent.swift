@@ -3,6 +3,7 @@ import Foundation
 public struct MachineEvent: Codable, Equatable {
     public var event: MachineEventType
     public var operation: MachineOperation
+    public var runId: String?
     public var timestamp: Date
     public var itemId: String?
     public var message: String?
@@ -19,6 +20,7 @@ public struct MachineEvent: Codable, Equatable {
         event: MachineEventType,
         operation: MachineOperation,
         timestamp: Date,
+        runId: String? = nil,
         itemId: String? = nil,
         message: String? = nil,
         level: MachineLogLevel? = nil,
@@ -32,6 +34,7 @@ public struct MachineEvent: Codable, Equatable {
     ) {
         self.event = event
         self.operation = operation
+        self.runId = runId
         self.timestamp = timestamp
         self.itemId = itemId
         self.message = message
@@ -47,7 +50,9 @@ public struct MachineEvent: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case event
+        case type
         case operation
+        case runId = "run_id"
         case timestamp
         case itemId = "item_id"
         case message
@@ -59,6 +64,44 @@ public struct MachineEvent: Codable, Equatable {
         case checkResults = "check_results"
         case checkSummary = "check_summary"
         case error
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        event = try container.decodeIfPresent(MachineEventType.self, forKey: .event)
+            ?? container.decode(MachineEventType.self, forKey: .type)
+        operation = try container.decode(MachineOperation.self, forKey: .operation)
+        runId = try container.decodeIfPresent(String.self, forKey: .runId)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        itemId = try container.decodeIfPresent(String.self, forKey: .itemId)
+        message = try container.decodeIfPresent(String.self, forKey: .message)
+        level = try container.decodeIfPresent(MachineLogLevel.self, forKey: .level)
+        result = try container.decodeIfPresent(UpdateResult.self, forKey: .result)
+        results = try container.decodeIfPresent([UpdateResult].self, forKey: .results)
+        summary = try container.decodeIfPresent(UpdateSummary.self, forKey: .summary)
+        checkResult = try container.decodeIfPresent(CheckResult.self, forKey: .checkResult)
+        checkResults = try container.decodeIfPresent([CheckResult].self, forKey: .checkResults)
+        checkSummary = try container.decodeIfPresent(CheckSummary.self, forKey: .checkSummary)
+        error = try container.decodeIfPresent(String.self, forKey: .error)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(event, forKey: .event)
+        try container.encode(event, forKey: .type)
+        try container.encode(operation, forKey: .operation)
+        try container.encodeIfPresent(runId, forKey: .runId)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encodeIfPresent(itemId, forKey: .itemId)
+        try container.encodeIfPresent(message, forKey: .message)
+        try container.encodeIfPresent(level, forKey: .level)
+        try container.encodeIfPresent(result, forKey: .result)
+        try container.encodeIfPresent(results, forKey: .results)
+        try container.encodeIfPresent(summary, forKey: .summary)
+        try container.encodeIfPresent(checkResult, forKey: .checkResult)
+        try container.encodeIfPresent(checkResults, forKey: .checkResults)
+        try container.encodeIfPresent(checkSummary, forKey: .checkSummary)
+        try container.encodeIfPresent(error, forKey: .error)
     }
 }
 
