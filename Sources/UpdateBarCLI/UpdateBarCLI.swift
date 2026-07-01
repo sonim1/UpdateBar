@@ -11,6 +11,7 @@ struct UpdateBar: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "updatebar",
         abstract: "Track and update arbitrary registered tools.",
+        version: UpdateBarVersion.current,
         groupedSubcommands: [
             CommandGroup(name: "Setup", subcommands: [
                 InitCommand.self,

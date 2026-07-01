@@ -8,6 +8,10 @@ Exit codes:
 - `3`: update blocked on command approval
 - `10`: outdated items exist for `check` or `status`
 
+`updatebar --version`
+
+Prints the installed CLI version and exits with code `0`.
+
 Machine-readable commands print JSON or JSONL to stdout. Human warnings and errors go to stderr.
 When `--json` is present and a command fails before writing its own JSON payload,
 the CLI returns an error envelope:
