@@ -29,9 +29,36 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testRootHelpVisibleCommandsHaveDescriptions() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+        let result = try CLIProcess.run(["--help"], home: home)
+        let helpLines = result.stdout.split(separator: "\n").map(String.init)
+        var commands = ["init", "scan", "add", "import", "export", "status", "check", "update", "list", "approvals", "config"]
+
+        #if os(macOS)
+        commands.append("background")
+        #endif
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        for command in commands {
+            XCTAssertTrue(helpHasDescription(for: command, in: helpLines), "visible command should have a root help description: \(command)")
+        }
+    }
+
     private func helpShowsCommand(_ command: String, in lines: [String]) -> Bool {
         lines.contains { line in
             line == "  \(command)" || line.hasPrefix("  \(command) ")
+        }
+    }
+
+    private func helpHasDescription(for command: String, in lines: [String]) -> Bool {
+        lines.contains { line in
+            guard line.hasPrefix("  \(command)") else {
+                return false
+            }
+            let remainder = line.dropFirst(2 + command.count)
+            return remainder.trimmingCharacters(in: .whitespaces).isEmpty == false
         }
     }
 

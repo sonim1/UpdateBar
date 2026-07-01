@@ -902,6 +902,7 @@ private struct ValidationExplanation: Encodable {
 struct ConfigCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "config",
+        abstract: "Read or update UpdateBar configuration.",
         subcommands: [Get.self, Set.self]
     )
 
@@ -1429,7 +1430,10 @@ enum TemplateKind: String, ExpressibleByArgument {
 }
 
 struct CheckCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "check")
+    static let configuration = CommandConfiguration(
+        commandName: "check",
+        abstract: "Refresh current/latest versions for registered items."
+    )
 
     @Argument(help: "Item ids to check. Checks every registered item when omitted.")
     var ids: [String] = []
@@ -1547,7 +1551,10 @@ struct CheckCommand: ParsableCommand {
 }
 
 struct StatusCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "status")
+    static let configuration = CommandConfiguration(
+        commandName: "status",
+        abstract: "Show the latest stored status without running updates."
+    )
 
     @Flag(name: .long)
     var json = false
@@ -1575,7 +1582,10 @@ struct StatusCommand: ParsableCommand {
 }
 
 struct ListCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "list")
+    static let configuration = CommandConfiguration(
+        commandName: "list",
+        abstract: "List registered recipes."
+    )
 
     @Flag(name: .long)
     var json = false
@@ -1600,7 +1610,10 @@ struct ListCommand: ParsableCommand {
 }
 
 struct UpdateCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "update")
+    static let configuration = CommandConfiguration(
+        commandName: "update",
+        abstract: "Run approved update commands for selected items."
+    )
 
     @Argument(help: "Item ids to update.")
     var ids: [String] = []
@@ -1891,7 +1904,10 @@ struct ApprovalCommand: ParsableCommand {
 }
 
 struct ApprovalsCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "approvals")
+    static let configuration = CommandConfiguration(
+        commandName: "approvals",
+        abstract: "Show command approval status for an item."
+    )
 
     @Argument
     var id: String
@@ -1953,7 +1969,10 @@ private struct RemovePayload: Encodable {
 }
 
 struct ExportCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "export")
+    static let configuration = CommandConfiguration(
+        commandName: "export",
+        abstract: "Export registered recipes as a manifest."
+    )
 
     @Argument
     var file: String?
@@ -1979,7 +1998,10 @@ struct ExportCommand: ParsableCommand {
 }
 
 struct ImportCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "import")
+    static let configuration = CommandConfiguration(
+        commandName: "import",
+        abstract: "Import recipes from a manifest file or stdin."
+    )
 
     @Argument
     var file: String
@@ -2047,7 +2069,10 @@ private struct ImportPayload: Encodable {
 }
 
 struct AddCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "add")
+    static let configuration = CommandConfiguration(
+        commandName: "add",
+        abstract: "Add one recipe from JSON or the manual wizard."
+    )
 
     @Option(name: .long)
     var from: String?
