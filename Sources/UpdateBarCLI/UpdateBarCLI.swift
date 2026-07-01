@@ -66,7 +66,7 @@ enum UpdateBarMain {
                 terminate(processExitCode(for: exitCode))
             }
             if exitCode == .validationFailure {
-                let message = UpdateBar.fullMessage(for: error)
+                let message = sanitizedErrorMessage(for: error)
                 if !message.isEmpty {
                     FileHandle.standardError.write(Data((message + "\n").utf8))
                 }
@@ -77,9 +77,7 @@ enum UpdateBarMain {
     }
 
     private static func writeJSONError(_ error: Error, code exitCode: ExitCode) {
-        let message = UpdateBar.fullMessage(for: error).isEmpty
-            ? String(describing: error)
-            : UpdateBar.fullMessage(for: error)
+        let message = sanitizedErrorMessage(for: error)
         let payload = ErrorEnvelope(
             ok: false,
             code: errorCode(for: error, exitCode: exitCode),
@@ -273,7 +271,7 @@ struct InitCommand: ParsableCommand {
                     added: [],
                     replaced: [],
                     skipped: [],
-                    errors: [error.description]
+                    errors: [sanitizedErrorMessage(for: error)]
                 )
             )
             throw ExitCode.failure
@@ -788,6 +786,13 @@ private func printJSON<T: Encodable>(_ value: T) throws {
     print(String(decoding: data, as: UTF8.self))
 }
 
+private func sanitizedErrorMessage(for error: Error) -> String {
+    let rawMessage = UpdateBar.fullMessage(for: error).isEmpty
+        ? String(describing: error)
+        : UpdateBar.fullMessage(for: error)
+    return SecretRedactor.redact(rawMessage)
+}
+
 private struct JSONLWriter {
     let runID: String
 
@@ -1265,7 +1270,7 @@ struct CheckCommand: ParsableCommand {
                 event: .cancelled,
                 operation: .check,
                 timestamp: Date(),
-                error: String(describing: error)
+                error: sanitizedErrorMessage(for: error)
             ))
             throw ExitCode(2)
         } catch {
@@ -1273,7 +1278,7 @@ struct CheckCommand: ParsableCommand {
                 event: .failed,
                 operation: .check,
                 timestamp: Date(),
-                error: String(describing: error)
+                error: sanitizedErrorMessage(for: error)
             ))
             throw error
         }
@@ -1457,7 +1462,7 @@ struct UpdateCommand: ParsableCommand {
                 event: .failed,
                 operation: .update,
                 timestamp: Date(),
-                error: String(describing: error)
+                error: sanitizedErrorMessage(for: error)
             ))
             throw error
         }
@@ -1753,7 +1758,11 @@ struct ImportCommand: ParsableCommand {
             }
         } catch {
             if json {
-                try printJSON(ImportPayload(added: [], replaced: [], errors: [String(describing: error)]))
+                try printJSON(ImportPayload(
+                    added: [],
+                    replaced: [],
+                    errors: [sanitizedErrorMessage(for: error)]
+                ))
             }
             throw error
         }
@@ -1824,7 +1833,11 @@ struct AddCommand: ParsableCommand {
             try output(AddPayload(valid: true, recipe: prepared, errors: []))
         } catch {
             if json {
-                try output(AddPayload(valid: false, recipe: prepared, errors: [String(describing: error)]))
+                try output(AddPayload(
+                    valid: false,
+                    recipe: prepared,
+                    errors: [sanitizedErrorMessage(for: error)]
+                ))
             }
             throw error
         }
