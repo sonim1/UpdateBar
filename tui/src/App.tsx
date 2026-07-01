@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Box, Text, useApp, useInput, useStdin} from 'ink';
 import {createDefaultClient, type UpdateBarClient} from './client.js';
 import type {MachineEvent, ScanCandidate, ScanReport, StatusSnapshot} from './types.js';
@@ -23,6 +23,7 @@ export function App({client: providedClient}: AppProps) {
   const [selectedScanIds, setSelectedScanIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | undefined>();
   const [abortController, setAbortController] = useState<AbortController | undefined>();
+  const abortControllerRef = useRef<AbortController | undefined>(undefined);
   const menu = useMemo(
     () => ['Refresh Status', 'Scan & Add', 'Check Now', 'Run Updates', 'Open Config', 'View Logs', 'Quit'],
     []
@@ -38,10 +39,16 @@ export function App({client: providedClient}: AppProps) {
     refreshStatus(client, setStatus, setError);
   }, [client]);
 
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   useInput(
     (_input, key) => {
-      if ((_input === 'c' || _input === 'q') && abortController) {
-        abortController.abort();
+      if ((_input === 'c' || _input === 'q') && abortControllerRef.current) {
+        abortControllerRef.current.abort();
         return;
       }
       if (_input === 'q') {
@@ -126,8 +133,7 @@ export function App({client: providedClient}: AppProps) {
   }
 
   async function runCheck(activeClient: UpdateBarClient) {
-    const controller = new AbortController();
-    setAbortController(controller);
+    const controller = beginAbortableAction();
     setScreen('logs');
     setLogs(['check started']);
     setError(undefined);
@@ -138,13 +144,12 @@ export function App({client: providedClient}: AppProps) {
     } catch (caught) {
       setError(controller.signal.aborted ? 'check cancelled' : messageFor(caught));
     } finally {
-      setAbortController(undefined);
+      endAbortableAction(controller);
     }
   }
 
   async function runScan(activeClient: UpdateBarClient) {
-    const controller = new AbortController();
-    setAbortController(controller);
+    const controller = beginAbortableAction();
     setScreen('scan');
     setScanReport(undefined);
     setScanIndex(0);
@@ -155,7 +160,7 @@ export function App({client: providedClient}: AppProps) {
     } catch (caught) {
       setError(controller.signal.aborted ? 'scan cancelled' : messageFor(caught));
     } finally {
-      setAbortController(undefined);
+      endAbortableAction(controller);
     }
   }
 
@@ -183,8 +188,7 @@ export function App({client: providedClient}: AppProps) {
   }
 
   async function runUpdates(activeClient: UpdateBarClient) {
-    const controller = new AbortController();
-    setAbortController(controller);
+    const controller = beginAbortableAction();
     setScreen('updating');
     setLogs(['update started']);
     try {
@@ -196,9 +200,22 @@ export function App({client: providedClient}: AppProps) {
     } catch (caught) {
       setError(controller.signal.aborted ? 'update cancelled' : messageFor(caught));
     } finally {
-      setAbortController(undefined);
+      endAbortableAction(controller);
       setScreen('logs');
     }
+  }
+
+  function beginAbortableAction() {
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    setAbortController(controller);
+    return controller;
+  }
+
+  function endAbortableAction(controller: AbortController) {
+    if (abortControllerRef.current !== controller) return;
+    abortControllerRef.current = undefined;
+    setAbortController(undefined);
   }
 
   return (
