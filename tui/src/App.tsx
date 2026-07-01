@@ -82,6 +82,7 @@ export function App({client: providedClient}: AppProps) {
 
   function handleScanInput(input: string, key: {upArrow: boolean; downArrow: boolean; return: boolean}) {
     const candidates = scanReport?.candidates ?? [];
+    const importableCandidates = candidates.filter(canRegister);
     if (key.upArrow) {
       setScanIndex(index => Math.max(0, index - 1));
       return;
@@ -90,19 +91,33 @@ export function App({client: providedClient}: AppProps) {
       setScanIndex(index => Math.min(Math.max(0, candidates.length - 1), index + 1));
       return;
     }
+    if (input === 'a') {
+      setSelectedScanIds(new Set(importableCandidates.map(candidate => candidate.id)));
+      setError(undefined);
+      return;
+    }
+    if (input === 'A') {
+      setSelectedScanIds(new Set());
+      setError(undefined);
+      return;
+    }
     if (input === ' ') {
       const candidate = candidates[scanIndex];
-      if (candidate && canRegister(candidate)) {
-        setSelectedScanIds(previous => {
-          const next = new Set(previous);
-          if (next.has(candidate.id)) {
-            next.delete(candidate.id);
-          } else {
-            next.add(candidate.id);
-          }
-          return next;
-        });
+      if (!candidate) return;
+      if (!canRegister(candidate)) {
+        setError(`${candidate.id} is not importable yet`);
+        return;
       }
+      setError(undefined);
+      setSelectedScanIds(previous => {
+        const next = new Set(previous);
+        if (next.has(candidate.id)) {
+          next.delete(candidate.id);
+        } else {
+          next.add(candidate.id);
+        }
+        return next;
+      });
       return;
     }
     if (key.return) {
@@ -286,8 +301,10 @@ function ScanList({
 }) {
   if (!report) return <Text dimColor>Scanning...</Text>;
   if (report.candidates.length === 0) return <Text dimColor>No scan candidates</Text>;
+  const importableCount = report.candidates.filter(canRegister).length;
   return (
     <Box flexDirection="column" marginTop={1}>
+      <Text dimColor>{`importable: ${selectedIds.size}/${importableCount}`}</Text>
       {report.candidates.map((candidate, index) => (
         <Text key={candidate.id} color={index === cursorIndex ? 'cyan' : undefined}>
           {scanMarker(candidate, selectedIds.has(candidate.id))} {candidate.id} · {candidate.name}
@@ -315,7 +332,9 @@ function canRegister(candidate: ScanCandidate) {
 
 function helpText(screen: Screen, canCancel: boolean) {
   if (canCancel) return 'c/q cancel';
-  if (screen === 'scan') return '↑/↓ navigate · space select · enter add · m menu · q quit';
+  if (screen === 'scan') {
+    return '↑/↓ navigate · a all · A clear · space select · enter add · m menu · q quit';
+  }
   if (screen !== 'menu') return 'm menu · q quit';
   return '↑/↓ navigate · enter select · q quit';
 }

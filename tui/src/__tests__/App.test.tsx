@@ -53,6 +53,121 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('Run Updates');
   });
 
+  it('selects all importable scan candidates at once', async () => {
+    const selected: string[][] = [];
+    const client = createClient({
+      async scan() {
+        return {
+          candidates: [
+            {
+              id: 'brew.gh',
+              name: 'gh',
+              detector: 'brew',
+              category: 'cloud-devops',
+              capability: 'full',
+              confidence: 'high',
+              installed_version: '2.74.0',
+              source_ref: 'gh',
+              recipe: {}
+            },
+            {
+              id: 'brew.curl',
+              name: 'curl',
+              detector: 'brew',
+              category: 'shell-utility',
+              capability: 'full',
+              confidence: 'high',
+              installed_version: '8.0.0',
+              source_ref: 'curl',
+              recipe: {}
+            },
+            {
+              id: 'known.node',
+              name: 'node',
+              detector: 'known',
+              category: 'runtime-sdk',
+              capability: 'check-only',
+              confidence: 'medium',
+              installed_version: '24.0.0',
+              source_ref: 'node'
+            }
+          ],
+          errors: []
+        };
+      },
+      async initSelected(ids) {
+        selected.push(ids);
+        return {ok: true, added: ids, replaced: [], skipped: [], errors: []};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'importable: 0/2');
+    view.stdin.write('a');
+    await wait();
+    expect(view.lastFrame()).toContain('importable: 2/2');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'added 2');
+
+    expect(selected).toEqual([['brew.gh', 'brew.curl']]);
+  });
+
+  it('shows a helpful message when trying to select an unimportable candidate', async () => {
+    const selected: string[][] = [];
+    const client = createClient({
+      async scan() {
+        return {
+          candidates: [
+            {
+              id: 'brew.gh',
+              name: 'gh',
+              detector: 'brew',
+              category: 'cloud-devops',
+              capability: 'full',
+              confidence: 'high',
+              installed_version: '2.74.0',
+              source_ref: 'gh',
+              recipe: {}
+            },
+            {
+              id: 'known.node',
+              name: 'node',
+              detector: 'known',
+              category: 'runtime-sdk',
+              capability: 'check-only',
+              confidence: 'medium',
+              installed_version: '24.0.0',
+              source_ref: 'node'
+            }
+          ],
+          errors: []
+        };
+      },
+      async initSelected(ids) {
+        selected.push(ids);
+        return {ok: true, added: ids, replaced: [], skipped: [], errors: []};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'importable: 0/1');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write(' ');
+    await wait();
+
+    expect(view.lastFrame()).toContain('known.node is not importable yet');
+    expect(selected).toEqual([]);
+  });
+
   it('registers selected scan candidates', async () => {
     const selected: string[][] = [];
     const client = createClient({
