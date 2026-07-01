@@ -27,7 +27,11 @@ public struct RegistryService {
         self.githubToken = githubToken
     }
 
-    public func check(ids: [String] = [], force: Bool = false) throws -> [CheckResult] {
+    public func check(
+        ids: [String] = [],
+        force: Bool = false,
+        onEvent: ((CheckProgressEvent) throws -> Void)? = nil
+    ) throws -> [CheckResult] {
         let manifest = try manifestStore.load()
         try validate(manifest)
 
@@ -37,7 +41,23 @@ public struct RegistryService {
             var state = try stateStore.load(now: checkDate)
             var results: [CheckResult] = []
 
+            func appendResult(for recipe: Recipe, state itemState: ItemState) throws {
+                let result = self.result(for: recipe, state: itemState)
+                results.append(result)
+                try onEvent?(CheckProgressEvent(
+                    phase: .itemFinished,
+                    id: recipe.id,
+                    name: recipe.name,
+                    result: result
+                ))
+            }
+
             for recipe in selected {
+                try onEvent?(CheckProgressEvent(
+                    phase: .itemStarted,
+                    id: recipe.id,
+                    name: recipe.name
+                ))
                 let existing = state.items[recipe.id]
 
                 if !recipe.enabled {
@@ -50,7 +70,7 @@ public struct RegistryService {
                         backoffUntil: nil
                     )
                     state.items[recipe.id] = itemState
-                    results.append(result(for: recipe, state: itemState))
+                    try appendResult(for: recipe, state: itemState)
                     continue
                 }
 
@@ -64,7 +84,7 @@ public struct RegistryService {
                         backoffUntil: nil
                     )
                     state.items[recipe.id] = itemState
-                    results.append(result(for: recipe, state: itemState))
+                    try appendResult(for: recipe, state: itemState)
                     continue
                 }
 
@@ -78,12 +98,12 @@ public struct RegistryService {
                         backoffUntil: nil
                     )
                     state.items[recipe.id] = itemState
-                    results.append(result(for: recipe, state: itemState))
+                    try appendResult(for: recipe, state: itemState)
                     continue
                 }
 
                 if !force, let existing, isFresh(existing, now: checkDate) {
-                    results.append(result(for: recipe, state: existing))
+                    try appendResult(for: recipe, state: existing)
                     continue
                 }
 
@@ -104,7 +124,9 @@ public struct RegistryService {
                         backoffUntil: nil
                     )
                     state.items[recipe.id] = itemState
-                    results.append(result(for: recipe, state: itemState))
+                    try appendResult(for: recipe, state: itemState)
+                } catch let error as ExecutionError where error.isCancellation {
+                    throw error
                 } catch {
                     let itemState = ItemState(
                         current: existing?.current,
@@ -115,7 +137,7 @@ public struct RegistryService {
                         backoffUntil: nil
                     )
                     state.items[recipe.id] = itemState
-                    results.append(result(for: recipe, state: itemState))
+                    try appendResult(for: recipe, state: itemState)
                 }
             }
 
@@ -198,6 +220,27 @@ public struct RegistryService {
             try manifestStore.save(manifest)
             return recipe
         }
+    }
+
+    public func approvals(id: String) throws -> [ApprovalStatus] {
+        let manifest = try manifestStore.load()
+        guard let recipe = manifest.item(id: id) else {
+            throw RegistryError.itemNotFound(id)
+        }
+        let commandTexts = recipe.commandTexts()
+        let commandCwds = recipe.commandWorkingDirectories()
+        return recipe.commandFingerprints()
+            .map { field, fingerprint in
+                ApprovalStatus(
+                    field: field,
+                    approved: recipe.trust.level == .trusted
+                        && recipe.trust.approvedCommands[field] == fingerprint,
+                    fingerprint: fingerprint,
+                    command: commandTexts[field] ?? "",
+                    cwd: commandCwds[field]
+                )
+            }
+            .sorted { $0.field < $1.field }
     }
 
     public func revokeApproval(id: String, field: String) throws -> Recipe {

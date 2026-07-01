@@ -7,18 +7,24 @@ public protocol CommandRunning {
 public struct CommandExecutor: CommandRunning {
     private let environment: [String: String]
     private let fileManager: FileManager
+    private let cancellationToken: CancellationToken?
 
     public init(
         environment: [String: String] = ProcessInfo.processInfo.environment,
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        cancellationToken: CancellationToken? = nil
     ) {
         self.environment = environment
         self.fileManager = fileManager
+        self.cancellationToken = cancellationToken
     }
 
     public func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult {
         if let cwd = command.cwd, !fileManager.fileExists(atPath: cwd) {
             throw ExecutionError.invalidWorkingDirectory(cwd)
+        }
+        if cancellationToken?.isCancelled == true {
+            throw ExecutionError.cancelled(command: command.command)
         }
 
         let process = Process()
@@ -56,6 +62,12 @@ public struct CommandExecutor: CommandRunning {
 
         let deadline = Date().addingTimeInterval(policy.timeout)
         while process.isRunning && Date() < deadline {
+            if cancellationToken?.isCancelled == true {
+                process.terminate()
+                process.waitUntilExit()
+                _ = readersFinished.wait(timeout: .now() + 2)
+                throw ExecutionError.cancelled(command: command.command)
+            }
             Thread.sleep(forTimeInterval: 0.01)
         }
         if process.isRunning {

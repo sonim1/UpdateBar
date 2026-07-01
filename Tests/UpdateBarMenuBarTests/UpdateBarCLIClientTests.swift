@@ -130,6 +130,23 @@ final class UpdateBarCLIClientTests: XCTestCase {
         XCTAssertEqual(result.stdout, "12345678")
         XCTAssertEqual(result.stderr, "fedcba09")
     }
+
+    func testProcessRunnerCancelsRunningProcess() throws {
+        let runner = ProcessRunner(timeout: 5)
+        let token = CancellationToken()
+
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
+            token.cancel()
+        }
+
+        XCTAssertThrowsError(try runner.run(
+            executablePath: "/bin/sh",
+            arguments: ["-c", "sleep 5"],
+            cancellationToken: token
+        )) { error in
+            XCTAssertEqual(error as? UpdateBarCLIClientError, .cancelled)
+        }
+    }
 }
 
 private final class RecordingRunner: UpdateBarProcessRunning, @unchecked Sendable {

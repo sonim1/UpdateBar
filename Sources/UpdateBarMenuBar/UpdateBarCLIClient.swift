@@ -17,10 +17,33 @@ public struct CommandApprovalStatus: Decodable, Equatable, Sendable {
     public var fingerprint: String
     public var command: String
     public var cwd: String?
+
+    public init(field: String, approved: Bool, fingerprint: String, command: String, cwd: String?) {
+        self.field = field
+        self.approved = approved
+        self.fingerprint = fingerprint
+        self.command = command
+        self.cwd = cwd
+    }
 }
 
 public protocol UpdateBarProcessRunning: AnyObject, Sendable {
     func run(executablePath: String, arguments: [String]) throws -> CommandResult
+    func run(
+        executablePath: String,
+        arguments: [String],
+        cancellationToken: CancellationToken?
+    ) throws -> CommandResult
+}
+
+public extension UpdateBarProcessRunning {
+    func run(
+        executablePath: String,
+        arguments: [String],
+        cancellationToken: CancellationToken?
+    ) throws -> CommandResult {
+        try run(executablePath: executablePath, arguments: arguments)
+    }
 }
 
 public struct UpdateBarCLIClient: Sendable {
@@ -42,26 +65,29 @@ public struct UpdateBarCLIClient: Sendable {
         return try JSONDecoder.updateBar.decode(StatusSnapshot.self, from: Data(result.stdout.utf8))
     }
 
-    public func checkNow() throws {
+    public func checkNow(cancellationToken: CancellationToken? = nil) throws {
         let result = try runner.run(
             executablePath: executablePath,
-            arguments: ["check", "--json", "--force", "--exit-zero-on-outdated"]
+            arguments: ["check", "--json", "--force", "--exit-zero-on-outdated"],
+            cancellationToken: cancellationToken
         )
         try ensureSuccess(result, allowedExitCodes: [0, 10])
     }
 
-    public func update(id: String) throws {
+    public func update(id: String, cancellationToken: CancellationToken? = nil) throws {
         let result = try runner.run(
             executablePath: executablePath,
-            arguments: ["update", id, "--yes", "--json"]
+            arguments: ["update", id, "--yes", "--json"],
+            cancellationToken: cancellationToken
         )
         try ensureSuccess(result, allowedExitCodes: [0, 2])
     }
 
-    public func updateAllApproved() throws {
+    public func updateAllApproved(cancellationToken: CancellationToken? = nil) throws {
         let result = try runner.run(
             executablePath: executablePath,
-            arguments: ["update", "--all", "--yes", "--json"]
+            arguments: ["update", "--all", "--yes", "--json"],
+            cancellationToken: cancellationToken
         )
         try ensureSuccess(result, allowedExitCodes: [0, 2])
     }
@@ -76,18 +102,20 @@ public struct UpdateBarCLIClient: Sendable {
             [CommandApprovalStatus].self, from: Data(result.stdout.utf8))
     }
 
-    public func approve(id: String, field: String) throws {
+    public func approve(id: String, field: String, cancellationToken: CancellationToken? = nil) throws {
         let result = try runner.run(
             executablePath: executablePath,
-            arguments: ["approve", id, "--field", field, "--json"]
+            arguments: ["approve", id, "--field", field, "--json"],
+            cancellationToken: cancellationToken
         )
         try ensureSuccess(result, allowedExitCodes: [0])
     }
 
-    public func revoke(id: String, field: String) throws {
+    public func revoke(id: String, field: String, cancellationToken: CancellationToken? = nil) throws {
         let result = try runner.run(
             executablePath: executablePath,
-            arguments: ["revoke", id, "--field", field, "--json"]
+            arguments: ["revoke", id, "--field", field, "--json"],
+            cancellationToken: cancellationToken
         )
         try ensureSuccess(result, allowedExitCodes: [0])
     }
@@ -102,6 +130,7 @@ public struct UpdateBarCLIClient: Sendable {
 public enum UpdateBarCLIClientError: Error, CustomStringConvertible, Equatable, Sendable {
     case failed(exitCode: Int32, stderr: String)
     case timedOut
+    case cancelled
 
     public var description: String {
         switch self {
@@ -111,6 +140,8 @@ public enum UpdateBarCLIClientError: Error, CustomStringConvertible, Equatable, 
                 ? "updatebar exited \(exitCode)" : "updatebar exited \(exitCode): \(detail)"
         case .timedOut:
             return "updatebar timed out"
+        case .cancelled:
+            return "updatebar cancelled"
         }
     }
 }
@@ -125,6 +156,14 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
     }
 
     public func run(executablePath: String, arguments: [String]) throws -> CommandResult {
+        try run(executablePath: executablePath, arguments: arguments, cancellationToken: nil)
+    }
+
+    public func run(
+        executablePath: String,
+        arguments: [String],
+        cancellationToken: CancellationToken?
+    ) throws -> CommandResult {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executablePath)
         process.arguments = arguments
@@ -155,11 +194,24 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
             finished.signal()
         }
 
-        if finished.wait(timeout: .now() + timeout) == .timedOut {
-            process.terminate()
-            _ = finished.wait(timeout: .now() + 2)
-            _ = readersFinished.wait(timeout: .now() + 2)
-            throw UpdateBarCLIClientError.timedOut
+        let deadline = Date().addingTimeInterval(timeout)
+        while true {
+            let remaining = deadline.timeIntervalSinceNow
+            if remaining <= 0 {
+                process.terminate()
+                _ = finished.wait(timeout: .now() + 2)
+                _ = readersFinished.wait(timeout: .now() + 2)
+                throw UpdateBarCLIClientError.timedOut
+            }
+            if finished.wait(timeout: .now() + min(0.05, remaining)) == .success {
+                break
+            }
+            if cancellationToken?.isCancelled == true {
+                process.terminate()
+                _ = finished.wait(timeout: .now() + 2)
+                _ = readersFinished.wait(timeout: .now() + 2)
+                throw UpdateBarCLIClientError.cancelled
+            }
         }
         readersFinished.wait()
 

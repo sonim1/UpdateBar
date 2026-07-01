@@ -52,9 +52,23 @@ public struct UpdateRunner {
 
             let result = try runUpdate(recipe: recipe, planItem: planItem)
             results.append(result)
+            if result.outcome == .cancelled {
+                break
+            }
         }
 
         return results
+    }
+
+    public func plan(ids: [String], all: Bool) throws -> [UpdatePlanItem] {
+        let manifest = try manifestStore.load()
+        let state = try stateStore.load(now: now())
+        return UpdatePlanner(manifest: manifest, state: state).plan(ids: ids, all: all)
+    }
+
+    public func updateReport(ids: [String], all: Bool, assumeYes: Bool) throws -> UpdateReport {
+        let results = try update(ids: ids, all: all, assumeYes: assumeYes)
+        return UpdateReport(results: results)
     }
 
     private func runUpdate(recipe: Recipe, planItem: UpdatePlanItem) throws -> UpdateResult {
@@ -89,6 +103,12 @@ public struct UpdateRunner {
                 current: check?.current,
                 latest: check?.latest,
                 error: check?.error
+            )
+        } catch let error as ExecutionError where error.isCancellation {
+            return UpdateResult(
+                planItem: planItem,
+                outcome: .cancelled,
+                error: SecretRedactor.redact(String(describing: error))
             )
         } catch {
             try markFailure(recipe: recipe, error: String(describing: error))
@@ -175,6 +195,49 @@ public struct UpdateResult: Codable, Equatable {
     }
 }
 
+public struct UpdateReport: Codable, Equatable {
+    public var summary: UpdateSummary
+    public var results: [UpdateResult]
+
+    public init(results: [UpdateResult]) {
+        self.summary = UpdateSummary(results: results)
+        self.results = results
+    }
+}
+
+public struct UpdateSummary: Codable, Equatable {
+    public var total: Int
+    public var updated: Int
+    public var failed: Int
+    public var skipped: Int
+    public var skippedUntrusted: Int
+    public var missing: Int
+    public var cancelled: Int
+    public var hardFailures: Int
+
+    public init(results: [UpdateResult]) {
+        self.total = results.count
+        self.updated = results.filter { $0.outcome == .updated }.count
+        self.failed = results.filter { $0.outcome == .failed }.count
+        self.skipped = results.filter { $0.outcome.isSkipped }.count
+        self.skippedUntrusted = results.filter { $0.outcome == .skippedUntrusted }.count
+        self.missing = results.filter { $0.outcome == .missing }.count
+        self.cancelled = results.filter { $0.outcome == .cancelled }.count
+        self.hardFailures = results.filter { $0.outcome.isHardFailure }.count
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case total
+        case updated
+        case failed
+        case skipped
+        case skippedUntrusted = "skipped_untrusted"
+        case missing
+        case cancelled
+        case hardFailures = "hard_failures"
+    }
+}
+
 public enum UpdateOutcome: String, Codable, Equatable {
     case updated
     case failed
@@ -184,6 +247,24 @@ public enum UpdateOutcome: String, Codable, Equatable {
     case skippedNotOutdated = "skipped_not_outdated"
     case missing
     case cancelled
+
+    public var isHardFailure: Bool {
+        switch self {
+        case .failed, .missing, .cancelled:
+            true
+        case .updated, .skippedPinned, .skippedDisabled, .skippedUntrusted, .skippedNotOutdated:
+            false
+        }
+    }
+
+    public var isSkipped: Bool {
+        switch self {
+        case .skippedPinned, .skippedDisabled, .skippedUntrusted, .skippedNotOutdated:
+            true
+        case .updated, .failed, .missing, .cancelled:
+            false
+        }
+    }
 }
 
 private extension UpdatePlanDecision {

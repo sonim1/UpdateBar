@@ -49,7 +49,9 @@ enum UpdateBarMain {
             try command.run()
         } catch {
             let exitCode = UpdateBar.exitCode(for: error)
-            if CommandLine.arguments.contains("--json"), !JSONOutputTracker.shared.didWrite {
+            if CommandLine.arguments.contains("--json") || CommandLine.arguments.contains("--json-stream"),
+                !JSONOutputTracker.shared.didWrite
+            {
                 writeJSONError(error, code: exitCode)
                 terminate(processExitCode(for: exitCode))
             }
@@ -805,6 +807,48 @@ private func printJSON<T: Encodable>(_ value: T) throws {
     print(String(decoding: data, as: UTF8.self))
 }
 
+private struct JSONLWriter {
+    func write(_ event: MachineEvent) throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let data = try encoder.encode(event)
+        JSONOutputTracker.shared.markDidWrite()
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+
+private final class SignalCancellationHandler {
+    private var sources: [DispatchSourceSignal] = []
+
+    init(token: CancellationToken) {
+        for signalNumber in [SIGINT, SIGTERM] {
+            Self.ignore(signalNumber)
+            let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: .global())
+            source.setEventHandler {
+                token.cancel()
+            }
+            source.resume()
+            sources.append(source)
+        }
+    }
+
+    func cancel() {
+        for source in sources {
+            source.cancel()
+        }
+        sources.removeAll()
+    }
+
+    private static func ignore(_ signalNumber: Int32) {
+#if os(Linux)
+        Glibc.signal(signalNumber, SIG_IGN)
+#else
+        Darwin.signal(signalNumber, SIG_IGN)
+#endif
+    }
+}
+
 private final class JSONOutputTracker: @unchecked Sendable {
     static let shared = JSONOutputTracker()
     private let lock = NSLock()
@@ -1149,18 +1193,34 @@ struct CheckCommand: ParsableCommand {
     var json = false
 
     @Flag(name: .long)
+    var jsonStream = false
+
+    @Flag(name: .long)
     var force = false
 
     @Flag(name: .long)
     var exitZeroOnOutdated = false
 
     func run() throws {
+        guard !(json && jsonStream) else {
+            throw ValidationError("--json and --json-stream cannot be combined")
+        }
         let config = try ConfigStore().load()
+        let cancellationToken = CancellationToken()
+        let signalHandler = SignalCancellationHandler(token: cancellationToken)
+        defer { signalHandler.cancel() }
         let service = RegistryService(
             config: config,
+            commandRunner: CommandExecutor(cancellationToken: cancellationToken),
             githubToken: ProcessInfo.processInfo.environment["GITHUB_TOKEN"]
                 ?? ProcessInfo.processInfo.environment["GH_TOKEN"]
         )
+
+        if jsonStream {
+            try runJSONStream(service: service)
+            return
+        }
+
         let results = try service.check(ids: ids, force: force)
 
         if json {
@@ -1170,6 +1230,68 @@ struct CheckCommand: ParsableCommand {
                 print("\(result.id)\t\(result.status.rawValue)")
             }
         }
+
+        if !exitZeroOnOutdated, results.contains(where: { $0.status == .outdated }) {
+            throw ExitCode(10)
+        }
+    }
+
+    private func runJSONStream(service: RegistryService) throws {
+        let writer = JSONLWriter()
+        try writer.write(MachineEvent(
+            event: .started,
+            operation: .check,
+            timestamp: Date()
+        ))
+
+        let results: [CheckResult]
+        do {
+            results = try service.check(ids: ids, force: force) { event in
+                switch event.phase {
+                case .itemStarted:
+                    try writer.write(MachineEvent(
+                        event: .itemStarted,
+                        operation: .check,
+                        timestamp: Date(),
+                        itemId: event.id,
+                        message: event.name
+                    ))
+                case .itemFinished:
+                    try writer.write(MachineEvent(
+                        event: .itemFinished,
+                        operation: .check,
+                        timestamp: Date(),
+                        itemId: event.id,
+                        checkResult: event.result
+                    ))
+                }
+            }
+        } catch let error as ExecutionError where error.isCancellation {
+            try writer.write(MachineEvent(
+                event: .cancelled,
+                operation: .check,
+                timestamp: Date(),
+                error: String(describing: error)
+            ))
+            throw ExitCode(2)
+        } catch {
+            try writer.write(MachineEvent(
+                event: .failed,
+                operation: .check,
+                timestamp: Date(),
+                error: String(describing: error)
+            ))
+            throw error
+        }
+
+        let report = CheckReport(results: results)
+        try writer.write(MachineEvent(
+            event: .finished,
+            operation: .check,
+            timestamp: Date(),
+            checkResults: report.results,
+            checkSummary: report.summary
+        ))
 
         if !exitZeroOnOutdated, results.contains(where: { $0.status == .outdated }) {
             throw ExitCode(10)
@@ -1190,22 +1312,7 @@ struct StatusCommand: ParsableCommand {
     var exitZeroOnOutdated = false
 
     func run() throws {
-        let now = Date()
-        let manifest = try ManifestStore().load()
-        let stateStore = StateStore()
-        var state = try stateStore.load(now: now)
-
-        if refresh {
-            let config = try ConfigStore().load()
-            state = try stateStore.withExclusiveLock {
-                let lockedState = try stateStore.load(now: now)
-                let refreshed = markStaleItemsChecking(manifest: manifest, state: lockedState, config: config, now: now)
-                try stateStore.save(refreshed)
-                return refreshed
-            }
-        }
-
-        let snapshot = StatusSnapshot.from(manifest: manifest, state: state, now: now)
+        let snapshot = try StatusService().snapshot(refresh: refresh)
         if json {
             try printJSON(snapshot)
         } else {
@@ -1217,36 +1324,6 @@ struct StatusCommand: ParsableCommand {
         if !exitZeroOnOutdated, snapshot.summary.outdated > 0 {
             throw ExitCode(10)
         }
-    }
-
-    private func markStaleItemsChecking(
-        manifest: Manifest,
-        state: State,
-        config: Config,
-        now: Date
-    ) -> State {
-        var copy = state
-        for recipe in manifest.items {
-            guard recipe.enabled, recipe.pin == nil, recipe.trust.level == .trusted else {
-                continue
-            }
-            let existing = copy.items[recipe.id]
-            if let lastChecked = existing?.lastChecked,
-                now.timeIntervalSince(lastChecked) < TimeInterval(config.refresh.interval.seconds)
-            {
-                continue
-            }
-            copy.items[recipe.id] = ItemState(
-                current: existing?.current,
-                latest: existing?.latest,
-                status: .checking,
-                lastChecked: existing?.lastChecked,
-                error: nil,
-                backoffUntil: nil
-            )
-        }
-        copy.generatedAt = now
-        return copy
     }
 }
 
@@ -1290,18 +1367,34 @@ struct UpdateCommand: ParsableCommand {
     @Flag(name: .long)
     var json = false
 
+    @Flag(name: .long)
+    var jsonStream = false
+
     func run() throws {
         guard all || !ids.isEmpty else {
             throw ValidationError("provide item ids or --all")
         }
+        guard !(json && jsonStream) else {
+            throw ValidationError("--json and --json-stream cannot be combined")
+        }
 
         let config = try ConfigStore().load()
+        let cancellationToken = CancellationToken()
+        let signalHandler = SignalCancellationHandler(token: cancellationToken)
+        defer { signalHandler.cancel() }
         let runner = UpdateRunner(
             config: config,
+            commandRunner: CommandExecutor(cancellationToken: cancellationToken),
             githubToken: ProcessInfo.processInfo.environment["GITHUB_TOKEN"]
                 ?? ProcessInfo.processInfo.environment["GH_TOKEN"],
             confirm: confirmUpdate
         )
+
+        if jsonStream {
+            try runJSONStream(runner: runner)
+            return
+        }
+
         let results = try runner.update(ids: ids, all: all, assumeYes: yes)
 
         if json {
@@ -1312,6 +1405,90 @@ struct UpdateCommand: ParsableCommand {
             }
         }
 
+        try enforceExitCodes(results)
+    }
+
+    private func runJSONStream(runner: UpdateRunner) throws {
+        let writer = JSONLWriter()
+        try writer.write(MachineEvent(
+            event: .started,
+            operation: .update,
+            timestamp: Date()
+        ))
+
+        var results: [UpdateResult] = []
+        do {
+            let plan = try runner.plan(ids: ids, all: all)
+            try writer.write(MachineEvent(
+                event: .log,
+                operation: .update,
+                timestamp: Date(),
+                message: "planned \(plan.count) item(s)",
+                level: .info
+            ))
+
+            for item in plan {
+                try writer.write(MachineEvent(
+                    event: .itemStarted,
+                    operation: .update,
+                    timestamp: Date(),
+                    itemId: item.id,
+                    message: item.name
+                ))
+                let itemResults = try runner.update(ids: [item.id], all: false, assumeYes: yes)
+                let result = itemResults.first ?? UpdateResult(
+                    id: item.id,
+                    name: item.name,
+                    outcome: .missing,
+                    current: item.current,
+                    latest: item.latest,
+                    error: "missing update result",
+                    commandFingerprint: item.commandFingerprint
+                )
+                results.append(result)
+                try writer.write(MachineEvent(
+                    event: .itemFinished,
+                    operation: .update,
+                    timestamp: Date(),
+                    itemId: result.id,
+                    result: result
+                ))
+                if result.outcome == .cancelled {
+                    break
+                }
+            }
+        } catch {
+            try writer.write(MachineEvent(
+                event: .failed,
+                operation: .update,
+                timestamp: Date(),
+                error: String(describing: error)
+            ))
+            throw error
+        }
+
+        let report = UpdateReport(results: results)
+        if results.contains(where: { $0.outcome == .cancelled }) {
+            try writer.write(MachineEvent(
+                event: .cancelled,
+                operation: .update,
+                timestamp: Date(),
+                summary: report.summary,
+                error: "cancelled"
+            ))
+        }
+        try writer.write(MachineEvent(
+            event: .finished,
+            operation: .update,
+            timestamp: Date(),
+            results: report.results,
+            summary: report.summary
+        ))
+
+        try enforceExitCodes(results)
+    }
+
+    private func enforceExitCodes(_ results: [UpdateResult]) throws {
         if results.contains(where: { $0.outcome.isHardFailure }) {
             throw ExitCode(2)
         }
@@ -1323,17 +1500,6 @@ struct UpdateCommand: ParsableCommand {
     private func confirmUpdate(_ item: UpdatePlanItem) -> Bool {
         FileHandle.standardError.write(Data("Update \(item.id)? Type yes to continue: ".utf8))
         return readLine() == "yes"
-    }
-}
-
-private extension UpdateOutcome {
-    var isHardFailure: Bool {
-        switch self {
-        case .failed, .missing, .cancelled:
-            true
-        case .updated, .skippedPinned, .skippedDisabled, .skippedUntrusted, .skippedNotOutdated:
-            false
-        }
     }
 }
 
@@ -1478,23 +1644,7 @@ struct ApprovalsCommand: ParsableCommand {
     var json = false
 
     func run() throws {
-        let manifest = try ManifestStore().load()
-        guard let recipe = manifest.item(id: id) else {
-            throw RegistryError.itemNotFound(id)
-        }
-        let commandTexts = recipe.commandTexts()
-        let commandCwds = recipe.commandWorkingDirectories()
-        let rows = recipe.commandFingerprints()
-            .map { field, fingerprint in
-                ApprovalPayload(
-                    field: field,
-                    approved: recipe.trust.level == .trusted && recipe.trust.approvedCommands[field] == fingerprint,
-                    fingerprint: fingerprint,
-                    command: commandTexts[field] ?? "",
-                    cwd: commandCwds[field]
-                )
-            }
-            .sorted { $0.field < $1.field }
+        let rows = try RegistryService().approvals(id: id)
         if json {
             try printJSON(rows)
         } else {
@@ -1544,14 +1694,6 @@ private struct RemovePayload: Encodable {
     var ok: Bool
     var id: String
     var removed: Bool
-}
-
-private struct ApprovalPayload: Encodable {
-    var field: String
-    var approved: Bool
-    var fingerprint: String
-    var command: String
-    var cwd: String?
 }
 
 struct ExportCommand: ParsableCommand {

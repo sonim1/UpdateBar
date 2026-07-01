@@ -1,16 +1,15 @@
 # Menu Bar App
 
-The menu bar app is a thin local wrapper around the bundled CLI.
+The menu bar app is a native Swift/AppKit presentation layer for UpdateBar.
 
-Current M4 scope:
+Current scope:
 
-- reads state with `updatebar status --json --exit-zero-on-outdated`
-- runs actions by invoking the bundled CLI subprocess
-- never writes `manifest.json`, `state.json`, or config directly
+- prefers direct `UpdateBarCore` calls through `CoreMenuBarService`
+- keeps `UpdateBarCLIClient` as a subprocess fallback with JSON-only contracts
 - shows outdated items separately from recipes that need command approval
 - shows command text before approve/revoke actions
 - supports check now, update selected, update all approved outdated, approve/revoke command fields,
-  reveal manifest, and quit
+  cancel current action, open TUI, open config, view logs, and quit
 
 Build a local unsigned app:
 
@@ -27,6 +26,12 @@ swift build --product updatebar-menubar
 UPDATEBAR_CLI=.build/debug/updatebar .build/debug/updatebar-menubar
 ```
 
+Use the fallback adapter explicitly:
+
+```bash
+UPDATEBAR_MENUBAR_ADAPTER=cli UPDATEBAR_BIN=.build/debug/updatebar .build/debug/updatebar-menubar
+```
+
 The local app is intentionally unsigned. Developer ID signing, notarization,
 stapling, and the Homebrew cask are deferred until the Apple Developer Program
 go/no-go decision.
@@ -35,7 +40,7 @@ Troubleshooting a missing icon:
 
 ```bash
 pkill -f UpdateBar
-UPDATEBAR_CLI=/full/path/to/updatebar ./dist/UpdateBar.app/Contents/MacOS/UpdateBar \
+UPDATEBAR_BIN=/full/path/to/updatebar ./dist/UpdateBar.app/Contents/MacOS/UpdateBar \
   >/tmp/updatebar-menubar.log 2>&1 &
 sleep 2
 tail -n 60 /tmp/updatebar-menubar.log

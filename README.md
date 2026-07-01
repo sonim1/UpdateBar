@@ -29,14 +29,16 @@ build from source.
 
 ### Menu bar app
 
-`updatebar-menubar` ships as an optional macOS wrapper around the CLI. Release tags publish an unsigned Apple Silicon app archive, and `Scripts/package-app.sh` builds the same local bundle from source.
-It uses the bundled or environment-selected `updatebar` binary and exposes:
+`updatebar-menubar` ships as an optional macOS wrapper. Release tags publish an unsigned Apple Silicon app archive, and `Scripts/package-app.sh` builds the same local bundle from source.
+It prefers direct `UpdateBarCore` calls, keeps a CLI subprocess fallback, and exposes:
 
 - check now
 - update selected
 - update all approved outdated
 - per-command approve/revoke
-- reveal manifest
+- open TUI
+- open config
+- view logs
 - quit
 
 Build a local unsigned app:
@@ -44,6 +46,17 @@ Build a local unsigned app:
 ```bash
 Scripts/package-app.sh
 open dist/UpdateBar.app
+```
+
+### Ink TUI
+
+The terminal UI lives in `tui/` and consumes the Swift CLI JSON/JSONL contracts.
+
+```bash
+cd tui
+npm install
+npm run build
+UPDATEBAR_BIN=../.build/debug/updatebar npm start
 ```
 
 ## Quick Start
@@ -93,7 +106,7 @@ updatebar list --json
 
 ## Scope
 
-v1 ships the CLI first, with an optional macOS menu bar app that reads only CLI status snapshots and runs user-approved actions.
+v1 ships the CLI first, with optional Ink TUI and macOS Menu Bar presentation layers over the same core behavior.
 Built-in AI generation, OAuth providers, and local LLM providers are removed by design — recipe authoring belongs to external agents. Sync, community registries, recipe signing, `diff`, and `doctor` are not planned until real external demand appears (see `next-plan.md`).
 
 UpdateBar has no telemetry.
@@ -108,3 +121,5 @@ See [docs/security.md](docs/security.md) for details.
 
 Shell completion setup lives in [docs/completions.md](docs/completions.md).
 Background check setup lives in [docs/background.md](docs/background.md).
+Architecture notes live in [docs/architecture.md](docs/architecture.md).
+Troubleshooting lives in [docs/troubleshooting.md](docs/troubleshooting.md).

@@ -9,7 +9,8 @@
     final class UpdateBarMenuBarApp: NSObject, NSApplicationDelegate {
         private static var bootstrapDelegate: UpdateBarMenuBarApp?
         private var statusItem: NSStatusItem!
-        private var client: UpdateBarCLIClient!
+        private var service: (any MenuBarServicing)!
+        private var cliPath = ""
         private let formatter = MenuBarStatusFormatter()
         private var latestState = MenuBarState(
             title: "Checking...",
@@ -20,6 +21,8 @@
             okItems: []
         )
         private var approvalStatuses: [String: [CommandApprovalStatus]] = [:]
+        private var activeAction: ActiveAction?
+        private var lastActionNotice: String?
 
         static func main() {
             let app = NSApplication.shared
@@ -32,9 +35,9 @@
         }
 
         func applicationDidFinishLaunching(_ notification: Notification) {
-            let cliPath = Self.resolveCLIPath()
+            cliPath = Self.resolveCLIPath()
             Self.debugLog("resolved updatebar path: \(cliPath)")
-            client = UpdateBarCLIClient(executablePath: cliPath)
+            service = Self.makeService(cliPath: cliPath)
             statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             statusItem.autosaveName = "UpdateBarStatusItem"
             statusItem.isVisible = true
@@ -66,22 +69,22 @@
         }
 
         @objc private func checkNow() {
-            runAction { [client] in
-                try client?.checkNow()
+            runAction("Check Now") { [service] token in
+                try service?.checkNow(cancellationToken: token)
             }
         }
 
         @objc private func updateAllApproved() {
-            runAction { [client] in
-                try client?.updateAllApproved()
+            runAction("Run Updates") { [service] token in
+                try service?.updateAllApproved(cancellationToken: token)
             }
         }
 
         @objc private func updateSelected(_ sender: NSMenuItem) {
             guard let action = sender.representedObject as? ItemAction else { return }
             let id = action.id
-            runAction { [client] in
-                try client?.update(id: id)
+            runAction("Update \(id)") { [service] token in
+                try service?.update(id: id, cancellationToken: token)
             }
         }
 
@@ -89,8 +92,8 @@
             guard let action = sender.representedObject as? ApprovalAction else { return }
             let id = action.id
             let field = action.field
-            runAction { [client] in
-                try client?.approve(id: id, field: field)
+            runAction("Approve \(id) \(field)") { [service] token in
+                try service?.approve(id: id, field: field, cancellationToken: token)
             }
         }
 
@@ -98,8 +101,8 @@
             guard let action = sender.representedObject as? ApprovalAction else { return }
             let id = action.id
             let field = action.field
-            runAction { [client] in
-                try client?.revoke(id: id, field: field)
+            runAction("Revoke \(id) \(field)") { [service] token in
+                try service?.revoke(id: id, field: field, cancellationToken: token)
             }
         }
 
@@ -107,8 +110,31 @@
             refreshStatus(refresh: true)
         }
 
-        @objc private func revealManifest() {
-            NSWorkspace.shared.activateFileViewerSelecting([AppPaths().manifestFile])
+        @objc private func cancelCurrentAction() {
+            guard let activeAction else { return }
+            activeAction.token.cancel()
+            lastActionNotice = "Cancelling: \(activeAction.title)"
+            rebuildMenu()
+        }
+
+        @objc private func openTUI() {
+            let command = OpenTUICommand(cliPath: cliPath)
+            do {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: command.executablePath)
+                process.arguments = command.arguments
+                try process.run()
+            } catch {
+                showError(error)
+            }
+        }
+
+        @objc private func openConfig() {
+            NSWorkspace.shared.open(AppPaths().configFile)
+        }
+
+        @objc private func viewLogs() {
+            NSWorkspace.shared.activateFileViewerSelecting([AppPaths().homeDirectory])
         }
 
         @objc private func quit() {
@@ -117,14 +143,14 @@
 
         private func refreshStatus(refresh: Bool) {
             setTitle("...", accessibilityLabel: "UpdateBar checking")
-            DispatchQueue.global(qos: .userInitiated).async { [client, formatter] in
+            DispatchQueue.global(qos: .userInitiated).async { [service, formatter] in
                 do {
-                    guard let client else { return }
-                    let snapshot = try client.status(refresh: refresh)
+                    guard let service else { return }
+                    let snapshot = try service.status(refresh: refresh)
                     var state = formatter.makeState(from: snapshot)
                     var approvals: [String: [CommandApprovalStatus]] = [:]
                     for item in state.allItems {
-                        let itemApprovals = try client.approvals(id: item.id)
+                        let itemApprovals = try service.approvals(id: item.id)
                         if !itemApprovals.isEmpty {
                             approvals[item.id] = itemApprovals
                         }
@@ -145,16 +171,43 @@
             }
         }
 
-        private func runAction(_ action: @escaping @Sendable () throws -> Void) {
-            setTitle("...", accessibilityLabel: "UpdateBar running")
+        private func runAction(
+            _ title: String,
+            _ action: @escaping @Sendable (CancellationToken) throws -> Void
+        ) {
+            let token = CancellationToken()
+            activeAction = ActiveAction(title: title, token: token)
+            lastActionNotice = nil
+            rebuildMenu()
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    try action()
+                    try action(token)
                     DispatchQueue.main.async {
-                        self.refreshStatus(refresh: false)
+                        let wasCancelled = token.isCancelled
+                        self.activeAction = nil
+                        self.lastActionNotice = wasCancelled ? "Cancelled: \(title)" : "Finished: \(title)"
+                        if wasCancelled {
+                            self.rebuildMenu()
+                        } else {
+                            self.refreshStatus(refresh: false)
+                        }
+                    }
+                } catch let error as ExecutionError where error.isCancellation {
+                    DispatchQueue.main.async {
+                        self.activeAction = nil
+                        self.lastActionNotice = "Cancelled: \(title)"
+                        self.rebuildMenu()
+                    }
+                } catch let error as UpdateBarCLIClientError where error == .cancelled {
+                    DispatchQueue.main.async {
+                        self.activeAction = nil
+                        self.lastActionNotice = "Cancelled: \(title)"
+                        self.rebuildMenu()
                     }
                 } catch {
                     DispatchQueue.main.async {
+                        self.activeAction = nil
+                        self.lastActionNotice = "Failed: \(title)"
                         self.showError(error)
                     }
                 }
@@ -162,11 +215,23 @@
         }
 
         private func rebuildMenu() {
-            setTitle(
-                latestState.badgeValue ?? "UB",
-                accessibilityLabel: accessibilityLabel(for: latestState)
-            )
+            if let activeAction {
+                setTitle("...", accessibilityLabel: "UpdateBar running \(activeAction.title)")
+            } else {
+                setTitle(
+                    latestState.badgeValue ?? "UB",
+                    accessibilityLabel: accessibilityLabel(for: latestState)
+                )
+            }
             let menu = NSMenu()
+            if let activeAction {
+                menu.addItem(disabledItem("Running: \(activeAction.title)"))
+                menu.addItem(actionItem("Cancel Current Action", action: #selector(cancelCurrentAction)))
+                menu.addItem(.separator())
+            } else if let lastActionNotice {
+                menu.addItem(disabledItem(lastActionNotice))
+                menu.addItem(.separator())
+            }
             menu.addItem(disabledItem(latestState.title))
             if latestState.needsAttentionCount > 0 {
                 menu.addItem(disabledItem("\(latestState.needsAttentionCount) need attention"))
@@ -192,8 +257,9 @@
             }
 
             menu.addItem(.separator())
-            menu.addItem(actionItem("Reveal Manifest", action: #selector(revealManifest)))
-            menu.addItem(disabledItem("Preferences"))
+            menu.addItem(actionItem("Open TUI", action: #selector(openTUI)))
+            menu.addItem(actionItem("Open Config", action: #selector(openConfig)))
+            menu.addItem(actionItem("View Logs", action: #selector(viewLogs)))
             menu.addItem(actionItem("Quit", action: #selector(quit)))
             statusItem.menu = menu
         }
@@ -250,7 +316,7 @@
             menu.addItem(disabledItem(String(describing: error)))
             menu.addItem(.separator())
             menu.addItem(actionItem("Check Now", action: #selector(checkNow)))
-            menu.addItem(actionItem("Reveal Manifest", action: #selector(revealManifest)))
+            menu.addItem(actionItem("Open Config", action: #selector(openConfig)))
             menu.addItem(actionItem("Quit", action: #selector(quit)))
             statusItem.menu = menu
         }
@@ -285,31 +351,28 @@
         }
 
         private static func resolveCLIPath() -> String {
-            let environment = ProcessInfo.processInfo.environment
-            if let override = environment["UPDATEBAR_CLI"], !override.isEmpty {
-                debugLog("using UPDATEBAR_CLI override: \(override)")
-                return override
+            do {
+                let resolution = try UpdateBarBinaryResolver().resolve(
+                    bundledDirectory: Bundle.main.resourceURL
+                )
+                debugLog("using \(resolution.source.rawValue) updatebar: \(resolution.path)")
+                return resolution.path
+            } catch {
+                debugLog("failed to resolve updatebar path: \(error)")
             }
-            if let bundled = Bundle.main.resourceURL?.appendingPathComponent("updatebar"),
-                FileManager.default.isExecutableFile(atPath: bundled.path)
-            {
-                debugLog("using bundled updatebar: \(bundled.path)")
-                return bundled.path
-            }
-            let paths =
-                (environment["PATH"] ?? "")
-                .split(separator: ":")
-                .map(String.init) + ["/opt/homebrew/bin", "/usr/local/bin"]
-            for directory in paths {
-                let candidate = URL(fileURLWithPath: directory).appendingPathComponent("updatebar")
-                    .path
-                if FileManager.default.isExecutableFile(atPath: candidate) {
-                    debugLog("found updatebar in PATH: \(candidate)")
-                    return candidate
-                }
-            }
-            debugLog("falling back to /opt/homebrew/bin/updatebar")
             return "/opt/homebrew/bin/updatebar"
+        }
+
+        private static func makeService(cliPath: String) -> any MenuBarServicing {
+            let environment = ProcessInfo.processInfo.environment
+            if environment["UPDATEBAR_MENUBAR_ADAPTER"] == "cli" {
+                debugLog("using CLI subprocess menu bar adapter")
+                return UpdateBarCLIClient(executablePath: cliPath)
+            }
+            debugLog("using direct UpdateBarCore menu bar adapter")
+            return CoreMenuBarService(
+                githubToken: environment["GITHUB_TOKEN"] ?? environment["GH_TOKEN"]
+            )
         }
     }
 
@@ -328,6 +391,16 @@
         init(id: String, field: String) {
             self.id = id
             self.field = field
+        }
+    }
+
+    private final class ActiveAction {
+        let title: String
+        let token: CancellationToken
+
+        init(title: String, token: CancellationToken) {
+            self.title = title
+            self.token = token
         }
     }
 

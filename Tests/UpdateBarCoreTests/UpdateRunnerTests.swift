@@ -113,6 +113,45 @@ final class UpdateRunnerTests: XCTestCase {
         XCTAssertTrue(commands.commands.isEmpty)
     }
 
+    func testRunnerPlansFromStores() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "tool")]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "tool": itemState(status: .outdated)
+        ]))
+        let runner = updateRunner(paths: paths, commands: MockCommandExecutor(results: [:]))
+
+        let plan = try runner.plan(ids: ["tool"], all: false)
+
+        XCTAssertEqual(plan.map(\.id), ["tool"])
+        XCTAssertEqual(plan.map(\.decision), [.willUpdate])
+    }
+
+    func testUpdateReportSummarizesResults() throws {
+        let results = [
+            updateResult(id: "updated", outcome: .updated),
+            updateResult(id: "failed", outcome: .failed),
+            updateResult(id: "pinned", outcome: .skippedPinned),
+            updateResult(id: "untrusted", outcome: .skippedUntrusted),
+            updateResult(id: "missing", outcome: .missing),
+            updateResult(id: "cancelled", outcome: .cancelled)
+        ]
+
+        let report = UpdateReport(results: results)
+
+        XCTAssertEqual(report.summary.total, 6)
+        XCTAssertEqual(report.summary.updated, 1)
+        XCTAssertEqual(report.summary.failed, 1)
+        XCTAssertEqual(report.summary.skipped, 2)
+        XCTAssertEqual(report.summary.skippedUntrusted, 1)
+        XCTAssertEqual(report.summary.missing, 1)
+        XCTAssertEqual(report.summary.cancelled, 1)
+        XCTAssertEqual(report.summary.hardFailures, 3)
+        XCTAssertTrue(UpdateOutcome.failed.isHardFailure)
+        XCTAssertFalse(UpdateOutcome.skippedUntrusted.isHardFailure)
+    }
+
     private func updateRunner(paths: AppPaths, commands: MockCommandExecutor) -> UpdateRunner {
         UpdateRunner(
             manifestStore: ManifestStore(paths: paths),
@@ -162,6 +201,18 @@ final class UpdateRunnerTests: XCTestCase {
             lastChecked: now,
             error: nil,
             backoffUntil: nil
+        )
+    }
+
+    private func updateResult(id: String, outcome: UpdateOutcome) -> UpdateResult {
+        UpdateResult(
+            id: id,
+            name: id,
+            outcome: outcome,
+            current: nil,
+            latest: nil,
+            error: nil,
+            commandFingerprint: nil
         )
     }
 
