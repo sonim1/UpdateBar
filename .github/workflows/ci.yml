@@ -18,20 +18,10 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
-      - name: Smoke
-        run: bash Scripts/smoke-test.sh
-      - name: E2E edgecases
-        run: UPDATEBAR_BIN=.build/debug/updatebar bash Scripts/e2e-edgecases.sh
-      - name: Release script smoke
-        run: bash Scripts/release-tar-args-test.sh
-      - name: Homebrew packaging smoke
-        run: bash Scripts/homebrew-packaging-test.sh
-      - name: Archive smoke
-        run: bash Scripts/archive-smoke-test.sh
+      - name: Quality gate
+        run: bash Scripts/quality-gate.sh
       - name: App package smoke
         run: bash Scripts/package-app.sh
-      - name: TUI smoke
-        run: bash Scripts/tui-smoke-test.sh
       - name: Format
         run: |
           if command -v swift-format >/dev/null 2>&1; then
@@ -54,9 +44,5 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
-      - name: E2E edgecases
-        run: UPDATEBAR_BIN=.build/debug/updatebar bash Scripts/e2e-edgecases.sh
-      - name: Release script smoke
-        run: bash Scripts/release-tar-args-test.sh
-      - name: Homebrew packaging smoke
-        run: bash Scripts/homebrew-packaging-test.sh
+      - name: Quality gate
+        run: SKIP_MENUBAR_SMOKE=1 bash Scripts/quality-gate.sh
