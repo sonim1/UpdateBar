@@ -80,12 +80,47 @@ final class EditCommandTests: XCTestCase {
         XCTAssertEqual(manifest.item(id: "tool")?.name, "Spaced Tool")
     }
 
+    func testEditSupportsEnvironmentAssignmentsAndQuotedPath() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let spacedDirectory = home.appendingPathComponent("Editor Home")
+        try FileManager.default.createDirectory(at: spacedDirectory, withIntermediateDirectories: true)
+        let editor = try editorScript(
+            home: spacedDirectory,
+            body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Assigned Tool"/' "$1""#
+        )
+        let editorSpec = "UPDATEBAR_TEST_EDITOR=1 '\(editor.path)'"
+
+        let result = try CLIProcess.run(
+            ["edit", "tool"],
+            home: home,
+            environment: ["EDITOR": editorSpec]
+        )
+        let manifest = try ManifestStore(paths: paths).load()
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(manifest.item(id: "tool")?.name, "Assigned Tool")
+    }
+
     func testEditRejectsUnknownEditorCommand() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
         let paths = AppPaths(homeDirectory: home)
         try saveManifest(paths: paths)
 
         let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": "no-such-editor"])
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("EDITOR/VISUAL command not found in PATH: no-such-editor"))
+        XCTAssertEqual(try ManifestStore(paths: paths).load().item(id: "tool")?.name, "Tool")
+    }
+
+    func testEditRejectsUnknownEditorCommandAfterAssignments() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+
+        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": "FOO=1 no-such-editor"])
 
         XCTAssertNotEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.contains("EDITOR/VISUAL command not found in PATH: no-such-editor"))

@@ -206,17 +206,24 @@ struct TUICommand: ParsableCommand {
     }
 
     private func commandFromPath(name: String, environment: [String: String]) -> String? {
-        let pathValue = environment["PATH"] ?? ""
-        let pathEntries = pathValue.split(separator: ":").map(String.init)
-        for path in pathEntries {
-            if path.isEmpty { continue }
-            let candidate = URL(fileURLWithPath: path).appendingPathComponent(name).path
-            if FileManager.default.isExecutableFile(atPath: candidate) {
-                return candidate
-            }
-        }
-        return nil
+        return resolveExecutable(name, environment: environment)
     }
+}
+
+private func resolveExecutable(_ value: String, environment: [String: String]) -> String? {
+    if FileManager.default.isExecutableFile(atPath: value) {
+        return value
+    }
+    let pathValue = environment["PATH"] ?? ""
+    let pathEntries = pathValue.split(separator: ":").map(String.init)
+    for path in pathEntries {
+        if path.isEmpty { continue }
+        let candidate = URL(fileURLWithPath: path).appendingPathComponent(value).path
+        if FileManager.default.isExecutableFile(atPath: candidate) {
+            return candidate
+        }
+    }
+    return nil
 }
 
 struct ScanCommand: ParsableCommand {
@@ -2187,22 +2194,6 @@ struct EditCommand: ParsableCommand {
             return false
         }
         return firstEquals != token.startIndex
-    }
-
-    private func resolveExecutable(_ value: String, environment: [String: String]) -> String? {
-        if FileManager.default.isExecutableFile(atPath: value) {
-            return value
-        }
-        let pathValue = environment["PATH"] ?? ""
-        let pathEntries = pathValue.split(separator: ":").map(String.init)
-        for path in pathEntries {
-            if path.isEmpty { continue }
-            let candidate = URL(fileURLWithPath: path).appendingPathComponent(value).path
-            if FileManager.default.isExecutableFile(atPath: candidate) {
-                return candidate
-            }
-        }
-        return nil
     }
 
     private func validateEditedRecipe(_ recipe: Recipe) throws {
