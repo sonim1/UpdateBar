@@ -16,6 +16,7 @@ Scripts/build-release.sh
 bash Scripts/archive-smoke-test.sh
 bash Scripts/homebrew-packaging-test.sh
 Scripts/package-app.sh
+bash Scripts/install-release.sh --help
 ```
 
 Build a local release archive:

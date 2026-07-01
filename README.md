@@ -38,6 +38,12 @@ Scripts/install-local.sh
 
 ```bash
 bash Scripts/install-release.sh
+
+# Or install a specific version:
+bash Scripts/install-release.sh v0.2.0
+
+# Optional: change install directory
+UPDATEBAR_INSTALL_PREFIX="$HOME/.local/bin" bash Scripts/install-release.sh
 ```
 
 Published prebuilt CLI archives currently cover Apple Silicon macOS and Linux

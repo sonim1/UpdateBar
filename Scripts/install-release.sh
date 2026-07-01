@@ -12,11 +12,16 @@ Arguments:
 
 Environment:
   UPDATEBAR_INSTALL_PREFIX   Directory to install updatebar into.
-                            Defaults to "$HOME/.local/bin".
+                           Defaults to "$HOME/.local/bin".
   UPDATEBAR_GITHUB_REPO      GitHub repo in owner/name form.
                             Defaults to "sonim1/UpdateBar".
 EOF
   exit 0
+fi
+
+if ! command -v curl >/dev/null 2>&1; then
+  echo "curl is required to download release assets" >&2
+  exit 1
 fi
 
 REPO="${UPDATEBAR_GITHUB_REPO:-sonim1/UpdateBar}"
@@ -61,6 +66,9 @@ ASSET_URL=$(awk -F'"' -v platform="$PLATFORM" -v arch="$ARCH" \
 ASSET_SHA_URL="${ASSET_URL}.sha256"
 if [[ -z "$ASSET_URL" ]]; then
   echo "No prebuilt UpdateBar archive found for ${PLATFORM}/${ARCH} in $RELEASE_URL" >&2
+  echo "Available updatebar assets in ${RELEASE_PATH} are:" >&2
+  awk -F'"' '$2=="browser_download_url" && $4 ~ "/updatebar-[0-9][^\\\"]*\\.tar\\.gz$" { print $4 }' \
+    "$RELEASE_JSON" >&2
   exit 1
 fi
 
