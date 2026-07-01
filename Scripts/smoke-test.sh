@@ -15,7 +15,7 @@ run_updatebar() {
 }
 
 run_updatebar version --json >/dev/null
-run_updatebar schema --json >/dev/null
+run_updatebar schema >/dev/null
 run_updatebar validate Fixtures/manifests/valid-basic.json --json >/dev/null
 run_updatebar validate - --json < Fixtures/manifests/valid-basic.json >/dev/null
 run_updatebar import Fixtures/manifests/untrusted-import.json --json >/dev/null

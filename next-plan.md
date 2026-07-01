@@ -114,7 +114,7 @@ Status after implementation pass:
 
 2. **Validate-execute parity (guardrail 8).**
    - Done: `version_parse.jq` is now rejected until runtime support exists.
-   - `schema --json` advertises only `version_parse.regex`.
+  - `schema` advertises only `version_parse.regex`.
    - `check.file` docs now state regex-parsable content only.
 
 3. **Concurrency stress tests.**
@@ -156,7 +156,7 @@ This milestone is the heart of the product under the reset. Absorbs the old
 
 Contract work (new — the machine-readable surface):
 
-- **Done: `schema` command** emitting the recipe JSON Schema (`schema --json`):
+- **Done: `schema` command** emitting the recipe JSON Schema (`schema`):
   field rules, enums, executable `version_parse.regex` shape.
 - **Done: stable JSON error envelope for top-level failures.** Parser/runtime failures
   with `--json` now return `{ok:false, code, errors}` when no command-specific JSON
@@ -204,7 +204,7 @@ installed binary — authors and registers a working recipe end to end,
 recovering from at least one validation error programmatically.
 
 Fresh UPDATEBAR_HOME
-schema --json
+schema
 template recipe --kind npm > recipe.json
 validate recipe.json --json   (and via stdin)
 add --from recipe.json --dry-run --json

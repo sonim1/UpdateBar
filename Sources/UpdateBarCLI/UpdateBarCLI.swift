@@ -984,7 +984,7 @@ struct GuideCommand: ParsableCommand {
                 Recipes may contain shell commands. Treat those commands as sensitive.
 
                 Safe workflow:
-                1. Inspect contract: updatebar schema --json and updatebar guide recipe.
+                1. Inspect contract: updatebar schema and updatebar guide recipe.
                 2. Start from a template: updatebar template recipe --kind npm --id my-tool --source my-tool.
                 3. Validate: updatebar validate recipe.json --json --explain.
                 4. Dry-run add: updatebar add --from recipe.json --dry-run --json.
@@ -1029,7 +1029,7 @@ struct GuideCommand: ParsableCommand {
                 - imported recipes should stay untrusted until a user reviews commands
 
                 Start with:
-                updatebar schema --json
+                updatebar schema
                 updatebar template recipe --kind npm --id my-tool --source my-tool
                 updatebar validate recipe.json --json --explain
                 """

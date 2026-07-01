@@ -53,6 +53,16 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains(#""jq""#))
     }
 
+    func testSchemaCommandRejectsUnsupportedJSONFlag() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-schema-json-tests")
+
+        let result = try CLIProcess.run(["schema", "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue((result.stdout + result.stderr).contains("Unknown option '--json'"))
+        XCTAssertTrue((result.stdout + result.stderr).contains("Usage: updatebar schema"))
+    }
+
     func testGuideRecipePrintsRecipeAuthoringGuide() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-guide-tests")
 

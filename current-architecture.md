@@ -307,7 +307,7 @@ Implemented:
 ```text
 updatebar guide agent
 updatebar guide recipe
-updatebar schema --json
+updatebar schema
 updatebar template recipe --kind <kind> [--id <id>] [--source <ref>]
 updatebar template manifest --kind <kind>
 updatebar validate <manifest-or-recipe|-> --json

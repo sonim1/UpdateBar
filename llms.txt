@@ -8,7 +8,7 @@ fingerprints.
 Use this workflow:
 
 ```bash
-updatebar schema --json
+updatebar schema
 updatebar guide agent
 updatebar guide recipe
 updatebar template recipe --kind npm --id my-tool --source my-tool > recipe.json
