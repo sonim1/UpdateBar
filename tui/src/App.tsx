@@ -4,6 +4,16 @@ import {createDefaultClient, type UpdateBarClient} from './client.js';
 import type {CheckReport, MachineEvent, ScanCandidate, ScanReport, StatusItem, StatusSnapshot} from './types.js';
 
 type Screen = 'menu' | 'status' | 'logs' | 'scan' | 'updating';
+type CheckSummaryCountKey = Exclude<keyof CheckReport['summary'], 'total'>;
+
+const CHECK_SUMMARY_COUNT_FIELDS: Array<[CheckSummaryCountKey, string]> = [
+  ['outdated', 'outdated'],
+  ['errors', 'errors'],
+  ['untrusted', 'untrusted'],
+  ['differs', 'differs'],
+  ['pinned', 'pinned'],
+  ['disabled', 'disabled']
+];
 
 export interface AppProps {
   client?: UpdateBarClient;
@@ -443,28 +453,11 @@ function checkSummaryLines(report: CheckReport) {
     `checked ${report.summary.total} items`
   ];
 
-  if (report.summary.outdated > 0) {
-    lines.push(`outdated: ${report.summary.outdated}`);
-  }
-
-  if (report.summary.errors > 0) {
-    lines.push(`errors: ${report.summary.errors}`);
-  }
-
-  if (report.summary.untrusted > 0) {
-    lines.push(`untrusted: ${report.summary.untrusted}`);
-  }
-
-  if (report.summary.differs > 0) {
-    lines.push(`differs: ${report.summary.differs}`);
-  }
-
-  if (report.summary.pinned > 0) {
-    lines.push(`pinned: ${report.summary.pinned}`);
-  }
-
-  if (report.summary.disabled > 0) {
-    lines.push(`disabled: ${report.summary.disabled}`);
+  for (const [key, label] of CHECK_SUMMARY_COUNT_FIELDS) {
+    const count = report.summary[key];
+    if (count > 0) {
+      lines.push(`${label}: ${count}`);
+    }
   }
 
   appendItemSample(lines, report, 'outdated');
@@ -481,7 +474,8 @@ function appendItemSample(lines: string[], report: CheckReport, status: StatusIt
     .filter(name => Boolean(name));
 
   if (names.length > 0) {
-    lines.push(`${status} sample: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ', ...' : ''}`);
+    const suffix = names.length > 3 ? ', ...' : '';
+    lines.push(`${status} sample: ${names.slice(0, 3).join(', ')}${suffix}`);
   }
 }
 
