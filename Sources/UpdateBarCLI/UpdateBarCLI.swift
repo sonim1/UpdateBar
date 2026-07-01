@@ -1493,7 +1493,7 @@ struct UpdateCommand: ParsableCommand {
     }
 
     private func confirmUpdate(_ item: UpdatePlanItem) -> Bool {
-        if json {
+        if json || jsonStream {
             return false
         }
         return readYes("Update \(item.id)? Type yes to continue:")
