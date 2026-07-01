@@ -60,8 +60,9 @@ struct UpdateBar: ParsableCommand {
 @main
 enum UpdateBarMain {
     static func main() {
+        let arguments = Self.normalizeArguments(Array(CommandLine.arguments.dropFirst()))
         do {
-            var command = try UpdateBar.parseAsRoot()
+            var command = try UpdateBar.parseAsRoot(arguments)
             try command.run()
         } catch {
             if error is ExitCode {
@@ -69,7 +70,7 @@ enum UpdateBarMain {
                 terminate(processExitCode(for: exitCode))
             }
             let exitCode = UpdateBar.exitCode(for: error)
-            if requestedJSONOutput(CommandLine.arguments),
+            if requestedJSONOutput(arguments),
                 !JSONOutputTracker.shared.didWrite
             {
                 writeJSONError(error, code: exitCode)
@@ -80,6 +81,33 @@ enum UpdateBarMain {
                 writeStderr(message)
             }
             terminate(processExitCode(for: exitCode))
+        }
+    }
+
+    private static func normalizeArguments(_ arguments: [String]) -> [String] {
+        return arguments.compactMap { normalizeBooleanAssignmentArgument($0) }
+    }
+
+    private static func normalizeBooleanAssignmentArgument(_ argument: String) -> String? {
+        guard argument.hasPrefix("--"), let equalsRange = argument.firstIndex(of: "=") else {
+            return argument
+        }
+
+        let key = String(argument[..<equalsRange])
+        let value = String(argument[argument.index(after: equalsRange)...]).lowercased()
+
+        switch key {
+        case "--json", "--json-stream":
+            switch value {
+            case "1", "true", "t", "yes", "on":
+                return key
+            case "0", "false", "f", "no", "off":
+                return nil
+            default:
+                return argument
+            }
+        default:
+            return argument
         }
     }
 

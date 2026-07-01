@@ -155,17 +155,14 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertFalse(payload.errors.isEmpty)
     }
 
-    func testStatusWithJSONEqualsProducesErrorEnvelope() throws {
+    func testStatusWithJSONEqualsParsesAsJSONMode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 
         let result = try CLIProcess.run(["status", "--json=true"], home: home)
 
-        XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stdout.contains("\"ok\":false"))
-        let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
-        XCTAssertEqual(payload.code, "usage_error")
-        XCTAssertTrue(payload.errors.first?.contains("does not take any value") == true)
-        XCTAssertTrue(result.stderr.isEmpty)
+        XCTAssertEqual(result.exitCode, 0)
+        let snapshot = try JSONDecoder.updateBar.decode(StatusSnapshot.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(snapshot.summary.total, 0)
     }
 
     func testStatusWithJSONStreamEqualsProducesErrorEnvelope() throws {
@@ -175,7 +172,38 @@ final class CLIOutputTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 1)
         let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
-        XCTAssertFalse(payload.ok)
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertFalse(payload.errors.isEmpty)
+    }
+
+    func testCheckWithJSONEqualsParsesAsJSONMode() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["check", "--json=true"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        let payload = try JSONDecoder.updateBar.decode([CheckResult].self, from: Data(result.stdout.utf8))
+        XCTAssertTrue(payload.isEmpty)
+    }
+
+    func testCheckWithJSONStreamEqualsParsesAsJSONStreamMode() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["check", "--json-stream=true"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("\"type\":\"started\""))
+        XCTAssertTrue(result.stdout.contains("\"type\":\"finished\""))
+    }
+
+    func testUpdateWithJSONEqualsReturnsUsageErrorForMissingTarget() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["update", "--json=true"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.isEmpty)
+        let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
         XCTAssertEqual(payload.code, "usage_error")
     }
 
