@@ -164,6 +164,24 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("init --json requires --select") })
     }
 
+    func testInitRejectsEmptyDetectorList() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+
+        let result = try CLIProcess.run(["init", "--detectors", ","], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("expected brew, npm_global, or known"))
+    }
+
+    func testInitRejectsUnknownDetector() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+
+        let result = try CLIProcess.run(["init", "--detectors", "brew,foo"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("foo: unknown detector"))
+    }
+
     private func fakeManagers(home: URL) throws -> URL {
         let bin = home.appendingPathComponent("bin")
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
