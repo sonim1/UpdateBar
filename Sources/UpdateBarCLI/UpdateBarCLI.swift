@@ -393,6 +393,7 @@ private func parseScanDetectors(_ value: String?) throws -> [ScanDetector] {
     let values = value
         .split(separator: ",")
         .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
     guard !values.isEmpty else {
         throw ValidationError("detectors: expected brew, npm_global, or known")
     }

@@ -134,6 +134,27 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("expected brew, npm_global, or known"))
     }
 
+    func testScanRejectsUnknownDetector() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+
+        let result = try CLIProcess.run(["scan", "--detectors", "brew,foo"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("foo: unknown detector"))
+    }
+
+    func testScanAcceptsWhitespaceSeparatedDetectors() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+
+        let result = try CLIProcess.run(
+            ["scan", "--detectors", " brew , npm_global "],
+            home: home
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("Found 0 candidate(s)"))
+    }
+
     private func writeExecutable(_ url: URL, _ body: String) throws {
         try body.write(to: url, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
