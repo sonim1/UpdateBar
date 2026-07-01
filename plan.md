@@ -223,7 +223,7 @@ updatebar remove <id> [--yes]
 updatebar status [--json] [--refresh] [--exit-zero-on-outdated]
 updatebar update [id...|--all] [--yes] [--json]
 updatebar validate [file] [--json]
-updatebar version [--json]
+updatebar --version
 ```
 
 Defer these commands:
@@ -461,7 +461,7 @@ rtk git init
 First command:
 
 ```bash
-rtk swift run updatebar version --json
+rtk swift run updatebar --version
 ```
 
 Expected:
@@ -1624,7 +1624,7 @@ set -euo pipefail
 TMP_HOME="$(mktemp -d)"
 export UPDATEBAR_HOME="$TMP_HOME"
 
-swift run updatebar version --json
+swift run updatebar --version
 swift run updatebar validate Fixtures/manifests/valid-basic.json --json
 swift run updatebar import Fixtures/manifests/valid-basic.json --json
 swift run updatebar list --json
@@ -1783,7 +1783,7 @@ Formula must:
 
 - Download GitHub release tarball.
 - Install `bin/updatebar`.
-- Run `updatebar version --json` in test block.
+- Run `updatebar --version` in test block.
 
 - [x] Add release workflow.
 
@@ -1844,7 +1844,7 @@ Expected:
 
 ```bash
 export UPDATEBAR_HOME="$(mktemp -d)"
-rtk swift run updatebar version --json
+rtk swift run updatebar --version
 rtk swift run updatebar auth status --json
 rtk swift run updatebar add --manual --dry-run
 rtk swift run updatebar import Fixtures/manifests/valid-basic.json --json
@@ -1894,7 +1894,7 @@ rtk bash Scripts/smoke-test.sh
 Manual command matrix with `UPDATEBAR_HOME="$(mktemp -d)"`:
 
 ```bash
-rtk swift run updatebar version --json
+rtk swift run updatebar --version
 rtk swift run updatebar validate Fixtures/manifests/valid-basic.json --json
 rtk swift run updatebar import Fixtures/manifests/valid-basic.json --json
 rtk swift run updatebar list

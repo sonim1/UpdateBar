@@ -224,7 +224,7 @@ Goal: make CLI distribution boring and honest before any app surface.
 Work:
 
 - Done: `version` reads generated `UpdateBarVersion.swift`, produced from `version.env`
-  by `Scripts/generate-version-source.sh`; test asserts `version --json` matches `version.env`.
+  by `Scripts/generate-version-source.sh`; test asserts `--version` matches `version.env`.
 - CHANGELOG currently carries the CLI-only reset under `Unreleased`; move it under
   the tagged version during release finalization.
 - Done locally: release URLs now target `sonim1/UpdateBar`; Homebrew tap target is
@@ -238,7 +238,7 @@ Work:
   `sonim1/UpdateBar`.
 - Done: Homebrew formula style passes locally.
 - Done: **archive-install smoke:** install the built archive into a temp bin and run
-  `version --json`, `guide agent`, `template recipe --kind npm`.
+  `--version`, `guide agent`, `template recipe --kind npm`.
   Implemented as `Scripts/archive-smoke-test.sh`.
 - Done: **Linux CI lane** exists in `.github/workflows/ci.yml`.
 - Done: Homebrew formula installs the CLI as `updatebar`.
@@ -255,7 +255,7 @@ Gate:
 swift build -c release
 Scripts/build-release.sh
 archive-install smoke passes
-version --json == version.env
+--version == version.env
 Linux CI lane green (or Linux claims removed)
 Homebrew formula/cask packaging test passes
 release docs match actual repo slug
