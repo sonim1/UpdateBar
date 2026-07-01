@@ -40,14 +40,6 @@ export function App({client: providedClient}: AppProps) {
 
   useInput(
     (_input, key) => {
-      if (key.upArrow) {
-        setMenuIndex(index => Math.max(0, index - 1));
-        return;
-      }
-      if (key.downArrow) {
-        setMenuIndex(index => Math.min(menu.length - 1, index + 1));
-        return;
-      }
       if (_input === 'q') {
         exit();
         return;
@@ -60,8 +52,18 @@ export function App({client: providedClient}: AppProps) {
         handleScanInput(_input, key);
         return;
       }
-      if (key.return) {
-        void runMenuAction();
+      if (screen === 'menu') {
+        if (key.upArrow) {
+          setMenuIndex(index => Math.max(0, index - 1));
+          return;
+        }
+        if (key.downArrow) {
+          setMenuIndex(index => Math.min(menu.length - 1, index + 1));
+          return;
+        }
+        if (key.return) {
+          void runMenuAction();
+        }
       }
     },
     {isActive: canUseKeyboard}
@@ -138,7 +140,7 @@ export function App({client: providedClient}: AppProps) {
     try {
       setScanReport(await activeClient.scan({signal: controller.signal}));
     } catch (caught) {
-      setError(messageFor(caught));
+      setError(controller.signal.aborted ? 'scan cancelled' : messageFor(caught));
     } finally {
       setAbortController(undefined);
     }
