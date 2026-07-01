@@ -17,6 +17,7 @@ bash Scripts/archive-smoke-test.sh
 bash Scripts/homebrew-packaging-test.sh
 Scripts/package-app.sh
 bash Scripts/install-release.sh --help
+bash Scripts/verify-homebrew-metadata.sh
 ```
 
 Build a local release archive:
@@ -112,6 +113,8 @@ Before tagging:
   asset's `.sha256`.
 - Cask URL/version match the tag and cask SHA matches the uploaded app archive's
   `.sha256`.
+- `UPDATEBAR_VERIFY_STRICT=1 Scripts/verify-homebrew-metadata.sh` verifies release
+  metadata checksums for a prepared dist directory.
 - `bash Scripts/homebrew-packaging-test.sh` passes.
 - `updatebar status --json` remains compatible with the documented menu bar contract.
 - Recipe command errors and child environments do not expose common provider or GitHub tokens.
