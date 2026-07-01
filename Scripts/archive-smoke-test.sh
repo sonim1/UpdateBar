@@ -8,6 +8,10 @@ if [[ -z "$ARCHIVE" ]]; then
   ARCHIVE="$("$ROOT/Scripts/build-release.sh" | tail -n 1)"
 fi
 
+if [[ -f "${ARCHIVE}.sha256" ]]; then
+  "$ROOT/Scripts/verify-archive-checksum.sh" "$ARCHIVE"
+fi
+
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
