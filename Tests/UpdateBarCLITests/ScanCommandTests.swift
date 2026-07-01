@@ -151,7 +151,7 @@ final class ScanCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["scan", "--detectors", "BREW,brew"],
+            ["scan", "--json", "--detectors", "BREW,brew"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -173,10 +173,21 @@ final class ScanCommandTests: XCTestCase {
 
     func testScanAcceptsWhitespaceSeparatedDetectors() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            "#!/bin/sh\nexit 0\n"
+        )
+        try writeExecutable(
+            bin.appendingPathComponent("npm"),
+            "#!/bin/sh\nexit 0\n"
+        )
 
         let result = try CLIProcess.run(
             ["scan", "--detectors", " brew , npm_global "],
-            home: home
+            home: home,
+            environment: ["PATH": bin.path]
         )
 
         XCTAssertEqual(result.exitCode, 0)

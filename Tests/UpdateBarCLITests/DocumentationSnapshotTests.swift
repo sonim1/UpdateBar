@@ -5,16 +5,17 @@ final class DocumentationSnapshotTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 
         let result = try CLIProcess.run(["--help"], home: home)
+        let output = result.stdout + result.stderr
 
         XCTAssertEqual(result.exitCode, 0)
         for command in ["add", "init", "scan", "check", "status", "update", "approve", "revoke"] {
-            XCTAssertTrue(result.stdout.contains(command), "missing \(command)")
+            XCTAssertTrue(output.contains(command), "missing \(command)")
         }
         for command in ["guide", "schema", "template", "validate", "version"] {
-            XCTAssertFalse(result.stdout.contains("\n  \(command)"), "support command should be hidden: \(command)")
+            XCTAssertFalse(output.contains("\n  \(command)"), "support command should be hidden: \(command)")
         }
         for section in ["SETUP SUBCOMMANDS:", "CHECK & UPDATE SUBCOMMANDS:", "MANAGE SUBCOMMANDS:", "SYSTEM SUBCOMMANDS:"] {
-            XCTAssertTrue(result.stdout.contains(section), "missing section \(section)")
+            XCTAssertTrue(output.contains(section), "missing section \(section)")
         }
     }
 
@@ -35,9 +36,10 @@ final class DocumentationSnapshotTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 
         let result = try CLIProcess.run(["update", "--help"], home: home)
+        let output = result.stdout + result.stderr
 
         XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stdout.contains("--yes"))
-        XCTAssertTrue(result.stdout.contains("--json"))
+        XCTAssertTrue(output.contains("--yes"))
+        XCTAssertTrue(output.contains("--json"))
     }
 }

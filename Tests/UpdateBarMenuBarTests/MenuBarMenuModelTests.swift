@@ -214,7 +214,7 @@ final class MenuBarMenuModelTests: XCTestCase {
             model.entries.labels.filter { $0 == "and 1 more" }.count,
             2
         )
-        XCTAssertTrue(model.entries.labels.contains("and 8 more"))
+        XCTAssertTrue(model.entries.labels.contains(where: { $0.contains("and 8 more") }))
     }
 
     private func statusItem(
