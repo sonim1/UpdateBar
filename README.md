@@ -14,12 +14,12 @@ brew install sonim1/tap/updatebar
 Install the optional macOS menu bar app:
 
 ```bash
-brew install --cask sonim1/tap/updatebar
+brew install --cask sonim1/tap/updatebar-app
 ```
 
 The app cask is currently unsigned. If macOS blocks the first launch,
 Control-click `UpdateBar.app` in Finder, choose Open, then confirm Open.
-The cask installs the app only; install the formula for the `updatebar` CLI.
+The `updatebar-app` cask installs the app only; install the formula for the `updatebar` CLI.
 
 ## Install From Source
 

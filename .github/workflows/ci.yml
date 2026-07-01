@@ -24,6 +24,8 @@ jobs:
         run: UPDATEBAR_BIN=.build/debug/updatebar bash Scripts/e2e-edgecases.sh
       - name: Release script smoke
         run: bash Scripts/release-tar-args-test.sh
+      - name: Homebrew packaging smoke
+        run: bash Scripts/homebrew-packaging-test.sh
       - name: Archive smoke
         run: bash Scripts/archive-smoke-test.sh
       - name: App package smoke
@@ -56,3 +58,5 @@ jobs:
         run: UPDATEBAR_BIN=.build/debug/updatebar bash Scripts/e2e-edgecases.sh
       - name: Release script smoke
         run: bash Scripts/release-tar-args-test.sh
+      - name: Homebrew packaging smoke
+        run: bash Scripts/homebrew-packaging-test.sh

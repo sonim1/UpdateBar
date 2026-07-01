@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-cask "updatebar" do
+cask "updatebar-app" do
   version "0.2.0"
   sha256 "aaa8f0d8948d2f08992ce0409d5df552dac55f8a8fedeb54d7f5297c50d69b56"
 
