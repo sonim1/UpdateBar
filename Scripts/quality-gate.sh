@@ -18,6 +18,10 @@ fi
 if [[ -z "${UPDATEBAR_BIN:-}" && -x .build/debug/updatebar ]]; then
   export UPDATEBAR_BIN="$ROOT/.build/debug/updatebar"
 fi
+
+echo "running script syntax checks"
+bash Scripts/script-syntax-test.sh
+
 if command -v shellcheck >/dev/null 2>&1; then
   echo "running script quality checks"
   shellcheck Scripts/*.sh
