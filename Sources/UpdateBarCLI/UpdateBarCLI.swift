@@ -167,7 +167,8 @@ struct ScanCommand: ParsableCommand {
         let service = ScanService()
         var report = try service.scan(detectors: selectedDetectors)
         if let category {
-            report.candidates = report.candidates.filter { $0.category == category }
+            let normalized = normalizeCategory(category)
+            report.candidates = report.candidates.filter { $0.category == normalized }
         }
 
         if json {
@@ -282,7 +283,8 @@ struct InitCommand: ParsableCommand {
     private func filteredReport(detectors: [ScanDetector]) throws -> ScanReport {
         var report = try ScanService().scan(detectors: detectors)
         if let category {
-            report.candidates = report.candidates.filter { $0.category == category }
+            let normalized = normalizeCategory(category)
+            report.candidates = report.candidates.filter { $0.category == normalized }
         }
         return report
     }
@@ -392,18 +394,25 @@ private func parseScanDetectors(_ value: String?) throws -> [ScanDetector] {
     }
     let values = value
         .split(separator: ",")
-        .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+        .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
         .filter { !$0.isEmpty }
     guard !values.isEmpty else {
         throw ValidationError("detectors: expected brew, npm_global, or known")
     }
-    return try values.map { value in
-        guard let detector = ScanDetector(rawValue: value) else {
+    var seen = Set<String>()
+    var detectors: [ScanDetector] = []
+    for detector in values where seen.insert(detector).inserted {
+        guard let parsed = ScanDetector(rawValue: detector) else {
             throw ValidationError(
-                "\(value): unknown detector; expected brew, npm_global, or known")
+                "\(detector): unknown detector; expected brew, npm_global, or known")
         }
-        return detector
+        detectors.append(parsed)
     }
+    return detectors
+}
+
+private func normalizeCategory(_ value: String) -> String {
+    value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 }
 
 private struct InitPayload: Encodable {

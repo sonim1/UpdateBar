@@ -134,6 +134,34 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("expected brew, npm_global, or known"))
     }
 
+    func testScanAcceptsCaseInsensitiveAndDuplicateDetectors() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            if [ "$1" = "leaves" ]; then
+              printf 'jq\\n'
+            elif [ "$1" = "list" ]; then
+              printf 'jq 1.7.1\\n'
+            fi
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--detectors", "BREW,brew"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        let report = try JSONDecoder.updateBar.decode(
+            ScanReport.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(report.candidates.map(\.id), ["brew.jq"])
+    }
+
     func testScanRejectsUnknownDetector() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
 
@@ -153,6 +181,33 @@ final class ScanCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stdout.contains("Found 0 candidate(s)"))
+    }
+
+    func testScanFiltersCategoryCaseInsensitive() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            if [ "$1" = "leaves" ]; then
+              printf 'jq\\ngh\\n'
+            elif [ "$1" = "list" ]; then
+              printf 'jq 1.7.1\\ngh 2.74.0\\n'
+            fi
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--detectors", "brew", "--category", "CLOUD-devops"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("gh"))
+        XCTAssertFalse(result.stdout.contains("jq"))
     }
 
     private func writeExecutable(_ url: URL, _ body: String) throws {

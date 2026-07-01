@@ -164,6 +164,25 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("init --json requires --select") })
     }
 
+    func testInitSupportsCaseInsensitiveAndDuplicateDetectors() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            [
+                "init", "--json", "--detectors", "BREW,brew",
+                "--select", "brew.gh",
+            ],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        let payload = try JSONDecoder.updateBar.decode(
+            InitPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(payload.added, ["brew.gh"])
+    }
+
     func testInitRejectsEmptyDetectorList() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
 
@@ -180,6 +199,28 @@ final class InitCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.contains("foo: unknown detector"))
+    }
+
+    func testInitFiltersCategoryCaseInsensitive() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            [
+                "init", "--json", "--detectors", "brew",
+                "--category", "CLOUD-DEVOPS",
+                "--select", "brew.gh",
+            ],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        let payload = try JSONDecoder.updateBar.decode(
+            InitPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(payload.added, ["brew.gh"])
+        let manifest = try ManifestStore(paths: AppPaths(homeDirectory: home)).load()
+        XCTAssertEqual(manifest.items.map(\.id), ["brew.gh"])
     }
 
     private func fakeManagers(home: URL) throws -> URL {
