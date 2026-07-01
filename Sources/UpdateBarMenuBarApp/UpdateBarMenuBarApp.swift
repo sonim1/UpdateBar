@@ -131,19 +131,16 @@
             let appPaths = AppPaths()
             let configURL = appPaths.configFile
             let configExists = FileManager.default.fileExists(atPath: configURL.path)
-            let opened = NSWorkspace.shared.open(configExists ? configURL : appPaths.homeDirectory)
-            if !opened {
-                showError(MenuBarStartupError.configOpenFailed(path: configURL.path))
-            }
+            openInFinder(
+                configExists ? configURL : appPaths.homeDirectory,
+                failureMessage: MenuBarStartupError.configOpenFailed(path: configURL.path)
+            )
         }
 
         @objc private func viewLogs() {
             let logURL = Self.logFileURL
             let targetURL = FileManager.default.fileExists(atPath: logURL.path) ? logURL : AppPaths().homeDirectory
-            let opened = NSWorkspace.shared.open(targetURL)
-            if !opened {
-                showError(MenuBarStartupError.viewLogFailed(path: targetURL.path))
-            }
+            openInFinder(targetURL, failureMessage: MenuBarStartupError.viewLogFailed(path: targetURL.path))
         }
 
         @objc private func quit() {
@@ -297,6 +294,16 @@
         private static func debugLog(_ message: String) {
             FileHandle.standardError.write(Data(("UpdateBarMenuBar: \(message)\n").utf8))
             appendLog(message)
+        }
+
+        private func openInFinder(_ targetURL: URL, failureMessage: Error) {
+            if NSWorkspace.shared.activateFileViewerSelecting([targetURL]) {
+                return
+            }
+            if NSWorkspace.shared.open(targetURL) {
+                return
+            }
+            showError(failureMessage)
         }
 
         private static var logDirectory: URL {
