@@ -43,7 +43,8 @@ packaged app where `Contents/Resources/updatebar` exists.
 ## Open TUI Does Nothing
 
 The Menu Bar app opens Terminal and runs `updatebar-tui` with `UPDATEBAR_BIN`
-exported. Make sure the TUI package is installed or available on `PATH`:
+exported. If `updatebar-tui` is missing, the Terminal window prints a setup
+message. Build and link the TUI so it is available on `PATH`:
 
 ```bash
 cd tui

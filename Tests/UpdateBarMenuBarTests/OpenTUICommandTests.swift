@@ -17,4 +17,17 @@ final class OpenTUICommandTests: XCTestCase {
         XCTAssertTrue(joined.contains("/tmp/updatebar-home"))
         XCTAssertTrue(joined.contains("updatebar-tui"))
     }
+
+    func testTerminalCommandExplainsMissingTUIBinary() {
+        let command = OpenTUICommand(
+            cliPath: "/Applications/UpdateBar.app/Contents/Resources/updatebar",
+            tuiCommand: "updatebar-tui",
+            updateBarHome: nil
+        )
+
+        let joined = command.arguments.joined(separator: " ")
+        XCTAssertTrue(joined.contains("command -v"))
+        XCTAssertTrue(joined.contains("updatebar-tui not found on PATH"))
+        XCTAssertTrue(joined.contains("npm link"))
+    }
 }
