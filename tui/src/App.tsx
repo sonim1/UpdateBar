@@ -278,12 +278,18 @@ export function App({client: providedClient}: AppProps) {
 
 function StatusLine({status}: {status: StatusSnapshot | undefined}) {
   if (!status) return <Text dimColor>Loading status...</Text>;
-  return (
-    <Text>
-      {status.summary.total} tracked · {status.summary.outdated} outdated · {status.summary.errors} errors ·{' '}
-      {status.summary.untrusted} untrusted · {status.summary.pinned} pinned
-    </Text>
-  );
+  return <Text>{formatStatusSummary(status)}</Text>;
+}
+
+function formatStatusSummary(status: StatusSnapshot) {
+  const parts = [
+    `${status.summary.total} tracked`,
+    `${status.summary.outdated} outdated`
+  ];
+  if (status.summary.errors > 0) parts.push(`${status.summary.errors} errors`);
+  if (status.summary.untrusted > 0) parts.push(`${status.summary.untrusted} untrusted`);
+  if (status.summary.pinned > 0) parts.push(`${status.summary.pinned} pinned`);
+  return parts.join(' · ');
 }
 
 function StatusList({status}: {status: StatusSnapshot | undefined}) {

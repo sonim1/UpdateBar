@@ -19,9 +19,30 @@ describe('App', () => {
     });
 
     const view = render(<App client={client} />);
-    await waitForFrame(view, '2 tracked · 1 outdated · 0 errors · 3 untrusted · 2 pinned');
+    await waitForFrame(view, '2 tracked · 1 outdated · 3 untrusted · 2 pinned');
 
-    expect(view.lastFrame()).toContain('2 tracked · 1 outdated · 0 errors · 3 untrusted · 2 pinned');
+    expect(view.lastFrame()).toContain('2 tracked · 1 outdated · 3 untrusted · 2 pinned');
+    expect(view.lastFrame()).not.toContain('0 errors');
+  });
+
+  it('hides zero status attention counts', async () => {
+    const client = createClient({
+      async status() {
+        return {
+          generated_at: '2026-06-30T00:00:00Z',
+          summary: {total: 2, outdated: 0, errors: 0, untrusted: 0, pinned: 0},
+          items: []
+        };
+      }
+    });
+
+    const view = render(<App client={client} />);
+    await waitForFrame(view, '2 tracked · 0 outdated');
+
+    expect(view.lastFrame()).toContain('2 tracked · 0 outdated');
+    expect(view.lastFrame()).not.toContain('0 errors');
+    expect(view.lastFrame()).not.toContain('0 untrusted');
+    expect(view.lastFrame()).not.toContain('0 pinned');
   });
 
   it('opens scan candidates from the menu', async () => {
