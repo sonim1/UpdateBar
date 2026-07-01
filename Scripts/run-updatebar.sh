@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SWIFT_BIN="${SWIFT_BIN:-swift}"
 
 if [[ -n "${UPDATEBAR_BIN:-}" ]]; then
@@ -11,4 +12,5 @@ if [[ -n "${UPDATEBAR_BIN:-}" ]]; then
   exec "$UPDATEBAR_BIN" "$@"
 fi
 
+cd "$ROOT"
 exec "$SWIFT_BIN" run updatebar "$@"

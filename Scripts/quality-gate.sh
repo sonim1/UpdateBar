@@ -56,6 +56,10 @@ if [[ "$SKIP_MENUBAR_SMOKE" != "1" ]]; then
     UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE=1 bash Scripts/package-app.sh >/dev/null
     echo "running menubar smoke test"
     bash Scripts/menubar-smoke-test.sh dist/UpdateBar.app
+    echo "building app archive"
+    APP_ARCHIVE="$(bash Scripts/build-app-archive.sh | tail -n 1)"
+    echo "running app archive smoke test"
+    bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"
   else
     echo "skipping menubar smoke on non-macOS"
   fi

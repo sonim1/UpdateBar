@@ -39,11 +39,9 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           bash Scripts/package-app.sh
-          . version.env
-          APP_ARCHIVE="dist/UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.app.tar.gz"
-          COPYFILE_DISABLE=1 tar -C dist -czf "$APP_ARCHIVE" UpdateBar.app
-          shasum -a 256 "$APP_ARCHIVE" >"${APP_ARCHIVE}.sha256"
+          APP_ARCHIVE="$(bash Scripts/build-app-archive.sh | tail -n 1)"
           shasum -a 256 -c "${APP_ARCHIVE}.sha256"
+          bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"
       - name: Verify release metadata
         if: runner.os == 'macOS'
         run: UPDATEBAR_VERIFY_STRICT=1 Scripts/verify-homebrew-metadata.sh dist

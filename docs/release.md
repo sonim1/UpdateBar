@@ -16,6 +16,8 @@ Scripts/build-release.sh
 bash Scripts/archive-smoke-test.sh
 bash Scripts/homebrew-packaging-test.sh
 Scripts/package-app.sh
+bash Scripts/build-app-archive.sh
+bash Scripts/app-archive-smoke-test.sh
 bash Scripts/install-release.sh --help
 bash Scripts/verify-homebrew-metadata.sh
 ```
@@ -71,6 +73,8 @@ Local unsigned app package:
 
 ```bash
 Scripts/package-app.sh
+bash Scripts/build-app-archive.sh
+bash Scripts/app-archive-smoke-test.sh
 ```
 
 The app packaging script creates `dist/UpdateBar.app` with the menu bar executable
