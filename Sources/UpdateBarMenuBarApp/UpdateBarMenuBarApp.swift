@@ -35,6 +35,7 @@
         }
 
         func applicationDidFinishLaunching(_ notification: Notification) {
+            Self.warnAboutLegacyEnvironment()
             let useCLIAdapter = Self.shouldUseCLIAdapter()
             if useCLIAdapter {
                 let resolvedPath = Self.resolveCLIPath()
@@ -409,6 +410,7 @@
         }
 
         private static func resolveCLIPath() -> String {
+            warnAboutLegacyEnvironment()
             do {
                 let resolution = try UpdateBarBinaryResolver().resolve(
                     bundledDirectory: Bundle.main.resourceURL
@@ -423,6 +425,12 @@
 
         private static func shouldUseCLIAdapter() -> Bool {
             ProcessInfo.processInfo.environment["UPDATEBAR_MENUBAR_ADAPTER"] == "cli"
+        }
+
+        private static func warnAboutLegacyEnvironment() {
+            if ProcessInfo.processInfo.environment["UPDATEBAR_CLI"] != nil {
+                debugLog("UPDATEBAR_CLI is legacy; prefer UPDATEBAR_BIN")
+            }
         }
 
         private static func makeService(cliPath: String?) -> any MenuBarServicing {

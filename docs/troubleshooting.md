@@ -10,8 +10,8 @@ an executable Swift CLI path:
 UPDATEBAR_BIN=/full/path/to/updatebar updatebar-tui
 ```
 
-The legacy `UPDATEBAR_CLI` variable still works for the macOS Menu Bar app, but
-new integrations should use `UPDATEBAR_BIN`.
+The legacy `UPDATEBAR_CLI` variable is deprecated and retained only for
+backward compatibility.
 
 ## Invalid JSON Or JSONL
 
