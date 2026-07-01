@@ -441,9 +441,12 @@ function describeEvent(event: MachineEvent) {
 function checkSummaryLines(report: CheckReport) {
   const lines = [
     `checked ${report.summary.total} items`,
-    `outdated: ${report.summary.outdated}`,
-    `errors: ${report.summary.errors}`
+    `outdated: ${report.summary.outdated}`
   ];
+
+  if (report.summary.errors > 0) {
+    lines.push(`errors: ${report.summary.errors}`);
+  }
 
   if (report.summary.untrusted > 0) {
     lines.push(`untrusted: ${report.summary.untrusted}`);
