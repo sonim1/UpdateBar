@@ -192,7 +192,10 @@ function normalizeStatusSnapshot(snapshot: StatusSnapshot): StatusSnapshot {
     summary: {
       ...snapshot.summary,
       untrusted: snapshot.summary.untrusted ?? 0,
-      pinned: snapshot.summary.pinned ?? 0
+      pinned: snapshot.summary.pinned ?? 0,
+      disabled: snapshot.summary.disabled ?? 0,
+      checking: snapshot.summary.checking ?? 0,
+      differs: snapshot.summary.differs ?? 0
     }
   };
 }

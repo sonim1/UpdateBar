@@ -12,16 +12,30 @@ describe('App', () => {
       async status() {
         return {
           generated_at: '2026-06-30T00:00:00Z',
-          summary: {total: 2, outdated: 1, errors: 0, untrusted: 3, pinned: 2},
+          summary: {
+            total: 2,
+            outdated: 1,
+            errors: 0,
+            untrusted: 3,
+            pinned: 2,
+            disabled: 1,
+            checking: 4,
+            differs: 5
+          },
           items: []
         };
       }
     });
 
     const view = render(<App client={client} />);
-    await waitForFrame(view, '2 tracked · 1 outdated · 3 untrusted · 2 pinned');
+    await waitForFrame(
+      view,
+      '2 tracked · 1 outdated · 3 untrusted · 5 differs · 4 checking · 2 pinned · 1 disabled'
+    );
 
-    expect(view.lastFrame()).toContain('2 tracked · 1 outdated · 3 untrusted · 2 pinned');
+    expect(view.lastFrame()).toContain(
+      '2 tracked · 1 outdated · 3 untrusted · 5 differs · 4 checking · 2 pinned · 1 disabled'
+    );
     expect(view.lastFrame()).not.toContain('0 errors');
   });
 
@@ -30,7 +44,16 @@ describe('App', () => {
       async status() {
         return {
           generated_at: '2026-06-30T00:00:00Z',
-          summary: {total: 2, outdated: 0, errors: 0, untrusted: 0, pinned: 0},
+          summary: {
+            total: 2,
+            outdated: 0,
+            errors: 0,
+            untrusted: 0,
+            pinned: 0,
+            disabled: 0,
+            checking: 0,
+            differs: 0
+          },
           items: []
         };
       }
@@ -43,6 +66,9 @@ describe('App', () => {
     expect(view.lastFrame()).not.toContain('0 errors');
     expect(view.lastFrame()).not.toContain('0 untrusted');
     expect(view.lastFrame()).not.toContain('0 pinned');
+    expect(view.lastFrame()).not.toContain('0 disabled');
+    expect(view.lastFrame()).not.toContain('0 checking');
+    expect(view.lastFrame()).not.toContain('0 differs');
   });
 
   it('opens scan candidates from the menu', async () => {

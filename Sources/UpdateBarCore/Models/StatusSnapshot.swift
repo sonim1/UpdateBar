@@ -31,7 +31,10 @@ public struct StatusSnapshot: Codable, Equatable {
                 outdated: items.filter { $0.status == .outdated }.count,
                 errors: items.filter { $0.status == .error }.count,
                 untrusted: items.filter { $0.status == .untrusted }.count,
-                pinned: items.filter { $0.status == .pinned }.count
+                pinned: items.filter { $0.status == .pinned }.count,
+                disabled: items.filter { $0.status == .disabled }.count,
+                checking: items.filter { $0.status == .checking }.count,
+                differs: items.filter { $0.status == .differs }.count
             ),
             items: items
         )
@@ -62,13 +65,28 @@ public struct StatusSummary: Codable, Equatable {
     public var errors: Int
     public var untrusted: Int
     public var pinned: Int
+    public var disabled: Int
+    public var checking: Int
+    public var differs: Int
 
-    public init(total: Int, outdated: Int, errors: Int, untrusted: Int = 0, pinned: Int = 0) {
+    public init(
+        total: Int,
+        outdated: Int,
+        errors: Int,
+        untrusted: Int = 0,
+        pinned: Int = 0,
+        disabled: Int = 0,
+        checking: Int = 0,
+        differs: Int = 0
+    ) {
         self.total = total
         self.outdated = outdated
         self.errors = errors
         self.untrusted = untrusted
         self.pinned = pinned
+        self.disabled = disabled
+        self.checking = checking
+        self.differs = differs
     }
 
     enum CodingKeys: String, CodingKey {
@@ -77,6 +95,9 @@ public struct StatusSummary: Codable, Equatable {
         case errors
         case untrusted
         case pinned
+        case disabled
+        case checking
+        case differs
     }
 
     public init(from decoder: Decoder) throws {
@@ -86,6 +107,9 @@ public struct StatusSummary: Codable, Equatable {
         errors = try container.decode(Int.self, forKey: .errors)
         untrusted = try container.decodeIfPresent(Int.self, forKey: .untrusted) ?? 0
         pinned = try container.decodeIfPresent(Int.self, forKey: .pinned) ?? 0
+        disabled = try container.decodeIfPresent(Int.self, forKey: .disabled) ?? 0
+        checking = try container.decodeIfPresent(Int.self, forKey: .checking) ?? 0
+        differs = try container.decodeIfPresent(Int.self, forKey: .differs) ?? 0
     }
 }
 

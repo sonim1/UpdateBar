@@ -288,7 +288,10 @@ function formatStatusSummary(status: StatusSnapshot) {
   ];
   if (status.summary.errors > 0) parts.push(`${status.summary.errors} errors`);
   if (status.summary.untrusted > 0) parts.push(`${status.summary.untrusted} untrusted`);
+  if (status.summary.differs > 0) parts.push(`${status.summary.differs} differs`);
+  if (status.summary.checking > 0) parts.push(`${status.summary.checking} checking`);
   if (status.summary.pinned > 0) parts.push(`${status.summary.pinned} pinned`);
+  if (status.summary.disabled > 0) parts.push(`${status.summary.disabled} disabled`);
   return parts.join(' · ');
 }
 
