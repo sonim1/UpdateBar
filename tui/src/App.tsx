@@ -48,6 +48,10 @@ export function App({client: providedClient}: AppProps) {
         abortController.abort();
         return;
       }
+      if (_input === 'm' && screen !== 'menu' && !abortController) {
+        setScreen('menu');
+        return;
+      }
       if (screen === 'scan') {
         handleScanInput(_input, key);
         return;
@@ -283,8 +287,9 @@ function canRegister(candidate: ScanCandidate) {
 }
 
 function helpText(screen: Screen, canCancel: boolean) {
-  if (screen === 'scan') return canCancel ? 'c cancel · q quit' : '↑/↓ navigate · space select · enter add · q quit';
+  if (screen === 'scan') return canCancel ? 'c cancel · q quit' : '↑/↓ navigate · space select · enter add · m menu · q quit';
   if (screen === 'updating') return 'c cancel · q quit';
+  if (screen !== 'menu') return 'm menu · q quit';
   return '↑/↓ navigate · enter select · q quit';
 }
 

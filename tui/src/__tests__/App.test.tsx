@@ -39,6 +39,20 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('check-only');
   });
 
+  it('returns from status to the menu', async () => {
+    const client = createClient();
+    const view = render(<App client={client} />);
+
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\r');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('m');
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(view.lastFrame()).toContain('Scan & Add');
+    expect(view.lastFrame()).toContain('Run Updates');
+  });
+
   it('registers selected scan candidates', async () => {
     const selected: string[][] = [];
     const client = createClient({
