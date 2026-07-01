@@ -53,6 +53,20 @@ describe('CLIUpdateBarClient', () => {
     expect(runner.calls[0]).toEqual(['scan', '--json']);
   });
 
+  it('passes cancellation to scan commands', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout: '{"candidates":[],"errors":[]}',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+    const controller = new AbortController();
+
+    await client.scan({signal: controller.signal});
+
+    expect(runner.runOptions[0]?.signal).toBe(controller.signal);
+  });
+
   it('registers selected scan candidates through the Swift CLI contract', async () => {
     const runner = new FakeRunner({
       exitCode: 0,
@@ -91,12 +105,14 @@ describe('CLIUpdateBarClient', () => {
 
 class FakeRunner implements CommandRunner {
   calls: string[][] = [];
+  runOptions: Array<{signal?: AbortSignal} | undefined> = [];
   events: MachineEvent[] = [];
 
   constructor(private readonly result: {exitCode: number; stdout: string; stderr: string}) {}
 
-  async run(args: string[]) {
+  async run(args: string[], options?: {signal?: AbortSignal}) {
     this.calls.push(args);
+    this.runOptions.push(options);
     return this.result;
   }
 

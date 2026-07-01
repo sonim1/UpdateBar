@@ -128,15 +128,19 @@ export function App({client: providedClient}: AppProps) {
   }
 
   async function runScan(activeClient: UpdateBarClient) {
+    const controller = new AbortController();
+    setAbortController(controller);
     setScreen('scan');
     setScanReport(undefined);
     setScanIndex(0);
     setSelectedScanIds(new Set());
     setError(undefined);
     try {
-      setScanReport(await activeClient.scan());
+      setScanReport(await activeClient.scan({signal: controller.signal}));
     } catch (caught) {
       setError(messageFor(caught));
+    } finally {
+      setAbortController(undefined);
     }
   }
 
@@ -210,7 +214,7 @@ export function App({client: providedClient}: AppProps) {
         </Box>
       )}
       <Text dimColor>
-        {canUseKeyboard ? helpText(screen) : 'non-interactive terminal'}
+        {canUseKeyboard ? helpText(screen, abortController !== undefined) : 'non-interactive terminal'}
       </Text>
     </Box>
   );
@@ -276,8 +280,8 @@ function canRegister(candidate: ScanCandidate) {
   return candidate.capability === 'full' && candidate.recipe !== undefined;
 }
 
-function helpText(screen: Screen) {
-  if (screen === 'scan') return '↑/↓ navigate · space select · enter add · q quit';
+function helpText(screen: Screen, canCancel: boolean) {
+  if (screen === 'scan') return canCancel ? 'c cancel · q quit' : '↑/↓ navigate · space select · enter add · q quit';
   if (screen === 'updating') return 'c cancel · q quit';
   return '↑/↓ navigate · enter select · q quit';
 }

@@ -64,7 +64,7 @@ export class SubprocessRunner implements CommandRunner {
 
 export interface UpdateBarClient {
   status(): Promise<StatusSnapshot>;
-  scan(): Promise<ScanReport>;
+  scan(options?: RunOptions): Promise<ScanReport>;
   initSelected(ids: string[]): Promise<InitResult>;
   checkNow(): Promise<void>;
   updateAll(options: StreamOptions): Promise<CommandResult>;
@@ -79,8 +79,8 @@ export class CLIUpdateBarClient implements UpdateBarClient {
     return JSON.parse(result.stdout) as StatusSnapshot;
   }
 
-  async scan(): Promise<ScanReport> {
-    const result = await this.runner.run(['scan', '--json']);
+  async scan(options: RunOptions = {}): Promise<ScanReport> {
+    const result = await this.runner.run(['scan', '--json'], options);
     ensureExit(result, [0]);
     return JSON.parse(result.stdout) as ScanReport;
   }
