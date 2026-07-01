@@ -180,6 +180,83 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testSupportSubcommandsHaveHelpDescriptions() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+        let expectedSubcommandsByCommand: [[String]: [String]] = [
+            ["guide"]: ["agent", "recipe"],
+            ["template"]: ["recipe", "manifest"],
+        ]
+
+        for (commandPath, subcommands) in expectedSubcommandsByCommand {
+            let result = try CLIProcess.run(commandPath + ["--help"], home: home)
+            let helpLines = result.stdout.split(separator: "\n").map(String.init)
+
+            XCTAssertEqual(result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
+            XCTAssertEqual(result.stderr, "", "\(commandPath.joined(separator: " ")) --help should not write stderr")
+            for subcommand in subcommands {
+                XCTAssertTrue(
+                    helpHasDescription(for: subcommand, in: helpLines),
+                    "\(commandPath.joined(separator: " ")) \(subcommand) should have a help description"
+                )
+            }
+        }
+    }
+
+    func testAdvancedCommandInputsHaveHelpDescriptions() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+        let expectedOptionsByCommand: [[String]: [String]] = [
+            ["approve"]: ["--field", "--json"],
+            ["revoke"]: ["--field", "--json"],
+            ["remove"]: ["--yes", "--json"],
+            ["pin"]: ["--json"],
+            ["unpin"]: ["--json"],
+            ["enable"]: ["--json"],
+            ["disable"]: ["--json"],
+            ["validate"]: ["--json", "--explain"],
+            ["template", "recipe"]: ["--kind", "--id", "--name", "--source"],
+            ["template", "manifest"]: ["--kind", "--id", "--name", "--source"],
+        ]
+        let expectedArgumentsByCommand: [[String]: [String]] = [
+            ["approve"]: ["<id>"],
+            ["revoke"]: ["<id>"],
+            ["remove"]: ["<id>"],
+            ["pin"]: ["<id>", "<version>"],
+            ["unpin"]: ["<id>"],
+            ["enable"]: ["<id>"],
+            ["disable"]: ["<id>"],
+            ["edit"]: ["<id>"],
+            ["validate"]: ["<file>"],
+        ]
+
+        for (commandPath, options) in expectedOptionsByCommand {
+            let result = try CLIProcess.run(commandPath + ["--help"], home: home)
+            let helpLines = result.stdout.split(separator: "\n").map(String.init)
+
+            XCTAssertEqual(result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
+            XCTAssertEqual(result.stderr, "", "\(commandPath.joined(separator: " ")) --help should not write stderr")
+            for option in options {
+                XCTAssertTrue(
+                    optionHasDescription(option, in: helpLines),
+                    "\(commandPath.joined(separator: " ")) \(option) should have a help description"
+                )
+            }
+        }
+
+        for (commandPath, arguments) in expectedArgumentsByCommand {
+            let result = try CLIProcess.run(commandPath + ["--help"], home: home)
+            let helpLines = result.stdout.split(separator: "\n").map(String.init)
+
+            XCTAssertEqual(result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
+            XCTAssertEqual(result.stderr, "", "\(commandPath.joined(separator: " ")) --help should not write stderr")
+            for argument in arguments {
+                XCTAssertTrue(
+                    optionHasDescription(argument, in: helpLines),
+                    "\(commandPath.joined(separator: " ")) \(argument) should have a help description"
+                )
+            }
+        }
+    }
+
     private func helpShowsCommand(_ command: String, in lines: [String]) -> Bool {
         lines.contains { line in
             line == "  \(command)" || line.hasPrefix("  \(command) ")

@@ -838,15 +838,19 @@ private struct BackgroundUninstallPayload: Encodable {
 }
 
 struct ValidateCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "validate", shouldDisplay: false)
+    static let configuration = CommandConfiguration(
+        commandName: "validate",
+        abstract: "Validate a recipe or manifest document.",
+        shouldDisplay: false
+    )
 
     @Argument(help: "Manifest file to validate.")
     var file: String
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Include structured validation explanations in JSON output.")
     var explain = false
 
     func run() throws {
@@ -1139,12 +1143,16 @@ private func readInputData(_ path: String) throws -> Data {
 struct GuideCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "guide",
+        abstract: "Print guides for automation and recipe authoring.",
         shouldDisplay: false,
         subcommands: [Agent.self, Recipe.self]
     )
 
     struct Agent: ParsableCommand {
-        static let configuration = CommandConfiguration(commandName: "agent")
+        static let configuration = CommandConfiguration(
+            commandName: "agent",
+            abstract: "Print the safe automation workflow."
+        )
 
         func run() throws {
             print(
@@ -1181,7 +1189,10 @@ struct GuideCommand: ParsableCommand {
     }
 
     struct Recipe: ParsableCommand {
-        static let configuration = CommandConfiguration(commandName: "recipe")
+        static let configuration = CommandConfiguration(
+            commandName: "recipe",
+            abstract: "Print recipe authoring guidance."
+        )
 
         func run() throws {
             print(
@@ -1211,7 +1222,11 @@ struct GuideCommand: ParsableCommand {
 }
 
 struct SchemaCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "schema", shouldDisplay: false)
+    static let configuration = CommandConfiguration(
+        commandName: "schema",
+        abstract: "Print the recipe JSON schema.",
+        shouldDisplay: false
+    )
 
     func run() throws {
         print(Self.recipeSchema)
@@ -1308,23 +1323,27 @@ struct SchemaCommand: ParsableCommand {
 struct TemplateCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "template",
+        abstract: "Print recipe or manifest JSON templates.",
         shouldDisplay: false,
         subcommands: [RecipeTemplate.self, ManifestTemplate.self]
     )
 
     struct RecipeTemplate: ParsableCommand {
-        static let configuration = CommandConfiguration(commandName: "recipe")
+        static let configuration = CommandConfiguration(
+            commandName: "recipe",
+            abstract: "Print a single recipe JSON template."
+        )
 
-        @Option(name: .long)
+        @Option(name: .long, help: "Template kind: github_release, npm, brew, git_tags, http_regex, or custom_command.")
         var kind: TemplateKind
 
-        @Option(name: .long)
+        @Option(name: .long, help: "Recipe id to use in the template.")
         var id: String?
 
-        @Option(name: .long)
+        @Option(name: .long, help: "Display name to use in the template.")
         var name: String?
 
-        @Option(name: .long)
+        @Option(name: .long, help: "Source reference to use in the template.")
         var source: String?
 
         func run() throws {
@@ -1333,18 +1352,21 @@ struct TemplateCommand: ParsableCommand {
     }
 
     struct ManifestTemplate: ParsableCommand {
-        static let configuration = CommandConfiguration(commandName: "manifest")
+        static let configuration = CommandConfiguration(
+            commandName: "manifest",
+            abstract: "Print a manifest JSON template with one recipe."
+        )
 
-        @Option(name: .long)
+        @Option(name: .long, help: "Template kind: github_release, npm, brew, git_tags, http_regex, or custom_command.")
         var kind: TemplateKind
 
-        @Option(name: .long)
+        @Option(name: .long, help: "Recipe id to use in the template.")
         var id: String?
 
-        @Option(name: .long)
+        @Option(name: .long, help: "Display name to use in the template.")
         var name: String?
 
-        @Option(name: .long)
+        @Option(name: .long, help: "Source reference to use in the template.")
         var source: String?
 
         func run() throws {
@@ -1787,15 +1809,19 @@ struct UpdateCommand: ParsableCommand {
 }
 
 struct PinCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "pin", shouldDisplay: false)
+    static let configuration = CommandConfiguration(
+        commandName: "pin",
+        abstract: "Pin an item to a version.",
+        shouldDisplay: false
+    )
 
-    @Argument
+    @Argument(help: "Item id to pin.")
     var id: String
 
-    @Argument
+    @Argument(help: "Version to pin; omit to use the current stored version.")
     var version: String?
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     func run() throws {
@@ -1809,12 +1835,16 @@ struct PinCommand: ParsableCommand {
 }
 
 struct UnpinCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "unpin", shouldDisplay: false)
+    static let configuration = CommandConfiguration(
+        commandName: "unpin",
+        abstract: "Clear an item's pinned version.",
+        shouldDisplay: false
+    )
 
-    @Argument
+    @Argument(help: "Item id to unpin.")
     var id: String
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     func run() throws {
@@ -1828,12 +1858,16 @@ struct UnpinCommand: ParsableCommand {
 }
 
 struct EnableCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "enable", shouldDisplay: false)
+    static let configuration = CommandConfiguration(
+        commandName: "enable",
+        abstract: "Enable an item.",
+        shouldDisplay: false
+    )
 
-    @Argument
+    @Argument(help: "Item id to enable.")
     var id: String
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     func run() throws {
@@ -1847,12 +1881,16 @@ struct EnableCommand: ParsableCommand {
 }
 
 struct DisableCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "disable", shouldDisplay: false)
+    static let configuration = CommandConfiguration(
+        commandName: "disable",
+        abstract: "Disable an item.",
+        shouldDisplay: false
+    )
 
-    @Argument
+    @Argument(help: "Item id to disable.")
     var id: String
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     func run() throws {
@@ -1866,15 +1904,19 @@ struct DisableCommand: ParsableCommand {
 }
 
 struct RemoveCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "remove", shouldDisplay: false)
+    static let configuration = CommandConfiguration(
+        commandName: "remove",
+        abstract: "Remove an item from the registry.",
+        shouldDisplay: false
+    )
 
-    @Argument
+    @Argument(help: "Item id to remove.")
     var id: String
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Remove without prompting for confirmation.")
     var yes = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     func run() throws {
@@ -1895,15 +1937,19 @@ struct RemoveCommand: ParsableCommand {
 }
 
 struct ApprovalCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "approve", shouldDisplay: false)
+    static let configuration = CommandConfiguration(
+        commandName: "approve",
+        abstract: "Approve one or all command fields for an item.",
+        shouldDisplay: false
+    )
 
-    @Argument
+    @Argument(help: "Item id to approve.")
     var id: String
 
-    @Option(name: .long)
+    @Option(name: .long, help: "Command field to approve, such as update.cmd.")
     var field: String?
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     func run() throws {
@@ -1943,15 +1989,19 @@ struct ApprovalsCommand: ParsableCommand {
 }
 
 struct RevokeCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "revoke", shouldDisplay: false)
+    static let configuration = CommandConfiguration(
+        commandName: "revoke",
+        abstract: "Revoke approval for one command field.",
+        shouldDisplay: false
+    )
 
-    @Argument
+    @Argument(help: "Item id to revoke approval from.")
     var id: String
 
-    @Option(name: .long)
+    @Option(name: .long, help: "Command field to revoke, such as update.cmd.")
     var field: String
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     func run() throws {
@@ -2307,9 +2357,13 @@ private struct AddPayload: Encodable {
 }
 
 struct EditCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "edit", shouldDisplay: false)
+    static let configuration = CommandConfiguration(
+        commandName: "edit",
+        abstract: "Edit one registered recipe in $EDITOR.",
+        shouldDisplay: false
+    )
 
-    @Argument
+    @Argument(help: "Item id to edit.")
     var id: String
 
     func run() throws {
