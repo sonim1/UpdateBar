@@ -44,6 +44,9 @@ jobs:
           COPYFILE_DISABLE=1 tar -C dist -czf "$APP_ARCHIVE" UpdateBar.app
           shasum -a 256 "$APP_ARCHIVE" >"${APP_ARCHIVE}.sha256"
           shasum -a 256 -c "${APP_ARCHIVE}.sha256"
+      - name: Verify release metadata
+        if: runner.os == 'macOS'
+        run: UPDATEBAR_VERIFY_STRICT=1 Scripts/verify-homebrew-metadata.sh dist
       - name: Upload archive
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
