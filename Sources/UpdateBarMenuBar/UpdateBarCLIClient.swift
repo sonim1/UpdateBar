@@ -203,6 +203,10 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
         process.standardError = stderr
         let stdoutData = LockedData(maxBytes: maxOutputBytes)
         let stderrData = LockedData(maxBytes: maxOutputBytes)
+        let finished = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in
+            finished.signal()
+        }
 
         try process.run()
         let readersFinished = DispatchGroup()
@@ -215,12 +219,6 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
         DispatchQueue.global(qos: .userInitiated).async {
             Self.drain(stderr.fileHandleForReading, into: stderrData)
             readersFinished.leave()
-        }
-
-        let finished = DispatchSemaphore(value: 0)
-        DispatchQueue.global(qos: .userInitiated).async {
-            process.waitUntilExit()
-            finished.signal()
         }
 
         let deadline = Date().addingTimeInterval(timeout)
