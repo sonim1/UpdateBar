@@ -52,6 +52,15 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertEqual(payload.version, expected)
     }
 
+    func testChangelogHasCurrentVersionEntry() throws {
+        let versionEnv = try String(contentsOfFile: "version.env", encoding: .utf8)
+        let expected = try XCTUnwrap(versionEnv.split(separator: "\n").first { $0.hasPrefix("UPDATEBAR_VERSION=") })
+            .replacingOccurrences(of: "UPDATEBAR_VERSION=", with: "")
+        let changelog = try String(contentsOfFile: "CHANGELOG.md", encoding: .utf8)
+
+        XCTAssertTrue(changelog.contains("## \(expected)"))
+    }
+
     func testUnknownCommandWithJSONReturnsErrorEnvelope() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 
