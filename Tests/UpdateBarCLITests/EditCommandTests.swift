@@ -18,6 +18,23 @@ final class EditCommandTests: XCTestCase {
         XCTAssertEqual(manifest.item(id: "tool")?.name, "Edited Tool")
     }
 
+    func testEditSupportsEditorArguments() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let editor = try editorScript(home: home, body: #"if [ "$1" = "--normalize" ]; then perl -0pi -e 's/"name" : "Tool"/"name" : "Arg Tool"/' "$2"; else exit 1; fi"#)
+
+        let result = try CLIProcess.run(
+            ["edit", "tool"],
+            home: home,
+            environment: ["EDITOR": "\(editor.path) --normalize"]
+        )
+        let manifest = try ManifestStore(paths: paths).load()
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(manifest.item(id: "tool")?.name, "Arg Tool")
+    }
+
     func testInvalidEditLeavesOriginalManifestUnchanged() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
         let paths = AppPaths(homeDirectory: home)

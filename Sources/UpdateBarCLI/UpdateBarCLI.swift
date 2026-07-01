@@ -2143,13 +2143,14 @@ struct EditCommand: ParsableCommand {
     private func runEditor(file: URL) throws {
         let environment = ProcessInfo.processInfo.environment
         let editor = environment["VISUAL"] ?? environment["EDITOR"] ?? "vi"
+        let editorParts = try parseCommand(editor)
+        guard let executable = editorParts.first, !executable.isEmpty else {
+            throw ValidationError("EDITOR command is empty")
+        }
+
         let process = Process()
-#if os(macOS)
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-#else
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-#endif
-        process.arguments = ["-lc", "\(editor) \(shellEscape(file.path))"]
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = Array(editorParts.dropFirst()) + [file.path]
         process.standardInput = FileHandle.standardInput
         process.standardOutput = FileHandle.standardOutput
         process.standardError = FileHandle.standardError
@@ -2181,7 +2182,53 @@ struct EditCommand: ParsableCommand {
         return copy
     }
 
-    private func shellEscape(_ value: String) -> String {
-        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    private func parseCommand(_ value: String) throws -> [String] {
+        var parts: [String] = []
+        var current = ""
+        var quote: Character?
+        var escaped = false
+
+        for scalar in value {
+            if escaped {
+                current.append(scalar)
+                escaped = false
+                continue
+            }
+            if scalar == "\\" {
+                escaped = true
+                continue
+            }
+            if let openQuote = quote {
+                if scalar == openQuote {
+                    quote = nil
+                    continue
+                }
+                current.append(scalar)
+                continue
+            }
+            if scalar == "'" || scalar == "\"" {
+                quote = scalar
+                continue
+            }
+            if scalar == " " || scalar == "\t" {
+                if !current.isEmpty {
+                    parts.append(current)
+                    current.removeAll(keepingCapacity: true)
+                }
+                continue
+            }
+            current.append(scalar)
+        }
+
+        if escaped {
+            current.append("\\")
+        }
+        if !current.isEmpty {
+            parts.append(current)
+        }
+        if quote != nil {
+            throw ValidationError("EDITOR/VISUAL has unmatched quote")
+        }
+        return parts
     }
 }
