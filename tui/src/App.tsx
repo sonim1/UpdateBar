@@ -112,15 +112,7 @@ export function App({client: providedClient}: AppProps) {
     } else if (selected === 'Scan & Add') {
       await runScan(client);
     } else if (selected === 'Check Now') {
-      setScreen('logs');
-      setLogs(['check started']);
-      try {
-        await client.checkNow();
-        setLogs(previous => [...previous, 'check finished']);
-        await refreshStatus(client, setStatus, setError);
-      } catch (caught) {
-        setError(messageFor(caught));
-      }
+      await runCheck(client);
     } else if (selected === 'Run Updates') {
       await runUpdates(client);
     } else if (selected === 'Open Config') {
@@ -130,6 +122,23 @@ export function App({client: providedClient}: AppProps) {
       setScreen('logs');
     } else {
       exit();
+    }
+  }
+
+  async function runCheck(activeClient: UpdateBarClient) {
+    const controller = new AbortController();
+    setAbortController(controller);
+    setScreen('logs');
+    setLogs(['check started']);
+    setError(undefined);
+    try {
+      await activeClient.checkNow({signal: controller.signal});
+      setLogs(previous => [...previous, 'check finished']);
+      await refreshStatus(activeClient, setStatus, setError);
+    } catch (caught) {
+      setError(controller.signal.aborted ? 'check cancelled' : messageFor(caught));
+    } finally {
+      setAbortController(undefined);
     }
   }
 
@@ -287,8 +296,8 @@ function canRegister(candidate: ScanCandidate) {
 }
 
 function helpText(screen: Screen, canCancel: boolean) {
-  if (screen === 'scan') return canCancel ? 'c cancel · q quit' : '↑/↓ navigate · space select · enter add · m menu · q quit';
-  if (screen === 'updating') return 'c cancel · q quit';
+  if (canCancel) return 'c cancel · q quit';
+  if (screen === 'scan') return '↑/↓ navigate · space select · enter add · m menu · q quit';
   if (screen !== 'menu') return 'm menu · q quit';
   return '↑/↓ navigate · enter select · q quit';
 }

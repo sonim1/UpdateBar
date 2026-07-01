@@ -66,7 +66,7 @@ export interface UpdateBarClient {
   status(): Promise<StatusSnapshot>;
   scan(options?: RunOptions): Promise<ScanReport>;
   initSelected(ids: string[]): Promise<InitResult>;
-  checkNow(): Promise<void>;
+  checkNow(options?: RunOptions): Promise<void>;
   updateAll(options: StreamOptions): Promise<CommandResult>;
 }
 
@@ -91,8 +91,11 @@ export class CLIUpdateBarClient implements UpdateBarClient {
     return JSON.parse(result.stdout) as InitResult;
   }
 
-  async checkNow(): Promise<void> {
-    const result = await this.runner.run(['check', '--json', '--force', '--exit-zero-on-outdated']);
+  async checkNow(options: RunOptions = {}): Promise<void> {
+    const result = await this.runner.run(
+      ['check', '--json', '--force', '--exit-zero-on-outdated'],
+      options
+    );
     ensureExit(result, [0, 10]);
   }
 

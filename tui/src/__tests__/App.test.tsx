@@ -178,6 +178,31 @@ describe('App', () => {
     expect(view.lastFrame()).not.toContain('exit 1');
   });
 
+  it('cancels an active check', async () => {
+    let aborted = false;
+    const client = createClient({
+      async checkNow(options?: {signal?: AbortSignal}) {
+        options?.signal?.addEventListener('abort', () => {
+          aborted = true;
+        });
+        return new Promise(() => {});
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\r');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('c');
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(aborted).toBe(true);
+  });
+
   it('renders without raw mode when stdin has no TTY support', async () => {
     const client = createClient();
     const stdin = new PassThrough() as NodeJS.ReadStream;

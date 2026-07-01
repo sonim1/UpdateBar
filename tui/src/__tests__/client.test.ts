@@ -81,6 +81,16 @@ describe('CLIUpdateBarClient', () => {
     expect(runner.calls[0]).toEqual(['init', '--select', 'brew.gh', '--json']);
   });
 
+  it('passes cancellation to check commands', async () => {
+    const runner = new FakeRunner({exitCode: 0, stdout: '{}', stderr: ''});
+    const client = new CLIUpdateBarClient(runner);
+    const controller = new AbortController();
+
+    await client.checkNow({signal: controller.signal});
+
+    expect(runner.runOptions[0]?.signal).toBe(controller.signal);
+  });
+
   it('surfaces JSON error payloads from failed commands', async () => {
     const runner = new FakeRunner({
       exitCode: 1,
