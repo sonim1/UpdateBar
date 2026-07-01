@@ -91,15 +91,19 @@ Scans installed local tools and prints recipe candidates without changing `manif
 
 V1 detectors are `brew`, `npm_global`, and `known`. `--detectors` accepts a comma-separated list. `--category` filters the displayed candidates after scanning.
 
-Human output includes each candidate id, such as `brew.gh`, plus a ready-to-run
-`updatebar init --select ...` command for importable candidates. JSON output
+Human output includes each candidate id, such as `brew.gh`, plus the interactive
+`updatebar init` command and a ready-to-run `updatebar init --select ...` command
+for importable candidates. JSON output
 returns the same ids in `candidates[].id`.
 
 ### `updatebar init [--json] [--detectors <list>] [--category <category>] [--select <ids>] [--replace]`
 
 Scans installed local tools, lets the user select importable candidates, and stores selected recipes as untrusted manifest items.
 
-Without `--select`, `init` prints numbered importable candidates and reads comma-separated numbers or candidate ids from stdin. `--select` accepts comma-separated candidate ids such as `brew.gh,npm.typescript`.
+Without `--select`, `init` prints numbered importable candidates and reads comma-
+or whitespace-separated numbers or candidate ids from stdin. Enter `all` to add
+every importable candidate. `--select` accepts comma-separated candidate ids such
+as `brew.gh,npm.typescript`. `--json` requires `--select` so stdout stays JSON-only.
 
 Duplicate ids are skipped by default. Pass `--replace` to overwrite existing recipes. `init` never approves commands.
 
