@@ -129,6 +129,20 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertFalse(payload.errors.isEmpty)
     }
 
+    func testJSONErrorRedactsSecretLikePathFragments() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+        let secret = "sk-or-v1-super-secret-value"
+
+        let result = try CLIProcess.run(["validate", secret, "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertEqual(payload.code, "runtime_error")
+        XCTAssertTrue(payload.errors.contains(where: { $0.contains("[REDACTED]") }))
+        XCTAssertFalse(payload.errors.contains(where: { $0.contains(secret) }))
+    }
+
     func testRuntimeErrorWithJSONReturnsErrorEnvelope() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 
