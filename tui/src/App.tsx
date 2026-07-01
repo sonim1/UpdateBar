@@ -200,6 +200,7 @@ export function App({client: providedClient}: AppProps) {
         `skipped ${result.skipped.length}`,
         ...result.errors
       ]);
+      setSelectedScanIds(new Set());
       await refreshStatus(client, setStatus, setError);
     } catch (caught) {
       setError(messageFor(caught));

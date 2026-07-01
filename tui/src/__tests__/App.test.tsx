@@ -225,6 +225,73 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('added 1');
   });
 
+  it('clears scan selections after a successful registration', async () => {
+    const selected: string[][] = [];
+    const client = createClient({
+      async scan() {
+        return {
+          candidates: [
+            {
+              id: 'brew.gh',
+              name: 'gh',
+              detector: 'brew',
+              category: 'cloud-devops',
+              capability: 'full',
+              confidence: 'high',
+              installed_version: '2.74.0',
+              source_ref: 'gh',
+              recipe: {}
+            },
+            {
+              id: 'brew.jq',
+              name: 'jq',
+              detector: 'brew',
+              category: 'shell-utility',
+              capability: 'full',
+              confidence: 'high',
+              installed_version: '1.7.0',
+              source_ref: 'jq',
+              recipe: {}
+            }
+          ],
+          errors: []
+        };
+      },
+      async initSelected(ids) {
+        selected.push(ids);
+        return {ok: true, added: ids, replaced: [], skipped: [], errors: []};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'importable: 0/2');
+    view.stdin.write(' ');
+    await waitForFrame(view, 'importable: 1/2');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'added 1');
+
+    view.stdin.write('m');
+    await waitForFrame(view, 'm menu · q quit');
+    view.stdin.write('\u001B[A');
+    view.stdin.write('\u001B[A');
+    view.stdin.write('\u001B[A');
+    view.stdin.write('\u001B[A');
+    view.stdin.write('\u001B[A');
+    view.stdin.write('\u001B[A');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'importable: 0/2');
+    view.stdin.write('a');
+    await waitForFrame(view, 'importable: 2/2');
+
+    expect(selected).toEqual([['brew.gh']]);
+  });
+
   it('navigates scan candidates before registering', async () => {
     const selected: string[][] = [];
     const client = createClient({
