@@ -191,6 +191,7 @@ export function App({client: providedClient}: AppProps) {
     const controller = beginAbortableAction();
     setScreen('updating');
     setLogs(['update started']);
+    setError(undefined);
     try {
       await activeClient.updateAll({
         signal: controller.signal,

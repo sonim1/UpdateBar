@@ -281,6 +281,44 @@ describe('App', () => {
     expect(view.lastFrame()).not.toContain('exit 1');
   });
 
+  it('clears stale errors when starting updates', async () => {
+    let statusCalls = 0;
+    const client = createClient({
+      async status() {
+        statusCalls += 1;
+        if (statusCalls === 1) {
+          throw new Error('status unavailable');
+        }
+        return {
+          generated_at: '2026-06-30T00:00:00Z',
+          summary: {total: 0, outdated: 0, errors: 0},
+          items: []
+        };
+      },
+      async updateAll() {
+        return new Promise(() => {});
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(view.lastFrame()).toContain('status unavailable');
+
+    view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\r');
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(view.lastFrame()).toContain('update started');
+    expect(view.lastFrame()).not.toContain('status unavailable');
+
+    view.unmount();
+  });
+
   it('renders without raw mode when stdin has no TTY support', async () => {
     const client = createClient();
     const stdin = new PassThrough() as NodeJS.ReadStream;
