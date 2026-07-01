@@ -317,6 +317,14 @@
             logDirectory.appendingPathComponent("updatebar-menubar.log", isDirectory: false)
         }
 
+        private static let maxLogFileBytes: Int = 256 * 1024
+
+        private static let dateFormatter: ISO8601DateFormatter = {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return formatter
+        }()
+
         private static func appendLog(_ message: String) {
             do {
                 try FileManager.default.createDirectory(
@@ -324,14 +332,18 @@
                     withIntermediateDirectories: true
                 )
 
-                let line = "\(ISO8601DateFormatter().string(from: Date())) UpdateBarMenuBar: \(message)\n"
+                let line = "\(dateFormatter.string(from: Date())) UpdateBarMenuBar: \(message)\n"
                 let data = Data(line.utf8)
 
                 if FileManager.default.fileExists(atPath: logFileURL.path) {
-                    let handle = try FileHandle(forWritingTo: logFileURL)
-                    defer { handle.closeFile() }
-                    try handle.seekToEnd()
-                    try handle.write(contentsOf: data)
+                    let existing = try Data(contentsOf: logFileURL)
+                    let concatenated = existing + data
+                    if concatenated.count <= maxLogFileBytes {
+                        try concatenated.write(to: logFileURL, options: .atomic)
+                        return
+                    }
+                    let trimmed = concatenated.suffix(maxLogFileBytes)
+                    try trimmed.write(to: logFileURL, options: .atomic)
                     return
                 }
                 try data.write(to: logFileURL)
