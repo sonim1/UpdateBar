@@ -4,6 +4,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+INSTALLER_URL="https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh"
+if ! grep -Fq "curl -fsSL $INSTALLER_URL | bash" README.md; then
+  echo "README is missing the GitHub one-line install command" >&2
+  exit 1
+fi
+
 case "$(uname -s)" in
   Darwin) PLATFORM=macos ;;
   Linux) PLATFORM=linux ;;
@@ -105,6 +111,29 @@ fi
 SH
 chmod 755 "$FAKE_BIN/curl"
 
+assert_installed() {
+  local prefix="$1"
+  local output="$2"
+
+  if [[ ! -x "$prefix/updatebar" ]]; then
+    echo "installed updatebar is missing or not executable: $prefix/updatebar" >&2
+    exit 1
+  fi
+
+  local actual
+  actual="$("$prefix/updatebar" --version)"
+  if [[ "$actual" != "fixture updatebar 9.9.9" ]]; then
+    echo "installed updatebar output mismatch: $actual" >&2
+    exit 1
+  fi
+
+  if ! grep -Fq "Installed updatebar to ${prefix}/updatebar" "$output"; then
+    echo "install output did not include installed path" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
 run_install() {
   local tag="$1"
   local prefix="$2"
@@ -126,26 +155,36 @@ run_install() {
       bash Scripts/install-release.sh > "$output"
   fi
 
-  if [[ ! -x "$prefix/updatebar" ]]; then
-    echo "installed updatebar is missing or not executable: $prefix/updatebar" >&2
-    exit 1
+  assert_installed "$prefix" "$output"
+}
+
+run_piped_install() {
+  local tag="$1"
+  local prefix="$2"
+  local output="$TMP_DIR/install-piped-${tag:-latest}.out"
+
+  if [[ -n "$tag" ]]; then
+    env \
+      PATH="$FAKE_BIN:$PATH" \
+      UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+      UPDATEBAR_INSTALL_PREFIX="$prefix" \
+      UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+      bash -s -- "$tag" < Scripts/install-release.sh > "$output"
+  else
+    env \
+      PATH="$FAKE_BIN:$PATH" \
+      UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+      UPDATEBAR_INSTALL_PREFIX="$prefix" \
+      UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+      bash < Scripts/install-release.sh > "$output"
   fi
 
-  local actual
-  actual="$("$prefix/updatebar" --version)"
-  if [[ "$actual" != "fixture updatebar 9.9.9" ]]; then
-    echo "installed updatebar output mismatch: $actual" >&2
-    exit 1
-  fi
-
-  if ! grep -Fq "Installed updatebar to ${prefix}/updatebar" "$output"; then
-    echo "install output did not include installed path" >&2
-    cat "$output" >&2
-    exit 1
-  fi
+  assert_installed "$prefix" "$output"
 }
 
 run_install "" "$TMP_DIR/install-latest"
 run_install "v9.9.9" "$TMP_DIR/install-tag"
+run_piped_install "" "$TMP_DIR/install-piped-latest"
+run_piped_install "v9.9.9" "$TMP_DIR/install-piped-tag"
 
 echo "install release smoke ok"

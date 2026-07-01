@@ -37,13 +37,13 @@ Scripts/install-local.sh
 ### Install from GitHub (single command)
 
 ```bash
-bash Scripts/install-release.sh
+curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash
 
 # Or install a specific version:
-bash Scripts/install-release.sh v0.2.0
+curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.2.0
 
 # Optional: change install directory
-UPDATEBAR_INSTALL_PREFIX="$HOME/.local/bin" bash Scripts/install-release.sh
+curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | UPDATEBAR_INSTALL_PREFIX="$HOME/.local/bin" bash
 ```
 
 Published prebuilt CLI archives currently cover Apple Silicon macOS and Linux
