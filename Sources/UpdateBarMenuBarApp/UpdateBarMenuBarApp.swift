@@ -236,9 +236,8 @@
                 menu.addItem(disabledItem("\(latestState.needsAttentionCount) need attention"))
             }
             menu.addItem(.separator())
-            menu.addItem(actionItem("Check Now", action: #selector(checkNow)))
-            menu.addItem(
-                actionItem("Update All Approved Outdated", action: #selector(updateAllApproved)))
+            menu.addItem(menuActionItem(.checkNow))
+            menu.addItem(menuActionItem(.updateAllApprovedOutdated))
             menu.addItem(.separator())
 
             addSection("Updates", items: latestState.outdatedItems, to: menu) { item in
@@ -256,10 +255,9 @@
             }
 
             menu.addItem(.separator())
-            menu.addItem(actionItem("Open TUI", action: #selector(openTUI)))
-            menu.addItem(actionItem("Open Config", action: #selector(openConfig)))
-            menu.addItem(actionItem("View Logs", action: #selector(viewLogs)))
-            menu.addItem(actionItem("Quit", action: #selector(quit)))
+            for action in MenuBarMenuAction.footer {
+                menu.addItem(menuActionItem(action))
+            }
             statusItem.menu = menu
         }
 
@@ -314,9 +312,9 @@
             menu.addItem(disabledItem("UpdateBar Error"))
             menu.addItem(disabledItem(String(describing: error)))
             menu.addItem(.separator())
-            menu.addItem(actionItem("Check Now", action: #selector(checkNow)))
-            menu.addItem(actionItem("Open Config", action: #selector(openConfig)))
-            menu.addItem(actionItem("Quit", action: #selector(quit)))
+            for action in MenuBarMenuAction.errorRecovery {
+                menu.addItem(menuActionItem(action))
+            }
             statusItem.menu = menu
         }
 
@@ -340,6 +338,27 @@
             let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
             item.target = self
             return item
+        }
+
+        private func menuActionItem(_ action: MenuBarMenuAction) -> NSMenuItem {
+            actionItem(action.title, action: selector(for: action))
+        }
+
+        private func selector(for action: MenuBarMenuAction) -> Selector {
+            switch action {
+            case .checkNow:
+                return #selector(checkNow)
+            case .updateAllApprovedOutdated:
+                return #selector(updateAllApproved)
+            case .openTUI:
+                return #selector(openTUI)
+            case .openConfig:
+                return #selector(openConfig)
+            case .viewLogs:
+                return #selector(viewLogs)
+            case .quit:
+                return #selector(quit)
+            }
         }
 
         private func disabledItem(_ title: String) -> NSMenuItem {
