@@ -297,10 +297,12 @@
         }
 
         private func openInFinder(_ targetURL: URL, failureMessage: Error) {
-            if NSWorkspace.shared.activateFileViewerSelecting([targetURL]) {
+            NSWorkspace.shared.activateFileViewerSelecting([targetURL])
+            if FileManager.default.fileExists(atPath: targetURL.path) {
                 return
             }
-            if NSWorkspace.shared.open(targetURL) {
+            let fallback = targetURL.deletingLastPathComponent()
+            if NSWorkspace.shared.open(fallback) || NSWorkspace.shared.open(targetURL) {
                 return
             }
             showError(failureMessage)

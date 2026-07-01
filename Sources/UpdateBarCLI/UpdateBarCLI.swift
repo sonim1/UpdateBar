@@ -178,22 +178,7 @@ struct ScanCommand: ParsableCommand {
     }
 
     private func parseDetectors() throws -> [ScanDetector] {
-        guard let detectors, !detectors.isEmpty else {
-            return ScanDetector.allCases
-        }
-        let values = detectors.split(separator: ",").map {
-            String($0).trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        guard !values.isEmpty else {
-            throw ValidationError("detectors: expected brew, npm_global, or known")
-        }
-        return try values.map { value in
-            guard let detector = ScanDetector(rawValue: value) else {
-                throw ValidationError(
-                    "\(value): unknown detector; expected brew, npm_global, or known")
-            }
-            return detector
-        }
+        try parseScanDetectors(detectors)
     }
 
     private func printHuman(_ report: ScanReport) {
@@ -303,22 +288,7 @@ struct InitCommand: ParsableCommand {
     }
 
     private func parseDetectors() throws -> [ScanDetector] {
-        guard let detectors, !detectors.isEmpty else {
-            return ScanDetector.allCases
-        }
-        let values = detectors.split(separator: ",").map {
-            String($0).trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        guard !values.isEmpty else {
-            throw ValidationError("detectors: expected brew, npm_global, or known")
-        }
-        return try values.map { value in
-            guard let detector = ScanDetector(rawValue: value) else {
-                throw ValidationError(
-                    "\(value): unknown detector; expected brew, npm_global, or known")
-            }
-            return detector
-        }
+        try parseScanDetectors(detectors)
     }
 
     private func parseSelection(from report: ScanReport) throws -> [String] {
@@ -413,6 +383,25 @@ struct InitCommand: ParsableCommand {
                 FileHandle.standardError.write(Data((error + "\n").utf8))
             }
         }
+    }
+}
+
+private func parseScanDetectors(_ value: String?) throws -> [ScanDetector] {
+    guard let value, !value.isEmpty else {
+        return ScanDetector.allCases
+    }
+    let values = value
+        .split(separator: ",")
+        .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+    guard !values.isEmpty else {
+        throw ValidationError("detectors: expected brew, npm_global, or known")
+    }
+    return try values.map { value in
+        guard let detector = ScanDetector(rawValue: value) else {
+            throw ValidationError(
+                "\(value): unknown detector; expected brew, npm_global, or known")
+        }
+        return detector
     }
 }
 
