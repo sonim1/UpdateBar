@@ -4,6 +4,23 @@ UpdateBar is a safe, scriptable CLI for tracking and updating user-approved reci
 
 UpdateBar can scan local package managers for untrusted recipe candidates and register only the ones you select. It does not auto-trust commands. External agents (or you) can still author recipe JSON; UpdateBar remains the validation, trust, and execution boundary. Run `updatebar guide agent` for the agent workflow.
 
+## Install With Homebrew
+
+```bash
+brew tap sonim1/tap
+brew install sonim1/tap/updatebar
+```
+
+Install the optional macOS menu bar app:
+
+```bash
+brew install --cask sonim1/tap/updatebar
+```
+
+The app cask is currently unsigned. If macOS blocks the first launch,
+Control-click `UpdateBar.app` in Finder, choose Open, then confirm Open.
+The cask installs the app only; install the formula for the `updatebar` CLI.
+
 ## Install From Source
 
 ```bash
@@ -23,9 +40,8 @@ Scripts/install-local.sh
 OS=$(uname -s); CPU=$(uname -m); case "$OS/$CPU" in Darwin/arm64|Darwin/aarch64) PLATFORM=macos; ARCH=arm64 ;; Linux/x86_64|Linux/amd64) PLATFORM=linux; ARCH=x86_64 ;; *) echo "No prebuilt UpdateBar archive for $OS/$CPU; build from source instead." >&2; exit 1 ;; esac; URL=$(curl -fsSL https://api.github.com/repos/sonim1/UpdateBar/releases | awk -F'\"' -v platform="$PLATFORM" -v arch="$ARCH" '$2=="browser_download_url" && $4 ~ "/updatebar-[0-9][^\"]*-" platform "-" arch "\\.tar\\.gz$" { print $4; exit }'); test -n "$URL" || { echo "No CLI archive found for $PLATFORM/$ARCH; build from source instead." >&2; exit 1; }; TMP_DIR=$(mktemp -d); trap 'rm -rf "$TMP_DIR"' EXIT; mkdir -p "$TMP_DIR/dist"; ARCHIVE=$(basename "$URL"); curl -fsSL -o "$TMP_DIR/dist/$ARCHIVE" "$URL" && curl -fsSL -o "$TMP_DIR/dist/$ARCHIVE.sha256" "$URL.sha256" && (cd "$TMP_DIR" && { if command -v shasum >/dev/null 2>&1; then shasum -a 256 -c "dist/$ARCHIVE.sha256"; else sha256sum -c "dist/$ARCHIVE.sha256"; fi; }) && tar -xzf "$TMP_DIR/dist/$ARCHIVE" -C "$TMP_DIR" && sudo install -m 755 "$TMP_DIR/updatebar" /usr/local/bin/updatebar && updatebar version --json
 ```
 
-Published prebuilt archives currently cover Apple Silicon macOS. The tag workflow
-also builds Linux x86_64 archives for the next release. Other platforms should
-build from source.
+Published prebuilt CLI archives currently cover Apple Silicon macOS and Linux
+x86_64. Other platforms should build from source.
 
 ### Menu bar app
 
