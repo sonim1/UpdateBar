@@ -67,6 +67,17 @@ describe('CLIUpdateBarClient', () => {
     expect(runner.calls[0]).toEqual(['init', '--select', 'brew.gh', '--json']);
   });
 
+  it('surfaces JSON error payloads from failed commands', async () => {
+    const runner = new FakeRunner({
+      exitCode: 1,
+      stdout: '{"ok":false,"added":[],"replaced":[],"skipped":[],"errors":["brew.gh: duplicate item"]}',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.initSelected(['brew.gh'])).rejects.toThrow('brew.gh: duplicate item');
+  });
+
   it('cancels subprocesses with AbortSignal', async () => {
     const runner = new SubprocessRunner('/bin/sh');
     const controller = new AbortController();

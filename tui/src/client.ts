@@ -110,9 +110,24 @@ export async function createDefaultClient(): Promise<UpdateBarClient> {
 
 function ensureExit(result: CommandResult, allowed: number[]) {
   if (!allowed.includes(result.exitCode)) {
-    const detail = result.stderr.trim() || `exit ${result.exitCode}`;
+    const detail = result.stderr.trim() || stdoutError(result.stdout) || `exit ${result.exitCode}`;
     throw new Error(detail);
   }
+}
+
+function stdoutError(stdout: string): string | undefined {
+  try {
+    const payload = JSON.parse(stdout) as {errors?: unknown; error?: unknown};
+    if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+      return payload.errors.map(String).join('\n');
+    }
+    if (typeof payload.error === 'string' && payload.error.length > 0) {
+      return payload.error;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 function bindAbort(child: ReturnType<typeof spawn>, signal: AbortSignal | undefined) {
