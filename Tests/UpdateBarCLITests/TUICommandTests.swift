@@ -43,7 +43,10 @@ echo "override:$UPDATEBAR_BIN"
         let result = try CLIProcess.run(
             ["tui"],
             home: home,
-            environment: ["UPDATEBAR_BIN": "/tmp/override-bin"]
+            environment: [
+                "PATH": bin.path,
+                "UPDATEBAR_BIN": "/tmp/override-bin"
+            ]
         )
 
         XCTAssertEqual(result.exitCode, 0)

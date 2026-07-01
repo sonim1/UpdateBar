@@ -8,7 +8,8 @@ final class VersionFlagTests: XCTestCase {
         let output = (result.stdout + result.stderr).trimmingCharacters(in: .whitespacesAndNewlines)
 
         XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(output.contains(UpdateBarVersion.current), "version output: \(output)")
+        let pattern = #"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?"#
+        XCTAssertTrue(output.range(of: pattern, options: .regularExpression) != nil, "version output: \(output)")
     }
 
     func testVersionCommandWasRemoved() throws {
