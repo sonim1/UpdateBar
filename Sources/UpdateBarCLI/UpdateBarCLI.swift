@@ -172,19 +172,10 @@ struct TUICommand: ParsableCommand {
 
     private func resolveTUICommand() throws -> String {
         let environment = ProcessInfo.processInfo.environment
-        if let override = environment["UPDATEBAR_TUI"] {
-            if let executable = explicitExecutablePath(override) {
-                return executable
-            }
-            if let executable = commandFromPath(name: override, environment: environment) {
-                return executable
-            }
-            throw ValidationError("UPDATEBAR_TUI is set to a non-existent executable: \(override)")
-        }
         if let resolved = commandFromPath(name: "updatebar-tui", environment: environment) {
             return resolved
         }
-        throw ValidationError("Could not locate updatebar-tui. Set UPDATEBAR_TUI to its path.")
+        throw ValidationError("Could not locate updatebar-tui on PATH.")
     }
 
     private func makeTUIEnvironment() -> [String: String] {

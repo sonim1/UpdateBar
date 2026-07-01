@@ -27,11 +27,11 @@ echo "bin:$UPDATEBAR_BIN"
         XCTAssertEqual(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "bin:/tmp/custom-bin-from-env")
     }
 
-    func testTUICommandResolvesFromExplicitPath() throws {
+    func testTUICommandResolvesFromPATHOverrideName() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-tui-tests")
         let bin = home.appendingPathComponent("bin")
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
-        let tui = bin.appendingPathComponent("custom-updatebar-tui")
+        let tui = bin.appendingPathComponent("updatebar-tui")
         try writeExecutable(
             tui,
             """
@@ -43,10 +43,7 @@ echo "override:$UPDATEBAR_BIN"
         let result = try CLIProcess.run(
             ["tui"],
             home: home,
-            environment: [
-                "UPDATEBAR_TUI": tui.path,
-                "UPDATEBAR_BIN": "/tmp/override-bin"
-            ]
+            environment: ["UPDATEBAR_BIN": "/tmp/override-bin"]
         )
 
         XCTAssertEqual(result.exitCode, 0)
@@ -59,20 +56,7 @@ echo "override:$UPDATEBAR_BIN"
         let result = try CLIProcess.run(["tui"], home: home, environment: ["PATH": home.path])
 
         XCTAssertNotEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stderr.contains("Could not locate updatebar-tui."))
-    }
-
-    func testTUICommandRejectsInvalidExplicitPath() throws {
-        let home = try makeTemporaryHome(prefix: "updatebar-cli-tui-tests")
-
-        let result = try CLIProcess.run(
-            ["tui"],
-            home: home,
-            environment: ["UPDATEBAR_TUI": home.path + "/missing-binary"]
-        )
-
-        XCTAssertNotEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stderr.contains("UPDATEBAR_TUI is set to a non-existent executable"))
+        XCTAssertTrue(result.stderr.contains("Could not locate updatebar-tui on PATH."))
     }
 
     private func writeExecutable(_ url: URL, _ body: String) throws {
