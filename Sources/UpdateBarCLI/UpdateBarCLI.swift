@@ -85,7 +85,44 @@ enum UpdateBarMain {
     }
 
     private static func normalizeArguments(_ arguments: [String]) -> [String] {
-        return arguments.compactMap { normalizeBooleanAssignmentArgument($0) }
+        var normalized: [String] = []
+        var index = 0
+
+        while index < arguments.count {
+            let argument = arguments[index]
+            let next: String? = index + 1 < arguments.count
+                ? arguments[index + 1]
+                : nil
+
+            if let next,
+               let normalizedPair = normalizeBooleanFlagValuePair(flag: argument, value: next)
+            {
+                normalized.append(contentsOf: normalizedPair)
+                index += 2
+                continue
+            }
+
+            if let normalizedArgument = normalizeBooleanAssignmentArgument(argument) {
+                normalized.append(normalizedArgument)
+                index += 1
+                continue
+            }
+
+            normalized.append(argument)
+            index += 1
+        }
+
+        return normalized
+    }
+
+    private static func normalizeBooleanFlagValuePair(flag: String, value: String) -> [String]? {
+        guard isBooleanFlag(flag),
+              let boolValue = parseBooleanValue(value)
+        else {
+            return nil
+        }
+
+        return boolValue ? [flag] : []
     }
 
     private static func normalizeBooleanAssignmentArgument(_ argument: String) -> String? {
@@ -98,18 +135,53 @@ enum UpdateBarMain {
 
         switch key {
         case "--json", "--json-stream":
-            switch value {
-            case "1", "true", "t", "yes", "on":
+            if trueBooleanValues.contains(value) {
                 return key
-            case "0", "false", "f", "no", "off":
-                return nil
-            default:
-                return argument
             }
+            if falseBooleanValues.contains(value) {
+                return nil
+            }
+            return argument
         default:
             return argument
         }
     }
+
+    private static func isBooleanFlag(_ argument: String) -> Bool {
+        jsonBooleanFlags.contains(argument)
+    }
+
+    private static func parseBooleanValue(_ value: String) -> Bool? {
+        let normalized = value.lowercased()
+        if trueBooleanValues.contains(normalized) {
+            return true
+        }
+        if falseBooleanValues.contains(normalized) {
+            return false
+        }
+        return nil
+    }
+
+    private static let jsonBooleanFlags: Set<String> = [
+        "--json",
+        "--json-stream"
+    ]
+
+    private static let trueBooleanValues: Set<String> = [
+        "1",
+        "true",
+        "t",
+        "yes",
+        "on"
+    ]
+
+    private static let falseBooleanValues: Set<String> = [
+        "0",
+        "false",
+        "f",
+        "no",
+        "off"
+    ]
 
     private static func requestedJSONOutput(_ arguments: [String]) -> Bool {
         arguments.contains("--json") || arguments.contains("--json-stream")

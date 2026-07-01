@@ -165,6 +165,26 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertEqual(snapshot.summary.total, 0)
     }
 
+    func testStatusWithJSONSpaceSeparatedTrueStillParses() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["status", "--json", "true"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        let snapshot = try JSONDecoder.updateBar.decode(StatusSnapshot.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(snapshot.summary.total, 0)
+    }
+
+    func testStatusWithJSONSpaceSeparatedFalseFallsBackToHumanMode() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["status", "--json", "false"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertFalse(result.stdout.contains("\"generated_at\""))
+        XCTAssertEqual(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, true)
+    }
+
     func testStatusWithJSONStreamEqualsProducesErrorEnvelope() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 
