@@ -42,10 +42,11 @@ public struct MenuBarStatusFormatter: Sendable {
         let errors = snapshot.items.filter { $0.status == .error }
         let ok = snapshot.items.filter { $0.status == .ok }
         let updateCount = outdated.count
+        let needsAttention = !approvals.isEmpty || !errors.isEmpty
 
         return MenuBarState(
-            title: title(updateCount: updateCount),
-            badgeValue: updateCount > 0 ? "\(updateCount)" : nil,
+            title: title(updateCount: updateCount, needsAttention: needsAttention),
+            badgeValue: badgeValue(updateCount: updateCount, needsAttention: needsAttention),
             outdatedItems: outdated,
             approvalItems: approvals,
             errorItems: errors,
@@ -54,14 +55,21 @@ public struct MenuBarStatusFormatter: Sendable {
         )
     }
 
-    private func title(updateCount: Int) -> String {
+    private func title(updateCount: Int, needsAttention: Bool) -> String {
         switch updateCount {
         case 0:
-            "Up to date"
+            needsAttention ? "Needs attention" : "Up to date"
         case 1:
             "1 update"
         default:
             "\(updateCount) updates"
         }
+    }
+
+    private func badgeValue(updateCount: Int, needsAttention: Bool) -> String? {
+        if updateCount > 0 {
+            return "\(updateCount)"
+        }
+        return needsAttention ? "!" : nil
     }
 }

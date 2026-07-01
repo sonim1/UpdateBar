@@ -48,6 +48,27 @@ final class MenuBarStatusFormatterTests: XCTestCase {
         XCTAssertEqual(state.needsAttentionCount, 0)
     }
 
+    func testAttentionOnlySnapshotDoesNotLookUpToDate() throws {
+        let snapshot = try decodeSnapshot(
+            """
+            {
+              "generated_at": "2026-06-10T00:00:00Z",
+              "summary": { "total": 2, "outdated": 0, "errors": 1 },
+              "items": [
+                { "id": "needs-approval", "name": "Needs Approval", "category": "cli", "status": "untrusted", "pinned": false },
+                { "id": "broken", "name": "Broken Tool", "category": "cli", "status": "error", "pinned": false, "error": "command failed" }
+              ]
+            }
+            """
+        )
+
+        let state = MenuBarStatusFormatter().makeState(from: snapshot)
+
+        XCTAssertEqual(state.title, "Needs attention")
+        XCTAssertEqual(state.badgeValue, "!")
+        XCTAssertEqual(state.needsAttentionCount, 2)
+    }
+
     private func decodeSnapshot(_ json: String) throws -> StatusSnapshot {
         try JSONDecoder.updateBar.decode(StatusSnapshot.self, from: Data(json.utf8))
     }
