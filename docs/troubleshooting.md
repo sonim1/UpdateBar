@@ -31,14 +31,20 @@ Every JSONL line should parse independently as one JSON object.
 Launch the packaged binary from Terminal and inspect stderr:
 
 ```bash
+Scripts/menubar-smoke-test.sh
+```
+
+If you need a manual check, rerun with logs redirected:
+
+```bash
 pkill -f UpdateBar
 ./dist/UpdateBar.app/Contents/MacOS/UpdateBar >/tmp/updatebar-menubar.log 2>&1 &
 sleep 2
 tail -n 80 /tmp/updatebar-menubar.log
 ```
 
-If the app starts but cannot find the CLI, set `UPDATEBAR_BIN` or use the
-packaged app where `Contents/Resources/updatebar` exists.
+If Open TUI is available but not launching, check `UPDATEBAR_BIN` and that a TUI
+binary (`updatebar-tui` or equivalent) is on `PATH`.
 
 ## Open TUI Does Nothing
 

@@ -15,6 +15,7 @@ Build a local unsigned app:
 
 ```bash
 Scripts/package-app.sh
+Scripts/menubar-smoke-test.sh
 open dist/UpdateBar.app
 ```
 
@@ -59,6 +60,7 @@ present, it opens the UpdateBar home directory instead.
 Troubleshooting a missing icon:
 
 ```bash
+Scripts/menubar-smoke-test.sh
 pkill -f UpdateBar
 UPDATEBAR_BIN=/full/path/to/updatebar ./dist/UpdateBar.app/Contents/MacOS/UpdateBar \
   >/tmp/updatebar-menubar.log 2>&1 &

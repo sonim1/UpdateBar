@@ -47,8 +47,10 @@ if ! grep -F "UpdateBarMenuBar main starting" "$tmp_log" >/dev/null; then
     exit 1
 fi
 
-if ! grep -F "using" "$tmp_log" | grep -F "updatebar" >/dev/null; then
-    echo "missing CLI resolution log line"
+if ! grep -F "using direct UpdateBarCore menu bar adapter" "$tmp_log" >/dev/null && \
+   ! grep -F "using CLI subprocess menu bar adapter" "$tmp_log" >/dev/null && \
+   ! grep -F "using bundled updatebar:" "$tmp_log" >/dev/null; then
+    echo "missing menu bar adapter initialization log line"
     cat "$tmp_log"
     exit 1
 fi

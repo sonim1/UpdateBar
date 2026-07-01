@@ -35,9 +35,14 @@
         }
 
         func applicationDidFinishLaunching(_ notification: Notification) {
-            cliPath = Self.resolveCLIPath()
-            Self.debugLog("resolved updatebar path: \(cliPath)")
-            service = Self.makeService(cliPath: cliPath)
+            let useCLIAdapter = Self.shouldUseCLIAdapter()
+            if useCLIAdapter {
+                let resolvedPath = Self.resolveCLIPath()
+                if !resolvedPath.isEmpty {
+                    cliPath = resolvedPath
+                }
+            }
+            service = Self.makeService(cliPath: useCLIAdapter ? cliPath : nil)
             statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             statusItem.autosaveName = "UpdateBarStatusItem"
             statusItem.isVisible = true
@@ -116,7 +121,12 @@
         }
 
         @objc private func openTUI() {
-            let command = OpenTUICommand(cliPath: cliPath)
+            let resolvedCLIPath = cliPath.isEmpty ? Self.resolveCLIPath() : cliPath
+            guard !resolvedCLIPath.isEmpty else {
+                showError(MenuBarStartupError.cliResolverFailed)
+                return
+            }
+            let command = OpenTUICommand(cliPath: resolvedCLIPath)
             do {
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: command.executablePath)
@@ -407,16 +417,23 @@
                 return resolution.path
             } catch {
                 debugLog("failed to resolve updatebar path: \(error)")
+                return ""
             }
-            return "/opt/homebrew/bin/updatebar"
         }
 
-        private static func makeService(cliPath: String) -> any MenuBarServicing {
-            let environment = ProcessInfo.processInfo.environment
-            if environment["UPDATEBAR_MENUBAR_ADAPTER"] == "cli" {
+        private static func shouldUseCLIAdapter() -> Bool {
+            ProcessInfo.processInfo.environment["UPDATEBAR_MENUBAR_ADAPTER"] == "cli"
+        }
+
+        private static func makeService(cliPath: String?) -> any MenuBarServicing {
+            if shouldUseCLIAdapter(), let cliPath, !cliPath.isEmpty {
                 debugLog("using CLI subprocess menu bar adapter")
                 return UpdateBarCLIClient(executablePath: cliPath)
             }
+            if shouldUseCLIAdapter() {
+                debugLog("CLI adapter requested but no executable was resolved; using core adapter")
+            }
+            let environment = ProcessInfo.processInfo.environment
             debugLog("using direct UpdateBarCore menu bar adapter")
             return CoreMenuBarService(
                 githubToken: environment["GITHUB_TOKEN"] ?? environment["GH_TOKEN"]
@@ -446,6 +463,7 @@
             case missingStatusBarButton
             case configOpenFailed(path: String)
             case viewLogFailed(path: String)
+            case cliResolverFailed
 
             var description: String {
                 switch self {
@@ -455,6 +473,8 @@
                     return "Failed to open config at \(path)"
                 case .viewLogFailed(let path):
                     return "Failed to open log target at \(path)"
+                case .cliResolverFailed:
+                    return "Unable to resolve updatebar executable for Open TUI"
                 }
             }
         }
