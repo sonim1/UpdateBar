@@ -66,6 +66,17 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertEqual(events.last?.checkSummary?.outdated, 1)
     }
 
+    func testCheckRejectsJSONAndJSONStreamTogether() throws {
+        let home = try temporaryDirectory()
+        try saveManifest(home: home)
+
+        let result = try CLIProcess.run(["check", "--json", "--json-stream"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stdout.isEmpty)
+        XCTAssertTrue(result.stderr.contains("--json and --json-stream cannot be combined"))
+    }
+
     private func saveManifest(home: URL) throws {
         let now = Date(timeIntervalSince1970: 1_800)
         var recipe = Recipe(

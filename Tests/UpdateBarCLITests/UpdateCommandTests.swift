@@ -106,6 +106,23 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertEqual(events[4].summary?.hardFailures, 1)
     }
 
+    func testUpdateRejectsJSONAndJSONStreamTogether() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: [
+            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
+        ]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "tool": itemState(status: .outdated)
+        ]))
+
+        let result = try CLIProcess.run(["update", "tool", "--yes", "--json", "--json-stream"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stdout.isEmpty)
+        XCTAssertTrue(result.stderr.contains("--json and --json-stream cannot be combined"))
+    }
+
     func testUpdateJSONStreamReportsCancellation() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)

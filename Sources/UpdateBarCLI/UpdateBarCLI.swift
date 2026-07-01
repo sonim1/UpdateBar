@@ -402,6 +402,32 @@ private func parseScanDetectors(_ value: String?) throws -> [ScanDetector] {
     return detectors
 }
 
+private func ensureJSONModeCompatibility(json: Bool, jsonStream: Bool) throws {
+    guard !(json && jsonStream) else {
+        throw ValidationError("--json and --json-stream cannot be combined")
+    }
+}
+
+private func withCancellationToken<T>(
+    _ body: (CancellationToken) throws -> T
+) throws -> T {
+    let cancellationToken = CancellationToken()
+    let signalHandler = SignalCancellationHandler(token: cancellationToken)
+    defer { signalHandler.cancel() }
+    return try body(cancellationToken)
+}
+
+private func readYes(_ prompt: String) -> Bool {
+    FileHandle.standardError.write(Data("\(prompt) ".utf8))
+    return readLine() == "yes"
+}
+
+private func requireYes(prompt: String, cancelMessage: String) throws {
+    guard readYes(prompt) else {
+        throw ValidationError(cancelMessage)
+    }
+}
+
 private func parseList(_ raw: String, separators: CharacterSet = .whitespaceAndComma) -> [String] {
     raw
         .components(separatedBy: separators)
@@ -1166,26 +1192,27 @@ struct CheckCommand: ParsableCommand {
     var exitZeroOnOutdated = false
 
     func run() throws {
-        guard !(json && jsonStream) else {
-            throw ValidationError("--json and --json-stream cannot be combined")
-        }
+        try ensureJSONModeCompatibility(json: json, jsonStream: jsonStream)
         let config = try ConfigStore().load()
-        let cancellationToken = CancellationToken()
-        let signalHandler = SignalCancellationHandler(token: cancellationToken)
-        defer { signalHandler.cancel() }
-        let service = RegistryService(
-            config: config,
-            commandRunner: CommandExecutor(cancellationToken: cancellationToken),
-            githubToken: ProcessInfo.processInfo.environment["GITHUB_TOKEN"]
-                ?? ProcessInfo.processInfo.environment["GH_TOKEN"]
-        )
+        let results: [CheckResult] = try withCancellationToken { cancellationToken in
+            let service = RegistryService(
+                config: config,
+                commandRunner: CommandExecutor(cancellationToken: cancellationToken),
+                githubToken: ProcessInfo.processInfo.environment["GITHUB_TOKEN"]
+                    ?? ProcessInfo.processInfo.environment["GH_TOKEN"]
+            )
+
+            if jsonStream {
+                try runJSONStream(service: service)
+                return []
+            }
+
+            return try service.check(ids: ids, force: force)
+        }
 
         if jsonStream {
-            try runJSONStream(service: service)
             return
         }
-
-        let results = try service.check(ids: ids, force: force)
 
         if json {
             try printJSON(results)
@@ -1338,28 +1365,29 @@ struct UpdateCommand: ParsableCommand {
         guard all || !ids.isEmpty else {
             throw ValidationError("provide item ids or --all")
         }
-        guard !(json && jsonStream) else {
-            throw ValidationError("--json and --json-stream cannot be combined")
-        }
+        try ensureJSONModeCompatibility(json: json, jsonStream: jsonStream)
 
         let config = try ConfigStore().load()
-        let cancellationToken = CancellationToken()
-        let signalHandler = SignalCancellationHandler(token: cancellationToken)
-        defer { signalHandler.cancel() }
-        let runner = UpdateRunner(
-            config: config,
-            commandRunner: CommandExecutor(cancellationToken: cancellationToken),
-            githubToken: ProcessInfo.processInfo.environment["GITHUB_TOKEN"]
-                ?? ProcessInfo.processInfo.environment["GH_TOKEN"],
-            confirm: confirmUpdate
-        )
+        let results: [UpdateResult] = try withCancellationToken { cancellationToken in
+            let runner = UpdateRunner(
+                config: config,
+                commandRunner: CommandExecutor(cancellationToken: cancellationToken),
+                githubToken: ProcessInfo.processInfo.environment["GITHUB_TOKEN"]
+                    ?? ProcessInfo.processInfo.environment["GH_TOKEN"],
+                confirm: confirmUpdate
+            )
 
-        if jsonStream {
-            try runJSONStream(runner: runner)
-            return
+            if jsonStream {
+                try runJSONStream(runner: runner)
+                return []
+            }
+
+            return try runner.update(ids: ids, all: all, assumeYes: yes)
         }
 
-        let results = try runner.update(ids: ids, all: all, assumeYes: yes)
+        if jsonStream {
+            return
+        }
 
         if json {
             try printJSON(results)
@@ -1462,8 +1490,7 @@ struct UpdateCommand: ParsableCommand {
     }
 
     private func confirmUpdate(_ item: UpdatePlanItem) -> Bool {
-        FileHandle.standardError.write(Data("Update \(item.id)? Type yes to continue: ".utf8))
-        return readLine() == "yes"
+        return readYes("Update \(item.id)? Type yes to continue:")
     }
 }
 
@@ -1560,10 +1587,10 @@ struct RemoveCommand: ParsableCommand {
 
     func run() throws {
         if !yes {
-            FileHandle.standardError.write(Data("Remove \(id)? Type yes to continue: ".utf8))
-            guard readLine() == "yes" else {
-                throw ValidationError("remove cancelled")
-            }
+            try requireYes(
+                prompt: "Remove \(id)? Type yes to continue:",
+                cancelMessage: "remove cancelled"
+            )
         }
         try RegistryService().remove(id: id)
         if json {
@@ -1845,10 +1872,10 @@ struct AddCommand: ParsableCommand {
         }
         printCommands(prepared)
         if !yes {
-            FileHandle.standardError.write(Data("Trust and approve these commands? Type yes to continue: ".utf8))
-            guard readLine() == "yes" else {
-                throw ValidationError("command approval cancelled")
-            }
+            try requireYes(
+                prompt: "Trust and approve these commands? Type yes to continue:",
+                cancelMessage: "command approval cancelled"
+            )
         }
         TrustPolicy.approveAllCommands(in: &prepared)
         return prepared
