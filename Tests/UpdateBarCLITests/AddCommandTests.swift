@@ -76,6 +76,20 @@ final class AddCommandTests: XCTestCase {
         XCTAssertFalse(stored.trust.approvedCommands.isEmpty)
     }
 
+    func testManualAddTrustWithoutYesRequiresPromptConfirmation() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: []))
+        let file = try writeRecipe(home: home, recipe: recipe(id: "denied"))
+
+        let result = try CLIProcess.run(["add", "--from", file.path, "--trust"], home: home)
+        let stored = try ManifestStore(paths: paths).load()
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("command approval cancelled"))
+        XCTAssertNil(stored.item(id: "denied"))
+    }
+
     func testAIAddFlagsAreRemovedFromCLI() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let result = try CLIProcess.run(["add", "--ai", "--from", "anything"], home: home)
