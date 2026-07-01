@@ -117,6 +117,7 @@ updatebar scan --json
 updatebar scan --detectors brew,npm_global,known
 updatebar scan --detectors " brew , npm_global "
 updatebar scan --category ai-agent
+updatebar scan --category " cloud devops "
 updatebar init
 updatebar init --select brew.gh,npm.typescript
 updatebar init --category ai-agent

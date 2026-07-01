@@ -263,6 +263,45 @@ final class InitCommandTests: XCTestCase {
         XCTAssertEqual(manifest.items.map(\.id), ["brew.gh"])
     }
 
+    func testInitFiltersCategoryWithWhitespaceAndUnderscore() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            [
+                "init", "--json", "--detectors", "brew",
+                "--category", "CLOUD_DEVOPS",
+                "--select", "brew.gh",
+            ],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        let payload = try JSONDecoder.updateBar.decode(
+            InitPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(payload.added, ["brew.gh"])
+        let manifest = try ManifestStore(paths: AppPaths(homeDirectory: home)).load()
+        XCTAssertEqual(manifest.items.map(\.id), ["brew.gh"])
+    }
+
+    func testInitRejectsBlankCategoryFilter() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            ["init", "--json", "--detectors", "brew", "--category", "___", "--select", "brew.gh"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertTrue(payload.errors.contains { $0.contains("category must not be empty") })
+    }
+
     private func fakeManagers(home: URL) throws -> URL {
         let bin = home.appendingPathComponent("bin")
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)

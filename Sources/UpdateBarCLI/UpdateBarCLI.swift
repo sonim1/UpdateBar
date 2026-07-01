@@ -350,9 +350,8 @@ struct ScanCommand: ParsableCommand {
         let selectedDetectors = try parseDetectors()
         let service = ScanService()
         var report = try service.scan(detectors: selectedDetectors)
-        if let category {
-            let normalized = normalizeCategory(category)
-            report.candidates = report.candidates.filter { $0.category == normalized }
+        if let category = try parseCategory(category) {
+            report.candidates = report.candidates.filter { $0.category == category }
         }
 
         if json {
@@ -364,6 +363,11 @@ struct ScanCommand: ParsableCommand {
 
     private func parseDetectors() throws -> [ScanDetector] {
         try parseScanDetectors(detectors)
+    }
+
+    private func parseCategory(_ value: String?) throws -> String? {
+        guard let value else { return nil }
+        return try normalizedCategory(for: value)
     }
 
     private func printHuman(_ report: ScanReport) {
@@ -466,15 +470,19 @@ struct InitCommand: ParsableCommand {
 
     private func filteredReport(detectors: [ScanDetector]) throws -> ScanReport {
         var report = try ScanService().scan(detectors: detectors)
-        if let category {
-            let normalized = normalizeCategory(category)
-            report.candidates = report.candidates.filter { $0.category == normalized }
+        if let category = try parseCategory(category) {
+            report.candidates = report.candidates.filter { $0.category == category }
         }
         return report
     }
 
     private func parseDetectors() throws -> [ScanDetector] {
         try parseScanDetectors(detectors)
+    }
+
+    private func parseCategory(_ value: String?) throws -> String? {
+        guard let value else { return nil }
+        return try normalizedCategory(for: value)
     }
 
     private func parseSelection(from report: ScanReport) throws -> [String] {
@@ -642,8 +650,31 @@ private func unique(_ values: [String]) -> [String] {
     return results
 }
 
-private func normalizeCategory(_ value: String) -> String {
-    value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+private func normalizedCategory(for value: String) throws -> String {
+    let normalized = value
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .lowercased()
+        .replacingOccurrences(of: "_", with: "-")
+        .replacingOccurrences(of: "/", with: "-")
+        .replacingOccurrences(of: " ", with: "-")
+        .split(separator: "-")
+        .filter { !$0.isEmpty }
+        .joined(separator: "-")
+    guard !normalized.isEmpty else {
+        throw ValidationError("category must not be empty")
+    }
+
+    let aliases: [String: String] = [
+        "aiagent": "ai-agent",
+        "packagemanager": "package-manager",
+        "runtimesdk": "runtime-sdk",
+        "shellutility": "shell-utility",
+        "clouddevops": "cloud-devops",
+        "localservice": "local-service",
+        "mcpserver": "mcp-server",
+        "codexskill": "codex-skill",
+    ]
+    return aliases[normalized] ?? normalized
 }
 
 private struct InitPayload: Encodable {

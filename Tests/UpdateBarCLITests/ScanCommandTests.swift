@@ -221,6 +221,45 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("jq"))
     }
 
+    func testScanFiltersCategoryWithWhitespaceAndUnderscores() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            if [ "$1" = "leaves" ]; then
+              printf 'jq\\ngh\\n'
+            elif [ "$1" = "list" ]; then
+              printf 'jq 1.7.1\\ngh 2.74.0\\n'
+            fi
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--detectors", "brew", "--category", " CLOUD DEVOPS "],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("gh"))
+        XCTAssertFalse(result.stdout.contains("jq"))
+    }
+
+    func testScanRejectsBlankCategoryFilter() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+
+        let result = try CLIProcess.run(
+            ["scan", "--category", "   "],
+            home: home
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("category must not be empty"))
+    }
+
     private func writeExecutable(_ url: URL, _ body: String) throws {
         try body.write(to: url, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)

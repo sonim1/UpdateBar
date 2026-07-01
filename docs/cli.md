@@ -107,8 +107,8 @@ Scans installed local tools and prints recipe candidates without changing `manif
 V1 detectors are `brew`, `npm_global`, and `known`.
 `--detectors` accepts a comma-separated list. Whitespace is ignored around
 each token, duplicate values are deduplicated, and unknown ids are rejected.
-`--category` is normalized (`CLOUD-DEVOPS` matches `cloud-devops`) and filters
-the displayed candidates after scanning.
+`--category` is normalized (`CLOUD-DEVOPS`, `CLOUD DEVOPS`, `cloud_devops`, etc.
+all map to `cloud-devops`) and filters the displayed candidates after scanning.
 
 Human output includes each candidate id, such as `brew.gh`, plus the interactive
 `updatebar init` command and a ready-to-run `updatebar init --select ...` command
