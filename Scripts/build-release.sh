@@ -46,8 +46,12 @@ touch -t 202001010000 "dist/stage/updatebar-${VERSION}/updatebar"
 
 ARCHIVE="dist/updatebar-${VERSION}-${PLATFORM}-${ARCH}.tar.gz"
 TAR_ARCHIVE="${ARCHIVE%.gz}"
-COPYFILE_DISABLE=1 tar --format ustar --uid 0 --gid 0 --uname root --gname wheel \
-  -C "dist/stage/updatebar-${VERSION}" -cf "$TAR_ARCHIVE" updatebar
+TAR_ARGS=()
+while IFS= read -r arg; do
+  TAR_ARGS+=("$arg")
+done < <("$(dirname "$0")/release-tar-args.sh" tar)
+COPYFILE_DISABLE=1 tar "${TAR_ARGS[@]}" -C "dist/stage/updatebar-${VERSION}" \
+  -cf "$TAR_ARCHIVE" updatebar
 gzip -n -f "$TAR_ARCHIVE"
 
 if command -v shasum >/dev/null 2>&1; then
