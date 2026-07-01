@@ -350,7 +350,7 @@ struct ScanCommand: ParsableCommand {
         let selectedDetectors = try parseDetectors()
         let service = ScanService()
         var report = try service.scan(detectors: selectedDetectors)
-        if let category = try parseCategory(category) {
+        if let category = try parseCategoryFilter(category) {
             report.candidates = report.candidates.filter { $0.category == category }
         }
 
@@ -363,11 +363,6 @@ struct ScanCommand: ParsableCommand {
 
     private func parseDetectors() throws -> [ScanDetector] {
         try parseScanDetectors(detectors)
-    }
-
-    private func parseCategory(_ value: String?) throws -> String? {
-        guard let value else { return nil }
-        return try normalizedCategory(for: value)
     }
 
     private func printHuman(_ report: ScanReport) {
@@ -470,7 +465,7 @@ struct InitCommand: ParsableCommand {
 
     private func filteredReport(detectors: [ScanDetector]) throws -> ScanReport {
         var report = try ScanService().scan(detectors: detectors)
-        if let category = try parseCategory(category) {
+        if let category = try parseCategoryFilter(category) {
             report.candidates = report.candidates.filter { $0.category == category }
         }
         return report
@@ -478,11 +473,6 @@ struct InitCommand: ParsableCommand {
 
     private func parseDetectors() throws -> [ScanDetector] {
         try parseScanDetectors(detectors)
-    }
-
-    private func parseCategory(_ value: String?) throws -> String? {
-        guard let value else { return nil }
-        return try normalizedCategory(for: value)
     }
 
     private func parseSelection(from report: ScanReport) throws -> [String] {
@@ -675,6 +665,13 @@ private func normalizedCategory(for value: String) throws -> String {
         "codexskill": "codex-skill",
     ]
     return aliases[normalized] ?? normalized
+}
+
+private func parseCategoryFilter(_ value: String?) throws -> String? {
+    guard let value else {
+        return nil
+    }
+    return try normalizedCategory(for: value)
 }
 
 private struct InitPayload: Encodable {
