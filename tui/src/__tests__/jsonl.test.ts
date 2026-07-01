@@ -11,6 +11,14 @@ describe('jsonl parser', () => {
     expect(events.map(event => event.event)).toEqual(['started', 'finished']);
   });
 
+  it('normalizes contract type to event', () => {
+    const events = parseJSONLText(
+      '{"type":"started","operation":"check","run_id":"run-1","timestamp":"2026-06-30T00:00:00Z"}\n'
+    );
+
+    expect(events[0]).toMatchObject({event: 'started', type: 'started', run_id: 'run-1'});
+  });
+
   it('parses chunked lines', async () => {
     async function* chunks() {
       yield '{"event":"log","operation":"update"';

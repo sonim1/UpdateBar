@@ -19,7 +19,7 @@ describe('App', () => {
     });
 
     const view = render(<App client={client} />);
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await waitForFrame(view, '2 tracked · 1 outdated · 0 errors');
 
     expect(view.lastFrame()).toContain('2 tracked · 1 outdated · 0 errors');
   });
@@ -28,11 +28,11 @@ describe('App', () => {
     const client = createClient();
     const view = render(<App client={client} />);
 
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await waitForFrame(view, 'Scan & Add');
     view.stdin.write('\u001B[B');
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await wait();
     view.stdin.write('\r');
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await waitForFrame(view, 'brew.gh');
 
     expect(view.lastFrame()).toContain('brew.gh');
     expect(view.lastFrame()).toContain('known.node');
@@ -63,15 +63,15 @@ describe('App', () => {
     });
     const view = render(<App client={client} />);
 
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await waitForFrame(view, 'Scan & Add');
     view.stdin.write('\u001B[B');
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await wait();
     view.stdin.write('\r');
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await waitForFrame(view, 'brew.gh');
     view.stdin.write(' ');
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await wait();
     view.stdin.write('\r');
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await waitForFrame(view, 'added 1');
 
     expect(selected).toEqual([['brew.gh']]);
     expect(view.lastFrame()).toContain('added 1');
@@ -116,17 +116,17 @@ describe('App', () => {
     });
     const view = render(<App client={client} />);
 
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await waitForFrame(view, 'Scan & Add');
     view.stdin.write('\u001B[B');
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await wait();
     view.stdin.write('\r');
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await waitForFrame(view, 'npm.typescript');
     view.stdin.write('\u001B[B');
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await wait();
     view.stdin.write(' ');
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await wait();
     view.stdin.write('\r');
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await wait();
 
     expect(selected).toEqual([['npm.typescript']]);
   });
@@ -402,4 +402,21 @@ function createOutputStream(): NodeJS.WriteStream {
   Object.defineProperty(stream, 'columns', {value: 100});
   Object.defineProperty(stream, 'isTTY', {value: false});
   return stream;
+}
+
+async function wait(ms = 20) {
+  await new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForFrame(
+  view: ReturnType<typeof render>,
+  text: string,
+  timeoutMs = 1_000
+) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (view.lastFrame()?.includes(text)) return;
+    await wait(10);
+  }
+  expect(view.lastFrame()).toContain(text);
 }

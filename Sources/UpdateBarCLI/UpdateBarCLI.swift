@@ -830,7 +830,17 @@ private func printJSON<T: Encodable>(_ value: T) throws {
 }
 
 private struct JSONLWriter {
+    let runID: String
+
+    init(runID: String = UUID().uuidString) {
+        self.runID = runID
+    }
+
     func write(_ event: MachineEvent) throws {
+        var event = event
+        if event.runId == nil {
+            event.runId = runID
+        }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]

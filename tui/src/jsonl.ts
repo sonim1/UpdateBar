@@ -35,11 +35,12 @@ export function parseJSONLText(text: string): MachineEvent[] {
 
 function parseLine(line: string, lineNumber: number): MachineEvent {
   try {
-    const value = JSON.parse(line) as MachineEvent;
-    if (typeof value.event !== 'string') {
+    const value = JSON.parse(line) as Partial<MachineEvent>;
+    const event = typeof value.event === 'string' ? value.event : value.type;
+    if (typeof event !== 'string') {
       throw new Error('missing event');
     }
-    return value;
+    return {...value, event, type: value.type ?? event} as MachineEvent;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`invalid JSONL event on line ${lineNumber}: ${message}`);
