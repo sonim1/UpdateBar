@@ -38,6 +38,43 @@ struct CLIProcess {
         )
     }
 
+    static func runAndInterrupt(
+        _ arguments: [String],
+        home: URL,
+        after delay: TimeInterval,
+        environment overrides: [String: String?] = [:]
+    ) throws -> Result {
+        let process = Process()
+        process.executableURL = try updatebarBinary()
+        process.arguments = arguments
+        var environment = ProcessInfo.processInfo.environment
+        environment["UPDATEBAR_HOME"] = home.path
+        for (key, value) in overrides {
+            environment[key] = value
+        }
+        process.environment = environment
+
+        let stdout = Pipe()
+        let stderr = Pipe()
+        let stdin = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+        process.standardInput = stdin
+
+        try process.run()
+        try stdin.fileHandleForWriting.close()
+        DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+            process.interrupt()
+        }
+        process.waitUntilExit()
+
+        return Result(
+            exitCode: process.terminationStatus,
+            stdout: String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
+            stderr: String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        )
+    }
+
     private static func updatebarBinary() throws -> URL {
         let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let build = root.appendingPathComponent(".build")

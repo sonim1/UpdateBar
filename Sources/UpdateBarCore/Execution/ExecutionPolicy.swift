@@ -22,10 +22,35 @@ public struct CommandResult: Equatable, Sendable {
     }
 }
 
+public final class CancellationToken: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    public init() {}
+
+    public var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    public func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
+    }
+}
+
 public enum ExecutionError: Error, CustomStringConvertible, Equatable, Sendable {
     case invalidWorkingDirectory(String)
     case timedOut(command: String)
     case launchFailed(String)
+    case cancelled(command: String)
+
+    public var isCancellation: Bool {
+        if case .cancelled = self { return true }
+        return false
+    }
 
     public var description: String {
         switch self {
@@ -35,6 +60,8 @@ public enum ExecutionError: Error, CustomStringConvertible, Equatable, Sendable 
             return "\(command): timed out"
         case let .launchFailed(message):
             return message
+        case let .cancelled(command):
+            return "\(command): cancelled"
         }
     }
 }

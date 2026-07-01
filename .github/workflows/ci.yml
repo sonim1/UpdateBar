@@ -8,8 +8,8 @@ jobs:
   macos:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .build
           key: macos-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
@@ -20,8 +20,14 @@ jobs:
         run: swift test
       - name: Smoke
         run: bash Scripts/smoke-test.sh
+      - name: E2E edgecases
+        run: UPDATEBAR_BIN=.build/debug/updatebar bash Scripts/e2e-edgecases.sh
       - name: Archive smoke
         run: bash Scripts/archive-smoke-test.sh
+      - name: App package smoke
+        run: bash Scripts/package-app.sh
+      - name: TUI smoke
+        run: bash Scripts/tui-smoke-test.sh
       - name: Format
         run: |
           if command -v swift-format >/dev/null 2>&1; then
@@ -34,8 +40,8 @@ jobs:
     runs-on: ubuntu-latest
     container: swift:6.0
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .build
           key: linux-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
@@ -44,3 +50,5 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
+      - name: E2E edgecases
+        run: UPDATEBAR_BIN=.build/debug/updatebar bash Scripts/e2e-edgecases.sh

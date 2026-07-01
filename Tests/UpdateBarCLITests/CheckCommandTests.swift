@@ -28,6 +28,37 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertEqual(results[0].status, .outdated)
     }
 
+    func testCheckJSONStreamPrintsLineDelimitedEventsAndReturnsOutdatedExit() throws {
+        let home = try temporaryDirectory()
+        try saveManifest(home: home)
+
+        let result = try CLIProcess.run(["check", "--json-stream"], home: home)
+        let events = try decodeEvents(result.stdout)
+
+        XCTAssertEqual(result.exitCode, 10)
+        XCTAssertTrue(result.stderr.isEmpty)
+        XCTAssertEqual(events.map(\.event), [.started, .itemStarted, .itemFinished, .finished])
+        XCTAssertEqual(events.map(\.operation), [.check, .check, .check, .check])
+        XCTAssertEqual(events[1].itemId, "fixture-tool")
+        XCTAssertEqual(events[2].checkResult?.status, .outdated)
+        XCTAssertEqual(events[3].checkSummary?.outdated, 1)
+    }
+
+    func testCheckJSONStreamExitZeroOnOutdatedFlagReturnsSuccess() throws {
+        let home = try temporaryDirectory()
+        try saveManifest(home: home)
+
+        let result = try CLIProcess.run(
+            ["check", "--json-stream", "--exit-zero-on-outdated"],
+            home: home
+        )
+        let events = try decodeEvents(result.stdout)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(events.last?.event, .finished)
+        XCTAssertEqual(events.last?.checkSummary?.outdated, 1)
+    }
+
     private func saveManifest(home: URL) throws {
         let now = Date(timeIntervalSince1970: 1_800)
         var recipe = Recipe(
@@ -57,5 +88,11 @@ final class CheckCommandTests: XCTestCase {
 
     private func temporaryDirectory() throws -> URL {
         try makeTemporaryHome(prefix: "updatebar-cli-check-tests")
+    }
+
+    private func decodeEvents(_ stdout: String) throws -> [MachineEvent] {
+        try stdout.split(separator: "\n").map { line in
+            try JSONDecoder.updateBar.decode(MachineEvent.self, from: Data(line.utf8))
+        }
     }
 }

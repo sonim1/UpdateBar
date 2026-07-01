@@ -5,14 +5,12 @@
 class Updatebar < Formula
   desc "CLI-first update tracker for local tools"
   homepage "https://github.com/sonim1/UpdateBar"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v0.1.0/updatebar-0.1.0-macos-arm64.tar.gz"
   version "0.1.0"
+  sha256 "bb5291c5d4e67cc35aa697e9348b5d1995a4ae5f1a2d157964cadc6477d1cb75"
 
-  on_macos do
-    if Hardware::CPU.arm?
-      url "https://github.com/sonim1/UpdateBar/releases/download/v0.1.0/updatebar-0.1.0-macos-arm64.tar.gz"
-      sha256 "bb5291c5d4e67cc35aa697e9348b5d1995a4ae5f1a2d157964cadc6477d1cb75"
-    end
-  end
+  depends_on arch: :arm64
+  depends_on macos: :ventura
 
   def install
     bin.install "updatebar"

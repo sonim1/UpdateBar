@@ -3,5 +3,7 @@
 .DS_Store
 .worktrees/
 dist/
+tui/dist/
+tui/node_modules/
 exported.json
 *.xcodeproj

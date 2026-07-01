@@ -170,6 +170,50 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertTrue(commands.commands.isEmpty)
     }
 
+    func testApprovalsReturnsSortedCommandApprovalStatuses() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let stores = Stores(paths: paths)
+        var item = recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
+        item.update.cwd = "/tmp/tool"
+        item.trust.approvedCommands = [:]
+        TrustPolicy.approveAllCommands(in: &item)
+        try stores.manifest.save(manifest(items: [item]))
+        let service = registryService(paths: paths, commands: MockCommandExecutor(results: [:]))
+
+        let approvals = try service.approvals(id: "tool")
+
+        XCTAssertEqual(approvals.map(\.field), ["check.cmd", "latest.cmd", "update.cmd"])
+        XCTAssertTrue(approvals.allSatisfy(\.approved))
+        XCTAssertEqual(approvals.first { $0.field == "check.cmd" }?.command, "tool current")
+        XCTAssertEqual(approvals.first { $0.field == "update.cmd" }?.cwd, "/tmp/tool")
+    }
+
+    func testCheckEmitsProgressEventsFromCoreContract() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let stores = Stores(paths: paths)
+        try stores.manifest.save(manifest(items: [
+            recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
+        ]))
+        let commands = MockCommandExecutor(results: [
+            "tool current": CommandResult(exitCode: 0, stdout: "tool 1.0.0", stderr: ""),
+            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
+        ])
+        let service = registryService(paths: paths, commands: commands)
+        var events: [CheckProgressEvent] = []
+
+        let results = try service.check { event in
+            events.append(event)
+        }
+
+        XCTAssertEqual(results.map(\.status), [.outdated])
+        XCTAssertEqual(events.map(\.phase), [.itemStarted, .itemFinished])
+        XCTAssertEqual(events.map(\.id), ["tool", "tool"])
+        XCTAssertNil(events[0].result)
+        XCTAssertEqual(events[1].result?.status, .outdated)
+    }
+
     private func registryService(paths: AppPaths, commands: MockCommandExecutor) -> RegistryService {
         RegistryService(
             manifestStore: ManifestStore(paths: paths),

@@ -1,0 +1,18 @@
+schema: spec-driven
+context: |
+  UpdateBar is a Swift Package Manager project for a macOS-oriented CLI/menu bar tool.
+  Keep Swift core/business logic in UpdateBarCore, keep command parsing and output in UpdateBarCLI, and avoid mixing human-readable logs into machine-readable JSON output.
+  For future Ink/React TUI work, treat the Swift CLI as the core engine and the TUI as a presentation layer that calls the Swift binary through stable JSON/JSONL contracts.
+  Prefer small, auditable changes with tests under Tests/ and docs updates when user-facing CLI behavior changes.
+rules:
+  proposal:
+    - Describe user-visible behavior and why the change belongs in UpdateBar.
+    - Call out compatibility with existing Swift CLI, JSON mode, and macOS packaging when relevant.
+  specs:
+    - Use SHALL statements for observable CLI/core/TUI behavior.
+    - Include JSON/JSONL contracts and exit-code expectations for automation-facing changes.
+  design:
+    - Keep UpdateBarCore free of CLI-specific printing and UI concerns.
+    - For TUI work, document subprocess invocation, binary path resolution, cancellation, stdout/stderr separation, and packaging implications.
+  tasks:
+    - Include verification commands such as swift test for Swift changes and the relevant Node/Ink checks for TUI changes.

@@ -11,30 +11,42 @@ struct UpdateBar: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "updatebar",
         abstract: "Track and update arbitrary registered tools.",
-        subcommands: [
-            AddCommand.self,
-            ApprovalCommand.self,
-            ApprovalsCommand.self,
-            BackgroundCommand.self,
-            CheckCommand.self,
-            ConfigCommand.self,
-            DisableCommand.self,
-            EditCommand.self,
-            EnableCommand.self,
-            ExportCommand.self,
-            GuideCommand.self,
-            ImportCommand.self,
-            ListCommand.self,
-            PinCommand.self,
-            RemoveCommand.self,
-            RevokeCommand.self,
-            SchemaCommand.self,
-            StatusCommand.self,
-            TemplateCommand.self,
-            UnpinCommand.self,
-            UpdateCommand.self,
-            ValidateCommand.self,
-            VersionCommand.self
+        groupedSubcommands: [
+            CommandGroup(name: "Setup", subcommands: [
+                InitCommand.self,
+                ScanCommand.self,
+                AddCommand.self,
+                ImportCommand.self,
+                ExportCommand.self,
+            ]),
+            CommandGroup(name: "Check & Update", subcommands: [
+                StatusCommand.self,
+                CheckCommand.self,
+                UpdateCommand.self,
+                ListCommand.self,
+            ]),
+            CommandGroup(name: "Manage", subcommands: [
+                ApprovalCommand.self,
+                ApprovalsCommand.self,
+                RevokeCommand.self,
+                PinCommand.self,
+                UnpinCommand.self,
+                EnableCommand.self,
+                DisableCommand.self,
+                RemoveCommand.self,
+                EditCommand.self,
+            ]),
+            CommandGroup(name: "System", subcommands: [
+                ConfigCommand.self,
+                BackgroundCommand.self,
+                VersionCommand.self,
+            ]),
+            CommandGroup(name: "Support", subcommands: [
+                GuideCommand.self,
+                SchemaCommand.self,
+                TemplateCommand.self,
+                ValidateCommand.self,
+            ]),
         ]
     )
 }
@@ -47,7 +59,9 @@ enum UpdateBarMain {
             try command.run()
         } catch {
             let exitCode = UpdateBar.exitCode(for: error)
-            if CommandLine.arguments.contains("--json"), !JSONOutputTracker.shared.didWrite {
+            if CommandLine.arguments.contains("--json") || CommandLine.arguments.contains("--json-stream"),
+                !JSONOutputTracker.shared.didWrite
+            {
                 writeJSONError(error, code: exitCode)
                 terminate(processExitCode(for: exitCode))
             }
@@ -118,7 +132,7 @@ private struct ErrorEnvelope: Encodable {
 }
 
 struct VersionCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "version")
+    static let configuration = CommandConfiguration(commandName: "version", shouldDisplay: false)
 
     @Flag(name: .long)
     var json = false
@@ -130,6 +144,272 @@ struct VersionCommand: ParsableCommand {
         } else {
             print(payload.version)
         }
+    }
+}
+
+struct ScanCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "scan",
+        abstract: "Scan installed local tools without modifying UpdateBar state."
+    )
+
+    @Flag(name: .long)
+    var json = false
+
+    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known.")
+    var detectors: String?
+
+    @Option(name: .long, help: "Filter by category, such as ai-agent or cloud-devops.")
+    var category: String?
+
+    func run() throws {
+        let selectedDetectors = try parseDetectors()
+        let service = ScanService()
+        var report = try service.scan(detectors: selectedDetectors)
+        if let category {
+            report.candidates = report.candidates.filter { $0.category == category }
+        }
+
+        if json {
+            try printJSON(report)
+        } else {
+            printHuman(report)
+        }
+    }
+
+    private func parseDetectors() throws -> [ScanDetector] {
+        guard let detectors, !detectors.isEmpty else {
+            return ScanDetector.allCases
+        }
+        let values = detectors.split(separator: ",").map {
+            String($0).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard !values.isEmpty else {
+            throw ValidationError("detectors: expected brew, npm_global, or known")
+        }
+        return try values.map { value in
+            guard let detector = ScanDetector(rawValue: value) else {
+                throw ValidationError(
+                    "\(value): unknown detector; expected brew, npm_global, or known")
+            }
+            return detector
+        }
+    }
+
+    private func printHuman(_ report: ScanReport) {
+        print("Found \(report.candidates.count) candidate(s)")
+        print("")
+        let recommended = report.candidates.filter { $0.capability == .full }
+        let needsReview = report.candidates.filter { $0.capability != .full }
+        let nextIndex = printSection("Recommended", candidates: recommended, startIndex: 1)
+        _ = printSection("Needs Review", candidates: needsReview, startIndex: nextIndex)
+        if !report.errors.isEmpty {
+            print("")
+            print("Errors")
+            for error in report.errors {
+                print("- \(error.detector.rawValue): \(error.message)")
+            }
+        }
+    }
+
+    private func printSection(
+        _ title: String,
+        candidates: [ScanCandidate],
+        startIndex: Int
+    ) -> Int {
+        guard !candidates.isEmpty else { return startIndex }
+        print(title)
+        for (index, candidate) in candidates.enumerated() {
+            let version = candidate.installedVersion.map { " \($0)" } ?? ""
+            let name = "[\(startIndex + index)] \(candidate.name)\(version)"
+            let fields = [
+                name,
+                candidate.category,
+                candidate.detector.rawValue,
+                candidate.capability.rawValue,
+            ]
+            print(fields.joined(separator: "\t"))
+        }
+        print("")
+        return startIndex + candidates.count
+    }
+}
+
+struct InitCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "init",
+        abstract: "Scan installed local tools and register selected recipes."
+    )
+
+    @Flag(name: .long)
+    var json = false
+
+    @Flag(name: .long)
+    var replace = false
+
+    @Option(name: .long, help: "Comma-separated scan candidate ids.")
+    var select: String?
+
+    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known.")
+    var detectors: String?
+
+    @Option(name: .long, help: "Filter by category, such as ai-agent or cloud-devops.")
+    var category: String?
+
+    func run() throws {
+        let selectedDetectors = try parseDetectors()
+        let report = try filteredReport(detectors: selectedDetectors)
+        let selectedIDs = try parseSelection(from: report)
+
+        do {
+            let summary = try InitService().register(
+                candidates: report.candidates,
+                selectedIDs: selectedIDs,
+                replace: replace
+            )
+            try output(InitPayload(summary: summary, errors: []))
+        } catch let error as InitServiceError {
+            try output(
+                InitPayload(
+                    added: [],
+                    replaced: [],
+                    skipped: [],
+                    errors: [error.description]
+                )
+            )
+            throw ExitCode.failure
+        }
+    }
+
+    private func filteredReport(detectors: [ScanDetector]) throws -> ScanReport {
+        var report = try ScanService().scan(detectors: detectors)
+        if let category {
+            report.candidates = report.candidates.filter { $0.category == category }
+        }
+        return report
+    }
+
+    private func parseDetectors() throws -> [ScanDetector] {
+        guard let detectors, !detectors.isEmpty else {
+            return ScanDetector.allCases
+        }
+        let values = detectors.split(separator: ",").map {
+            String($0).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard !values.isEmpty else {
+            throw ValidationError("detectors: expected brew, npm_global, or known")
+        }
+        return try values.map { value in
+            guard let detector = ScanDetector(rawValue: value) else {
+                throw ValidationError(
+                    "\(value): unknown detector; expected brew, npm_global, or known")
+            }
+            return detector
+        }
+    }
+
+    private func parseSelection(from report: ScanReport) throws -> [String] {
+        if let select {
+            let values = select.split(separator: ",").map {
+                String($0).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            guard !values.isEmpty else {
+                throw ValidationError("select: expected at least one candidate id")
+            }
+            return values
+        }
+
+        let importable = report.candidates.filter {
+            $0.capability == .full && $0.recipe != nil
+        }
+        printImportable(importable)
+        FileHandle.standardError.write(Data("Select items to add: ".utf8))
+        guard let line = readLine(),
+            !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            throw ValidationError("selection required")
+        }
+        return try parseInteractiveSelection(line, candidates: importable)
+    }
+
+    private func parseInteractiveSelection(
+        _ line: String,
+        candidates: [ScanCandidate]
+    ) throws -> [String] {
+        let values = line.split(separator: ",").map {
+            String($0).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard !values.isEmpty else {
+            throw ValidationError("selection required")
+        }
+        return try values.map { value in
+            if let index = Int(value) {
+                guard index >= 1, index <= candidates.count else {
+                    throw ValidationError("\(value): selection out of range")
+                }
+                return candidates[index - 1].id
+            }
+            return value
+        }
+    }
+
+    private func printImportable(_ candidates: [ScanCandidate]) {
+        print("Found \(candidates.count) importable candidate(s)")
+        print("")
+        print("Recommended")
+        for (index, candidate) in candidates.enumerated() {
+            let version = candidate.installedVersion.map { " \($0)" } ?? ""
+            let name = "[\(index + 1)] \(candidate.name)\(version)"
+            let fields = [
+                name,
+                candidate.category,
+                candidate.detector.rawValue,
+                candidate.id,
+            ]
+            print(fields.joined(separator: "\t"))
+        }
+        print("")
+    }
+
+    private func output(_ payload: InitPayload) throws {
+        if json {
+            try printJSON(payload)
+        } else if payload.ok {
+            let message = [
+                "added \(payload.added.count)",
+                "replaced \(payload.replaced.count)",
+                "skipped \(payload.skipped.count)",
+            ].joined(separator: ", ")
+            print(message)
+        } else {
+            for error in payload.errors {
+                FileHandle.standardError.write(Data((error + "\n").utf8))
+            }
+        }
+    }
+}
+
+private struct InitPayload: Encodable {
+    var ok: Bool
+    var added: [String]
+    var replaced: [String]
+    var skipped: [String]
+    var errors: [String]
+
+    init(summary: InitSummary, errors: [String]) {
+        self.ok = errors.isEmpty
+        self.added = summary.added
+        self.replaced = summary.replaced
+        self.skipped = summary.skipped
+        self.errors = errors
+    }
+
+    init(added: [String], replaced: [String], skipped: [String], errors: [String]) {
+        self.ok = errors.isEmpty
+        self.added = added
+        self.replaced = replaced
+        self.skipped = skipped
+        self.errors = errors
     }
 }
 
@@ -291,14 +571,21 @@ private struct BackgroundLaunchAgentManager {
 
     private var executablePath: String {
         let argument = CommandLine.arguments[0]
-        let url: URL
         if argument.hasPrefix("/") {
-            url = URL(fileURLWithPath: argument)
-        } else {
-            url = URL(fileURLWithPath: fileManager.currentDirectoryPath)
-                .appendingPathComponent(argument)
+            return URL(fileURLWithPath: argument).standardizedFileURL.path
         }
-        return url.standardizedFileURL.path
+        if argument.contains("/") {
+            return URL(fileURLWithPath: fileManager.currentDirectoryPath)
+                .appendingPathComponent(argument).standardizedFileURL.path
+        }
+        for directory in (environment["PATH"] ?? "").split(separator: ":") {
+            let candidate = URL(fileURLWithPath: String(directory)).appendingPathComponent(argument)
+            if fileManager.isExecutableFile(atPath: candidate.path) {
+                return candidate.standardizedFileURL.path
+            }
+        }
+        return URL(fileURLWithPath: fileManager.currentDirectoryPath)
+            .appendingPathComponent(argument).standardizedFileURL.path
     }
 }
 
@@ -338,7 +625,7 @@ private struct BackgroundUninstallPayload: Encodable {
 }
 
 struct ValidateCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "validate")
+    static let configuration = CommandConfiguration(commandName: "validate", shouldDisplay: false)
 
     @Argument(help: "Manifest file to validate.")
     var file: String
@@ -530,6 +817,48 @@ private func printJSON<T: Encodable>(_ value: T) throws {
     print(String(decoding: data, as: UTF8.self))
 }
 
+private struct JSONLWriter {
+    func write(_ event: MachineEvent) throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let data = try encoder.encode(event)
+        JSONOutputTracker.shared.markDidWrite()
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+
+private final class SignalCancellationHandler {
+    private var sources: [DispatchSourceSignal] = []
+
+    init(token: CancellationToken) {
+        for signalNumber in [SIGINT, SIGTERM] {
+            Self.ignore(signalNumber)
+            let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: .global())
+            source.setEventHandler {
+                token.cancel()
+            }
+            source.resume()
+            sources.append(source)
+        }
+    }
+
+    func cancel() {
+        for source in sources {
+            source.cancel()
+        }
+        sources.removeAll()
+    }
+
+    private static func ignore(_ signalNumber: Int32) {
+#if os(Linux)
+        Glibc.signal(signalNumber, SIG_IGN)
+#else
+        Darwin.signal(signalNumber, SIG_IGN)
+#endif
+    }
+}
+
 private final class JSONOutputTracker: @unchecked Sendable {
     static let shared = JSONOutputTracker()
     private let lock = NSLock()
@@ -558,6 +887,7 @@ private func readInputData(_ path: String) throws -> Data {
 struct GuideCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "guide",
+        shouldDisplay: false,
         subcommands: [Agent.self, Recipe.self]
     )
 
@@ -629,7 +959,7 @@ struct GuideCommand: ParsableCommand {
 }
 
 struct SchemaCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "schema")
+    static let configuration = CommandConfiguration(commandName: "schema", shouldDisplay: false)
 
     @Flag(name: .long)
     var json = false
@@ -729,6 +1059,7 @@ struct SchemaCommand: ParsableCommand {
 struct TemplateCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "template",
+        shouldDisplay: false,
         subcommands: [RecipeTemplate.self, ManifestTemplate.self]
     )
 
@@ -874,18 +1205,34 @@ struct CheckCommand: ParsableCommand {
     var json = false
 
     @Flag(name: .long)
+    var jsonStream = false
+
+    @Flag(name: .long)
     var force = false
 
     @Flag(name: .long)
     var exitZeroOnOutdated = false
 
     func run() throws {
+        guard !(json && jsonStream) else {
+            throw ValidationError("--json and --json-stream cannot be combined")
+        }
         let config = try ConfigStore().load()
+        let cancellationToken = CancellationToken()
+        let signalHandler = SignalCancellationHandler(token: cancellationToken)
+        defer { signalHandler.cancel() }
         let service = RegistryService(
             config: config,
+            commandRunner: CommandExecutor(cancellationToken: cancellationToken),
             githubToken: ProcessInfo.processInfo.environment["GITHUB_TOKEN"]
                 ?? ProcessInfo.processInfo.environment["GH_TOKEN"]
         )
+
+        if jsonStream {
+            try runJSONStream(service: service)
+            return
+        }
+
         let results = try service.check(ids: ids, force: force)
 
         if json {
@@ -895,6 +1242,68 @@ struct CheckCommand: ParsableCommand {
                 print("\(result.id)\t\(result.status.rawValue)")
             }
         }
+
+        if !exitZeroOnOutdated, results.contains(where: { $0.status == .outdated }) {
+            throw ExitCode(10)
+        }
+    }
+
+    private func runJSONStream(service: RegistryService) throws {
+        let writer = JSONLWriter()
+        try writer.write(MachineEvent(
+            event: .started,
+            operation: .check,
+            timestamp: Date()
+        ))
+
+        let results: [CheckResult]
+        do {
+            results = try service.check(ids: ids, force: force) { event in
+                switch event.phase {
+                case .itemStarted:
+                    try writer.write(MachineEvent(
+                        event: .itemStarted,
+                        operation: .check,
+                        timestamp: Date(),
+                        itemId: event.id,
+                        message: event.name
+                    ))
+                case .itemFinished:
+                    try writer.write(MachineEvent(
+                        event: .itemFinished,
+                        operation: .check,
+                        timestamp: Date(),
+                        itemId: event.id,
+                        checkResult: event.result
+                    ))
+                }
+            }
+        } catch let error as ExecutionError where error.isCancellation {
+            try writer.write(MachineEvent(
+                event: .cancelled,
+                operation: .check,
+                timestamp: Date(),
+                error: String(describing: error)
+            ))
+            throw ExitCode(2)
+        } catch {
+            try writer.write(MachineEvent(
+                event: .failed,
+                operation: .check,
+                timestamp: Date(),
+                error: String(describing: error)
+            ))
+            throw error
+        }
+
+        let report = CheckReport(results: results)
+        try writer.write(MachineEvent(
+            event: .finished,
+            operation: .check,
+            timestamp: Date(),
+            checkResults: report.results,
+            checkSummary: report.summary
+        ))
 
         if !exitZeroOnOutdated, results.contains(where: { $0.status == .outdated }) {
             throw ExitCode(10)
@@ -915,22 +1324,7 @@ struct StatusCommand: ParsableCommand {
     var exitZeroOnOutdated = false
 
     func run() throws {
-        let now = Date()
-        let manifest = try ManifestStore().load()
-        let stateStore = StateStore()
-        var state = try stateStore.load(now: now)
-
-        if refresh {
-            let config = try ConfigStore().load()
-            state = try stateStore.withExclusiveLock {
-                let lockedState = try stateStore.load(now: now)
-                let refreshed = markStaleItemsChecking(manifest: manifest, state: lockedState, config: config, now: now)
-                try stateStore.save(refreshed)
-                return refreshed
-            }
-        }
-
-        let snapshot = StatusSnapshot.from(manifest: manifest, state: state, now: now)
+        let snapshot = try StatusService().snapshot(refresh: refresh)
         if json {
             try printJSON(snapshot)
         } else {
@@ -942,36 +1336,6 @@ struct StatusCommand: ParsableCommand {
         if !exitZeroOnOutdated, snapshot.summary.outdated > 0 {
             throw ExitCode(10)
         }
-    }
-
-    private func markStaleItemsChecking(
-        manifest: Manifest,
-        state: State,
-        config: Config,
-        now: Date
-    ) -> State {
-        var copy = state
-        for recipe in manifest.items {
-            guard recipe.enabled, recipe.pin == nil, recipe.trust.level == .trusted else {
-                continue
-            }
-            let existing = copy.items[recipe.id]
-            if let lastChecked = existing?.lastChecked,
-                now.timeIntervalSince(lastChecked) < TimeInterval(config.refresh.interval.seconds)
-            {
-                continue
-            }
-            copy.items[recipe.id] = ItemState(
-                current: existing?.current,
-                latest: existing?.latest,
-                status: .checking,
-                lastChecked: existing?.lastChecked,
-                error: nil,
-                backoffUntil: nil
-            )
-        }
-        copy.generatedAt = now
-        return copy
     }
 }
 
@@ -1015,18 +1379,34 @@ struct UpdateCommand: ParsableCommand {
     @Flag(name: .long)
     var json = false
 
+    @Flag(name: .long)
+    var jsonStream = false
+
     func run() throws {
         guard all || !ids.isEmpty else {
             throw ValidationError("provide item ids or --all")
         }
+        guard !(json && jsonStream) else {
+            throw ValidationError("--json and --json-stream cannot be combined")
+        }
 
         let config = try ConfigStore().load()
+        let cancellationToken = CancellationToken()
+        let signalHandler = SignalCancellationHandler(token: cancellationToken)
+        defer { signalHandler.cancel() }
         let runner = UpdateRunner(
             config: config,
+            commandRunner: CommandExecutor(cancellationToken: cancellationToken),
             githubToken: ProcessInfo.processInfo.environment["GITHUB_TOKEN"]
                 ?? ProcessInfo.processInfo.environment["GH_TOKEN"],
             confirm: confirmUpdate
         )
+
+        if jsonStream {
+            try runJSONStream(runner: runner)
+            return
+        }
+
         let results = try runner.update(ids: ids, all: all, assumeYes: yes)
 
         if json {
@@ -1037,6 +1417,90 @@ struct UpdateCommand: ParsableCommand {
             }
         }
 
+        try enforceExitCodes(results)
+    }
+
+    private func runJSONStream(runner: UpdateRunner) throws {
+        let writer = JSONLWriter()
+        try writer.write(MachineEvent(
+            event: .started,
+            operation: .update,
+            timestamp: Date()
+        ))
+
+        var results: [UpdateResult] = []
+        do {
+            let plan = try runner.plan(ids: ids, all: all)
+            try writer.write(MachineEvent(
+                event: .log,
+                operation: .update,
+                timestamp: Date(),
+                message: "planned \(plan.count) item(s)",
+                level: .info
+            ))
+
+            for item in plan {
+                try writer.write(MachineEvent(
+                    event: .itemStarted,
+                    operation: .update,
+                    timestamp: Date(),
+                    itemId: item.id,
+                    message: item.name
+                ))
+                let itemResults = try runner.update(ids: [item.id], all: false, assumeYes: yes)
+                let result = itemResults.first ?? UpdateResult(
+                    id: item.id,
+                    name: item.name,
+                    outcome: .missing,
+                    current: item.current,
+                    latest: item.latest,
+                    error: "missing update result",
+                    commandFingerprint: item.commandFingerprint
+                )
+                results.append(result)
+                try writer.write(MachineEvent(
+                    event: .itemFinished,
+                    operation: .update,
+                    timestamp: Date(),
+                    itemId: result.id,
+                    result: result
+                ))
+                if result.outcome == .cancelled {
+                    break
+                }
+            }
+        } catch {
+            try writer.write(MachineEvent(
+                event: .failed,
+                operation: .update,
+                timestamp: Date(),
+                error: String(describing: error)
+            ))
+            throw error
+        }
+
+        let report = UpdateReport(results: results)
+        if results.contains(where: { $0.outcome == .cancelled }) {
+            try writer.write(MachineEvent(
+                event: .cancelled,
+                operation: .update,
+                timestamp: Date(),
+                summary: report.summary,
+                error: "cancelled"
+            ))
+        }
+        try writer.write(MachineEvent(
+            event: .finished,
+            operation: .update,
+            timestamp: Date(),
+            results: report.results,
+            summary: report.summary
+        ))
+
+        try enforceExitCodes(results)
+    }
+
+    private func enforceExitCodes(_ results: [UpdateResult]) throws {
         if results.contains(where: { $0.outcome.isHardFailure }) {
             throw ExitCode(2)
         }
@@ -1048,17 +1512,6 @@ struct UpdateCommand: ParsableCommand {
     private func confirmUpdate(_ item: UpdatePlanItem) -> Bool {
         FileHandle.standardError.write(Data("Update \(item.id)? Type yes to continue: ".utf8))
         return readLine() == "yes"
-    }
-}
-
-private extension UpdateOutcome {
-    var isHardFailure: Bool {
-        switch self {
-        case .failed, .missing, .cancelled:
-            true
-        case .updated, .skippedPinned, .skippedDisabled, .skippedUntrusted, .skippedNotOutdated:
-            false
-        }
     }
 }
 
@@ -1203,19 +1656,7 @@ struct ApprovalsCommand: ParsableCommand {
     var json = false
 
     func run() throws {
-        let manifest = try ManifestStore().load()
-        guard let recipe = manifest.item(id: id) else {
-            throw RegistryError.itemNotFound(id)
-        }
-        let rows = recipe.commandFingerprints()
-            .map { field, fingerprint in
-                ApprovalPayload(
-                    field: field,
-                    approved: recipe.trust.level == .trusted && recipe.trust.approvedCommands[field] == fingerprint,
-                    fingerprint: fingerprint
-                )
-            }
-            .sorted { $0.field < $1.field }
+        let rows = try RegistryService().approvals(id: id)
         if json {
             try printJSON(rows)
         } else {
@@ -1265,12 +1706,6 @@ private struct RemovePayload: Encodable {
     var ok: Bool
     var id: String
     var removed: Bool
-}
-
-private struct ApprovalPayload: Encodable {
-    var field: String
-    var approved: Bool
-    var fingerprint: String
 }
 
 struct ExportCommand: ParsableCommand {

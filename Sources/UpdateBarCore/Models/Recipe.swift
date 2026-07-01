@@ -52,8 +52,27 @@ public struct Recipe: Codable, Equatable {
         !commandFingerprints().isEmpty
     }
 
+    public func commandTexts() -> [String: String] {
+        var commands: [String: String] = [:]
+        if case let .command(cmd) = check {
+            commands["check.cmd"] = cmd
+        }
+        if latest.strategy == .cmd, let cmd = latest.cmd {
+            commands["latest.cmd"] = cmd
+        }
+        commands["update.cmd"] = update.cmd
+        return commands
+    }
+
+    public func commandWorkingDirectories() -> [String: String] {
+        guard let cwd = update.cwd else { return [:] }
+        return ["update.cmd": cwd]
+    }
+
     public func commandFingerprints() -> [String: String] {
         var commands: [String: String] = [:]
+        let checkMaterial = check.fingerprintMaterial()
+        let latestMaterial = latest.fingerprintMaterial(source: source)
         if case let .command(cmd) = check {
             commands["check.cmd"] = Fingerprint.sha256("\(id)|check.cmd|\(cmd)|")
         }
@@ -61,7 +80,9 @@ public struct Recipe: Codable, Equatable {
             commands["latest.cmd"] = Fingerprint.sha256("\(id)|latest.cmd|\(cmd)|")
         }
         let cwd = update.cwd ?? ""
-        commands["update.cmd"] = Fingerprint.sha256("\(id)|update.cmd|\(update.cmd)|\(cwd)")
+        commands["update.cmd"] = Fingerprint.sha256(
+            "\(id)|update.cmd|\(update.cmd)|\(cwd)|\(checkMaterial)|\(latestMaterial)"
+        )
         return commands
     }
 
@@ -142,6 +163,15 @@ public enum CheckSpec: Codable, Equatable {
             try container.encode(query, forKey: .query)
         }
     }
+
+    fileprivate func fingerprintMaterial() -> String {
+        switch self {
+        case let .command(cmd):
+            return "cmd|\(cmd)"
+        case let .file(path, query):
+            return "file|\(path)|\(query)"
+        }
+    }
 }
 
 public struct LatestSpec: Codable, Equatable {
@@ -153,6 +183,17 @@ public struct LatestSpec: Codable, Equatable {
         self.strategy = strategy
         self.cmd = cmd
         self.pattern = pattern
+    }
+
+    fileprivate func fingerprintMaterial(source: Source) -> String {
+        [
+            "strategy=\(strategy.rawValue)",
+            "source.kind=\(source.kind.rawValue)",
+            "source.ref=\(source.ref)",
+            "source.branch=\(source.branch ?? "")",
+            "cmd=\(cmd ?? "")",
+            "pattern=\(pattern ?? "")",
+        ].joined(separator: "|")
     }
 }
 

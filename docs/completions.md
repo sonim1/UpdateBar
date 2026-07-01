@@ -1,6 +1,9 @@
 # Shell Completions
 
 UpdateBar uses Swift Argument Parser's built-in completion generator.
+Recipe-authoring support commands such as `guide`, `schema`, `template`,
+`validate`, and `version` are direct commands but intentionally omitted from
+default completions.
 
 Bash:
 

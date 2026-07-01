@@ -1,6 +1,6 @@
-# UpdateBar — Current Plan: CLI-Only, Agent-Friendly
+# UpdateBar — Current Plan: CLI-First + Optional Menu Bar
 
-Status: draft decision plan as of 2026-06-09.
+Status: draft decision plan as of 2026-06-15 (kept in sync with current implementation).
 
 This plan intentionally replaces the previous AI/OpenRouter-centric direction with a simpler product stance:
 
@@ -12,7 +12,7 @@ This plan intentionally replaces the previous AI/OpenRouter-centric direction wi
 
 ### Decision
 
-UpdateBar should be **CLI-only for now**.
+UpdateBar should be **CLI-first with an optional macOS menu bar client**.
 
 Remove the built-in AI/OpenRouter recipe generation path from the core product.
 
@@ -30,9 +30,8 @@ Instead, make the CLI highly usable by humans **and** external AI coding agents 
 
 Do not build these yet:
 
-- macOS menu bar app
 - Sparkle updater
-- LaunchAgent background checker
+- CLI-distributed sync between machines
 - native notifications
 - built-in OpenRouter integration
 - built-in OAuth provider integrations
@@ -40,6 +39,13 @@ Do not build these yet:
 - AI-generated recipes inside UpdateBar
 - community registry
 - multi-machine sync
+
+What exists now:
+
+- CLI command set (`add`, `check`, `status`, `update`, approvals, import/export, etc.)
+- optional macOS menu bar app target in the same repo/build pipeline
+- optional LaunchAgent helper (`updatebar background`) for read-only periodic check
+- Homebrew CLI release packaging for macOS
 
 These can be reconsidered later, but they should not block the CLI-first version.
 
@@ -446,7 +452,7 @@ Only after the CLI is solid:
 - community examples catalog
 - registry browsing/installing
 - background check examples using launchd/systemd, still check-only
-- GUI/menu bar app, if the product direction returns to macOS-native
+- GUI/menu bar app, if/when public signed distribution is ready (local unsigned build already shipped for validation)
 
 ---
 

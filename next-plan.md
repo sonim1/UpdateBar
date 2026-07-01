@@ -1,9 +1,8 @@
-# UpdateBar — Next Plan After CLI-Only Reset
+# UpdateBar — Next Plan After Local Menu Bar MVP
 
-Status as of 2026-06-10. Reviewed against commit `1d6ef97` (originally audited at
-`34ea444` by a three-perspective agent team; re-verified after the docs-alignment
-commit). Roadmap collapsed from ten milestones to five actionable ones plus a
-Not-Planned appendix.
+Status as of 2026-06-19. Reviewed against commit `e3febce` after the local menu
+bar MVP and release hardening passes. Roadmap is now focused on public release
+hygiene, Homebrew tap publishing, and the signed-app decision.
 
 The current product stance:
 
@@ -16,6 +15,8 @@ External agents may author recipe JSON, but UpdateBar remains the validation, tr
 Current implemented base:
 
 - CLI and `UpdateBarCore`
+- optional local macOS menu bar wrapper: `updatebar-menubar`, `UpdateBarMenuBar`,
+  and `UpdateBarMenuBarApp`
 - manifest/state/config stores with `manifest.lock` / `state.lock`
 - manual add/import/export
 - `guide agent`, `guide recipe`, recipe/manifest templates, JSON schema output
@@ -29,7 +30,9 @@ Current implemented base:
 - distinct update exit code `3` for approval-blocked updates
 - env allowlist for recipe child processes (`PATH, HOME, LANG, LC_ALL, LC_CTYPE, TMPDIR, USER`)
 - recipe commands run via `/bin/sh -c`, no login shell, no shell startup files
-- CI, CLI release packaging, and archive-install smoke script
+- opt-in macOS background check helper
+- CI, CLI release packaging, archive-install smoke, app packaging smoke, and
+  E2E edge-case checks
 
 Removed from product: built-in OpenRouter add, provider auth, provider config,
 plaintext secret fallback, credential stores.
@@ -65,15 +68,17 @@ M0  Finish CLI safety floor
         └── M3 Background check helper
                 │
                 ▼
-            M4 Menu bar MVP (gated on explicit Apple-cost go/no-go)
+            M4 Local menu bar MVP
+                │
+                ▼
+            M5 Signed app/cask distribution (gated on explicit Apple-cost go/no-go)
 
 Everything else: Not-Planned appendix (§9).
 ```
 
-Execution order: **M0 first; M1 and M2 can proceed in parallel; public CLI release
-waits for the M1 contract freeze; M3 follows M2; M4 follows M1–M3.** The CLI
-delivers the core value with zero Apple dependency; M4 is the first place real
-money is spent.
+Execution status: **M0–M4 are implemented locally on this branch.** Public CLI
+release and Homebrew tap publishing are the next distribution tasks. Signed app
+distribution and a Homebrew cask stay behind the Apple Developer Program decision.
 
 ---
 
@@ -92,7 +97,8 @@ Already done in current branch (audited, with evidence):
 - SemVer ambiguity rejection (`VersionComparatorTests.swift:12`)
 - `--exit-zero-on-outdated` on `check` and `status`, documented and tested
 - `docs/security.md` states "not sandboxed" with the real guarantee list (`docs/security.md:27`)
-- CHANGELOG rewritten for the CLI-only reset, with the breaking-change entry
+- CHANGELOG has an Unreleased CLI/menu-bar entry; move it under the tagged version
+  during release finalization.
 - README states the agent-facing stance and points to `guide agent`
 
 Status after implementation pass:
@@ -215,15 +221,15 @@ Work:
 
 - Done: `version` reads generated `UpdateBarVersion.swift`, produced from `version.env`
   by `Scripts/generate-version-source.sh`; test asserts `version --json` matches `version.env`.
-- ~~Fix the stale CHANGELOG~~ — done in `1d6ef97`; the `0.1.0` entry now carries the
-  breaking-change section for the CLI-only reset.
+- CHANGELOG currently carries the CLI-only reset under `Unreleased`; move it under
+  the tagged version during release finalization.
 - Done locally: release URLs now target `sonim1/UpdateBar`; Homebrew tap target is
-  `sonim1/homebrew-tap`. GitHub did not resolve either repo from this working tree
-  at review time, so create/push them before publishing.
-- Done for local artifact: rebuilt release archive and updated Homebrew formula SHA from
-  `dist/updatebar-0.1.0-macos-arm64.tar.gz`.
-- Done: `Scripts/build-release.sh` now emits stable clean-build archives by stripping
-  release binaries, removing Mach-O UUIDs, fixing archive metadata, and using `gzip -n`.
+  `sonim1/homebrew-tap`.
+- Done: published `v0.1.0` asset SHA matches the checked-in Homebrew formula SHA.
+  For the next release, update the formula from the final uploaded `.sha256`;
+  do not use a later local rebuild as the source of truth.
+- Done: `Scripts/build-release.sh` normalizes archive metadata and uses `gzip -n`;
+  binaries remain unstripped by default for Swift runtime compatibility.
 - Done: clean source-copy release dry run passes with formula URL/SHA checks for
   `sonim1/UpdateBar`.
 - Done: Homebrew formula style passes locally.
@@ -231,8 +237,9 @@ Work:
   `version --json`, `guide agent`, `template recipe --kind npm`.
   Implemented as `Scripts/archive-smoke-test.sh`.
 - Done: **Linux CI lane** exists in `.github/workflows/ci.yml`.
-- Make the Homebrew formula platform story explicit: macOS CLI formula now; cask arrives with M4;
-  no Linux install claims until the Linux lane proves it.
+- Done: Homebrew formula platform story is explicit: macOS CLI formula now; cask
+  arrives with signed app distribution; Linux CI/release lanes are ready, but
+  public Linux download claims wait for the next tagged release asset.
 - Keep `version.env` as single source of truth.
 
 Gate:
@@ -282,17 +289,18 @@ daemon keeps state fresh without corrupting state during manual CLI use [covered
 
 ---
 
-## 7. M4 — Menu Bar MVP
+## 7. M4 — Local Menu Bar MVP And Future Signed Distribution
 
-Depends on M0–M3, **and on an explicit go/no-go decision on the Apple Developer
-Program cost ($99/yr)** — the first real money spent on this project. Decide before
-any signing work starts.
+The local unsigned MVP is implemented. Public signed app distribution still depends
+on an explicit go/no-go decision on the Apple Developer Program cost ($99/yr).
+Decide before any signing/notarization/cask work starts.
 
-App distribution (required to ship — M2 covers CLI archives only):
+App distribution:
 
 - Apple Developer Program membership + Developer ID Application certificate (human prerequisites).
-- `Scripts/package-app.sh`: assemble the `.app` (SwiftPM cannot emit one), `LSUIElement=true`,
-  versions from `version.env`, the signed CLI bundled inside and invoked by absolute path.
+- Done locally: `Scripts/package-app.sh` assembles an unsigned `.app` (SwiftPM cannot emit one),
+  `LSUIElement=true`, versions from `version.env`, the CLI bundled inside and invoked by absolute path.
+- Remaining for public app distribution: sign inside-out with Developer ID after Apple go/no-go.
 - Sign inside-out with Hardened Runtime + `--timestamp`; notarize via `notarytool`; staple.
 - Homebrew cask installs the app, symlinks the bundled CLI via `binary` stanza,
   `conflicts_with` the CLI formula.
@@ -323,13 +331,19 @@ UI decisions to settle inside this milestone (not standing open questions):
 
 Defer: add-recipe GUI, registry browsing, sync, Sparkle.
 
-Gate:
+Local gate:
 
 ```text
-status display updates after state.json atomic replace
-exit code 10 is treated as success-with-updates
-partial update exit 2 surfaces per-item errors
-untrusted items are never counted as "updates available"
+status display updates after state.json atomic replace [done]
+outdated check exit code is treated as success-with-updates [done]
+partial update exit 2 surfaces per-item errors [done]
+untrusted items are never counted as "updates available" [done]
+app package smoke launches the bundled CLI path without startup errors [done]
+```
+
+Signed distribution gate:
+
+```text
 clean-machine first launch passes Gatekeeper (signed + notarized + stapled)
 brew install --cask works and does not conflict with the CLI formula
 ```
@@ -340,13 +354,13 @@ brew install --cask works and does not conflict with the CLI formula
 
 Only the ones that block actionable work:
 
-- **Q-SEC-1** (blocks M0 gate): real sandbox vs honest best-effort execution boundary —
-  and `docs/security.md` must match the answer.
-- **Q-DIST-1** (blocks M2 publish, not local dry-run): GitHub repo `sonim1/UpdateBar`
-  and tap `sonim1/homebrew-tap` must exist before tagging/publishing.
-- **Q-APPLE-1** (blocks M4): pay the $99/yr and ship a signed app, or stay CLI-only longer.
+- **Q-DIST-1** (blocks tap publish, not local dry-run): Homebrew tap
+  `sonim1/homebrew-tap` must exist before publishing the formula.
+- **Q-APPLE-1** (blocks signed app/cask distribution): pay the $99/yr and ship a
+  signed app, or keep the app unsigned/manual for now.
 
-Resolved/ratified: background helper is opt-in (M3). Formula now, cask with M4 (M2/M4).
+Resolved/ratified: execution boundary is honest best-effort, not a sandbox (M0);
+background helper is opt-in (M3). Formula now, cask with signed app distribution (M2/M5).
 UI-copy questions moved inline into M4.
 
 ---
@@ -384,11 +398,14 @@ Parked deliberately. Each has a written re-entry trigger; none carries design de
 | M1 | Agent-facing CLI contract | M-L | M0 |
 | M2 | Distribution hardening | S-M | M0 |
 | M3 | Background check helper | S | M0, M2 |
-| M4 | Menu bar MVP + signing/notarization/cask | L | M1–M3, Q-APPLE-1 |
+| M4 | Local unsigned menu bar MVP | M | M1–M3 |
+| M5 | Signed app + notarization + cask | L | Q-APPLE-1 |
 
 Next recommended work:
 
 ```text
-1. M2: create/push `sonim1/UpdateBar` and `sonim1/homebrew-tap`, then tag/release.
-2. M4: decide Apple Developer Program go/no-go, then build menu bar MVP.
+1. Publish/tap: create or update `sonim1/homebrew-tap`, then publish the formula
+   using the uploaded release asset `.sha256`.
+2. Signed app: decide Apple Developer Program go/no-go, then implement Developer ID
+   signing, notarization, stapling, and Homebrew cask.
 ```

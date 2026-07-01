@@ -1,6 +1,6 @@
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class ManifestStoreTests: XCTestCase {
     func testDecodesManifestObjectShape() throws {
@@ -55,6 +55,23 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertEqual(original["check.cmd"], changed["check.cmd"])
     }
 
+    func testUpdateFingerprintChangesWhenSourceOrLatestInputChanges() throws {
+        let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
+        let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        var item = try XCTUnwrap(manifest.item(id: "claude-code"))
+
+        let original = item.commandFingerprints()
+        item.source.ref = "@anthropic-ai/other-tool"
+        let changedSource = item.commandFingerprints()
+        item.source.ref = "@anthropic-ai/claude-code"
+        item.latest.pattern = #"([0-9]+\.[0-9]+)"#
+        let changedLatest = item.commandFingerprints()
+
+        XCTAssertNotEqual(original["update.cmd"], changedSource["update.cmd"])
+        XCTAssertNotEqual(original["update.cmd"], changedLatest["update.cmd"])
+        XCTAssertEqual(original["check.cmd"], changedSource["check.cmd"])
+    }
+
     func testManifestStoreInitializesEmptyManifestInUpdateBarHome() throws {
         let root = try temporaryDirectory()
         let store = ManifestStore(paths: AppPaths(homeDirectory: root))
@@ -82,6 +99,22 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
     }
 
+    func testManifestStoreOverwritesExistingFile() throws {
+        let root = try temporaryDirectory()
+        let store = ManifestStore(paths: AppPaths(homeDirectory: root))
+        let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
+        let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        var updated = manifest
+        var item = try XCTUnwrap(updated.items.first)
+        item.name = "Updated Tool"
+        updated = updated.replacing(item: item)
+
+        try store.save(manifest)
+        try store.save(updated)
+
+        XCTAssertEqual(try store.load(), updated)
+    }
+
     func testManifestStoreProvidesCrossProcessLockFileForReadModifyWrite() throws {
         let root = try temporaryDirectory()
         let store = ManifestStore(paths: AppPaths(homeDirectory: root))
@@ -92,7 +125,9 @@ final class ManifestStoreTests: XCTestCase {
             try store.save(manifest)
         }
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("manifest.lock").path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent("manifest.lock").path)
+        )
         XCTAssertEqual(try store.load(), manifest)
     }
 
