@@ -344,7 +344,7 @@ struct ScanCommand: ParsableCommand {
         abstract: "Scan installed local tools without modifying UpdateBar state."
     )
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known.")
@@ -430,10 +430,10 @@ struct InitCommand: ParsableCommand {
         abstract: "Scan installed local tools and register selected recipes."
     )
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Overwrite existing items with matching ids.")
     var replace = false
 
     @Option(name: .long, help: "Comma-separated scan candidate ids.")
@@ -1438,16 +1438,16 @@ struct CheckCommand: ParsableCommand {
     @Argument(help: "Item ids to check. Checks every registered item when omitted.")
     var ids: [String] = []
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print newline-delimited JSON progress events.")
     var jsonStream = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Ignore refresh TTL and check every selected item now.")
     var force = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Return exit code 0 even when outdated items exist.")
     var exitZeroOnOutdated = false
 
     func run() throws {
@@ -1556,13 +1556,13 @@ struct StatusCommand: ParsableCommand {
         abstract: "Show the latest stored status without running updates."
     )
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Mark stale trusted items as checking before reading status.")
     var refresh = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Return exit code 0 even when outdated items exist.")
     var exitZeroOnOutdated = false
 
     func run() throws {
@@ -1587,7 +1587,7 @@ struct ListCommand: ParsableCommand {
         abstract: "List registered recipes."
     )
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     func run() throws {
@@ -1618,16 +1618,16 @@ struct UpdateCommand: ParsableCommand {
     @Argument(help: "Item ids to update.")
     var ids: [String] = []
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Update every approved outdated item.")
     var all = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Run without an interactive confirmation prompt.")
     var yes = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print newline-delimited JSON progress events.")
     var jsonStream = false
 
     func run() throws {
@@ -1912,7 +1912,7 @@ struct ApprovalsCommand: ParsableCommand {
     @Argument
     var id: String
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     func run() throws {
@@ -1977,7 +1977,7 @@ struct ExportCommand: ParsableCommand {
     @Argument
     var file: String?
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     func run() throws {
@@ -2006,10 +2006,10 @@ struct ImportCommand: ParsableCommand {
     @Argument
     var file: String
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Overwrite existing items with matching ids.")
     var replace = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     func run() throws {
@@ -2074,25 +2074,25 @@ struct AddCommand: ParsableCommand {
         abstract: "Add one recipe from JSON or the manual wizard."
     )
 
-    @Option(name: .long)
+    @Option(name: .long, help: "Recipe JSON file to add, or '-' for stdin.")
     var from: String?
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Prompt for recipe fields interactively.")
     var manual = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Validate and print the recipe without saving it.")
     var dryRun = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Approve all command fields while adding the recipe.")
     var trust = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Skip confirmation when used with --trust.")
     var yes = false
 
-    @Flag(name: .long)
+    @Flag(name: .long, help: "Overwrite an existing item with the same id.")
     var replace = false
 
     func run() throws {

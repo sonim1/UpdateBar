@@ -46,6 +46,36 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testPrimaryCommandOptionsHaveHelpDescriptions() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+        let expectedOptionsByCommand: [String: [String]] = [
+            "scan": ["--json", "--detectors", "--category"],
+            "init": ["--json", "--replace", "--select", "--detectors", "--category"],
+            "add": ["--from", "--manual", "--dry-run", "--json", "--trust", "--yes", "--replace"],
+            "import": ["--replace", "--json"],
+            "export": ["--json"],
+            "status": ["--json", "--refresh", "--exit-zero-on-outdated"],
+            "check": ["--json", "--json-stream", "--force", "--exit-zero-on-outdated"],
+            "update": ["--all", "--yes", "--json", "--json-stream"],
+            "list": ["--json"],
+            "approvals": ["--json"],
+        ]
+
+        for (command, options) in expectedOptionsByCommand {
+            let result = try CLIProcess.run([command, "--help"], home: home)
+            let helpLines = result.stdout.split(separator: "\n").map(String.init)
+
+            XCTAssertEqual(result.exitCode, 0, "\(command) --help should succeed")
+            XCTAssertEqual(result.stderr, "", "\(command) --help should not write stderr")
+            for option in options {
+                XCTAssertTrue(
+                    optionHasDescription(option, in: helpLines),
+                    "\(command) \(option) should have a help description"
+                )
+            }
+        }
+    }
+
     private func helpShowsCommand(_ command: String, in lines: [String]) -> Bool {
         lines.contains { line in
             line == "  \(command)" || line.hasPrefix("  \(command) ")
@@ -59,6 +89,20 @@ final class DocumentationSnapshotTests: XCTestCase {
             }
             let remainder = line.dropFirst(2 + command.count)
             return remainder.trimmingCharacters(in: .whitespaces).isEmpty == false
+        }
+    }
+
+    private func optionHasDescription(_ option: String, in lines: [String]) -> Bool {
+        lines.contains { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed == option || trimmed.hasPrefix("\(option) ") else {
+                return false
+            }
+            guard line.count > 26 else {
+                return false
+            }
+            let descriptionStart = line.index(line.startIndex, offsetBy: 26)
+            return line[descriptionStart...].trimmingCharacters(in: .whitespaces).isEmpty == false
         }
     }
 
