@@ -2148,9 +2148,17 @@ struct EditCommand: ParsableCommand {
             throw ValidationError("EDITOR command is empty")
         }
 
+        // `env` keeps PATH lookup behavior while avoiding shell interpolation.
+        let envPath = FileManager.default.isExecutableFile(atPath: "/usr/bin/env")
+            ? "/usr/bin/env"
+            : "/bin/env"
+        guard FileManager.default.isExecutableFile(atPath: envPath) else {
+            throw ValidationError("environment could not resolve editor command")
+        }
+
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = Array(editorParts.dropFirst()) + [file.path]
+        process.executableURL = URL(fileURLWithPath: envPath)
+        process.arguments = editorParts + [file.path]
         process.standardInput = FileHandle.standardInput
         process.standardOutput = FileHandle.standardOutput
         process.standardError = FileHandle.standardError

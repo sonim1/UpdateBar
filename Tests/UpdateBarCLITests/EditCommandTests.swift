@@ -35,6 +35,43 @@ final class EditCommandTests: XCTestCase {
         XCTAssertEqual(manifest.item(id: "tool")?.name, "Arg Tool")
     }
 
+    func testEditResolvesEditorFromPath() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let binDir = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
+        let editor = try editorScript(home: binDir, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Path Tool"/' "$1""#)
+        let editorPath = home.appendingPathComponent("bin/updatebar-editor").path
+        try FileManager.default.moveItem(at: editor, to: URL(fileURLWithPath: editorPath))
+
+        let systemPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
+        let result = try CLIProcess.run(
+            ["edit", "tool"],
+            home: home,
+            environment: [
+                "EDITOR": "updatebar-editor",
+                "PATH": "\(binDir.path):\(systemPath)"
+            ]
+        )
+        let manifest = try ManifestStore(paths: paths).load()
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(manifest.item(id: "tool")?.name, "Path Tool")
+    }
+
+    func testInvalidEditorCommandRejections() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+
+        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": "unterminated 'command"])
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("EDITOR/VISUAL has unmatched quote"))
+        XCTAssertEqual(try ManifestStore(paths: paths).load().item(id: "tool")?.name, "Tool")
+    }
+
     func testInvalidEditLeavesOriginalManifestUnchanged() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
         let paths = AppPaths(homeDirectory: home)
