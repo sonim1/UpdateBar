@@ -12,6 +12,7 @@
         private var service: (any MenuBarServicing)!
         private var cliPath = ""
         private let formatter = MenuBarStatusFormatter()
+        private let actionCoordinator = MenuBarActionCoordinator()
         private var latestState = MenuBarState(
             title: "Checking...",
             badgeValue: nil,
@@ -21,8 +22,6 @@
             okItems: []
         )
         private var approvalStatuses: [String: [CommandApprovalStatus]] = [:]
-        private var activeAction: ActiveAction?
-        private var lastActionNotice: String?
 
         static func main() {
             let app = NSApplication.shared
@@ -111,9 +110,7 @@
         }
 
         @objc private func cancelCurrentAction() {
-            guard let activeAction else { return }
-            activeAction.token.cancel()
-            lastActionNotice = "Cancelling: \(activeAction.title)"
+            guard actionCoordinator.cancelActive() != nil else { return }
             rebuildMenu()
         }
 
@@ -175,17 +172,20 @@
             _ title: String,
             _ action: @escaping @Sendable (CancellationToken) throws -> Void
         ) {
-            let token = CancellationToken()
-            activeAction = ActiveAction(title: title, token: token)
-            lastActionNotice = nil
+            guard let activeAction = actionCoordinator.begin(title) else {
+                rebuildMenu()
+                return
+            }
             rebuildMenu()
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    try action(token)
+                    try action(activeAction.token)
                     DispatchQueue.main.async {
-                        let wasCancelled = token.isCancelled
-                        self.activeAction = nil
-                        self.lastActionNotice = wasCancelled ? "Cancelled: \(title)" : "Finished: \(title)"
+                        let wasCancelled = activeAction.token.isCancelled
+                        self.actionCoordinator.finish(
+                            activeAction,
+                            outcome: wasCancelled ? .cancelled : .finished
+                        )
                         if wasCancelled {
                             self.rebuildMenu()
                         } else {
@@ -194,20 +194,17 @@
                     }
                 } catch let error as ExecutionError where error.isCancellation {
                     DispatchQueue.main.async {
-                        self.activeAction = nil
-                        self.lastActionNotice = "Cancelled: \(title)"
+                        self.actionCoordinator.finish(activeAction, outcome: .cancelled)
                         self.rebuildMenu()
                     }
                 } catch let error as UpdateBarCLIClientError where error == .cancelled {
                     DispatchQueue.main.async {
-                        self.activeAction = nil
-                        self.lastActionNotice = "Cancelled: \(title)"
+                        self.actionCoordinator.finish(activeAction, outcome: .cancelled)
                         self.rebuildMenu()
                     }
                 } catch {
                     DispatchQueue.main.async {
-                        self.activeAction = nil
-                        self.lastActionNotice = "Failed: \(title)"
+                        self.actionCoordinator.finish(activeAction, outcome: .failed)
                         self.showError(error)
                     }
                 }
@@ -215,6 +212,8 @@
         }
 
         private func rebuildMenu() {
+            let activeAction = actionCoordinator.activeAction
+            let lastActionNotice = actionCoordinator.lastActionNotice
             if let activeAction {
                 setTitle("...", accessibilityLabel: "UpdateBar running \(activeAction.title)")
             } else {
@@ -391,16 +390,6 @@
         init(id: String, field: String) {
             self.id = id
             self.field = field
-        }
-    }
-
-    private final class ActiveAction {
-        let title: String
-        let token: CancellationToken
-
-        init(title: String, token: CancellationToken) {
-            self.title = title
-            self.token = token
         }
     }
 
