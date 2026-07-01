@@ -89,6 +89,7 @@ final class ScanCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stdout.contains("brew.gh"))
+        XCTAssertTrue(result.stdout.contains("updatebar init\n"))
         XCTAssertTrue(result.stdout.contains("updatebar init --select brew.gh"))
     }
 

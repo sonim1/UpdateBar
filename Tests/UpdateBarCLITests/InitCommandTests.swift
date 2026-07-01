@@ -94,6 +94,39 @@ final class InitCommandTests: XCTestCase {
         XCTAssertEqual(manifest.items.map(\.id), ["brew.jq"])
     }
 
+    func testInitInteractiveSelectionAcceptsAll() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            ["init", "--detectors", "brew"],
+            home: home,
+            stdin: "all\n",
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("numbers, ids, or all"))
+        let manifest = try ManifestStore(paths: AppPaths(homeDirectory: home)).load()
+        XCTAssertEqual(manifest.items.map(\.id).sorted(), ["brew.gh", "brew.jq"])
+    }
+
+    func testInitInteractiveSelectionAcceptsWhitespaceSeparatedNumbers() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            ["init", "--detectors", "brew"],
+            home: home,
+            stdin: "1 2\n",
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        let manifest = try ManifestStore(paths: AppPaths(homeDirectory: home)).load()
+        XCTAssertEqual(manifest.items.map(\.id).sorted(), ["brew.gh", "brew.jq"])
+    }
+
     func testInitRejectsUnsupportedCandidates() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = try fakeKnownTool(home: home)
@@ -110,6 +143,25 @@ final class InitCommandTests: XCTestCase {
         XCTAssertFalse(payload.ok)
         XCTAssertTrue(payload.errors.contains("known.gh: not importable"))
         XCTAssertTrue(try ManifestStore(paths: AppPaths(homeDirectory: home)).load().items.isEmpty)
+    }
+
+    func testInitJSONRequiresHeadlessSelection() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            ["init", "--json", "--detectors", "brew"],
+            home: home,
+            stdin: "1\n",
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertFalse(result.stdout.contains("Recommended"))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertTrue(payload.errors.contains { $0.contains("init --json requires --select") })
     }
 
     private func fakeManagers(home: URL) throws -> URL {
@@ -159,6 +211,11 @@ final class InitCommandTests: XCTestCase {
         var added: [String]
         var replaced: [String]
         var skipped: [String]
+        var errors: [String]
+    }
+
+    private struct ErrorPayload: Decodable {
+        var ok: Bool
         var errors: [String]
     }
 }

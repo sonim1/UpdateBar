@@ -118,8 +118,9 @@ updatebar init --select brew.gh,npm.typescript
 updatebar init --category ai-agent
 ```
 
-Human `scan` output includes importable candidate ids and a ready-to-run
-`updatebar init --select ...` command. `init --select` accepts those ids exactly.
+Human `scan` output includes importable candidate ids, the interactive
+`updatebar init` command, and a ready-to-run `updatebar init --select ...`
+command. `init --select` accepts those ids exactly.
 
 Human output groups candidates into:
 
@@ -149,7 +150,7 @@ Recommended
 [1] gh   cloud-devops   brew        full
 [2] jq   shell-utility  brew        full
 
-Select items to add: 1,2
+Select items to add (numbers, ids, or all): 1 2
 ```
 
 Headless UX:
@@ -158,6 +159,8 @@ Headless UX:
 updatebar init --select brew.gh,brew.jq
 updatebar init --replace --select npm.typescript
 ```
+
+`init --json` requires `--select` so stdout remains a single JSON payload.
 
 Duplicate ids are skipped by default. `--replace` overwrites existing recipes.
 Unsupported `check-only` candidates are visible in `scan` but rejected by `init`.

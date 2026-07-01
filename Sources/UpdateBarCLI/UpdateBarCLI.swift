@@ -242,6 +242,7 @@ struct ScanCommand: ParsableCommand {
         }
         guard !ids.isEmpty else { return }
         print("Next")
+        print("updatebar init")
         print("updatebar init --select \(ids.joined(separator: ","))")
         print("")
     }
@@ -331,11 +332,16 @@ struct InitCommand: ParsableCommand {
             return values
         }
 
+        if json {
+            throw ValidationError("init --json requires --select")
+        }
+
         let importable = report.candidates.filter {
             $0.capability == .full && $0.recipe != nil
         }
         printImportable(importable)
-        FileHandle.standardError.write(Data("Select items to add: ".utf8))
+        let prompt = "Select items to add (numbers, ids, or all): "
+        FileHandle.standardError.write(Data(prompt.utf8))
         guard let line = readLine(),
             !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else {
@@ -348,11 +354,12 @@ struct InitCommand: ParsableCommand {
         _ line: String,
         candidates: [ScanCandidate]
     ) throws -> [String] {
-        let values = line.split(separator: ",").map {
-            String($0).trimmingCharacters(in: .whitespacesAndNewlines)
-        }
+        let values = selectionTokens(line)
         guard !values.isEmpty else {
             throw ValidationError("selection required")
+        }
+        if values.count == 1, values[0].lowercased() == "all" {
+            return candidates.map(\.id)
         }
         return try values.map { value in
             if let index = Int(value) {
@@ -363,6 +370,14 @@ struct InitCommand: ParsableCommand {
             }
             return value
         }
+    }
+
+    private func selectionTokens(_ value: String) -> [String] {
+        let separators = CharacterSet(charactersIn: ",").union(.whitespacesAndNewlines)
+        return value
+            .components(separatedBy: separators)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 
     private func printImportable(_ candidates: [ScanCandidate]) {
