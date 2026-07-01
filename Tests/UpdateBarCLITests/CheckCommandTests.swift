@@ -79,6 +79,18 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.isEmpty)
     }
 
+    func testCheckDeduplicatesIDs() throws {
+        let home = try temporaryDirectory()
+        try saveManifest(home: home)
+
+        let result = try CLIProcess.run(["check", "fixture-tool", "fixture-tool", "--json"], home: home)
+        let results = try JSONDecoder.updateBar.decode([CheckResult].self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 10)
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].id, "fixture-tool")
+    }
+
     private func saveManifest(home: URL) throws {
         let now = Date(timeIntervalSince1970: 1_800)
         var recipe = Recipe(

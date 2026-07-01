@@ -1278,6 +1278,7 @@ struct CheckCommand: ParsableCommand {
     func run() throws {
         try ensureJSONModeCompatibility(json: json, jsonStream: jsonStream)
         let config = try ConfigStore().load()
+        let itemIDs = unique(ids)
         let results: [CheckResult] = try withCancellationToken { cancellationToken in
             let service = RegistryService(
                 config: config,
@@ -1287,11 +1288,11 @@ struct CheckCommand: ParsableCommand {
             )
 
             if jsonStream {
-                try runJSONStream(service: service)
+                try runJSONStream(service: service, ids: itemIDs)
                 return []
             }
 
-            return try service.check(ids: ids, force: force)
+            return try service.check(ids: itemIDs, force: force)
         }
 
         if jsonStream {
@@ -1311,7 +1312,7 @@ struct CheckCommand: ParsableCommand {
         }
     }
 
-    private func runJSONStream(service: RegistryService) throws {
+    private func runJSONStream(service: RegistryService, ids: [String]) throws {
         let writer = JSONLWriter()
         try writer.write(MachineEvent(
             event: .started,
@@ -1456,6 +1457,7 @@ struct UpdateCommand: ParsableCommand {
         try ensureJSONModeCompatibility(json: json, jsonStream: jsonStream)
 
         let config = try ConfigStore().load()
+        let itemIDs = unique(ids)
         let results: [UpdateResult] = try withCancellationToken { cancellationToken in
             let runner = UpdateRunner(
                 config: config,
@@ -1466,11 +1468,11 @@ struct UpdateCommand: ParsableCommand {
             )
 
             if jsonStream {
-                try runJSONStream(runner: runner)
+                try runJSONStream(runner: runner, ids: itemIDs)
                 return []
             }
 
-            return try runner.update(ids: ids, all: all, assumeYes: yes)
+            return try runner.update(ids: itemIDs, all: all, assumeYes: yes)
         }
 
         if jsonStream {
@@ -1488,7 +1490,7 @@ struct UpdateCommand: ParsableCommand {
         try enforceExitCodes(results)
     }
 
-    private func runJSONStream(runner: UpdateRunner) throws {
+    private func runJSONStream(runner: UpdateRunner, ids: [String]) throws {
         let writer = JSONLWriter()
         try writer.write(MachineEvent(
             event: .started,

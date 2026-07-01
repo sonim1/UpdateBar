@@ -164,6 +164,24 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.isEmpty)
     }
 
+    func testUpdateDeduplicatesIDs() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: [
+            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.1.0'")
+        ]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "tool": itemState(status: .outdated)
+        ]))
+
+        let result = try CLIProcess.run(["update", "tool", "tool", "tool", "--yes", "--json"], home: home)
+        let updated = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(updated.count, 1)
+        XCTAssertEqual(updated[0].outcome, .updated)
+    }
+
     func testUpdateJSONStreamReportsCancellation() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
