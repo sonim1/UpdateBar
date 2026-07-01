@@ -3,6 +3,13 @@ import UpdateBarTestSupport
 import XCTest
 
 final class ScanServiceTests: XCTestCase {
+    func testBrewScanCommandUsesManuallyInstalledLeaves() {
+        XCTAssertTrue(ScanService.brewListCommand.contains("brew leaves --installed-on-request"))
+        XCTAssertTrue(
+            ScanService.brewListCommand.contains("brew list --formula --versions $leaves"))
+        XCTAssertFalse(ScanService.brewListCommand.contains("brew list --formula --versions;"))
+    }
+
     func testScanParsesBrewAndNPMGlobalCandidatesAsUntrustedRecipes() throws {
         let commands = MockCommandExecutor(results: [
             ScanService.brewListCommand: CommandResult(

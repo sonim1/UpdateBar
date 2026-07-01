@@ -47,7 +47,8 @@ Fields:
 
 ### v1
 
-- `brew`: reads `brew list --formula --versions`.
+- `brew`: reads manually installed leaves with `brew leaves --installed-on-request`,
+  then resolves versions with `brew list --formula --versions`.
 - `npm_global`: reads `npm ls -g --depth=0 --json`.
 - `known`: checks a curated list of common developer tools on `PATH`.
 
