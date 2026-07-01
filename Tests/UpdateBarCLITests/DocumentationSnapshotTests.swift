@@ -11,7 +11,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         for command in ["add", "init", "scan", "check", "status", "update", "approve", "revoke"] {
             XCTAssertTrue(output.contains(command), "missing \(command)")
         }
-        for command in ["guide", "schema", "template", "validate", "version"] {
+        for command in ["guide", "schema", "template", "validate", "tui"] {
             XCTAssertFalse(output.contains("\n  \(command)"), "support command should be hidden: \(command)")
         }
         for section in ["SETUP SUBCOMMANDS:", "CHECK & UPDATE SUBCOMMANDS:", "MANAGE SUBCOMMANDS:", "SYSTEM SUBCOMMANDS:"] {

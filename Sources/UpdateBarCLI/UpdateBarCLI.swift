@@ -134,7 +134,8 @@ private struct ErrorEnvelope: Encodable {
 struct TUICommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "tui",
-        abstract: "Launch the Ink terminal UI if installed."
+        abstract: "Launch the Ink terminal UI if installed.",
+        shouldDisplay: false
     )
 
     func run() throws {
