@@ -10,9 +10,7 @@ cask "updatebar" do
   homepage "https://github.com/sonim1/UpdateBar"
 
   depends_on arch: :arm64
-  depends_on macos: ">= :ventura"
-
-  conflicts_with formula: "sonim1/tap/updatebar"
+  depends_on macos: :ventura
 
   app "UpdateBar.app"
   binary "#{appdir}/UpdateBar.app/Contents/Resources/updatebar", target: "updatebar"
