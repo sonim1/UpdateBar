@@ -144,17 +144,17 @@
                 do {
                     guard let service else { return }
                     let snapshot = try service.status(refresh: refresh)
-                    var state = formatter.makeState(from: snapshot)
                     var approvals: [String: [CommandApprovalStatus]] = [:]
-                    for item in state.allItems {
+                    for item in snapshot.items {
                         let itemApprovals = try service.approvals(id: item.id)
                         if !itemApprovals.isEmpty {
                             approvals[item.id] = itemApprovals
                         }
                     }
-                    state.approvalItems = state.allItems.filter { item in
-                        approvals[item.id]?.contains { !$0.approved } ?? false
-                    }
+                    let state = formatter.makeState(
+                        from: snapshot,
+                        approvalsByItemID: approvals
+                    )
                     DispatchQueue.main.async {
                         self.latestState = state
                         self.approvalStatuses = approvals
