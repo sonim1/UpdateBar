@@ -104,7 +104,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
     }
 
     private func appendUpdates(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
-        appendSection("Updates", items: items, to: &entries) { item in
+        appendSection("Updates (\(items.count))", items: items, to: &entries) { item in
             MenuBarMenuItem(
                 title: "\(item.name) \(item.current ?? "?") -> \(item.latest ?? "?")",
                 action: .update(id: item.id)
@@ -118,7 +118,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
         to entries: inout [MenuBarMenuEntry]
     ) {
         guard !items.isEmpty else { return }
-        appendDisabled("Needs Approval", to: &entries)
+        appendDisabled("Needs Approval (\(items.count))", to: &entries)
         var addedItems = 0
         let totalApprovalRows = items.reduce(0) { total, item in
             let approvals = approvalStatuses[item.id] ?? []
@@ -193,13 +193,13 @@ public struct MenuBarMenuModelBuilder: Sendable {
     }
 
     private func appendErrors(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
-        appendSection("Errors", items: items, to: &entries) { item in
+        appendSection("Errors (\(items.count))", items: items, to: &entries) { item in
             MenuBarMenuItem(title: "\(item.name): \(item.error ?? "error")")
         }
     }
 
     private func appendInstalled(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
-        appendSection("Installed", items: items, to: &entries) { item in
+        appendSection("Installed (\(items.count))", items: items, to: &entries) { item in
             MenuBarMenuItem(title: "\(item.name) \(item.current ?? "")")
         }
     }
