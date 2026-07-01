@@ -168,6 +168,39 @@ describe('App', () => {
     expect(selected).toEqual([]);
   });
 
+  it('reports when trying to bulk-select with no importable candidates', async () => {
+    const client = createClient({
+      async scan() {
+        return {
+          candidates: [
+            {
+              id: 'known.node',
+              name: 'node',
+              detector: 'known',
+              category: 'runtime-sdk',
+              capability: 'check-only',
+              confidence: 'medium',
+              installed_version: '24.0.0',
+              source_ref: 'node'
+            }
+          ],
+          errors: []
+        };
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'needs review: 1');
+    view.stdin.write('a');
+    await wait();
+
+    expect(view.lastFrame()).toContain('No importable candidates to select');
+  });
+
   it('registers selected scan candidates', async () => {
     const selected: string[][] = [];
     const client = createClient({

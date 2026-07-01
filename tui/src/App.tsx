@@ -92,6 +92,10 @@ export function App({client: providedClient}: AppProps) {
       return;
     }
     if (input === 'a') {
+      if (importableCandidates.length === 0) {
+        setError('No importable candidates to select');
+        return;
+      }
       setSelectedScanIds(new Set(importableCandidates.map(candidate => candidate.id)));
       setError(undefined);
       return;
@@ -302,12 +306,14 @@ function ScanList({
   if (!report) return <Text dimColor>Scanning...</Text>;
   if (report.candidates.length === 0) return <Text dimColor>No scan candidates</Text>;
   const importableCount = report.candidates.filter(canRegister).length;
+  const reviewCount = report.candidates.length - importableCount;
   return (
     <Box flexDirection="column" marginTop={1}>
       <Text dimColor>{`importable: ${selectedIds.size}/${importableCount}`}</Text>
+      <Text dimColor>{`needs review: ${reviewCount}`}</Text>
       {report.candidates.map((candidate, index) => (
         <Text key={candidate.id} color={index === cursorIndex ? 'cyan' : undefined}>
-          {scanMarker(candidate, selectedIds.has(candidate.id))} {candidate.id} · {candidate.name}
+            {scanMarker(candidate, selectedIds.has(candidate.id))} {candidate.id} · {candidate.name}
           {candidate.installed_version ? ` ${candidate.installed_version}` : ''} · {candidate.category} ·{' '}
           {candidate.detector} · {candidate.capability}
         </Text>
