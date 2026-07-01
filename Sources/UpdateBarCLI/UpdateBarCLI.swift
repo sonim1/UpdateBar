@@ -37,10 +37,7 @@ struct UpdateBar: ParsableCommand {
                 RemoveCommand.self,
                 EditCommand.self,
             ]),
-                CommandGroup(name: "System", subcommands: [
-                ConfigCommand.self,
-                BackgroundCommand.self,
-            ]),
+                CommandGroup(name: "System", subcommands: systemSubcommands),
             CommandGroup(name: "Support", subcommands: [
                 GuideCommand.self,
                 TUICommand.self,
@@ -50,6 +47,14 @@ struct UpdateBar: ParsableCommand {
             ]),
         ]
     )
+
+    private static let systemSubcommands: [ParsableCommand.Type] = {
+#if os(macOS)
+        return [ConfigCommand.self, BackgroundCommand.self]
+#else
+        return [ConfigCommand.self]
+#endif
+    }()
 }
 
 @main

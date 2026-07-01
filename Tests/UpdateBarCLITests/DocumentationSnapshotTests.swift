@@ -14,6 +14,11 @@ final class DocumentationSnapshotTests: XCTestCase {
         for command in ["guide", "schema", "template", "validate", "tui"] {
             XCTAssertFalse(output.contains("\n  \(command)"), "support command should be hidden: \(command)")
         }
+        #if os(macOS)
+        XCTAssertTrue(output.contains("\n  background"), "background command should be present on macOS")
+        #else
+        XCTAssertFalse(output.contains("\n  background"), "background command should not be shown on non-macOS")
+        #endif
         for section in ["SETUP SUBCOMMANDS:", "CHECK & UPDATE SUBCOMMANDS:", "MANAGE SUBCOMMANDS:", "SYSTEM SUBCOMMANDS:"] {
             XCTAssertTrue(output.contains(section), "missing section \(section)")
         }
