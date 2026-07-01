@@ -1653,13 +1653,29 @@ struct StatusCommand: ParsableCommand {
         if json {
             try printJSON(snapshot)
         } else {
-            for item in snapshot.items {
-                print("\(item.id)\t\(item.status.rawValue)")
-            }
+            printHuman(snapshot)
         }
 
         if !exitZeroOnOutdated, snapshot.summary.outdated > 0 {
             throw ExitCode(10)
+        }
+    }
+
+    private func printHuman(_ snapshot: StatusSnapshot) {
+        for item in snapshot.items {
+            print("\(item.id)\t\(item.status.rawValue)")
+        }
+
+        let untrusted = snapshot.items.filter { $0.status == .untrusted }
+        guard !untrusted.isEmpty else {
+            return
+        }
+
+        print("")
+        print("Next")
+        for item in untrusted {
+            print("updatebar approvals \(item.id)")
+            print("updatebar check \(item.id)")
         }
     }
 }

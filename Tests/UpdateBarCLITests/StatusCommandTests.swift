@@ -74,6 +74,22 @@ final class StatusCommandTests: XCTestCase {
         XCTAssertEqual(state.items["tool"]?.status, .checking)
     }
 
+    func testStatusHumanUntrustedPrintsReviewNextSteps() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
+        var item = recipe(id: "tool", name: "Tool")
+        item.trust.level = .untrusted
+        item.trust.approvedCommands = [:]
+        try saveManifest(home: home, items: [item])
+
+        let result = try CLIProcess.run(["status"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("tool\tuntrusted"))
+        XCTAssertTrue(result.stdout.contains("updatebar approvals tool"))
+        XCTAssertTrue(result.stdout.contains("updatebar check tool"))
+        XCTAssertFalse(result.stdout.contains("updatebar approve tool"))
+    }
+
     private func saveManifest(home: URL, items: [Recipe]) throws {
         let manifest = Manifest(
             schemaVersion: 1,
