@@ -1,9 +1,17 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Box, Text, useApp, useInput, useStdin} from 'ink';
 import {createDefaultClient, type UpdateBarClient} from './client.js';
 import type {CheckReport, MachineEvent, ScanCandidate, ScanReport, StatusItem, StatusSnapshot} from './types.js';
 
 type Screen = 'menu' | 'status' | 'logs' | 'scan' | 'updating';
+type MenuAction =
+  | 'refresh-status'
+  | 'scan-add'
+  | 'check-now'
+  | 'run-updates'
+  | 'open-config'
+  | 'view-logs'
+  | 'quit';
 type SummaryCountField<TKey extends string> = readonly [TKey, string];
 type CheckSummaryCountKey = Exclude<Extract<keyof CheckReport['summary'], string>, 'total'>;
 type StatusSummaryCountKey = Exclude<Extract<keyof StatusSnapshot['summary'], string>, 'total' | 'outdated'>;
@@ -26,6 +34,16 @@ const STATUS_SUMMARY_COUNT_FIELDS: Array<SummaryCountField<StatusSummaryCountKey
   ['disabled', 'disabled']
 ];
 
+const MENU_ITEMS: Array<{label: string; action: MenuAction}> = [
+  {label: 'Refresh Status', action: 'refresh-status'},
+  {label: 'Scan & Add', action: 'scan-add'},
+  {label: 'Check Now', action: 'check-now'},
+  {label: 'Run Updates', action: 'run-updates'},
+  {label: 'Open Config', action: 'open-config'},
+  {label: 'View Logs', action: 'view-logs'},
+  {label: 'Quit', action: 'quit'}
+];
+
 export interface AppProps {
   client?: UpdateBarClient;
 }
@@ -45,10 +63,6 @@ export function App({client: providedClient}: AppProps) {
   const [error, setError] = useState<string | undefined>();
   const [abortController, setAbortController] = useState<AbortController | undefined>();
   const abortControllerRef = useRef<AbortController | undefined>(undefined);
-  const menu = useMemo(
-    () => ['Refresh Status', 'Scan & Add', 'Check Now', 'Run Updates', 'Open Config', 'View Logs', 'Quit'],
-    []
-  );
 
   useEffect(() => {
     if (providedClient) return;
@@ -90,7 +104,7 @@ export function App({client: providedClient}: AppProps) {
           return;
         }
         if (key.downArrow) {
-          setMenuIndex(index => Math.min(menu.length - 1, index + 1));
+          setMenuIndex(index => Math.min(MENU_ITEMS.length - 1, index + 1));
           return;
         }
         if (key.return) {
@@ -152,26 +166,34 @@ export function App({client: providedClient}: AppProps) {
 
   async function runMenuAction() {
     if (!client) return;
-    const selected = menu[menuIndex];
-    if (selected === 'Refresh Status') {
-      setScreen('status');
-      await refreshStatus(client, setStatus, setError);
-    } else if (selected === 'Scan & Add') {
-      await runScan(client);
-    } else if (selected === 'Check Now') {
-      await runCheck(client);
-    } else if (selected === 'Run Updates') {
-      await runUpdates(client);
-    } else if (selected === 'Open Config') {
-      setScreen('logs');
-      setLogs([
-        `config path: ${getConfigPath()}`,
-        'open this file in your editor to inspect configuration'
-      ]);
-    } else if (selected === 'View Logs') {
-      setScreen('logs');
-    } else {
-      exit();
+    const selected = MENU_ITEMS[menuIndex]?.action;
+    switch (selected) {
+      case 'refresh-status':
+        setScreen('status');
+        await refreshStatus(client, setStatus, setError);
+        return;
+      case 'scan-add':
+        await runScan(client);
+        return;
+      case 'check-now':
+        await runCheck(client);
+        return;
+      case 'run-updates':
+        await runUpdates(client);
+        return;
+      case 'open-config':
+        setScreen('logs');
+        setLogs([
+          `config path: ${getConfigPath()}`,
+          'open this file in your editor to inspect configuration'
+        ]);
+        return;
+      case 'view-logs':
+        setScreen('logs');
+        return;
+      case 'quit':
+      default:
+        exit();
     }
   }
 
@@ -270,10 +292,10 @@ export function App({client: providedClient}: AppProps) {
       <StatusLine status={status} />
       {screen === 'menu' && (
         <Box flexDirection="column" marginTop={1}>
-          {menu.map((item, index) => (
-            <Text key={item} color={index === menuIndex ? 'cyan' : undefined}>
+          {MENU_ITEMS.map((item, index) => (
+            <Text key={item.action} color={index === menuIndex ? 'cyan' : undefined}>
               {index === menuIndex ? '› ' : '  '}
-              {item}
+              {item.label}
             </Text>
           ))}
         </Box>
