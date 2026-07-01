@@ -122,8 +122,37 @@ public struct UpdateBarCLIClient: Sendable {
 
     private func ensureSuccess(_ result: CommandResult, allowedExitCodes: Set<Int32>) throws {
         guard allowedExitCodes.contains(result.exitCode) else {
-            throw UpdateBarCLIClientError.failed(exitCode: result.exitCode, stderr: result.stderr)
+            let detail = Self.errorDetail(from: result)
+            throw UpdateBarCLIClientError.failed(exitCode: result.exitCode, stderr: detail)
         }
+    }
+
+    private static func errorDetail(from result: CommandResult) -> String {
+        let stderr = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !stderr.isEmpty {
+            return stderr
+        }
+        return jsonErrorDetail(from: result.stdout) ?? ""
+    }
+
+    private static func jsonErrorDetail(from stdout: String) -> String? {
+        struct ErrorPayload: Decodable {
+            var errors: [String]?
+            var error: String?
+        }
+
+        guard let data = stdout.data(using: .utf8),
+              let payload = try? JSONDecoder.updateBar.decode(ErrorPayload.self, from: data)
+        else {
+            return nil
+        }
+        if let errors = payload.errors?.filter({ !$0.isEmpty }), !errors.isEmpty {
+            return errors.joined(separator: "\n")
+        }
+        if let error = payload.error, !error.isEmpty {
+            return error
+        }
+        return nil
     }
 }
 

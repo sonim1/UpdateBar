@@ -39,6 +39,21 @@ final class UpdateBarCLIClientTests: XCTestCase {
         }
     }
 
+    func testStatusThrowsJSONErrorPayloadForHardFailure() {
+        let runner = RecordingRunner(
+            result: CommandResult(
+                exitCode: 1,
+                stdout: #"{"ok":false,"errors":["bad config from json"]}"#,
+                stderr: ""
+            )
+        )
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        XCTAssertThrowsError(try client.status(refresh: false)) { error in
+            XCTAssertEqual(String(describing: error), "updatebar exited 1: bad config from json")
+        }
+    }
+
     func testUpdateActionsUseHeadlessJSONFlags() throws {
         let runner = RecordingRunner(result: CommandResult(exitCode: 0, stdout: "[]", stderr: ""))
         let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
