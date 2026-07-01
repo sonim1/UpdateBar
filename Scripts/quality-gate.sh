@@ -37,6 +37,9 @@ bash Scripts/e2e-edgecases.sh
 echo "running release tar args check"
 bash Scripts/release-tar-args-test.sh
 
+echo "running archive smoke test"
+bash Scripts/archive-smoke-test.sh
+
 echo "running homebrew packaging check"
 bash Scripts/homebrew-packaging-test.sh
 

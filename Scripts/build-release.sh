@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source version.env
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+source "$ROOT/version.env"
 
 SWIFT_BIN="${SWIFT_BIN:-swift}"
 VERSION="${UPDATEBAR_VERSION:?UPDATEBAR_VERSION is required}"
-"$(dirname "$0")/generate-version-source.sh"
+"$ROOT/Scripts/generate-version-source.sh"
 
 case "$(uname -s)" in
   Darwin) PLATFORM="macos" ;;
@@ -49,7 +52,7 @@ TAR_ARCHIVE="${ARCHIVE%.gz}"
 TAR_ARGS=()
 while IFS= read -r arg; do
   TAR_ARGS+=("$arg")
-done < <("$(dirname "$0")/release-tar-args.sh" tar)
+done < <("$ROOT/Scripts/release-tar-args.sh" tar)
 COPYFILE_DISABLE=1 tar "${TAR_ARGS[@]}" -C "dist/stage/updatebar-${VERSION}" \
   -cf "$TAR_ARCHIVE" updatebar
 gzip -n -f "$TAR_ARCHIVE"
@@ -60,4 +63,4 @@ else
   sha256sum "$ARCHIVE" >"${ARCHIVE}.sha256"
 fi
 
-echo "$ARCHIVE"
+echo "$ROOT/$ARCHIVE"

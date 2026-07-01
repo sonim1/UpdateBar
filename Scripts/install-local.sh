@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
 PREFIX="${PREFIX:-$HOME/.local}"
 SWIFT_BIN="${SWIFT_BIN:-swift}"
 
