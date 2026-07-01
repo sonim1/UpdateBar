@@ -2,7 +2,7 @@ import {spawn} from 'node:child_process';
 import type {Readable} from 'node:stream';
 import {resolveUpdateBarBinary} from './binaryResolver.js';
 import {parseJSONLines} from './jsonl.js';
-import type {InitResult, MachineEvent, ScanReport, StatusSnapshot} from './types.js';
+import type {CheckReport, CheckSummary, CheckResult, InitResult, MachineEvent, ScanReport, StatusSnapshot} from './types.js';
 
 export interface CommandResult {
   exitCode: number;
@@ -66,7 +66,7 @@ export interface UpdateBarClient {
   status(): Promise<StatusSnapshot>;
   scan(options?: RunOptions): Promise<ScanReport>;
   initSelected(ids: string[]): Promise<InitResult>;
-  checkNow(options?: RunOptions): Promise<void>;
+  checkNow(options?: RunOptions): Promise<CheckReport>;
   updateAll(options: StreamOptions): Promise<CommandResult>;
 }
 
@@ -91,12 +91,21 @@ export class CLIUpdateBarClient implements UpdateBarClient {
     return JSON.parse(result.stdout) as InitResult;
   }
 
-  async checkNow(options: RunOptions = {}): Promise<void> {
+  async checkNow(options: RunOptions = {}): Promise<CheckReport> {
     const result = await this.runner.run(
       ['check', '--json', '--force', '--exit-zero-on-outdated'],
       options
     );
     ensureExit(result, [0, 10]);
+    const parsed = parseJSON<unknown>(result.stdout);
+    if (!Array.isArray(parsed)) {
+      throw new Error('unexpected check result format from updatebar');
+    }
+    const results = parsed as CheckResult[];
+    return {
+      items: results,
+      summary: summarizeCheck(results)
+    };
   }
 
   async updateAll(options: StreamOptions): Promise<CommandResult> {
@@ -170,4 +179,33 @@ function waitForExit(child: ReturnType<typeof spawn>): Promise<number> {
     child.once('error', reject);
     child.once('close', code => resolve(code ?? 1));
   });
+}
+
+function parseJSON<T>(payload: string): T {
+  try {
+    return JSON.parse(payload) as T;
+  } catch {
+    throw new Error('updatebar check returned invalid JSON');
+  }
+}
+
+function summarizeCheck(results: CheckResult[]): CheckSummary {
+  const summary: CheckSummary = {
+    total: results.length,
+    outdated: 0,
+    errors: 0,
+    untrusted: 0,
+    disabled: 0,
+    pinned: 0
+  };
+
+  for (const result of results) {
+    if (result.status === 'error') summary.errors += 1;
+    if (result.status === 'outdated') summary.outdated += 1;
+    if (result.status === 'pinned') summary.pinned += 1;
+    if (result.status === 'disabled') summary.disabled += 1;
+    if (result.status === 'untrusted') summary.untrusted += 1;
+  }
+
+  return summary;
 }

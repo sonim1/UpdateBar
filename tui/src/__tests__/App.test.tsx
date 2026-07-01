@@ -393,6 +393,38 @@ describe('App', () => {
     expect(view.lastFrame()).not.toContain('exit 1');
   });
 
+  it('shows check summary logs', async () => {
+    const client = createClient({
+      async checkNow() {
+        return {
+          items: [
+            {
+              id: 'brew.gh',
+              name: 'gh',
+              status: 'outdated',
+              current: '2.74.0',
+              latest: '2.75.0',
+              last_checked: '2026-06-30T00:00:00Z'
+            }
+          ],
+          summary: {total: 1, outdated: 1, errors: 0, untrusted: 0, disabled: 0, pinned: 0}
+        };
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Refresh Status');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'checked 1 items');
+
+    expect(view.lastFrame()).toContain('outdated: 1');
+    expect(view.lastFrame()).toContain('errors: 0');
+  });
+
   it('cancels an active check', async () => {
     let aborted = false;
     const client = createClient({
@@ -599,7 +631,12 @@ function createClient(overrides: Partial<UpdateBarClient> = {}): UpdateBarClient
     async initSelected() {
       return {ok: true, added: ['brew.gh'], replaced: [], skipped: [], errors: []};
     },
-    async checkNow() {},
+    async checkNow() {
+      return {
+        items: [],
+        summary: {total: 0, outdated: 0, errors: 0, untrusted: 0, disabled: 0, pinned: 0}
+      };
+    },
     async updateAll() {
       return {exitCode: 0, stdout: '', stderr: ''};
     },

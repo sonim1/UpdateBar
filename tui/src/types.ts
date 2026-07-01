@@ -128,6 +128,11 @@ export interface CheckResult {
   error?: string;
 }
 
+export interface CheckReport {
+  items: CheckResult[];
+  summary: CheckSummary;
+}
+
 export interface CheckSummary {
   total: number;
   outdated: number;

@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Box, Text, useApp, useInput, useStdin} from 'ink';
 import {createDefaultClient, type UpdateBarClient} from './client.js';
-import type {MachineEvent, ScanCandidate, ScanReport, StatusSnapshot} from './types.js';
+import type {CheckReport, MachineEvent, ScanCandidate, ScanReport, StatusItem, StatusSnapshot} from './types.js';
 
 type Screen = 'menu' | 'status' | 'logs' | 'scan' | 'updating';
 
@@ -143,7 +143,10 @@ export function App({client: providedClient}: AppProps) {
       await runUpdates(client);
     } else if (selected === 'Open Config') {
       setScreen('logs');
-      setLogs([`config: ${process.env.UPDATEBAR_HOME ?? '~/.updatebar'}/config.toml`]);
+      setLogs([
+        `config path: ${getConfigPath()}`,
+        'open this file in your editor to review provider defaults and overrides'
+      ]);
     } else if (selected === 'View Logs') {
       setScreen('logs');
     } else {
@@ -157,8 +160,8 @@ export function App({client: providedClient}: AppProps) {
     setLogs(['check started']);
     setError(undefined);
     try {
-      await activeClient.checkNow({signal: controller.signal});
-      setLogs(previous => [...previous, 'check finished']);
+      const report = await activeClient.checkNow({signal: controller.signal});
+      setLogs(previous => [...previous, ...checkSummaryLines(report)]);
       await refreshStatus(activeClient, setStatus, setError);
     } catch (caught) {
       setError(controller.signal.aborted ? 'check cancelled' : messageFor(caught));
@@ -275,24 +278,66 @@ export function App({client: providedClient}: AppProps) {
 
 function StatusLine({status}: {status: StatusSnapshot | undefined}) {
   if (!status) return <Text dimColor>Loading status...</Text>;
+  const counts = computeStatusCounts(status.items);
   return (
     <Text>
-      {status.summary.total} tracked · {status.summary.outdated} outdated · {status.summary.errors} errors
+      {status.summary.total} tracked · {status.summary.outdated} outdated · {status.summary.errors} errors ·{' '}
+      {counts.untrusted} untrusted · {counts.pinned} pinned
     </Text>
   );
 }
 
 function StatusList({status}: {status: StatusSnapshot | undefined}) {
   if (!status) return null;
+  const lines = status.items;
+  const rows = lines.length
+    ? lines
+    : [{
+        id: 'no items',
+        name: 'run scan + init first',
+        category: 'n/a',
+        status: 'ok',
+        pinned: false
+      } as StatusItem];
   return (
     <Box flexDirection="column" marginTop={1}>
-      {status.items.map(item => (
-        <Text key={item.id}>
-          {item.id} · {item.status}
+      {rows.map(item => (
+        <Text key={item.id} color={statusColor(item.status)}>
+          {renderStatusRow(item)}
         </Text>
       ))}
     </Box>
   );
+}
+
+function renderStatusRow(item: StatusItem) {
+  if (item.id === 'no items') {
+    return <Text italic>no items tracked yet</Text>;
+  }
+  const version = [item.current, item.latest]
+    .filter(value => Boolean(value))
+    .map(value => value?.trim())
+    .join(' → ');
+  const suffix = item.error ? ` · ! ${item.error}` : '';
+  return <Text>{`${item.id} (${item.category}) ${item.status}${version ? ` · ${version}` : ''}${suffix}`}</Text>;
+}
+
+function statusColor(status: StatusItem['status']) {
+  if (status === 'outdated') return 'yellow';
+  if (status === 'error' || status === 'untrusted') return 'red';
+  if (status === 'pinned' || status === 'disabled') return 'magenta';
+  if (status === 'differs') return 'cyan';
+  return undefined;
+}
+
+function computeStatusCounts(items: StatusItem[]) {
+  let untrusted = 0;
+  let pinned = 0;
+  for (const item of items) {
+    if (item.status === 'untrusted') untrusted += 1;
+    if (item.status === 'pinned') pinned += 1;
+  }
+  return {untrusted, pinned};
 }
 
 function ScanList({
@@ -308,13 +353,21 @@ function ScanList({
   if (report.candidates.length === 0) return <Text dimColor>No scan candidates</Text>;
   const importableCount = report.candidates.filter(canRegister).length;
   const reviewCount = report.candidates.length - importableCount;
+  const visibleRows = getVisibleRows(report.candidates, cursorIndex, 8);
+  const firstVisibleRow = visibleRows[0]?.row;
+  const lastVisibleRow = visibleRows.at(-1)?.row;
   return (
     <Box flexDirection="column" marginTop={1}>
       <Text dimColor>{`importable: ${selectedIds.size}/${importableCount}`}</Text>
       <Text dimColor>{`needs review: ${reviewCount}`}</Text>
-      {report.candidates.map((candidate, index) => (
-        <Text key={candidate.id} color={index === cursorIndex ? 'cyan' : undefined}>
-            {scanMarker(candidate, selectedIds.has(candidate.id))} {candidate.id} · {candidate.name}
+      <Text dimColor>{`showing ${
+        typeof firstVisibleRow === 'number' ? firstVisibleRow + 1 : 0
+      }-${
+        typeof lastVisibleRow === 'number' ? lastVisibleRow + 1 : 0
+      } of ${report.candidates.length}`}</Text>
+      {visibleRows.map(({row, candidate}) => (
+        <Text key={candidate.id} color={row === cursorIndex ? 'cyan' : undefined}>
+          {scanMarker(candidate, selectedIds.has(candidate.id))} {candidate.id} · {candidate.name}
           {candidate.installed_version ? ` ${candidate.installed_version}` : ''} · {candidate.category} ·{' '}
           {candidate.detector} · {candidate.capability}
         </Text>
@@ -326,6 +379,18 @@ function ScanList({
       ))}
     </Box>
   );
+}
+
+function getVisibleRows(candidates: ScanCandidate[], cursorIndex: number, maxLines: number) {
+  if (candidates.length <= maxLines) {
+    return candidates.map((candidate, row) => ({row, candidate}));
+  }
+  const halfWindow = Math.floor(maxLines / 2);
+  const start = Math.max(0, Math.min(cursorIndex - halfWindow, candidates.length - maxLines));
+  const end = Math.min(start + maxLines, candidates.length);
+  return candidates
+    .slice(start, end)
+    .map((candidate, index) => ({row: index + start, candidate}));
 }
 
 function scanMarker(candidate: ScanCandidate, selected: boolean) {
@@ -362,10 +427,51 @@ async function refreshStatus(
 function describeEvent(event: MachineEvent) {
   if (event.event === 'item_started') return `starting ${event.item_id ?? 'item'}`;
   if (event.event === 'item_finished') return `${event.item_id ?? 'item'} ${event.result?.outcome ?? 'done'}`;
-  if (event.event === 'finished') return `finished ${event.summary?.updated ?? 0} updated`;
+  if (event.event === 'finished') {
+    const updated = event.summary?.updated;
+    const total = event.summary?.total;
+    if (typeof updated === 'number' && typeof total === 'number') {
+      return `finished · updated ${updated}/${total}`;
+    }
+    return `finished ${event.summary?.updated ?? 0} updated`;
+  }
   if (event.event === 'cancelled') return 'cancelled';
   if (event.message) return event.message;
   return event.event;
+}
+
+function checkSummaryLines(report: CheckReport) {
+  const lines = [
+    `checked ${report.summary.total} items`,
+    `outdated: ${report.summary.outdated}`,
+    `errors: ${report.summary.errors}`
+  ];
+
+  if (report.summary.untrusted > 0) {
+    lines.push(`untrusted: ${report.summary.untrusted}`);
+  }
+
+  if (report.summary.disabled > 0) {
+    lines.push(`disabled: ${report.summary.disabled}`);
+  }
+
+  const outdatedIds = report.items
+    .filter(item => item.status === 'outdated')
+    .map(item => item.name)
+    .filter(name => Boolean(name));
+
+  if (outdatedIds.length > 0) {
+    lines.push(`outdated sample: ${outdatedIds.slice(0, 3).join(', ')}${
+      outdatedIds.length > 3 ? ', ...' : ''
+    }`);
+  }
+
+  return lines;
+}
+
+function getConfigPath() {
+  const home = process.env.HOME || process.env.USERPROFILE || '~';
+  return `${home}/.updatebar/config.toml`;
 }
 
 function messageFor(error: unknown) {

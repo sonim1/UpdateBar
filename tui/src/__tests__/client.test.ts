@@ -82,7 +82,7 @@ describe('CLIUpdateBarClient', () => {
   });
 
   it('passes cancellation to check commands', async () => {
-    const runner = new FakeRunner({exitCode: 0, stdout: '{}', stderr: ''});
+    const runner = new FakeRunner({exitCode: 0, stdout: '[]', stderr: ''});
     const client = new CLIUpdateBarClient(runner);
     const controller = new AbortController();
 
