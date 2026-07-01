@@ -65,14 +65,11 @@ enum UpdateBarMain {
                 writeJSONError(error, code: exitCode)
                 terminate(processExitCode(for: exitCode))
             }
-            if exitCode == .validationFailure {
-                let message = sanitizedErrorMessage(for: error)
-                if !message.isEmpty {
-                    FileHandle.standardError.write(Data((message + "\n").utf8))
-                }
-                terminate(1)
+            let message = sanitizedErrorMessage(for: error)
+            if !message.isEmpty {
+                writeStderr(message)
             }
-            UpdateBar.exit(withError: error)
+            terminate(processExitCode(for: exitCode))
         }
     }
 
@@ -309,7 +306,7 @@ struct InitCommand: ParsableCommand {
         }
         printImportable(importable)
         let prompt = "Select items to add (numbers, ids, or all): "
-        FileHandle.standardError.write(Data(prompt.utf8))
+        writeStderr(prompt, addNewline: false)
         guard let line = readLine(),
             !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else {
@@ -374,7 +371,7 @@ struct InitCommand: ParsableCommand {
             print(message)
         } else {
             for error in payload.errors {
-                FileHandle.standardError.write(Data((error + "\n").utf8))
+                writeStderr(error)
             }
         }
     }
@@ -416,7 +413,7 @@ private func withCancellationToken<T>(
 }
 
 private func readYes(_ prompt: String) -> Bool {
-    FileHandle.standardError.write(Data("\(prompt) ".utf8))
+    writePrompt(prompt)
     return readLine() == "yes"
 }
 
@@ -619,7 +616,7 @@ struct ValidateCommand: ParsableCommand {
             print("valid")
         } else {
             for error in result.errors {
-                FileHandle.standardError.write(Data((error + "\n").utf8))
+                writeStderr(error)
             }
         }
         if !result.isValid {
@@ -791,6 +788,15 @@ private func sanitizedErrorMessage(for error: Error) -> String {
         ? String(describing: error)
         : UpdateBar.fullMessage(for: error)
     return SecretRedactor.redact(rawMessage)
+}
+
+private func writeStderr(_ message: String, addNewline: Bool = true) {
+    let value = addNewline ? "\(message)\n" : message
+    FileHandle.standardError.write(Data(SecretRedactor.redact(value).utf8))
+}
+
+private func writePrompt(_ prompt: String, trailingSpace: Bool = true) {
+    writeStderr(prompt + (trailingSpace ? " " : ""), addNewline: false)
 }
 
 private struct JSONLWriter {
@@ -1742,7 +1748,7 @@ struct ImportCommand: ParsableCommand {
                 try printJSON(ImportPayload(added: [], replaced: [], errors: validation.errors))
             } else {
                 for error in validation.errors {
-                    FileHandle.standardError.write(Data((error + "\n").utf8))
+                    writeStderr(error)
                 }
             }
             throw ExitCode.failure
@@ -1909,7 +1915,7 @@ struct AddCommand: ParsableCommand {
             print("added \(recipe.id)")
         } else {
             for error in payload.errors {
-                FileHandle.standardError.write(Data((error + "\n").utf8))
+                writeStderr(error)
             }
         }
     }
@@ -1927,7 +1933,7 @@ struct AddCommand: ParsableCommand {
             default:
                 continue
             }
-            FileHandle.standardError.write(Data("\(field): \(command)\n".utf8))
+            writeStderr("\(field): \(command)")
         }
     }
 
@@ -1976,7 +1982,7 @@ struct AddCommand: ParsableCommand {
     }
 
     private func prompt(_ label: String) throws -> String {
-        FileHandle.standardError.write(Data("\(label): ".utf8))
+        writePrompt(label)
         guard let line = readLine(), !line.isEmpty else {
             throw ValidationError("\(label): required")
         }
@@ -1984,7 +1990,7 @@ struct AddCommand: ParsableCommand {
     }
 
     private func optionalPrompt(_ label: String) -> String? {
-        FileHandle.standardError.write(Data("\(label): ".utf8))
+        writePrompt(label)
         guard let line = readLine(), !line.isEmpty else {
             return nil
         }

@@ -143,6 +143,56 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertFalse(payload.errors.contains(where: { $0.contains(secret) }))
     }
 
+    func testNonJSONErrorRedactsSecretLikePathFragments() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+        let secret = "sk-or-v1-super-secret-value"
+
+        let result = try CLIProcess.run(["validate", secret], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("[REDACTED]"))
+        XCTAssertFalse(result.stderr.contains(secret))
+    }
+
+    func testAddTrustRedactsCommandsPrintedToStderr() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+        let secret = "sk-or-v1-trust-command-secret"
+        var recipe = Recipe(
+            id: "tool",
+            name: "Tool",
+            category: "cli",
+            path: nil,
+            source: Source(kind: .custom, ref: "tool", branch: nil),
+            versionScheme: .semver,
+            check: .command("printf 'tool 1.0.0'"),
+            latest: LatestSpec(strategy: .cmd, cmd: "printf 'tool 1.1.0'", pattern: nil),
+            versionParse: .regex("([0-9]+\\.[0-9]+\\.[0-9]+)"),
+            update: UpdateSpec(cmd: "printf '\(secret)'", cwd: nil),
+            pin: nil,
+            enabled: true,
+            notify: true,
+            trust: Trust(level: .untrusted, approvedCommands: [:])
+        )
+        TrustPolicy.approveAllCommands(in: &recipe)
+
+        let manifest = Manifest(
+            schemaVersion: 1,
+            items: [recipe],
+            provenance: Provenance(createdBy: "test", createdAt: Date(), updatedAt: Date())
+        )
+        let file = home.appendingPathComponent("recipe.json")
+        try JSONEncoder.updateBar.encode(manifest).write(to: file)
+
+        let result = try CLIProcess.run(
+            ["add", "--from", file.path, "--trust", "--yes"],
+            home: home
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("[REDACTED]"))
+        XCTAssertFalse(result.stderr.contains(secret))
+    }
+
     func testRuntimeErrorWithJSONReturnsErrorEnvelope() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 
