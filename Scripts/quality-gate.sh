@@ -47,6 +47,9 @@ bash Scripts/archive-version-smoke-test.sh
 echo "running archive smoke test"
 bash Scripts/archive-smoke-test.sh
 
+echo "running install release smoke test"
+bash Scripts/install-release-smoke-test.sh
+
 echo "running homebrew packaging check"
 bash Scripts/homebrew-packaging-test.sh
 
