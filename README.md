@@ -92,7 +92,7 @@ updatebar scan
 updatebar init
 
 # Or register candidates directly from scan output.
-updatebar init --select <candidate-id-from-scan>
+updatebar init --select <candidate-id-or-number-from-scan>
 
 # Inspect state without running checks.
 updatebar status --json

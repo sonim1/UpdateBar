@@ -436,7 +436,7 @@ struct InitCommand: ParsableCommand {
     @Flag(name: .long, help: "Overwrite existing items with matching ids.")
     var replace = false
 
-    @Option(name: .long, help: "Comma-separated scan candidate ids.")
+    @Option(name: .long, help: "Comma-separated candidate ids, numbers, or all.")
     var select: String?
 
     @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known.")
