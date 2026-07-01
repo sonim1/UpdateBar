@@ -343,21 +343,7 @@ struct InitCommand: ParsableCommand {
     }
 
     private func parseSelectionTokens(_ value: String) -> [String] {
-        let separators = CharacterSet(charactersIn: ",").union(.whitespacesAndNewlines)
-        return value
-            .components(separatedBy: separators)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .map { $0.lowercased() }
-    }
-
-    private func unique(_ values: [String]) -> [String] {
-        var seen = Set<String>()
-        var results: [String] = []
-        for value in values where seen.insert(value).inserted {
-            results.append(value)
-        }
-        return results
+        parseList(value)
     }
 
     private func printImportable(_ candidates: [ScanCandidate]) {
@@ -400,10 +386,7 @@ private func parseScanDetectors(_ value: String?) throws -> [ScanDetector] {
     guard let value, !value.isEmpty else {
         return ScanDetector.allCases
     }
-    let values = value
-        .split(separator: ",")
-        .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-        .filter { !$0.isEmpty }
+    let values = parseList(value)
     guard !values.isEmpty else {
         throw ValidationError("detectors: expected brew, npm_global, or known")
     }
@@ -417,6 +400,28 @@ private func parseScanDetectors(_ value: String?) throws -> [ScanDetector] {
         detectors.append(parsed)
     }
     return detectors
+}
+
+private func parseList(_ raw: String, separators: CharacterSet = .whitespaceAndComma) -> [String] {
+    raw
+        .components(separatedBy: separators)
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        .filter { !$0.isEmpty }
+}
+
+private extension CharacterSet {
+    static let whitespaceAndComma: CharacterSet = {
+        CharacterSet(charactersIn: ",").union(.whitespacesAndNewlines)
+    }()
+}
+
+private func unique(_ values: [String]) -> [String] {
+    var seen = Set<String>()
+    var results: [String] = []
+    for value in values where seen.insert(value).inserted {
+        results.append(value)
+    }
+    return results
 }
 
 private func normalizeCategory(_ value: String) -> String {
