@@ -496,6 +496,13 @@ struct InitCommand: ParsableCommand {
         let importable = report.candidates.filter {
             $0.capability == .full && $0.recipe != nil
         }
+        guard !importable.isEmpty else {
+            throw ValidationError(
+                "No importable candidates found. "
+                    + "Use --detectors to choose a different scan source "
+                    + "and ensure any category filter is not too strict."
+            )
+        }
         printImportable(importable)
         let prompt = "Select items to add (numbers, ids, or all): "
         writeStderr(prompt, addNewline: false)

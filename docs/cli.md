@@ -121,10 +121,12 @@ Scans installed local tools, lets the user select importable candidates, and sto
 
 Without `--select`, `init` prints numbered importable candidates and reads comma-
 or whitespace-separated numbers or candidate ids from stdin. Enter `all` to add
-every importable candidate. `--select` accepts comma-separated candidate ids such
-as `brew.gh,npm.typescript`, optional spaces are ignored, duplicate ids are ignored,
-and `ALL` is accepted for `all`. `--json` requires `--select` so stdout stays
-JSON-only.
+every importable candidate. If no importable candidates are found, `init` exits
+with a usage error and suggests retrying with different detectors or a broader
+filter.
+`--select` accepts comma-separated candidate ids such as `brew.gh,npm.typescript`,
+optional spaces are ignored, duplicate ids are ignored, and `ALL` is accepted for
+`all`. `--json` requires `--select` so stdout stays JSON-only.
 
 Duplicate ids are skipped by default. Pass `--replace` to overwrite existing recipes. `init` never approves commands.
 
