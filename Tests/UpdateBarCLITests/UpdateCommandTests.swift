@@ -119,7 +119,7 @@ final class UpdateCommandTests: XCTestCase {
         let result = try CLIProcess.run(["update", "tool", "--json"], home: home)
         let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
 
-        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.exitCode, 2)
         XCTAssertTrue(result.stderr.isEmpty)
         XCTAssertEqual(results.map(\.outcome), [.cancelled])
     }
@@ -177,7 +177,7 @@ final class UpdateCommandTests: XCTestCase {
         let result = try CLIProcess.run(["update", "tool", "--json-stream"], home: home)
         let events = try decodeEvents(result.stdout)
 
-        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.exitCode, 2)
         XCTAssertTrue(result.stderr.isEmpty)
         XCTAssertEqual(events.map(\.event), [.started, .log, .itemStarted, .itemFinished, .cancelled, .finished])
         XCTAssertEqual(events[3].result?.outcome, .cancelled)
