@@ -440,9 +440,12 @@ function describeEvent(event: MachineEvent) {
 
 function checkSummaryLines(report: CheckReport) {
   const lines = [
-    `checked ${report.summary.total} items`,
-    `outdated: ${report.summary.outdated}`
+    `checked ${report.summary.total} items`
   ];
+
+  if (report.summary.outdated > 0) {
+    lines.push(`outdated: ${report.summary.outdated}`);
+  }
 
   if (report.summary.errors > 0) {
     lines.push(`errors: ${report.summary.errors}`);

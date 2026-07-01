@@ -498,6 +498,48 @@ describe('App', () => {
     expect(view.lastFrame()).not.toContain('errors: 0');
   });
 
+  it('hides zero check summary counts', async () => {
+    const client = createClient({
+      async checkNow() {
+        return {
+          items: [
+            {
+              id: 'brew.gh',
+              name: 'gh',
+              status: 'ok',
+              current: '2.75.0',
+              latest: '2.75.0',
+              last_checked: '2026-06-30T00:00:00Z'
+            }
+          ],
+          summary: {
+            total: 1,
+            outdated: 0,
+            differs: 0,
+            errors: 0,
+            untrusted: 0,
+            disabled: 0,
+            pinned: 0
+          }
+        };
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Refresh Status');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'checked 1 items');
+
+    expect(view.lastFrame()).not.toContain('outdated: 0');
+    expect(view.lastFrame()).not.toContain('errors: 0');
+    expect(view.lastFrame()).not.toContain('differs: 0');
+    expect(view.lastFrame()).not.toContain('pinned: 0');
+  });
+
   it('cancels an active check', async () => {
     let aborted = false;
     const client = createClient({
