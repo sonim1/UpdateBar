@@ -13,7 +13,14 @@ cask "updatebar" do
   depends_on macos: :ventura
 
   app "UpdateBar.app"
-  binary "#{appdir}/UpdateBar.app/Contents/Resources/updatebar", target: "updatebar"
+
+  caveats <<~EOS
+    UpdateBar.app is currently unsigned. If macOS blocks the first launch,
+    Control-click UpdateBar.app in Finder, choose Open, then confirm Open.
+
+    For the updatebar CLI, install the formula:
+      brew install sonim1/tap/updatebar
+  EOS
 
   zap trash: [
     "~/.updatebar",
