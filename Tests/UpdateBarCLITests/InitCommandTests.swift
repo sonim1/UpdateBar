@@ -171,7 +171,9 @@ final class InitCommandTests: XCTestCase {
             bin.appendingPathComponent("brew"),
             """
             #!/bin/sh
-            if [ "$1" = "list" ]; then
+            if [ "$1" = "leaves" ]; then
+              printf 'jq\\ngh\\n'
+            elif [ "$1" = "list" ]; then
               printf 'jq 1.7.1\\ngh 2.74.0\\n'
             fi
             """

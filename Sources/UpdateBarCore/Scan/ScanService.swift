@@ -2,7 +2,12 @@ import Foundation
 
 public struct ScanService {
     public static let brewListCommand =
-        "if command -v brew >/dev/null 2>&1; then brew list --formula --versions; fi"
+        [
+            "if command -v brew >/dev/null 2>&1; then",
+            "leaves=$(brew leaves --installed-on-request 2>/dev/null || brew leaves 2>/dev/null || true);",
+            "if [ -n \"$leaves\" ]; then brew list --formula --versions $leaves; fi;",
+            "fi",
+        ].joined(separator: " ")
     public static let npmGlobalListCommand =
         "if command -v npm >/dev/null 2>&1; then npm ls -g --depth=0 --json; fi"
     public static let knownToolsCommand =
