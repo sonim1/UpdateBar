@@ -467,18 +467,21 @@ function checkSummaryLines(report: CheckReport) {
     lines.push(`disabled: ${report.summary.disabled}`);
   }
 
-  const outdatedIds = report.items
-    .filter(item => item.status === 'outdated')
+  appendItemSample(lines, report, 'outdated');
+  appendItemSample(lines, report, 'differs');
+
+  return lines;
+}
+
+function appendItemSample(lines: string[], report: CheckReport, status: StatusItem['status']) {
+  const names = report.items
+    .filter(item => item.status === status)
     .map(item => item.name)
     .filter(name => Boolean(name));
 
-  if (outdatedIds.length > 0) {
-    lines.push(`outdated sample: ${outdatedIds.slice(0, 3).join(', ')}${
-      outdatedIds.length > 3 ? ', ...' : ''
-    }`);
+  if (names.length > 0) {
+    lines.push(`${status} sample: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ', ...' : ''}`);
   }
-
-  return lines;
 }
 
 function getConfigPath() {

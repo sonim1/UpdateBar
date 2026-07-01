@@ -495,6 +495,7 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('outdated: 1');
     expect(view.lastFrame()).toContain('differs: 1');
     expect(view.lastFrame()).toContain('pinned: 1');
+    expect(view.lastFrame()).toContain('differs sample: local-tool');
     expect(view.lastFrame()).not.toContain('errors: 0');
   });
 
