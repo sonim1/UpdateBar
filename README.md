@@ -80,6 +80,8 @@ UPDATEBAR_BIN=../.build/debug/updatebar npm start
 
 ```bash
 updatebar scan
+updatebar init --select <candidate-id-from-scan>
+# or run interactive selection:
 updatebar init
 updatebar guide agent
 updatebar schema --json

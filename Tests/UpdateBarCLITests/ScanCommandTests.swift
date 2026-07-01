@@ -67,6 +67,31 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("jq"))
     }
 
+    func testScanHumanOutputShowsCandidateIDsAndNextStep() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            if [ "$1" = "list" ]; then
+              printf 'gh 2.74.0\\n'
+            fi
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--detectors", "brew"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("brew.gh"))
+        XCTAssertTrue(result.stdout.contains("updatebar init --select brew.gh"))
+    }
+
     func testScanRejectsEmptyDetectorList() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
 
