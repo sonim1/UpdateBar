@@ -56,7 +56,7 @@ cat >"$CONTENTS_DIR/Info.plist" <<PLIST
 PLIST
 
 plutil -lint "$CONTENTS_DIR/Info.plist" >/dev/null
-"$RESOURCES_DIR/updatebar" version --json >/dev/null
+"$RESOURCES_DIR/updatebar" --version >/dev/null
 
 if [[ "$(uname -s)" == "Darwin" && "${UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE:-0}" != "1" ]]; then
   Scripts/menubar-smoke-test.sh "$APP_DIR"

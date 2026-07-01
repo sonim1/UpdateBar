@@ -37,10 +37,9 @@ struct UpdateBar: ParsableCommand {
                 RemoveCommand.self,
                 EditCommand.self,
             ]),
-            CommandGroup(name: "System", subcommands: [
+                CommandGroup(name: "System", subcommands: [
                 ConfigCommand.self,
                 BackgroundCommand.self,
-                VersionCommand.self,
             ]),
             CommandGroup(name: "Support", subcommands: [
                 GuideCommand.self,
@@ -130,22 +129,6 @@ private struct ErrorEnvelope: Encodable {
     var ok: Bool
     var code: String
     var errors: [String]
-}
-
-struct VersionCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "version", shouldDisplay: false)
-
-    @Flag(name: .long)
-    var json = false
-
-    func run() throws {
-        let payload = VersionPayload(version: UpdateBarVersion.current)
-        if json {
-            try printJSON(payload)
-        } else {
-            print(payload.version)
-        }
-    }
 }
 
 struct TUICommand: ParsableCommand {
@@ -561,10 +544,6 @@ private struct InitPayload: Encodable {
         self.skipped = skipped
         self.errors = errors
     }
-}
-
-private struct VersionPayload: Encodable {
-    var version: String
 }
 
 struct BackgroundCommand: ParsableCommand {

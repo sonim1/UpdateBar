@@ -14,7 +14,7 @@ run_updatebar() {
   "${RUNNER[@]}" "${args[@]}"
 }
 
-run_updatebar version --json >/dev/null
+run_updatebar --version >/dev/null
 run_updatebar schema >/dev/null
 run_updatebar validate Fixtures/manifests/valid-basic.json --json >/dev/null
 run_updatebar validate - --json < Fixtures/manifests/valid-basic.json >/dev/null

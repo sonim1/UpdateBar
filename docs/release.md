@@ -106,7 +106,7 @@ Before tagging:
 - Git remote and formula URLs match `sonim1/UpdateBar`.
 - Smoke test passes from a clean `UPDATEBAR_HOME`.
 - TUI smoke test passes and verifies the npm package contents.
-- Archive-install smoke passes: unpack the archive, run `updatebar version --json`,
+- Archive-install smoke passes: unpack the archive, run `updatebar --version`,
   `updatebar guide agent`, and `updatebar template recipe --kind npm`.
 - Clean source-copy release dry run passes.
 - Formula URL/version match the tag and formula SHA matches the uploaded release

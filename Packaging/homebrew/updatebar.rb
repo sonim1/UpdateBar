@@ -17,6 +17,6 @@ class Updatebar < Formula
   end
 
   test do
-    assert_match "\"version\":\"#{version}\"", shell_output("#{bin}/updatebar version --json")
+    assert_match version, shell_output("#{bin}/updatebar --version").strip
   end
 end

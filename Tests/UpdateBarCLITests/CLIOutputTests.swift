@@ -101,11 +101,10 @@ final class CLIOutputTests: XCTestCase {
         let expected = try XCTUnwrap(versionEnv.split(separator: "\n").first { $0.hasPrefix("UPDATEBAR_VERSION=") })
             .replacingOccurrences(of: "UPDATEBAR_VERSION=", with: "")
 
-        let result = try CLIProcess.run(["version", "--json"], home: home)
+        let result = try CLIProcess.run(["--version"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
-        let payload = try JSONDecoder().decode(VersionPayload.self, from: Data(result.stdout.utf8))
-        XCTAssertEqual(payload.version, expected)
+        XCTAssertEqual(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines), expected)
     }
 
     func testChangelogHasCurrentVersionEntry() throws {
@@ -208,10 +207,6 @@ final class CLIOutputTests: XCTestCase {
     private struct ValidationPayload: Decodable {
         var valid: Bool
         var errors: [String]
-    }
-
-    private struct VersionPayload: Decodable {
-        var version: String
     }
 
     private struct ErrorEnvelope: Decodable {

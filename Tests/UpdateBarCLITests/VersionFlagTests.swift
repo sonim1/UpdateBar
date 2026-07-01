@@ -10,5 +10,13 @@ final class VersionFlagTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(output.contains(UpdateBarVersion.current), "version output: \(output)")
     }
-}
 
+    func testVersionCommandWasRemoved() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-version-tests")
+
+        let result = try CLIProcess.run(["version"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue((result.stdout + result.stderr).contains("Unexpected argument 'version'"))
+    }
+}

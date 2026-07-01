@@ -16,7 +16,7 @@ BIN="$TMP_DIR/updatebar"
 HOME_DIR="$TMP_DIR/home"
 mkdir -p "$HOME_DIR"
 
-UPDATEBAR_HOME="$HOME_DIR" "$BIN" version --json >/dev/null
+UPDATEBAR_HOME="$HOME_DIR" "$BIN" --version >/dev/null
 UPDATEBAR_HOME="$HOME_DIR" "$BIN" schema >/dev/null
 UPDATEBAR_HOME="$HOME_DIR" "$BIN" guide agent >/dev/null
 UPDATEBAR_HOME="$HOME_DIR" "$BIN" guide recipe >/dev/null
