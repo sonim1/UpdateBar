@@ -150,8 +150,70 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.openConfig),
                 .menu(.viewLogs),
                 .menu(.quit),
-            ])
+        ])
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
+    }
+
+    func testBuildsCompactMenuWithOverflowSummaries() {
+        let outdated = Array(1...8).map {
+            statusItem(
+                id: "old-\($0)",
+                name: "Tool-\($0)",
+                current: "1.0.\($0)",
+                latest: "1.1.\($0)",
+                status: .outdated
+            )
+        }
+        let errors = Array(1...7).map {
+            statusItem(
+                id: "error-\($0)",
+                name: "Err-\($0)",
+                status: .error,
+                error: "boom"
+            )
+        }
+        let installed = Array(1...7).map {
+            statusItem(
+                id: "ok-\($0)",
+                name: "Ok-\($0)",
+                current: "2.0.\($0)",
+                status: .ok
+            )
+        }
+        let approvals = [
+            "approve": Array(1...10).map { index in
+                CommandApprovalStatus(
+                    field: "field-\(index)",
+                    approved: index.isMultiple(of: 2),
+                    fingerprint: "fp-\(index)",
+                    command: "run cmd-\(index)",
+                    cwd: nil
+                )
+            }
+        ]
+
+        let state = MenuBarState(
+            title: "8 updates",
+            badgeValue: "8",
+            outdatedItems: outdated,
+            approvalItems: [
+                statusItem(id: "approve", name: "Approve Tool", status: .ok)
+            ],
+            errorItems: errors,
+            okItems: installed
+        )
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: approvals
+        )
+
+        XCTAssertTrue(model.entries.labels.contains("and 1 more"))
+        XCTAssertEqual(
+            model.entries.labels.filter { $0 == "and 1 more" }.count,
+            2
+        )
+        XCTAssertTrue(model.entries.labels.contains("and 2 more actions"))
     }
 
     private func statusItem(

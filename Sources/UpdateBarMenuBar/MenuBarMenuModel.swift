@@ -37,6 +37,9 @@ public enum MenuBarMenuItemAction: Equatable, Sendable {
 public struct MenuBarMenuModelBuilder: Sendable {
     public init() {}
 
+    private static let maxSectionItems = 6
+    private static let maxApprovalItems = 8
+
     public func makeMenu(
         state: MenuBarState,
         approvalStatuses: [String: [CommandApprovalStatus]],
@@ -115,13 +118,25 @@ public struct MenuBarMenuModelBuilder: Sendable {
     ) {
         guard !items.isEmpty else { return }
         appendDisabled("Needs Approval", to: &entries)
+        var addedItems = 0
+        let totalApprovalRows = items.reduce(0) { total, item in
+            let approvals = approvalStatuses[item.id] ?? []
+            return total + (approvals.isEmpty ? 1 : approvals.count)
+        }
         for item in items {
             let approvals = approvalStatuses[item.id] ?? []
             if approvals.isEmpty {
                 appendDisabled("\(item.name): no command fields", to: &entries)
+                addedItems += 1
+                if addedItems >= Self.maxApprovalItems {
+                    break
+                }
                 continue
             }
             for approval in approvals {
+                if addedItems >= Self.maxApprovalItems {
+                    break
+                }
                 let verb = approval.approved ? "Revoke" : "Approve"
                 let command = collapseWhitespace(in: approval.command)
                 let cwd = approval.cwd.map { " [cwd: \($0)]" } ?? ""
@@ -136,6 +151,16 @@ public struct MenuBarMenuModelBuilder: Sendable {
                             action: action,
                             toolTip: "\(approval.field): \(approval.command)\(cwd)"
                         )))
+                addedItems += 1
+            }
+            if addedItems >= Self.maxApprovalItems {
+                break
+            }
+        }
+        if addedItems < totalApprovalRows {
+            let overflow = totalApprovalRows - addedItems
+            if overflow > 0 {
+                appendDisabled("and \(overflow) more actions", to: &entries)
             }
         }
         appendSeparator(to: &entries)
@@ -161,8 +186,12 @@ public struct MenuBarMenuModelBuilder: Sendable {
     ) {
         guard !items.isEmpty else { return }
         appendDisabled(title, to: &entries)
-        for item in items {
+        for item in items.prefix(Self.maxSectionItems) {
             entries.append(.item(makeItem(item)))
+        }
+        let overflow = items.count - Self.maxSectionItems
+        if overflow > 0 {
+            appendDisabled("and \(overflow) more", to: &entries)
         }
         appendSeparator(to: &entries)
     }
