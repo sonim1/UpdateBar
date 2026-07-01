@@ -42,6 +42,9 @@ Use the fallback adapter explicitly:
 UPDATEBAR_MENUBAR_ADAPTER=cli UPDATEBAR_BIN=.build/debug/updatebar .build/debug/updatebar-menubar
 ```
 
+View logs from the menu bar app at `~/Library/Logs/UpdateBar/updatebar-menubar.log`.
+If that file does not exist yet, the menu item opens the UpdateBar home directory.
+
 The app is currently unsigned. If macOS blocks the first launch, Control-click
 `UpdateBar.app` in Finder, choose Open, then confirm Open. Developer ID signing,
 notarization, and stapling are deferred until the Apple Developer Program

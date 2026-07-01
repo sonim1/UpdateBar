@@ -138,7 +138,12 @@
         }
 
         @objc private func viewLogs() {
-            NSWorkspace.shared.activateFileViewerSelecting([AppPaths().homeDirectory])
+            let logURL = Self.logFileURL
+            let targetURL = FileManager.default.fileExists(atPath: logURL.path) ? logURL : AppPaths().homeDirectory
+            let opened = NSWorkspace.shared.open(targetURL)
+            if !opened {
+                showError(MenuBarStartupError.viewLogFailed(path: targetURL.path))
+            }
         }
 
         @objc private func quit() {
@@ -291,6 +296,41 @@
 
         private static func debugLog(_ message: String) {
             FileHandle.standardError.write(Data(("UpdateBarMenuBar: \(message)\n").utf8))
+            appendLog(message)
+        }
+
+        private static var logDirectory: URL {
+            FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library", isDirectory: true)
+                .appendingPathComponent("Logs", isDirectory: true)
+                .appendingPathComponent("UpdateBar", isDirectory: true)
+        }
+
+        private static var logFileURL: URL {
+            logDirectory.appendingPathComponent("updatebar-menubar.log", isDirectory: false)
+        }
+
+        private static func appendLog(_ message: String) {
+            do {
+                try FileManager.default.createDirectory(
+                    at: logDirectory,
+                    withIntermediateDirectories: true
+                )
+
+                let line = "\(ISO8601DateFormatter().string(from: Date())) UpdateBarMenuBar: \(message)\n"
+                let data = Data(line.utf8)
+
+                if FileManager.default.fileExists(atPath: logFileURL.path) {
+                    let handle = try FileHandle(forWritingTo: logFileURL)
+                    defer { handle.closeFile() }
+                    try handle.seekToEnd()
+                    try handle.write(contentsOf: data)
+                    return
+                }
+                try data.write(to: logFileURL)
+            } catch {
+                // Logging should not block or fail app startup.
+            }
         }
 
         private func actionItem(_ title: String, action: Selector) -> NSMenuItem {
@@ -382,19 +422,22 @@
         }
     }
 
-    private enum MenuBarStartupError: Error, CustomStringConvertible {
-        case missingStatusBarButton
-        case configOpenFailed(path: String)
+        private enum MenuBarStartupError: Error, CustomStringConvertible {
+            case missingStatusBarButton
+            case configOpenFailed(path: String)
+            case viewLogFailed(path: String)
 
-        var description: String {
-            switch self {
-            case .missingStatusBarButton:
-                return "Failed to create menu bar button"
-            case .configOpenFailed(let path):
-                return "Failed to open config at \(path)"
+            var description: String {
+                switch self {
+                case .missingStatusBarButton:
+                    return "Failed to create menu bar button"
+                case .configOpenFailed(let path):
+                    return "Failed to open config at \(path)"
+                case .viewLogFailed(let path):
+                    return "Failed to open log target at \(path)"
+                }
             }
         }
-    }
 #else
     import Foundation
 
