@@ -350,6 +350,35 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("No importable candidates found"))
     }
 
+    func testInitAllRequiresImportableCandidatesInJSONMode() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            if [ "$1" = "leaves" ]; then
+              printf ''
+            elif [ "$1" = "list" ]; then
+              printf ''
+            fi
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["init", "--json", "--detectors", "brew", "--select", "ALL"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertTrue(payload.errors.contains { $0.contains("No importable candidates found") })
+    }
+
     private func fakeManagers(home: URL) throws -> URL {
         let bin = home.appendingPathComponent("bin")
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)

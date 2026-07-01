@@ -482,9 +482,15 @@ struct InitCommand: ParsableCommand {
                 throw ValidationError("select: expected at least one candidate id")
             }
             if values.count == 1, values[0] == "all" {
-                return report.candidates.filter {
+                let importable = report.candidates.filter {
                     $0.capability == .full && $0.recipe != nil
                 }.map(\.id)
+                guard !importable.isEmpty else {
+                    throw ValidationError("No importable candidates found. "
+                        + "Use --detectors to choose a different scan source "
+                        + "and ensure any category filter is not too strict.")
+                }
+                return importable
             }
             return values
         }
