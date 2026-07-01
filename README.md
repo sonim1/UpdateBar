@@ -85,41 +85,33 @@ UPDATEBAR_BIN=../.build/debug/updatebar npm start
 ## Quick Start
 
 ```bash
+# See what UpdateBar can discover without changing state.
 updatebar scan
+
+# Select discovered tools to register as untrusted recipes.
 updatebar init
-# or add scan candidates directly:
+
+# Or register candidates directly from scan output.
 updatebar init --select <candidate-id-from-scan>
+
+# Inspect state without running checks.
+updatebar status --json
+
+# Refresh versions. Outdated items use exit code 10 unless opted out.
+updatebar check --exit-zero-on-outdated
+
+# Run approved updates only.
+updatebar update --all --yes
+```
+
+For agent-authored or hand-written recipes:
+
+```bash
 updatebar guide agent
 updatebar schema
-printf 'demo-tool 1.0.0' > demo-tool-version.txt
-cat > recipe.json <<'JSON'
-{
-  "id": "demo-tool",
-  "name": "Demo Tool",
-  "category": "demo",
-  "path": null,
-  "source": { "kind": "custom", "ref": "demo-tool", "branch": null },
-  "version_scheme": "semver",
-  "check": { "cmd": "cat demo-tool-version.txt" },
-  "latest": { "strategy": "cmd", "cmd": "printf 'demo-tool 1.1.0'", "pattern": null },
-  "version_parse": { "regex": "([0-9]+\\.[0-9]+\\.[0-9]+)" },
-  "update": { "cmd": "printf 'demo-tool 1.1.0' > demo-tool-version.txt", "requires_write": true, "cwd": null },
-  "pin": null,
-  "enabled": true,
-  "notify": true,
-  "trust": { "level": "untrusted", "approved_commands": {} }
-}
-JSON
+updatebar template recipe --kind npm --id demo-tool --name "Demo Tool" --source demo-tool > recipe.json
 updatebar validate recipe.json --json
 updatebar add --from recipe.json --dry-run --json
-updatebar add --from recipe.json
-updatebar approvals demo-tool --json
-updatebar approve demo-tool --field check.cmd --json
-updatebar approve demo-tool --field latest.cmd --json
-updatebar approve demo-tool --field update.cmd --json
-updatebar check --force --exit-zero-on-outdated
-updatebar status --json --exit-zero-on-outdated
-updatebar update --all --yes
 ```
 
 Manual JSON import is also supported:

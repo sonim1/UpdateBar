@@ -96,6 +96,30 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testReadmeQuickStartStaysFocusedOnFirstRunWorkflow() throws {
+        let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
+        let quickStart = try readmeSection("## Quick Start", before: "## Scope", in: readme)
+
+        for command in ["updatebar scan", "updatebar init", "updatebar status --json", "updatebar check", "updatebar update --all --yes"] {
+            XCTAssertTrue(quickStart.contains(command), "README Quick Start missing \(command)")
+        }
+
+        XCTAssertFalse(quickStart.contains("cat > recipe.json"), "README Quick Start should not inline a full recipe")
+        XCTAssertFalse(quickStart.contains("updatebar approve"), "README Quick Start should not lead with advanced approval commands")
+        XCTAssertLessThanOrEqual(quickStart.split(separator: "\n").count, 35, "README Quick Start should stay short enough to scan")
+    }
+
+    private func readmeSection(_ heading: String, before nextHeading: String, in readme: String) throws -> String {
+        guard
+            let start = readme.range(of: heading)?.upperBound,
+            let end = readme[start...].range(of: nextHeading)?.lowerBound
+        else {
+            XCTFail("README section not found: \(heading)")
+            return ""
+        }
+        return String(readme[start..<end])
+    }
+
     private func rootCompletionCommands(from script: String, shell: String) throws -> Set<String> {
         switch shell {
         case "bash":
