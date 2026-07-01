@@ -12,12 +12,12 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("not-a-command"))
     }
 
-    func testRemovedAuthCommandDoesNotExposeEnvironmentSecret() throws {
+    func testUnknownCommandWithJSONDoesNotExposeEnvironmentSecret() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
         let secret = "sk-or-v1-super-secret-value"
 
         let result = try CLIProcess.run(
-            ["auth", "status", "--json"],
+            ["not-a-command", "--json"],
             home: home,
             environment: ["OPENROUTER_API_KEY": secret]
         )

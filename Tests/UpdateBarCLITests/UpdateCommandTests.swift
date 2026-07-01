@@ -164,6 +164,25 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertEqual(events[4].summary?.cancelled, 1)
     }
 
+    func testUpdateJSONStreamIncludesStableRunIDAcrossEvents() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: [
+            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.1.0'")
+        ]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "tool": itemState(status: .outdated)
+        ]))
+
+        let result = try CLIProcess.run(["update", "tool", "--yes", "--json-stream"], home: home)
+        let rawEvents = try decodeRawEvents(result.stdout)
+
+        XCTAssertEqual(result.exitCode, 0)
+        let runIDs = Set(rawEvents.compactMap { $0["run_id"] as? String })
+        XCTAssertEqual(runIDs.count, 1)
+        XCTAssertFalse(runIDs.first?.isEmpty ?? true)
+    }
+
     func testUpdateJSONStreamWithoutYesSkipsExecutionWithoutPrompt() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
@@ -252,6 +271,13 @@ final class UpdateCommandTests: XCTestCase {
     private func decodeEvents(_ stdout: String) throws -> [MachineEvent] {
         try stdout.split(separator: "\n").map { line in
             try JSONDecoder.updateBar.decode(MachineEvent.self, from: Data(line.utf8))
+        }
+    }
+
+    private func decodeRawEvents(_ stdout: String) throws -> [[String: Any]] {
+        try stdout.split(separator: "\n").map { line in
+            let object = try JSONSerialization.jsonObject(with: Data(line.utf8))
+            return try XCTUnwrap(object as? [String: Any])
         }
     }
 }
