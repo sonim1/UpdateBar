@@ -40,14 +40,14 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
     private let stateStore: StateStore
     private let configStore: ConfigStore
     private let httpClient: HTTPClient
-    private let commandRunner: any CommandRunning
+    private let injectedCommandRunner: (any CommandRunning)?
     private let now: () -> Date
     private let githubToken: String?
 
     public init(
         paths: AppPaths = AppPaths(),
         httpClient: HTTPClient = URLSessionHTTPClient(),
-        commandRunner: any CommandRunning = CommandExecutor(),
+        commandRunner: (any CommandRunning)? = nil,
         now: @escaping () -> Date = Date.init,
         githubToken: String? = nil
     ) {
@@ -55,7 +55,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         self.stateStore = StateStore(paths: paths)
         self.configStore = ConfigStore(paths: paths)
         self.httpClient = httpClient
-        self.commandRunner = commandRunner
+        self.injectedCommandRunner = commandRunner
         self.now = now
         self.githubToken = githubToken
     }
@@ -115,7 +115,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
             stateStore: stateStore,
             config: try configStore.load(),
             httpClient: httpClient,
-            commandRunner: cancellationToken.map { CommandExecutor(cancellationToken: $0) } ?? commandRunner,
+            commandRunner: commandRunner(for: cancellationToken),
             now: now,
             githubToken: githubToken
         )
@@ -127,10 +127,14 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
             stateStore: stateStore,
             config: try configStore.load(),
             httpClient: httpClient,
-            commandRunner: cancellationToken.map { CommandExecutor(cancellationToken: $0) } ?? commandRunner,
+            commandRunner: commandRunner(for: cancellationToken),
             now: now,
             githubToken: githubToken,
             confirm: { _ in true }
         )
+    }
+
+    private func commandRunner(for cancellationToken: CancellationToken?) -> any CommandRunning {
+        injectedCommandRunner ?? CommandExecutor(cancellationToken: cancellationToken)
     }
 }

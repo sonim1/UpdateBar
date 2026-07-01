@@ -71,6 +71,34 @@ final class CoreMenuBarServiceTests: XCTestCase {
         XCTAssertNotEqual(state.items["slow"]?.status, .ok)
     }
 
+    func testCoreServiceKeepsInjectedCommandRunnerWhenCancellationTokenIsProvided() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(id: "tool", updateCommand: "tool update", currentCommand: "tool current")
+            ]))
+        try StateStore(paths: paths).save(
+            State(schemaVersion: 1, generatedAt: now, items: [:]))
+        let commands = RecordingCommandRunner(results: [
+            "tool current": CommandResult(exitCode: 0, stdout: "tool 1.0.0", stderr: ""),
+            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
+        ])
+        let service = CoreMenuBarService(
+            paths: paths,
+            commandRunner: commands,
+            now: { self.now })
+        let token = CancellationToken()
+
+        try service.checkNow(cancellationToken: token)
+        let state = try StateStore(paths: paths).load()
+
+        XCTAssertEqual(
+            commands.commands.map(\.command),
+            ["tool current", "tool latest"])
+        XCTAssertEqual(state.items["tool"]?.status, .outdated)
+    }
+
     private func manifest(items: [Recipe]) -> Manifest {
         Manifest(
             schemaVersion: 1,
