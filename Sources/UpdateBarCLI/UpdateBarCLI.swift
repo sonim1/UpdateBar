@@ -2147,6 +2147,11 @@ struct EditCommand: ParsableCommand {
         guard let executable = editorParts.first, !executable.isEmpty else {
             throw ValidationError("EDITOR command is empty")
         }
+        if let command = resolveCommandToken(executable, afterAssignmentsIn: editorParts) {
+            guard resolveExecutable(command, environment: environment) != nil else {
+                throw ValidationError("EDITOR/VISUAL command not found in PATH: \(command)")
+            }
+        }
 
         // `env` keeps PATH lookup behavior while avoiding shell interpolation.
         let envPath = FileManager.default.isExecutableFile(atPath: "/usr/bin/env")
@@ -2167,6 +2172,37 @@ struct EditCommand: ParsableCommand {
         guard process.terminationStatus == 0 else {
             throw ValidationError("editor exited \(process.terminationStatus)")
         }
+    }
+
+    private func resolveCommandToken(_ command: String, afterAssignmentsIn parts: [String]) -> String? {
+        let trimmed = parts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        if let index = trimmed.firstIndex(where: { !$0.isEmpty && !isEnvironmentAssignment($0) }) {
+            return parts[index]
+        }
+        return command
+    }
+
+    private func isEnvironmentAssignment(_ token: String) -> Bool {
+        guard let firstEquals = token.firstIndex(of: "=") else {
+            return false
+        }
+        return firstEquals != token.startIndex
+    }
+
+    private func resolveExecutable(_ value: String, environment: [String: String]) -> String? {
+        if FileManager.default.isExecutableFile(atPath: value) {
+            return value
+        }
+        let pathValue = environment["PATH"] ?? ""
+        let pathEntries = pathValue.split(separator: ":").map(String.init)
+        for path in pathEntries {
+            if path.isEmpty { continue }
+            let candidate = URL(fileURLWithPath: path).appendingPathComponent(value).path
+            if FileManager.default.isExecutableFile(atPath: candidate) {
+                return candidate
+            }
+        }
+        return nil
     }
 
     private func validateEditedRecipe(_ recipe: Recipe) throws {

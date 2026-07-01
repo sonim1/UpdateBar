@@ -60,6 +60,38 @@ final class EditCommandTests: XCTestCase {
         XCTAssertEqual(manifest.item(id: "tool")?.name, "Path Tool")
     }
 
+    func testEditSupportsQuotedEditorPathWithSpaces() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let spacedDirectory = home.appendingPathComponent("My Editors")
+        try FileManager.default.createDirectory(at: spacedDirectory, withIntermediateDirectories: true)
+        let editor = try editorScript(home: spacedDirectory, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Spaced Tool"/' "$1""#)
+        let quotedEditor = "'\(editor.path)'"
+
+        let result = try CLIProcess.run(
+            ["edit", "tool"],
+            home: home,
+            environment: ["EDITOR": quotedEditor]
+        )
+        let manifest = try ManifestStore(paths: paths).load()
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(manifest.item(id: "tool")?.name, "Spaced Tool")
+    }
+
+    func testEditRejectsUnknownEditorCommand() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+
+        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": "no-such-editor"])
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("EDITOR/VISUAL command not found in PATH: no-such-editor"))
+        XCTAssertEqual(try ManifestStore(paths: paths).load().item(id: "tool")?.name, "Tool")
+    }
+
     func testInvalidEditorCommandRejections() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
         let paths = AppPaths(homeDirectory: home)
