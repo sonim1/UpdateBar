@@ -78,10 +78,7 @@ to the bundled Swift CLI path.
 Ink TUI packaging:
 
 ```bash
-cd tui
-npm install
-npm run build
-npm pack --dry-run
+Scripts/tui-smoke-test.sh
 ```
 
 Release identity:
@@ -101,6 +98,7 @@ Before tagging:
 - `CHANGELOG.md` has an entry matching `version.env`.
 - Git remote and formula URLs match `sonim1/UpdateBar`.
 - Smoke test passes from a clean `UPDATEBAR_HOME`.
+- TUI smoke test passes and verifies the npm package contents.
 - Archive-install smoke passes: unpack the archive, run `updatebar version --json`,
   `updatebar guide agent`, and `updatebar template recipe --kind npm`.
 - Clean source-copy release dry run passes.
