@@ -1703,12 +1703,27 @@ struct UpdateCommand: ParsableCommand {
         if json {
             try printJSON(results)
         } else {
-            for result in results {
-                print("\(result.id)\t\(result.outcome.rawValue)")
-            }
+            printHuman(results)
         }
 
         try enforceExitCodes(results)
+    }
+
+    private func printHuman(_ results: [UpdateResult]) {
+        for result in results {
+            print("\(result.id)\t\(result.outcome.rawValue)")
+        }
+
+        let blocked = results.filter { $0.outcome == .skippedUntrusted }
+        guard !blocked.isEmpty else {
+            return
+        }
+        print("")
+        print("Next")
+        for result in blocked {
+            print("updatebar approvals \(result.id)")
+            print("updatebar approve \(result.id) --field update.cmd")
+        }
     }
 
     private func runJSONStream(runner: UpdateRunner, ids: [String]) throws {

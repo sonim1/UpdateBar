@@ -63,6 +63,25 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertEqual(results.map(\.outcome), [.skippedUntrusted])
     }
 
+    func testUpdateHumanBlockedOnApprovalPrintsNextSteps() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        var item = recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
+        item.trust.level = .untrusted
+        item.trust.approvedCommands = [:]
+        try ManifestStore(paths: paths).save(manifest(items: [item]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "tool": itemState(status: .outdated)
+        ]))
+
+        let result = try CLIProcess.run(["update", "tool", "--yes"], home: home)
+
+        XCTAssertEqual(result.exitCode, 3)
+        XCTAssertTrue(result.stdout.contains("tool\tskipped_untrusted"))
+        XCTAssertTrue(result.stdout.contains("updatebar approvals tool"))
+        XCTAssertTrue(result.stdout.contains("updatebar approve tool --field update.cmd"))
+    }
+
     func testUpdateJSONStreamEmitsLineDelimitedEvents() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
