@@ -128,7 +128,13 @@
         }
 
         @objc private func openConfig() {
-            NSWorkspace.shared.open(AppPaths().configFile)
+            let appPaths = AppPaths()
+            let configURL = appPaths.configFile
+            let configExists = FileManager.default.fileExists(atPath: configURL.path)
+            let opened = NSWorkspace.shared.open(configExists ? configURL : appPaths.homeDirectory)
+            if !opened {
+                showError(MenuBarStartupError.configOpenFailed(path: configURL.path))
+            }
         }
 
         @objc private func viewLogs() {
@@ -378,11 +384,14 @@
 
     private enum MenuBarStartupError: Error, CustomStringConvertible {
         case missingStatusBarButton
+        case configOpenFailed(path: String)
 
         var description: String {
             switch self {
             case .missingStatusBarButton:
                 return "Failed to create menu bar button"
+            case .configOpenFailed(let path):
+                return "Failed to open config at \(path)"
             }
         }
     }

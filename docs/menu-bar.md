@@ -47,6 +47,9 @@ The app is currently unsigned. If macOS blocks the first launch, Control-click
 notarization, and stapling are deferred until the Apple Developer Program
 go/no-go decision.
 
+`Open Config` opens `~/.updatebar/config.toml` when it exists; if the file is not
+present, it opens the UpdateBar home directory instead.
+
 Troubleshooting a missing icon:
 
 ```bash
