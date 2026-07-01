@@ -49,7 +49,7 @@ public struct ScanService {
             let recipe = Recipe(
                 id: "brew.\(idComponent(name))",
                 name: name,
-                category: category(for: name),
+                category: category(for: name, detector: .brew),
                 path: nil,
                 source: Source(kind: .brew, ref: name, branch: nil),
                 versionScheme: .calver,
@@ -82,7 +82,7 @@ public struct ScanService {
         let decoded = try JSONDecoder().decode(NPMGlobalList.self, from: data)
         return decoded.dependencies.map { package, info in
             let id = "npm.\(idComponent(package))"
-            let category = category(for: package)
+            let category = category(for: package, detector: .npmGlobal)
             let recipe = Recipe(
                 id: id,
                 name: package,
@@ -128,7 +128,7 @@ public struct ScanService {
                     id: "known.\(idComponent(name))",
                     name: name,
                     detector: .known,
-                    category: category(for: name),
+                    category: category(for: name, detector: .known),
                     capability: .checkOnly,
                     confidence: .medium,
                     installedVersion: extractVersion(from: versionLine),
@@ -190,33 +190,45 @@ public struct ScanService {
         return cleaned.isEmpty ? "tool" : cleaned
     }
 
-    private func category(for name: String) -> String {
+    private func category(for name: String, detector: ScanDetector) -> String {
         let normalized = name.lowercased()
+        let leafName = normalized.split(separator: "/").last.map(String.init) ?? normalized
+        let simpleName = leafName.split(separator: "@").first.map(String.init) ?? leafName
+        let isScopedPackage = detector == .npmGlobal && normalized.hasPrefix("@")
+
         if [
-            "claude", "@anthropic-ai/claude-code", "codex", "rtk", "gstack", "aider",
-            "opencode", "gemini", "agent-browser",
-        ].contains(normalized) {
+            "claude", "claude-code", "codex", "rtk", "gstack", "aider", "opencode",
+            "gemini", "gemini-cli", "agent-browser",
+        ].contains(simpleName) || normalized == "@anthropic-ai/claude-code" {
             return "ai-agent"
         }
-        if ["brew", "npm", "pnpm", "yarn", "bun", "pipx", "uv", "cargo", "rustup"].contains(
-            normalized)
-        {
+        if isScopedPackage {
+            return "library"
+        }
+        if [
+            "brew", "npm", "pnpm", "yarn", "bun", "pipx", "uv", "cargo", "rustup",
+            "corepack",
+        ].contains(simpleName) {
             return "package-manager"
         }
-        if ["node", "python", "ruby", "go", "rust", "swift", "java"].contains(normalized) {
+        if [
+            "node", "nodejs", "python", "python3", "ruby", "go", "golang", "rust", "swift",
+            "java",
+        ].contains(simpleName) {
             return "runtime-sdk"
         }
         if [
             "gh", "aws", "gcloud", "vercel", "wrangler", "flyctl", "kubectl", "docker", "terraform",
-        ].contains(normalized) {
+            "cloudflared", "supabase",
+        ].contains(simpleName) {
             return "cloud-devops"
         }
         if ["jq", "ripgrep", "rg", "fd", "fzf", "bat", "eza", "zoxide", "starship", "tmux"]
-            .contains(normalized)
+            .contains(simpleName)
         {
             return "shell-utility"
         }
-        if normalized.hasPrefix("@") {
+        if detector == .npmGlobal {
             return "library"
         }
         return "shell-utility"

@@ -67,6 +67,32 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("jq"))
     }
 
+    func testScanHumanOutputCanFilterScopedAIAgentPackages() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("npm"),
+            """
+            #!/bin/sh
+            if [ "$1" = "ls" ]; then
+              printf '{"dependencies":{"@openai/codex":{"version":"0.140.0"},"typescript":{"version":"5.8.3"}}}\\n'
+            fi
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--detectors", "npm_global", "--category", "ai-agent"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("@openai/codex"))
+        XCTAssertTrue(result.stdout.contains("ai-agent"))
+        XCTAssertFalse(result.stdout.contains("typescript"))
+    }
+
     func testScanHumanOutputShowsCandidateIDsAndNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
         let bin = home.appendingPathComponent("bin")

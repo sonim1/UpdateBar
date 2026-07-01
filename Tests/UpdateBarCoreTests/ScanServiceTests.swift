@@ -69,4 +69,42 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertEqual(rtk.capability, .checkOnly)
         XCTAssertNil(rtk.recipe)
     }
+
+    func testScanCategoriesCommonVersionedAndScopedTools() throws {
+        let commands = MockCommandExecutor(results: [
+            ScanService.brewListCommand: CommandResult(
+                exitCode: 0,
+                stdout: """
+                    node@22 22.22.0
+                    python@3.12 3.12.13_2
+                    cloudflared 2026.5.0
+                    supabase 2.72.7
+                    """,
+                stderr: ""
+            ),
+            ScanService.npmGlobalListCommand: CommandResult(
+                exitCode: 0,
+                stdout: """
+                    {"dependencies":{"@openai/codex":{"version":"0.140.0"},"@google/gemini-cli":{"version":"1.2.3"},"typescript":{"version":"5.8.3"}}}
+                    """,
+                stderr: ""
+            ),
+            ScanService.knownToolsCommand: CommandResult(exitCode: 0, stdout: "", stderr: ""),
+        ])
+        let service = ScanService(commandRunner: commands)
+
+        let report = try service.scan(detectors: [.brew, .npmGlobal, .known])
+
+        XCTAssertEqual(try category("brew.node22", in: report), "runtime-sdk")
+        XCTAssertEqual(try category("brew.python3.12", in: report), "runtime-sdk")
+        XCTAssertEqual(try category("brew.cloudflared", in: report), "cloud-devops")
+        XCTAssertEqual(try category("brew.supabase", in: report), "cloud-devops")
+        XCTAssertEqual(try category("npm.openai.codex", in: report), "ai-agent")
+        XCTAssertEqual(try category("npm.google.gemini-cli", in: report), "ai-agent")
+        XCTAssertEqual(try category("npm.typescript", in: report), "library")
+    }
+
+    private func category(_ id: String, in report: ScanReport) throws -> String {
+        try XCTUnwrap(report.candidates.first { $0.id == id }).category
+    }
 }
