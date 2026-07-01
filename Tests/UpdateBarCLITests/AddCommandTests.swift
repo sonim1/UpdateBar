@@ -90,6 +90,23 @@ final class AddCommandTests: XCTestCase {
         XCTAssertNil(stored.item(id: "denied"))
     }
 
+    func testManualAddTrustWithoutYesJSONReturnsErrorEnvelope() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: []))
+        let file = try writeRecipe(home: home, recipe: recipe(id: "denied"))
+
+        let result = try CLIProcess.run(["add", "--from", file.path, "--trust", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.isEmpty)
+        XCTAssertTrue(result.stdout.contains("\"ok\":false"))
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertFalse(payload.ok)
+        XCTAssertTrue(payload.errors.contains("command approval cancelled"))
+    }
+
     func testAIAddFlagsAreRemovedFromCLI() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let result = try CLIProcess.run(["add", "--ai", "--from", "anything"], home: home)
@@ -167,6 +184,12 @@ final class AddCommandTests: XCTestCase {
         )
         TrustPolicy.approveAllCommands(in: &item)
         return item
+    }
+
+    private struct ErrorEnvelope: Decodable {
+        var ok: Bool
+        var code: String
+        var errors: [String]
     }
 
     private struct AddPayload: Decodable {

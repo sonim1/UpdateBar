@@ -106,6 +106,24 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertEqual(events[4].summary?.hardFailures, 1)
     }
 
+    func testUpdateJSONWithoutYesSkipsExecutionWithoutPrompt() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: [
+            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'"),
+        ]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "tool": itemState(status: .outdated)
+        ]))
+
+        let result = try CLIProcess.run(["update", "tool", "--json"], home: home)
+        let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.isEmpty)
+        XCTAssertEqual(results.map(\.outcome), [.cancelled])
+    }
+
     func testUpdateRejectsJSONAndJSONStreamTogether() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
@@ -141,6 +159,26 @@ final class UpdateCommandTests: XCTestCase {
         let events = try decodeEvents(result.stdout)
 
         XCTAssertEqual(result.exitCode, 2)
+        XCTAssertEqual(events.map(\.event), [.started, .log, .itemStarted, .itemFinished, .cancelled, .finished])
+        XCTAssertEqual(events[3].result?.outcome, .cancelled)
+        XCTAssertEqual(events[4].summary?.cancelled, 1)
+    }
+
+    func testUpdateJSONStreamWithoutYesSkipsExecutionWithoutPrompt() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: [
+            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
+        ]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "tool": itemState(status: .outdated)
+        ]))
+
+        let result = try CLIProcess.run(["update", "tool", "--json-stream"], home: home)
+        let events = try decodeEvents(result.stdout)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.isEmpty)
         XCTAssertEqual(events.map(\.event), [.started, .log, .itemStarted, .itemFinished, .cancelled, .finished])
         XCTAssertEqual(events[3].result?.outcome, .cancelled)
         XCTAssertEqual(events[4].summary?.cancelled, 1)

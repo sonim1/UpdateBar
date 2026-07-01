@@ -68,6 +68,21 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertNotNil(manifest.item(id: "tool"))
     }
 
+    func testRemoveWithoutYesJSONReturnsErrorEnvelope() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveFixture(paths: paths)
+
+        let result = try CLIProcess.run(["remove", "tool", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.isEmpty)
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertFalse(payload.ok)
+        XCTAssertTrue(payload.errors.contains("remove cancelled"))
+    }
+
     func testApproveListAndRevokeCommandFields() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
@@ -163,5 +178,11 @@ final class ManageItemCommandTests: XCTestCase {
         )
         TrustPolicy.approveAllCommands(in: &item)
         return item
+    }
+
+    private struct ErrorEnvelope: Decodable {
+        var ok: Bool
+        var code: String
+        var errors: [String]
     }
 }

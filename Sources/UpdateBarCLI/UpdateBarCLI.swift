@@ -422,7 +422,10 @@ private func readYes(_ prompt: String) -> Bool {
     return readLine() == "yes"
 }
 
-private func requireYes(prompt: String, cancelMessage: String) throws {
+private func requireYes(prompt: String, cancelMessage: String, interactive: Bool = true) throws {
+    guard interactive else {
+        throw ValidationError(cancelMessage)
+    }
     guard readYes(prompt) else {
         throw ValidationError(cancelMessage)
     }
@@ -1490,6 +1493,9 @@ struct UpdateCommand: ParsableCommand {
     }
 
     private func confirmUpdate(_ item: UpdatePlanItem) -> Bool {
+        if json {
+            return false
+        }
         return readYes("Update \(item.id)? Type yes to continue:")
     }
 }
@@ -1589,7 +1595,8 @@ struct RemoveCommand: ParsableCommand {
         if !yes {
             try requireYes(
                 prompt: "Remove \(id)? Type yes to continue:",
-                cancelMessage: "remove cancelled"
+                cancelMessage: "remove cancelled",
+                interactive: !json
             )
         }
         try RegistryService().remove(id: id)
@@ -1874,7 +1881,8 @@ struct AddCommand: ParsableCommand {
         if !yes {
             try requireYes(
                 prompt: "Trust and approve these commands? Type yes to continue:",
-                cancelMessage: "command approval cancelled"
+                cancelMessage: "command approval cancelled",
+                interactive: !json
             )
         }
         TrustPolicy.approveAllCommands(in: &prepared)
