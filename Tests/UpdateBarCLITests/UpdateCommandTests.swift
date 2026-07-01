@@ -143,6 +143,27 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.isEmpty)
     }
 
+    func testUpdateRejectsAllWithExplicitIDs() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: [
+            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.1.0'")
+        ]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "tool": itemState(status: .outdated)
+        ]))
+
+        let result = try CLIProcess.run(
+            ["update", "tool", "--all", "--yes", "--json"],
+            home: home
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stdout.contains("--all cannot be combined with explicit item ids"))
+        XCTAssertFalse(result.stdout.contains("\"ok\":true"))
+        XCTAssertTrue(result.stderr.isEmpty)
+    }
+
     func testUpdateJSONStreamReportsCancellation() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)

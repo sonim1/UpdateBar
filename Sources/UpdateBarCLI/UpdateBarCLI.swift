@@ -1440,6 +1440,10 @@ struct UpdateCommand: ParsableCommand {
     var jsonStream = false
 
     func run() throws {
+        if all, !ids.isEmpty {
+            throw ValidationError("--all cannot be combined with explicit item ids")
+        }
+
         guard all || !ids.isEmpty else {
             throw ValidationError("provide item ids or --all")
         }
