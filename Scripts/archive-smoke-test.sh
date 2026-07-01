@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/version.env"
 ARCHIVE="${1:-}"
 
 if [[ -z "$ARCHIVE" ]]; then
@@ -20,7 +21,13 @@ BIN="$TMP_DIR/updatebar"
 HOME_DIR="$TMP_DIR/home"
 mkdir -p "$HOME_DIR"
 
-UPDATEBAR_HOME="$HOME_DIR" "$BIN" --version >/dev/null
+CLI_VERSION="$(UPDATEBAR_HOME="$HOME_DIR" "$BIN" --version)"
+if [[ "$CLI_VERSION" != "$UPDATEBAR_VERSION" ]]; then
+  echo "archive CLI version mismatch for $ARCHIVE" >&2
+  echo "  expected: $UPDATEBAR_VERSION" >&2
+  echo "  actual:   $CLI_VERSION" >&2
+  exit 1
+fi
 UPDATEBAR_HOME="$HOME_DIR" "$BIN" schema >/dev/null
 UPDATEBAR_HOME="$HOME_DIR" "$BIN" guide agent >/dev/null
 UPDATEBAR_HOME="$HOME_DIR" "$BIN" guide recipe >/dev/null

@@ -13,6 +13,7 @@ npm --prefix tui run lint
 bash Scripts/smoke-test.sh
 rm -f dist/*.tar.gz dist/*.sha256
 Scripts/build-release.sh
+bash Scripts/archive-version-smoke-test.sh
 bash Scripts/archive-smoke-test.sh
 bash Scripts/homebrew-packaging-test.sh
 Scripts/package-app.sh

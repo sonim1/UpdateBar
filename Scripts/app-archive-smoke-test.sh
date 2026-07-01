@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/version.env"
 ARCHIVE="${1:-}"
 
 if [[ -z "$ARCHIVE" ]]; then
@@ -41,6 +42,25 @@ fi
 if command -v plutil >/dev/null 2>&1; then
   plutil -lint "$INFO_PLIST" >/dev/null
 fi
-"$CLI_BIN" --version >/dev/null
+
+if command -v plutil >/dev/null 2>&1; then
+  APP_VERSION="$(plutil -extract CFBundleShortVersionString raw "$INFO_PLIST" 2>/dev/null || true)"
+else
+  APP_VERSION="$(awk '/<key>CFBundleShortVersionString<\/key>/ { getline; gsub(/.*<string>|<\/string>.*/, ""); print; exit }' "$INFO_PLIST")"
+fi
+if [[ "$APP_VERSION" != "$UPDATEBAR_VERSION" ]]; then
+  echo "app archive version mismatch for $ARCHIVE" >&2
+  echo "  expected: $UPDATEBAR_VERSION" >&2
+  echo "  actual:   ${APP_VERSION:-missing}" >&2
+  exit 1
+fi
+
+CLI_VERSION="$("$CLI_BIN" --version)"
+if [[ "$CLI_VERSION" != "$UPDATEBAR_VERSION" ]]; then
+  echo "app archive bundled CLI version mismatch for $ARCHIVE" >&2
+  echo "  expected: $UPDATEBAR_VERSION" >&2
+  echo "  actual:   $CLI_VERSION" >&2
+  exit 1
+fi
 
 echo "app archive smoke ok"
