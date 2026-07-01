@@ -14,6 +14,8 @@ export interface StatusSnapshot {
     total: number;
     outdated: number;
     errors: number;
+    untrusted: number;
+    pinned: number;
   };
   items: StatusItem[];
 }

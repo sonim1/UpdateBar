@@ -278,11 +278,10 @@ export function App({client: providedClient}: AppProps) {
 
 function StatusLine({status}: {status: StatusSnapshot | undefined}) {
   if (!status) return <Text dimColor>Loading status...</Text>;
-  const counts = computeStatusCounts(status.items);
   return (
     <Text>
       {status.summary.total} tracked · {status.summary.outdated} outdated · {status.summary.errors} errors ·{' '}
-      {counts.untrusted} untrusted · {counts.pinned} pinned
+      {status.summary.untrusted} untrusted · {status.summary.pinned} pinned
     </Text>
   );
 }
@@ -328,16 +327,6 @@ function statusColor(status: StatusItem['status']) {
   if (status === 'pinned' || status === 'disabled') return 'magenta';
   if (status === 'differs') return 'cyan';
   return undefined;
-}
-
-function computeStatusCounts(items: StatusItem[]) {
-  let untrusted = 0;
-  let pinned = 0;
-  for (const item of items) {
-    if (item.status === 'untrusted') untrusted += 1;
-    if (item.status === 'pinned') pinned += 1;
-  }
-  return {untrusted, pinned};
 }
 
 function ScanList({

@@ -29,7 +29,9 @@ public struct StatusSnapshot: Codable, Equatable {
             summary: StatusSummary(
                 total: items.count,
                 outdated: items.filter { $0.status == .outdated }.count,
-                errors: items.filter { $0.status == .error }.count
+                errors: items.filter { $0.status == .error }.count,
+                untrusted: items.filter { $0.status == .untrusted }.count,
+                pinned: items.filter { $0.status == .pinned }.count
             ),
             items: items
         )
@@ -58,11 +60,32 @@ public struct StatusSummary: Codable, Equatable {
     public var total: Int
     public var outdated: Int
     public var errors: Int
+    public var untrusted: Int
+    public var pinned: Int
 
-    public init(total: Int, outdated: Int, errors: Int) {
+    public init(total: Int, outdated: Int, errors: Int, untrusted: Int = 0, pinned: Int = 0) {
         self.total = total
         self.outdated = outdated
         self.errors = errors
+        self.untrusted = untrusted
+        self.pinned = pinned
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case total
+        case outdated
+        case errors
+        case untrusted
+        case pinned
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        total = try container.decode(Int.self, forKey: .total)
+        outdated = try container.decode(Int.self, forKey: .outdated)
+        errors = try container.decode(Int.self, forKey: .errors)
+        untrusted = try container.decodeIfPresent(Int.self, forKey: .untrusted) ?? 0
+        pinned = try container.decodeIfPresent(Int.self, forKey: .pinned) ?? 0
     }
 }
 

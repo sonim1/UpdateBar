@@ -12,16 +12,16 @@ describe('App', () => {
       async status() {
         return {
           generated_at: '2026-06-30T00:00:00Z',
-          summary: {total: 2, outdated: 1, errors: 0},
+          summary: {total: 2, outdated: 1, errors: 0, untrusted: 3, pinned: 2},
           items: []
         };
       }
     });
 
     const view = render(<App client={client} />);
-    await waitForFrame(view, '2 tracked · 1 outdated · 0 errors');
+    await waitForFrame(view, '2 tracked · 1 outdated · 0 errors · 3 untrusted · 2 pinned');
 
-    expect(view.lastFrame()).toContain('2 tracked · 1 outdated · 0 errors');
+    expect(view.lastFrame()).toContain('2 tracked · 1 outdated · 0 errors · 3 untrusted · 2 pinned');
   });
 
   it('opens scan candidates from the menu', async () => {
@@ -538,7 +538,7 @@ describe('App', () => {
         }
         return {
           generated_at: '2026-06-30T00:00:00Z',
-          summary: {total: 0, outdated: 0, errors: 0},
+          summary: {total: 0, outdated: 0, errors: 0, untrusted: 0, pinned: 0},
           items: []
         };
       },
@@ -596,7 +596,7 @@ function createClient(overrides: Partial<UpdateBarClient> = {}): UpdateBarClient
     async status() {
       return {
         generated_at: '2026-06-30T00:00:00Z',
-        summary: {total: 0, outdated: 0, errors: 0},
+        summary: {total: 0, outdated: 0, errors: 0, untrusted: 0, pinned: 0},
         items: []
       };
     },
