@@ -125,6 +125,35 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 
+    func testBuildsErrorRecoveryMenu() {
+        let model = MenuBarMenuModelBuilder().makeErrorMenu(
+            errorDescription: "manifest invalid"
+        )
+
+        XCTAssertEqual(
+            model.entries.labels,
+            [
+                "UpdateBar Error",
+                "manifest invalid",
+                "---",
+                "Check Now",
+                "Open TUI",
+                "Open Config",
+                "View Logs",
+                "Quit",
+            ])
+        XCTAssertEqual(
+            model.entries.actions,
+            [
+                .menu(.checkNow),
+                .menu(.openTUI),
+                .menu(.openConfig),
+                .menu(.viewLogs),
+                .menu(.quit),
+            ])
+        XCTAssertFalse(model.entries.hasRepeatedSeparators)
+    }
+
     private func statusItem(
         id: String,
         name: String,
