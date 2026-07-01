@@ -295,9 +295,7 @@ struct InitCommand: ParsableCommand {
 
     private func parseSelection(from report: ScanReport) throws -> [String] {
         if let select {
-            let values = select.split(separator: ",").map {
-                String($0).trimmingCharacters(in: .whitespacesAndNewlines)
-            }
+            let values = parseSelectionTokens(select)
             guard !values.isEmpty else {
                 throw ValidationError("select: expected at least one candidate id")
             }
@@ -326,14 +324,14 @@ struct InitCommand: ParsableCommand {
         _ line: String,
         candidates: [ScanCandidate]
     ) throws -> [String] {
-        let values = selectionTokens(line)
+        let values = parseSelectionTokens(line)
         guard !values.isEmpty else {
             throw ValidationError("selection required")
         }
-        if values.count == 1, values[0].lowercased() == "all" {
+        if values.count == 1 && values[0].lowercased() == "all" {
             return candidates.map(\.id)
         }
-        return try values.map { value in
+        return try unique(values).map { value in
             if let index = Int(value) {
                 guard index >= 1, index <= candidates.count else {
                     throw ValidationError("\(value): selection out of range")
@@ -344,12 +342,22 @@ struct InitCommand: ParsableCommand {
         }
     }
 
-    private func selectionTokens(_ value: String) -> [String] {
+    private func parseSelectionTokens(_ value: String) -> [String] {
         let separators = CharacterSet(charactersIn: ",").union(.whitespacesAndNewlines)
         return value
             .components(separatedBy: separators)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+            .map { $0.lowercased() }
+    }
+
+    private func unique(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        var results: [String] = []
+        for value in values where seen.insert(value).inserted {
+            results.append(value)
+        }
+        return results
     }
 
     private func printImportable(_ candidates: [ScanCandidate]) {
