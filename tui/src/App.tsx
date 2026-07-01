@@ -453,6 +453,10 @@ function checkSummaryLines(report: CheckReport) {
     lines.push(`differs: ${report.summary.differs}`);
   }
 
+  if (report.summary.pinned > 0) {
+    lines.push(`pinned: ${report.summary.pinned}`);
+  }
+
   if (report.summary.disabled > 0) {
     lines.push(`disabled: ${report.summary.disabled}`);
   }
