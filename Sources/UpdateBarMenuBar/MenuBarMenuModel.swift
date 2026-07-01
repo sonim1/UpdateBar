@@ -39,6 +39,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
 
     private static let maxSectionItems = 6
     private static let maxApprovalItems = 8
+    private static let maxApprovalRowsPerItem = 2
 
     public func makeMenu(
         state: MenuBarState,
@@ -121,22 +122,36 @@ public struct MenuBarMenuModelBuilder: Sendable {
         var addedItems = 0
         let totalApprovalRows = items.reduce(0) { total, item in
             let approvals = approvalStatuses[item.id] ?? []
-            return total + (approvals.isEmpty ? 1 : approvals.count)
+            let header = 1
+            if approvals.isEmpty {
+                return total + header
+            }
+            let shown = min(approvals.count, Self.maxApprovalRowsPerItem)
+            let overflow = approvals.count > shown ? 1 : 0
+            return total + header + shown + overflow
         }
         for item in items {
             let approvals = approvalStatuses[item.id] ?? []
             if approvals.isEmpty {
-                appendDisabled("\(item.name): no command fields", to: &entries)
-                addedItems += 1
                 if addedItems >= Self.maxApprovalItems {
                     break
                 }
+                appendDisabled("  \(item.name): no command fields", to: &entries)
+                addedItems += 1
                 continue
             }
-            for approval in approvals {
-                if addedItems >= Self.maxApprovalItems {
-                    break
-                }
+
+            if addedItems >= Self.maxApprovalItems {
+                break
+            }
+
+            let plural = approvals.count == 1 ? "" : "s"
+            appendDisabled("  \(item.name) (\(approvals.count) command\(plural))", to: &entries)
+            addedItems += 1
+
+            let remaining = Self.maxApprovalItems - addedItems
+            let showCount = min(approvals.count, min(Self.maxApprovalRowsPerItem, remaining))
+            for approval in approvals.prefix(showCount) {
                 let verb = approval.approved ? "Revoke" : "Approve"
                 let command = collapseWhitespace(in: approval.command)
                 let cwd = approval.cwd.map { " [cwd: \($0)]" } ?? ""
@@ -144,13 +159,24 @@ public struct MenuBarMenuModelBuilder: Sendable {
                     approval.approved
                     ? .revoke(id: item.id, field: approval.field)
                     : .approve(id: item.id, field: approval.field)
+                guard showCount > 0 else { break }
+                let label = "      \(verb) \(approval.field): \(command)\(cwd)"
                 entries.append(
                     .item(
                         MenuBarMenuItem(
-                            title: "\(verb) \(approval.field) for \(item.name): \(command)\(cwd)",
+                            title: label,
                             action: action,
                             toolTip: "\(approval.field): \(approval.command)\(cwd)"
                         )))
+                addedItems += 1
+                if addedItems >= Self.maxApprovalItems {
+                    break
+                }
+            }
+
+            let hidden = approvals.count - showCount
+            if hidden > 0, addedItems < Self.maxApprovalItems {
+                appendDisabled("    + and \(hidden) more", to: &entries)
                 addedItems += 1
             }
             if addedItems >= Self.maxApprovalItems {

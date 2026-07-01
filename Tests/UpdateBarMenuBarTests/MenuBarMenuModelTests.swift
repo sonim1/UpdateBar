@@ -95,8 +95,9 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Old Tool 1.0.0 -> 1.1.0",
                 "---",
                 "Needs Approval",
-                "Approve update.cmd for Fresh Tool: fresh update [cwd: /tmp/fresh]",
-                "Revoke check.cmd for Fresh Tool: fresh check",
+                "  Fresh Tool (2 commands)",
+                "      Approve update.cmd: fresh update [cwd: /tmp/fresh]",
+                "      Revoke check.cmd: fresh check",
                 "---",
                 "Errors",
                 "Broken Tool: command failed",
@@ -213,7 +214,7 @@ final class MenuBarMenuModelTests: XCTestCase {
             model.entries.labels.filter { $0 == "and 1 more" }.count,
             2
         )
-        XCTAssertTrue(model.entries.labels.contains("and 2 more actions"))
+        XCTAssertTrue(model.entries.labels.contains("and 8 more"))
     }
 
     private func statusItem(
