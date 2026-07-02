@@ -55,6 +55,26 @@ final class LatestStrategyTests: XCTestCase {
         }
     }
 
+    func testGitHeadEmptyOutputReportsMissingHead() throws {
+        var item = recipe()
+        item.source.kind = .git
+        item.source.ref = "https://github.com/example/tool.git"
+        item.source.branch = "missing"
+        let command = "git ls-remote -- 'https://github.com/example/tool.git' 'refs/heads/missing'"
+        let context = LatestContext(
+            httpClient: emptyHTTP(),
+            commandRunner: MockCommandExecutor(results: [
+                command: CommandResult(exitCode: 0, stdout: "", stderr: "")
+            ])
+        )
+
+        XCTAssertThrowsError(
+            try GitLatestStrategy(mode: .head).latest(for: item, context: context)
+        ) { error in
+            XCTAssertEqual(String(describing: error), "git head not found: missing")
+        }
+    }
+
     func testGitTagsSelectsHighestSemverTag() throws {
         var item = recipe()
         item.source.kind = .git

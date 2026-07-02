@@ -31,7 +31,10 @@ public struct GitLatestStrategy: LatestStrategy {
                 throw LatestError.commandFailed("git ls-remote exited \(result.exitCode): \(result.stderr)")
             }
             let fields = result.stdout.split { $0 == "\t" || $0 == " " || $0 == "\n" }
-            return fields.first.map(String.init) ?? ""
+            guard let head = fields.first.map(String.init) else {
+                throw LatestError.parseFailed("git head not found: \(branch)")
+            }
+            return head
         case .tags:
             let command =
                 "git ls-remote --tags -- \(ShellQuote.single(recipe.source.ref))"
