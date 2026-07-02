@@ -1,7 +1,20 @@
 import Foundation
 import XCTest
+import UpdateBarCore
 
 final class ConfigCommandTests: XCTestCase {
+    func testConfigGetDoesNotCreateDefaultConfigFile() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
+        let paths = AppPaths(homeDirectory: home)
+
+        let result = try CLIProcess.run(["config", "get", "security.require_https_source"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "true")
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
+    }
+
     func testConfigSetSupportsJSONOutput() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
 

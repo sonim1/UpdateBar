@@ -22,7 +22,7 @@ struct ConfigCommand: ParsableCommand {
         var json = false
 
         func run() throws {
-            let config = try ConfigStore().load()
+            let config = try ConfigStore().loadExistingOrDefault()
             if let key {
                 guard let value = config.get(key) else {
                     throw ConfigError.unknownKey(key)
