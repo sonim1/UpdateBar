@@ -252,12 +252,6 @@ enum UpdateBarMain {
     }
 }
 
-private struct ErrorEnvelope: Encodable {
-    var ok: Bool
-    var code: String
-    var errors: [String]
-}
-
 struct TUICommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "tui",
@@ -1146,66 +1140,6 @@ private struct ConfigDumpPayload: Encodable {
 
 }
 
-private struct ValidationError: Error, CustomStringConvertible {
-    var description: String
-
-    init(_ description: String) {
-        self.description = description
-    }
-}
-
-private func printJSON<T: Encodable>(_ value: T) throws {
-    let encoder = JSONEncoder()
-    encoder.dateEncodingStrategy = .iso8601
-    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-    let data = try encoder.encode(value)
-    JSONOutputTracker.shared.markDidWrite()
-    print(String(decoding: data, as: UTF8.self))
-}
-
-private func sanitizedErrorMessage(for error: Error) -> String {
-    let rawMessage = UpdateBar.fullMessage(for: error).isEmpty
-        ? String(describing: error)
-        : UpdateBar.fullMessage(for: error)
-    let normalizedMessage = rawMessage.hasPrefix("Error: ") ? String(rawMessage.dropFirst("Error: ".count)) : rawMessage
-    return SecretRedactor.redact(normalizedMessage)
-}
-
-private func writeStderr(_ message: String, addNewline: Bool = true) {
-    let value = addNewline ? "\(message)\n" : message
-    FileHandle.standardError.write(Data(SecretRedactor.redact(value).utf8))
-}
-
-private func writeStdout(_ message: String, addNewline: Bool = true) {
-    let value = addNewline ? "\(message)\n" : message
-    FileHandle.standardOutput.write(Data(SecretRedactor.redact(value).utf8))
-}
-
-private func writePrompt(_ prompt: String, trailingSpace: Bool = true) {
-    writeStderr(prompt + (trailingSpace ? " " : ""), addNewline: false)
-}
-
-private struct JSONLWriter {
-    let runID: String
-
-    init(runID: String = UUID().uuidString) {
-        self.runID = runID
-    }
-
-    func write(_ event: MachineEvent) throws {
-        var event = event
-        if event.runId == nil {
-            event.runId = runID
-        }
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let data = try encoder.encode(event)
-        JSONOutputTracker.shared.markDidWrite()
-        print(String(decoding: data, as: UTF8.self))
-    }
-}
-
 private final class SignalCancellationHandler {
     private var sources: [DispatchSourceSignal] = []
 
@@ -1235,31 +1169,6 @@ private final class SignalCancellationHandler {
         Darwin.signal(signalNumber, SIG_IGN)
 #endif
     }
-}
-
-private final class JSONOutputTracker: @unchecked Sendable {
-    static let shared = JSONOutputTracker()
-    private let lock = NSLock()
-    private var wrote = false
-
-    var didWrite: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return wrote
-    }
-
-    func markDidWrite() {
-        lock.lock()
-        wrote = true
-        lock.unlock()
-    }
-}
-
-private func readInputData(_ path: String) throws -> Data {
-    if path == "-" {
-        return FileHandle.standardInput.readDataToEndOfFile()
-    }
-    return try Data(contentsOf: URL(fileURLWithPath: path))
 }
 
 struct GuideCommand: ParsableCommand {
