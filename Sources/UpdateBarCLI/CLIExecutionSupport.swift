@@ -78,7 +78,7 @@ private func closePromptLineForPipedInput() {
     writeStderr("")
 }
 
-private func standardInputIsTTY() -> Bool {
+func standardInputIsTTY() -> Bool {
 #if os(Linux)
     Glibc.isatty(STDIN_FILENO) == 1
 #else

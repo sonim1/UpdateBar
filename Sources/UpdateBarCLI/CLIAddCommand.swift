@@ -152,7 +152,10 @@ struct AddCommand: ParsableCommand {
     }
 
     private func prompt(_ label: String) throws -> String {
-        guard let line = readPromptedLine(label) else {
+        guard let line = readManualLine(label) else {
+            if label == "id" {
+                throw ValidationError("add requires recipe input; pass --from <file> or pipe wizard answers on stdin")
+            }
             throw ValidationError("\(label): required")
         }
         guard !line.isEmpty else {
@@ -162,12 +165,19 @@ struct AddCommand: ParsableCommand {
     }
 
     private func optionalPrompt(_ label: String) -> String? {
-        guard let line = readPromptedLine(label) else {
+        guard let line = readManualLine(label) else {
             return nil
         }
         guard !line.isEmpty else {
             return nil
         }
         return line
+    }
+
+    private func readManualLine(_ label: String) -> String? {
+        guard standardInputIsTTY() && !json else {
+            return readLine()
+        }
+        return readPromptedLine(label)
     }
 }

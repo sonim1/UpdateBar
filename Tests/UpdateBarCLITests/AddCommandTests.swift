@@ -71,15 +71,26 @@ final class AddCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("updatebar check manual"))
     }
 
-    func testAddWithoutInputSeparatesPromptFromRequiredError() throws {
+    func testAddWithoutInputReportsActionableRecipeInputError() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
 
         let result = try CLIProcess.run(["add"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stdout, "")
-        XCTAssertEqual(result.stderr, "id \nid: required\n")
-        XCTAssertFalse(result.stderr.contains("id id: required"))
+        XCTAssertEqual(result.stderr, "add requires recipe input; pass --from <file> or pipe wizard answers on stdin\n")
+    }
+
+    func testAddJSONWithoutInputDoesNotWritePromptToStderr() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+
+        let result = try CLIProcess.run(["add", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertTrue(payload.errors.contains("add requires recipe input; pass --from <file> or pipe wizard answers on stdin"))
     }
 
     func testManualAddRejectsMalformedManifestWithValidationErrors() throws {
