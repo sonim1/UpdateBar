@@ -14,7 +14,7 @@ struct EditCommand: ParsableCommand {
 
     func run() throws {
         let store = ManifestStore()
-        let manifest = try store.load()
+        let manifest = try store.loadExistingOrEmpty()
         guard let original = manifest.item(id: id) else {
             throw RegistryError.itemNotFound(id)
         }
@@ -38,7 +38,7 @@ struct EditCommand: ParsableCommand {
         edited = invalidateChangedApprovals(original: original, edited: edited)
 
         try store.withExclusiveLock {
-            var latest = try store.load()
+            var latest = try store.loadExistingOrEmpty()
             guard latest.item(id: id) != nil else {
                 throw RegistryError.itemNotFound(id)
             }

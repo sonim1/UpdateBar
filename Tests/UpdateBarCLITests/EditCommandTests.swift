@@ -135,6 +135,17 @@ final class EditCommandTests: XCTestCase {
         XCTAssertEqual(try ManifestStore(paths: paths).load().item(id: "tool")?.name, "Tool")
     }
 
+    func testEditMissingItemDoesNotCreateManifest() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+
+        let result = try CLIProcess.run(["edit", "missing"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("missing: item not found"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
+    }
+
     func testEditRejectsUnknownEditorCommandAfterAssignments() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
         let paths = AppPaths(homeDirectory: home)
