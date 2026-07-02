@@ -33,6 +33,7 @@ public struct UpdateRunner {
     public func update(ids: [String], all: Bool, assumeYes: Bool) throws -> [UpdateResult] {
         let planDate = now()
         let manifest = try manifestStore.loadExistingOrEmpty(now: planDate)
+        try validate(manifest)
         let state = try stateStore.loadExistingOrEmpty(now: planDate)
         let plan = UpdatePlanner(manifest: manifest, state: state).plan(ids: ids, all: all)
         var results: [UpdateResult] = []
@@ -64,6 +65,7 @@ public struct UpdateRunner {
     public func plan(ids: [String], all: Bool) throws -> [UpdatePlanItem] {
         let planDate = now()
         let manifest = try manifestStore.loadExistingOrEmpty(now: planDate)
+        try validate(manifest)
         let state = try stateStore.loadExistingOrEmpty(now: planDate)
         return UpdatePlanner(manifest: manifest, state: state).plan(ids: ids, all: all)
     }
@@ -71,6 +73,14 @@ public struct UpdateRunner {
     public func updateReport(ids: [String], all: Bool, assumeYes: Bool) throws -> UpdateReport {
         let results = try update(ids: ids, all: all, assumeYes: assumeYes)
         return UpdateReport(results: results)
+    }
+
+    private func validate(_ manifest: Manifest) throws {
+        let data = try JSONEncoder.updateBar.encode(manifest)
+        let result = try ManifestValidator.validate(data: data)
+        if !result.isValid {
+            throw RegistryError.invalidManifest(result.errors)
+        }
     }
 
     private func runUpdate(recipe: Recipe, planItem: UpdatePlanItem) throws -> UpdateResult {

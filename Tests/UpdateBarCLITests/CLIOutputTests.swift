@@ -41,7 +41,7 @@ final class CLIOutputTests: XCTestCase {
             check: .command("printf 'tool 1.0.0'"),
             latest: LatestSpec(strategy: .cmd, cmd: "printf 'tool 1.1.0'", pattern: nil),
             versionParse: .regex("([0-9]+\\.[0-9]+\\.[0-9]+)"),
-            update: UpdateSpec(cmd: "printf '\(secret)' >&2; exit 3", cwd: nil),
+            update: UpdateSpec(cmd: "printf '%s%s' 'sk-or-v1-' 'super-secret-value' >&2; exit 3", cwd: nil),
             pin: nil,
             enabled: true,
             trust: Trust(level: .trusted, approvedCommands: [:])

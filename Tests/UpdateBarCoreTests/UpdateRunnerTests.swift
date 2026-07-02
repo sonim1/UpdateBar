@@ -85,6 +85,30 @@ final class UpdateRunnerTests: XCTestCase {
         XCTAssertFalse(state.items["bad"]?.error?.contains(githubToken) ?? true)
     }
 
+    func testRunnerRejectsInvalidManifestBeforeExecutingUpdateCommands() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        var item = recipe(id: "bad")
+        item.update.cmd = "OPENROUTER_API_KEY=sk-or-v1-secret-value bad update"
+        TrustPolicy.approveAllCommands(in: &item)
+        try ManifestStore(paths: paths).save(manifest(items: [
+            item
+        ]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "bad": itemState(status: .outdated)
+        ]))
+        let commands = MockCommandExecutor(results: [:])
+        let runner = updateRunner(paths: paths, commands: commands)
+
+        XCTAssertThrowsError(try runner.update(ids: ["bad"], all: false, assumeYes: true)) { error in
+            guard case let RegistryError.invalidManifest(errors) = error else {
+                return XCTFail("expected invalid manifest, got \(error)")
+            }
+            XCTAssertTrue(errors.contains("items[0].update.cmd: must not contain literal secrets"))
+        }
+        XCTAssertTrue(commands.commands.isEmpty)
+    }
+
     func testRunnerSkipsPinnedDisabledUntrustedAndNotOutdatedItemsWithoutCommands() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
