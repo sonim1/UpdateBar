@@ -113,12 +113,14 @@ candidates after scanning.
 For categories that map to a single metadata detector, such as `codex-skill` or
 `mcp-server`, the default scan only runs that relevant detector.
 
-Human output includes each candidate id, such as `brew.gh`, plus the interactive
-`updatebar init` command and a ready-to-run `updatebar init --select all`
-command for importable candidates. Category-filtered scans preserve the same `--category` filter in those Next commands.
-`metadata-only` rows include a source ref so local skill and MCP config entries
-can be traced without printing env values. JSON output returns the same ids in
-`candidates[].id`.
+Human output is tab-separated with `ITEM`, `ID`, `CATEGORY`, `SOURCE`, and
+`CAPABILITY` columns. It includes each candidate id, such as `brew.gh`, plus the
+interactive `updatebar init` command and a ready-to-run
+`updatebar init --select all` command for importable candidates.
+Category-filtered scans preserve the same `--category` filter in those Next
+commands. `metadata-only` rows include a source ref so local skill and MCP
+config entries can be traced without printing env values. JSON output returns
+the same ids in `candidates[].id`.
 
 ### `updatebar init [--json] [--category <category>] [--select <ids>] [--replace]`
 
@@ -129,6 +131,8 @@ or whitespace-separated numbers or candidate ids from stdin. Enter `all` to add
 every importable candidate. If no importable candidates are found, `init` exits
 with a usage error and suggests checking installed tools or using a broader
 category filter.
+The interactive candidate table is tab-separated with `ITEM`, `ID`, `CATEGORY`,
+and `SOURCE` columns; candidate ids are the second column.
 `--select` accepts comma-separated candidate numbers or ids such as
 `2,brew.gh,npm.typescript`, optional spaces are ignored, duplicate values are
 ignored, and `ALL` is accepted for `all`. `--json` requires `--select` so stdout

@@ -113,8 +113,11 @@ final class InitCommandTests: XCTestCase {
         )
 
         XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("ITEM\tID\tCATEGORY\tSOURCE"))
         XCTAssertTrue(result.stdout.contains("[1] gh"))
+        XCTAssertTrue(result.stdout.contains("[1] gh 2.74.0\tbrew.gh\tcloud-devops\tbrew"))
         XCTAssertTrue(result.stdout.contains("[2] jq"))
+        XCTAssertTrue(result.stdout.contains("[2] jq 1.7.1\tbrew.jq\tshell-utility\tbrew"))
         XCTAssertTrue(result.stdout.contains("added 1"))
         let manifest = try ManifestStore(paths: AppPaths(homeDirectory: home)).load()
         XCTAssertEqual(manifest.items.map(\.id), ["brew.jq"])

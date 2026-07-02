@@ -272,7 +272,9 @@ final class ScanCommandTests: XCTestCase {
         )
 
         XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("ITEM\tID\tCATEGORY\tSOURCE\tCAPABILITY"))
         XCTAssertTrue(result.stdout.contains("brew.gh"))
+        XCTAssertTrue(result.stdout.contains("[1] gh 2.74.0\tbrew.gh\tcloud-devops\tbrew\tfull"))
         XCTAssertTrue(result.stdout.contains("updatebar init\n"))
         XCTAssertTrue(result.stdout.contains("updatebar init --select all"))
         XCTAssertFalse(result.stdout.contains("updatebar init --select brew.gh"))

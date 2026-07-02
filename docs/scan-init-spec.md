@@ -124,14 +124,24 @@ updatebar init --select brew.gh,npm.typescript
 updatebar init --category ai-agent
 ```
 
-Human `scan` output includes importable candidate ids, the interactive
-`updatebar init` command, and a ready-to-run `updatebar init --select ...`
+Human `scan` output is tab-separated with `ITEM`, `ID`, `CATEGORY`, `SOURCE`,
+and `CAPABILITY` columns. Review-only rows append `REF` when a source reference
+is available. The output includes importable candidate ids, the interactive
+`updatebar init` command, and a ready-to-run `updatebar init --select all`
 command. `init --select` accepts those ids exactly.
 
 Human output groups candidates into:
 
 - `Recommended`: `full` capability.
 - `Needs Review`: `check-only` or `metadata-only`.
+
+Example `scan` table:
+
+```text
+Recommended
+ITEM	ID	CATEGORY	SOURCE	CAPABILITY
+[1] gh 2.74.0	brew.gh	cloud-devops	brew	full
+```
 
 JSON output prints:
 
@@ -150,11 +160,12 @@ only selected recipes. It does not approve commands.
 Initial UX:
 
 ```text
-Found 12 candidates
+Found 12 importable candidate(s)
 
 Recommended
-[1] gh   cloud-devops   brew        full
-[2] jq   shell-utility  brew        full
+ITEM	ID	CATEGORY	SOURCE
+[1] gh 2.74.0	brew.gh	cloud-devops	brew
+[2] jq 1.7.1	brew.jq	shell-utility	brew
 
 Select items to add (numbers, ids, or all): 1 2
 ```

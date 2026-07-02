@@ -162,14 +162,15 @@ struct InitCommand: ParsableCommand {
         print("Found \(candidates.count) importable candidate(s)")
         print("")
         print("Recommended")
+        print("ITEM\tID\tCATEGORY\tSOURCE")
         for (index, candidate) in candidates.enumerated() {
             let version = candidate.installedVersion.map { " \($0)" } ?? ""
             let name = "[\(index + 1)] \(candidate.name)\(version)"
             let fields = [
                 name,
+                candidate.id,
                 candidate.category,
                 candidate.detector.rawValue,
-                candidate.id,
             ]
             print(fields.joined(separator: "\t"))
         }

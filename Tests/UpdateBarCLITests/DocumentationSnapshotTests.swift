@@ -503,6 +503,9 @@ final class DocumentationSnapshotTests: XCTestCase {
             "init docs should prefer ids for scan output"
         )
         XCTAssertTrue(initSection.contains("all"), "init docs should mention all")
+        for column in ["`ITEM`", "`ID`", "`CATEGORY`", "`SOURCE`"] {
+            XCTAssertTrue(initSection.contains(column), "init docs missing \(column)")
+        }
     }
 
     func testCliDocsScanDocumentsCategoriesAndMetadataSourceRefs() throws {
@@ -519,6 +522,9 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(scanSection.contains("source ref"))
         XCTAssertTrue(scanSection.contains("`updatebar init --select all`"))
         XCTAssertTrue(scanSection.contains("preserve the same `--category` filter"))
+        for column in ["`ITEM`", "`ID`", "`CATEGORY`", "`SOURCE`", "`CAPABILITY`"] {
+            XCTAssertTrue(scanSection.contains(column), "scan docs missing \(column)")
+        }
     }
 
     func testCliDocsHideAutomationExitFlagFromPrimarySignatures() throws {
@@ -588,6 +594,14 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
         XCTAssertFalse(categorySection.contains("local-service"))
         XCTAssertTrue(categorySection.contains("Unknown category values are rejected"))
+    }
+
+    func testScanInitSpecDocumentsHumanOutputColumns() throws {
+        let spec = try String(contentsOfFile: "docs/scan-init-spec.md", encoding: .utf8)
+
+        XCTAssertTrue(spec.contains("ITEM\tID\tCATEGORY\tSOURCE\tCAPABILITY"))
+        XCTAssertTrue(spec.contains("ITEM\tID\tCATEGORY\tSOURCE"))
+        XCTAssertTrue(spec.contains("[1] gh 2.74.0\tbrew.gh\tcloud-devops\tbrew"))
     }
 
     func testCliDocsDoNotAdvertiseUnsupportedJQVersionParse() throws {

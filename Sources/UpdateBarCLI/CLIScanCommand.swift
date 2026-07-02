@@ -54,6 +54,7 @@ struct ScanCommand: ParsableCommand {
     ) -> Int {
         guard !candidates.isEmpty else { return startIndex }
         print(title)
+        print(sectionHeader(for: candidates).joined(separator: "\t"))
         for (index, candidate) in candidates.enumerated() {
             let version = candidate.installedVersion.map { " \($0)" } ?? ""
             let name = "[\(startIndex + index)] \(candidate.name)\(version)"
@@ -71,6 +72,14 @@ struct ScanCommand: ParsableCommand {
         }
         print("")
         return startIndex + candidates.count
+    }
+
+    private func sectionHeader(for candidates: [ScanCandidate]) -> [String] {
+        var fields = ["ITEM", "ID", "CATEGORY", "SOURCE", "CAPABILITY"]
+        if candidates.contains(where: { metadataSourceRef(for: $0) != nil }) {
+            fields.append("REF")
+        }
+        return fields
     }
 
     private func printReviewOnlyNote(
