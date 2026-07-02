@@ -98,8 +98,11 @@ public enum RecipeValidator {
         let hasQueryField = check.keys.contains("query")
         let hasCmd = nonEmptyString(check["cmd"])
         let hasFile = nonEmptyString(check["file"])
-        if hasQueryField, !(check["query"] is String || check["query"] is NSNull) {
-            errors.append("\(path).query: must be a string or null when provided")
+        if hasQueryField {
+            errors.append("\(path).query: unsupported until runtime support is implemented")
+            if !(check["query"] is String || check["query"] is NSNull) {
+                errors.append("\(path).query: must be a string or null when provided")
+            }
         }
         if hasCmdField && (hasFileField || hasQueryField) {
             errors.append("\(path): exactly one of cmd or file is required")

@@ -71,6 +71,7 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertTrue(checkVariants.contains { variant in
             (variant["required"] as? [String]) == ["file"]
         })
+        XCTAssertFalse(result.stdout.contains(#""query""#))
         XCTAssertFalse(result.stdout.contains(#""jq""#))
     }
 

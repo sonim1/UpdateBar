@@ -1290,8 +1290,7 @@ struct SchemaCommand: ParsableCommand {
               ],
               "properties": {
                 "cmd": { "type": "string", "minLength": 1 },
-                "file": { "type": "string", "minLength": 1 },
-                "query": { "type": ["string", "null"], "deprecated": true }
+                "file": { "type": "string", "minLength": 1 }
               }
             },
             "latest": {

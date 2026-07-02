@@ -126,7 +126,7 @@ final class RegistryServiceTests: XCTestCase {
         let stores = Stores(paths: paths)
         var item = recipe(id: "file-tool", currentCommand: "unused", latestCommand: "file-tool latest")
         let missingPath = root.appendingPathComponent("missing-version.txt").path
-        item.check = .file(path: missingPath, query: "$.version")
+        item.check = .file(path: missingPath, query: nil)
         try stores.manifest.save(manifest(items: [item]))
         let commands = MockCommandExecutor(results: [
             "file-tool latest": CommandResult(exitCode: 0, stdout: "file-tool 1.1.0", stderr: "")

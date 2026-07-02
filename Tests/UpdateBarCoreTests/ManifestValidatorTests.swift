@@ -118,6 +118,17 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertNil(query)
     }
 
+    func testRejectsUnsupportedCheckFileQuery() throws {
+        let result = try validateFirstRawItem {
+            $0["check"] = [
+                "file": "/tmp/version.json",
+                "query": "$.version",
+            ] as [String: Any]
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].check.query: unsupported until runtime support is implemented"))
+    }
+
     func testRejectsWhitespaceOnlyCheckFile() throws {
         var manifest = try loadValid()
         manifest.items[0].check = .file(path: " \t\n", query: "$.version")
