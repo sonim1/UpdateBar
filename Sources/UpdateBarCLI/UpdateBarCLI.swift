@@ -775,25 +775,6 @@ struct BackgroundCommand: ParsableCommand {
     }
 }
 
-private struct BackgroundInstallPayload: Encodable {
-    var ok: Bool
-    var installed: Bool
-    var path: String
-}
-
-private struct BackgroundStatusPayload: Encodable {
-    var ok: Bool
-    var installed: Bool
-    var path: String
-    var label: String
-}
-
-private struct BackgroundUninstallPayload: Encodable {
-    var ok: Bool
-    var removed: Bool
-    var path: String
-}
-
 struct ValidateCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "validate",
@@ -845,31 +826,6 @@ private func isManifestDocument(_ data: Data) throws -> Bool {
         return false
     }
     return object["schema_version"] != nil || object["items"] != nil || object["provenance"] != nil
-}
-
-private struct ValidationPayload: Encodable {
-    var ok: Bool
-    var valid: Bool
-    var errors: [String]
-    var explanations: [ValidationExplanation]?
-}
-
-private struct ValidationExplanation: Encodable {
-    var error: String
-    var hint: String
-
-    init(error: String) {
-        self.error = error
-        if error.contains("version_parse.jq") {
-            hint = "Use version_parse.regex. jq is not part of the executable recipe contract."
-        } else if error.contains("version_parse.regex")
-            && error.contains("expected exactly one capture group")
-        {
-            hint = "Use version_parse.regex with exactly one capture group around the version."
-        } else {
-            hint = "Fix the field shown in the error path and run validate again."
-        }
-    }
 }
 
 struct ConfigCommand: ParsableCommand {
@@ -938,40 +894,6 @@ struct ConfigCommand: ParsableCommand {
             }
         }
     }
-}
-
-private struct ConfigSetPayload: Encodable {
-    var ok: Bool
-    var key: String
-    var value: String
-}
-
-private struct ConfigValuePayload: Encodable {
-    var key: String
-    var value: String
-}
-
-private struct ConfigDumpPayload: Encodable {
-    var refresh: Refresh
-    var security: Security
-
-    init(config: Config) {
-        refresh = Refresh(interval: config.refresh.interval.description)
-        security = Security(requireHTTPSSource: config.security.requireHTTPSSource)
-    }
-
-    struct Refresh: Encodable {
-        var interval: String
-    }
-
-    struct Security: Encodable {
-        var requireHTTPSSource: Bool
-
-        enum CodingKeys: String, CodingKey {
-            case requireHTTPSSource = "require_https_source"
-        }
-    }
-
 }
 
 private final class SignalCancellationHandler {
@@ -2010,25 +1932,6 @@ struct RevokeCommand: ParsableCommand {
     }
 }
 
-private struct ItemMutationPayload: Encodable {
-    var ok: Bool
-    var id: String
-    var item: Recipe
-}
-
-private struct ApprovalMutationPayload: Encodable {
-    var ok: Bool
-    var id: String
-    var field: String?
-    var item: Recipe
-}
-
-private struct RemovePayload: Encodable {
-    var ok: Bool
-    var id: String
-    var removed: Bool
-}
-
 struct ExportCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "export",
@@ -2108,27 +2011,6 @@ struct ImportCommand: ParsableCommand {
             }
             throw error
         }
-    }
-}
-
-private struct ImportPayload: Encodable {
-    var ok: Bool
-    var added: [String]
-    var replaced: [String]
-    var errors: [String]
-
-    init(summary: ImportSummary, errors: [String]) {
-        self.ok = errors.isEmpty
-        self.added = summary.added
-        self.replaced = summary.replaced
-        self.errors = errors
-    }
-
-    init(added: [String], replaced: [String], errors: [String]) {
-        self.ok = errors.isEmpty
-        self.added = added
-        self.replaced = replaced
-        self.errors = errors
     }
 }
 
@@ -2304,22 +2186,6 @@ struct AddCommand: ParsableCommand {
         return line
     }
 
-}
-
-private struct AddPayload: Encodable {
-    var ok: Bool
-    var valid: Bool
-    var recipe: Recipe?
-    var errors: [String]
-    var outcome: AddRecipeOutcome?
-
-    init(valid: Bool, recipe: Recipe?, errors: [String], outcome: AddRecipeOutcome? = nil) {
-        self.ok = valid
-        self.valid = valid
-        self.recipe = recipe
-        self.errors = errors
-        self.outcome = outcome
-    }
 }
 
 struct EditCommand: ParsableCommand {

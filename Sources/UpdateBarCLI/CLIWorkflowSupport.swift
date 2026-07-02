@@ -142,27 +142,3 @@ let supportedScanCategories = [
 func scanCategoryDescription() -> String {
     supportedScanCategories.joined(separator: ", ")
 }
-
-struct InitPayload: Encodable {
-    var ok: Bool
-    var added: [String]
-    var replaced: [String]
-    var skipped: [String]
-    var errors: [String]
-
-    init(summary: InitSummary, errors: [String]) {
-        self.ok = errors.isEmpty
-        self.added = summary.added
-        self.replaced = summary.replaced
-        self.skipped = summary.skipped
-        self.errors = errors
-    }
-
-    init(added: [String], replaced: [String], skipped: [String], errors: [String]) {
-        self.ok = errors.isEmpty
-        self.added = added
-        self.replaced = replaced
-        self.skipped = skipped
-        self.errors = errors
-    }
-}
