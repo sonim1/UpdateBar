@@ -381,7 +381,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         for command in ["updatebar scan", "updatebar init", "updatebar approvals <id-from-init>", "updatebar status --json", "updatebar check", "updatebar update --all --yes"] {
             XCTAssertTrue(quickStart.contains(command), "README Quick Start missing \(command)")
         }
-        XCTAssertTrue(quickStart.contains("<candidate-id-or-number-from-scan>"))
+        XCTAssertTrue(quickStart.contains("<candidate-id-from-scan>"))
+        XCTAssertFalse(quickStart.contains("number-from-scan"))
 
         XCTAssertFalse(quickStart.contains("cat > recipe.json"), "README Quick Start should not inline a full recipe")
         XCTAssertFalse(quickStart.contains("updatebar approve <id-from-init>"), "README Quick Start should not lead with advanced approval commands")
