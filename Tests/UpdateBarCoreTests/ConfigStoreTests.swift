@@ -41,6 +41,26 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertFalse(loaded.security.requireHTTPSSource)
     }
 
+    func testLoadExistingOrDefaultRepairsExistingHomePermissions() throws {
+        let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
+        try Data(
+            """
+            [refresh]
+            interval = "30m"
+
+            [security]
+            require_https_source = true
+            """.utf8
+        ).write(to: root.appendingPathComponent("config.toml"))
+        let store = ConfigStore(paths: AppPaths(homeDirectory: root))
+
+        _ = try store.loadExistingOrDefault()
+
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
+    }
+
     func testSetKnownKeyRejectsUnknownKey() throws {
         var config = Config.default
         try config.set("refresh.interval", value: "30m")

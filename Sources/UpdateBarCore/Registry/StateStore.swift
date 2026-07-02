@@ -23,6 +23,7 @@ public struct StateStore {
         if !fileManager.fileExists(atPath: paths.stateFile.path) {
             return emptyState(now: now)
         }
+        try ensureHome()
         return try readExistingState()
     }
 

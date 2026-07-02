@@ -23,6 +23,7 @@ public struct ManifestStore {
         if !fileManager.fileExists(atPath: paths.manifestFile.path) {
             return emptyManifest(now: now)
         }
+        try ensureHome()
         return try readExistingManifest()
     }
 

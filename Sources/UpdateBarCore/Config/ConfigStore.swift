@@ -24,6 +24,7 @@ public struct ConfigStore {
         if !fileManager.fileExists(atPath: paths.configFile.path) {
             return .default
         }
+        try ensureHome()
         let text = try String(contentsOf: paths.configFile, encoding: .utf8)
         return try parse(text)
     }
