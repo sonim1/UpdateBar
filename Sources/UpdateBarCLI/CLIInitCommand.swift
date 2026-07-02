@@ -17,15 +17,12 @@ struct InitCommand: ParsableCommand {
     @Option(name: .long, help: "Comma-separated candidate ids, numbers, or all.")
     var select: String?
 
-    @Option(name: .long, help: .hidden)
-    var detectors: String?
-
     @Option(name: .long, help: "Filter by category: ai-agent, package-manager, runtime-sdk, shell-utility, cloud-devops, library, codex-skill, or mcp-server.")
     var category: String?
 
     func run() throws {
         let categoryFilter = try parseCategoryFilter(category)
-        let selectedDetectors = try parseDetectors(categoryFilter: categoryFilter)
+        let selectedDetectors = defaultScanDetectors(categoryFilter: categoryFilter)
         let report = try filteredReport(
             detectors: selectedDetectors,
             categoryFilter: categoryFilter
@@ -61,10 +58,6 @@ struct InitCommand: ParsableCommand {
             report.candidates = report.candidates.filter { $0.category == category }
         }
         return report
-    }
-
-    private func parseDetectors(categoryFilter: String?) throws -> [ScanDetector] {
-        try parseScanDetectors(detectors, categoryFilter: categoryFilter)
     }
 
     private func parseSelection(from report: ScanReport) throws -> [String] {

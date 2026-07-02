@@ -29,7 +29,7 @@ final class ScanCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["scan", "--json", "--detectors", "brew,npm_global"],
+            ["scan", "--json"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -37,8 +37,10 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         let report = try JSONDecoder.updateBar.decode(
             ScanReport.self, from: Data(result.stdout.utf8))
-        XCTAssertEqual(report.candidates.map(\.id).sorted(), ["brew.jq", "npm.typescript"])
-        XCTAssertEqual(report.candidates.first?.recipe?.trust.level, .untrusted)
+        XCTAssertTrue(report.candidates.contains { $0.id == "brew.jq" })
+        XCTAssertTrue(report.candidates.contains { $0.id == "npm.typescript" })
+        let jq = try XCTUnwrap(report.candidates.first { $0.id == "brew.jq" })
+        XCTAssertEqual(jq.recipe?.trust.level, .untrusted)
         XCTAssertFalse(
             FileManager.default.fileExists(atPath: AppPaths(homeDirectory: home).manifestFile.path))
     }
@@ -60,7 +62,7 @@ final class ScanCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["scan", "--detectors", "brew", "--category", "cloud-devops"],
+            ["scan", "--category", "cloud-devops"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -86,7 +88,7 @@ final class ScanCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["scan", "--detectors", "npm_global", "--category", "ai-agent"],
+            ["scan", "--category", "ai-agent"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -108,7 +110,7 @@ final class ScanCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["scan", "--json", "--detectors", "codex_skill"],
+            ["scan", "--json", "--category", "codex-skill"],
             home: home,
             environment: ["HOME": home.path]
         )
@@ -142,7 +144,7 @@ final class ScanCommandTests: XCTestCase {
             """.write(to: config, atomically: true, encoding: .utf8)
 
         let result = try CLIProcess.run(
-            ["scan", "--json", "--detectors", "mcp_config"],
+            ["scan", "--json", "--category", "mcp-server"],
             home: home,
             environment: ["HOME": home.path]
         )
@@ -176,7 +178,7 @@ final class ScanCommandTests: XCTestCase {
             """.write(to: config, atomically: true, encoding: .utf8)
 
         let result = try CLIProcess.run(
-            ["scan", "--detectors", "mcp_config"],
+            ["scan", "--category", "mcp-server"],
             home: home,
             environment: ["HOME": home.path]
         )
@@ -264,7 +266,7 @@ final class ScanCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["scan", "--detectors", "brew"],
+            ["scan"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -275,74 +277,20 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("updatebar init --select brew.gh"))
     }
 
-    func testScanRejectsEmptyDetectorList() throws {
-        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
-
-        let result = try CLIProcess.run(["scan", "--detectors", ","], home: home)
-
-        XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(
-            result.stderr.contains("expected brew, npm_global, known, codex_skill, or mcp_config"))
-    }
-
-    func testScanAcceptsCaseInsensitiveAndDuplicateDetectors() throws {
+    func testScanDetectorsFlagIsRemovedFromCLI() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
         let bin = home.appendingPathComponent("bin")
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
-        try writeExecutable(
-            bin.appendingPathComponent("brew"),
-            """
-            #!/bin/sh
-            if [ "$1" = "leaves" ]; then
-              printf 'jq\\n'
-            elif [ "$1" = "list" ]; then
-              printf 'jq 1.7.1\\n'
-            fi
-            """
-        )
 
         let result = try CLIProcess.run(
-            ["scan", "--json", "--detectors", "BREW,brew"],
+            ["scan", "--json", "--detectors", "brew"],
             home: home,
             environment: ["PATH": bin.path]
         )
 
-        XCTAssertEqual(result.exitCode, 0)
-        let report = try JSONDecoder.updateBar.decode(
-            ScanReport.self, from: Data(result.stdout.utf8))
-        XCTAssertEqual(report.candidates.map(\.id), ["brew.jq"])
-    }
-
-    func testScanRejectsUnknownDetector() throws {
-        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
-
-        let result = try CLIProcess.run(["scan", "--detectors", "brew,foo"], home: home)
-
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.contains("foo: unknown detector"))
-    }
-
-    func testScanAcceptsWhitespaceSeparatedDetectors() throws {
-        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
-        let bin = home.appendingPathComponent("bin")
-        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
-        try writeExecutable(
-            bin.appendingPathComponent("brew"),
-            "#!/bin/sh\nexit 0\n"
-        )
-        try writeExecutable(
-            bin.appendingPathComponent("npm"),
-            "#!/bin/sh\nexit 0\n"
-        )
-
-        let result = try CLIProcess.run(
-            ["scan", "--detectors", " brew , npm_global "],
-            home: home,
-            environment: ["PATH": bin.path]
-        )
-
-        XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stdout.contains("Found 0 candidate(s)"))
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("Unknown option '--detectors'"))
     }
 
     func testScanFiltersCategoryCaseInsensitive() throws {
@@ -362,7 +310,7 @@ final class ScanCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["scan", "--detectors", "brew", "--category", "CLOUD-devops"],
+            ["scan", "--category", "CLOUD-devops"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -389,7 +337,7 @@ final class ScanCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["scan", "--detectors", "brew", "--category", " CLOUD DEVOPS "],
+            ["scan", "--category", " CLOUD DEVOPS "],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -416,7 +364,7 @@ final class ScanCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["scan", "--detectors", "brew", "--category", "clouddevops"],
+            ["scan", "--category", "clouddevops"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -454,7 +402,7 @@ final class ScanCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["scan", "--detectors", "brew", "--category", "   "],
+            ["scan", "--category", "   "],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -481,7 +429,7 @@ final class ScanCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["scan", "--detectors", "brew", "--category", "localservice"],
+            ["scan", "--category", "localservice"],
             home: home,
             environment: ["PATH": bin.path]
         )

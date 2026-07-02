@@ -10,15 +10,12 @@ struct ScanCommand: ParsableCommand {
     @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Option(name: .long, help: .hidden)
-    var detectors: String?
-
     @Option(name: .long, help: "Filter by category: ai-agent, package-manager, runtime-sdk, shell-utility, cloud-devops, library, codex-skill, or mcp-server.")
     var category: String?
 
     func run() throws {
         let categoryFilter = try parseCategoryFilter(category)
-        let selectedDetectors = try parseDetectors(categoryFilter: categoryFilter)
+        let selectedDetectors = defaultScanDetectors(categoryFilter: categoryFilter)
         let service = ScanService()
         var report = try service.scan(detectors: selectedDetectors)
         if let category = categoryFilter {
@@ -30,10 +27,6 @@ struct ScanCommand: ParsableCommand {
         } else {
             printHuman(report)
         }
-    }
-
-    private func parseDetectors(categoryFilter: String?) throws -> [ScanDetector] {
-        try parseScanDetectors(detectors, categoryFilter: categoryFilter)
     }
 
     private func printHuman(_ report: ScanReport) {

@@ -116,8 +116,6 @@ are listed for review but not importable until manual-update recipes exist.
 ```bash
 updatebar scan
 updatebar scan --json
-updatebar scan --detectors brew,npm_global,known,codex_skill,mcp_config
-updatebar scan --detectors " brew , npm_global "
 updatebar scan --category ai-agent
 updatebar scan --category " cloud devops "
 updatebar scan --category clouddevops

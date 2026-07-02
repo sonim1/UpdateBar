@@ -5,12 +5,11 @@ import XCTest
 final class InitCommandTests: XCTestCase {
     func testInitSelectAddsOnlySelectedFullCandidatesAsUntrusted() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
-        let bin = try fakeManagers(home: home)
+        let bin = try fakeManagers(home: home, includeNPM: true)
 
         let result = try CLIProcess.run(
             [
-                "init", "--json", "--detectors", "brew,npm_global",
-                "--select", "brew.gh,npm.typescript",
+                "init", "--json", "--select", "brew.gh,npm.typescript",
             ],
             home: home,
             environment: ["PATH": bin.path]
@@ -36,24 +35,21 @@ final class InitCommandTests: XCTestCase {
 
         let first = try CLIProcess.run(
             [
-                "init", "--json", "--detectors", "brew",
-                "--select", "brew.gh",
+                "init", "--json", "--select", "brew.gh",
             ],
             home: home,
             environment: ["PATH": bin.path]
         )
         let duplicate = try CLIProcess.run(
             [
-                "init", "--json", "--detectors", "brew",
-                "--select", "brew.gh",
+                "init", "--json", "--select", "brew.gh",
             ],
             home: home,
             environment: ["PATH": bin.path]
         )
         let replaced = try CLIProcess.run(
             [
-                "init", "--json", "--detectors", "brew",
-                "--select", "brew.gh", "--replace",
+                "init", "--json", "--select", "brew.gh", "--replace",
             ],
             home: home,
             environment: ["PATH": bin.path]
@@ -92,7 +88,7 @@ final class InitCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["init", "--json", "--detectors", "brew", "--select", "ALL"],
+            ["init", "--json", "--select", "ALL"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -110,7 +106,7 @@ final class InitCommandTests: XCTestCase {
         let bin = try fakeManagers(home: home)
 
         let result = try CLIProcess.run(
-            ["init", "--detectors", "brew"],
+            ["init"],
             home: home,
             stdin: "2\n",
             environment: ["PATH": bin.path]
@@ -129,7 +125,7 @@ final class InitCommandTests: XCTestCase {
         let bin = try fakeManagers(home: home)
 
         let result = try CLIProcess.run(
-            ["init", "--json", "--detectors", "brew", "--select", "2"],
+            ["init", "--json", "--select", "2"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -147,7 +143,7 @@ final class InitCommandTests: XCTestCase {
         let bin = try fakeManagers(home: home)
 
         let result = try CLIProcess.run(
-            ["init", "--detectors", "brew", "--select", "brew.gh"],
+            ["init", "--select", "brew.gh"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -165,13 +161,13 @@ final class InitCommandTests: XCTestCase {
         let bin = try fakeManagers(home: home)
 
         _ = try CLIProcess.run(
-            ["init", "--detectors", "brew", "--select", "brew.gh"],
+            ["init", "--select", "brew.gh"],
             home: home,
             environment: ["PATH": bin.path]
         )
 
         let result = try CLIProcess.run(
-            ["init", "--detectors", "brew", "--select", "brew.gh"],
+            ["init", "--select", "brew.gh"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -187,7 +183,7 @@ final class InitCommandTests: XCTestCase {
         let bin = try fakeManagers(home: home)
 
         let result = try CLIProcess.run(
-            ["init", "--detectors", "brew"],
+            ["init"],
             home: home,
             stdin: "all\n",
             environment: ["PATH": bin.path]
@@ -204,7 +200,7 @@ final class InitCommandTests: XCTestCase {
         let bin = try fakeManagers(home: home)
 
         let result = try CLIProcess.run(
-            ["init", "--detectors", "brew"],
+            ["init"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -221,7 +217,7 @@ final class InitCommandTests: XCTestCase {
         let bin = try fakeManagers(home: home)
 
         let result = try CLIProcess.run(
-            ["init", "--detectors", "brew"],
+            ["init"],
             home: home,
             stdin: "1 2\n",
             environment: ["PATH": bin.path]
@@ -237,7 +233,7 @@ final class InitCommandTests: XCTestCase {
         let bin = try fakeKnownTool(home: home)
 
         let result = try CLIProcess.run(
-            ["init", "--json", "--detectors", "known", "--select", "known.gh"],
+            ["init", "--json", "--select", "known.gh"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -256,7 +252,7 @@ final class InitCommandTests: XCTestCase {
         let bin = try fakeManagers(home: home)
 
         let result = try CLIProcess.run(
-            ["init", "--json", "--detectors", "brew"],
+            ["init", "--json"],
             home: home,
             stdin: "1\n",
             environment: ["PATH": bin.path]
@@ -270,33 +266,13 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("init --json requires --select") })
     }
 
-    func testInitSupportsCaseInsensitiveAndDuplicateDetectors() throws {
-        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
-        let bin = try fakeManagers(home: home)
-
-        let result = try CLIProcess.run(
-            [
-                "init", "--json", "--detectors", "BREW,brew",
-                "--select", "brew.gh",
-            ],
-            home: home,
-            environment: ["PATH": bin.path]
-        )
-
-        XCTAssertEqual(result.exitCode, 0)
-        let payload = try JSONDecoder.updateBar.decode(
-            InitPayload.self, from: Data(result.stdout.utf8))
-        XCTAssertEqual(payload.added, ["brew.gh"])
-    }
-
     func testInitSelectSupportsWhitespaceAndDedupe() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = try fakeManagers(home: home)
 
         let result = try CLIProcess.run(
             [
-                "init", "--json", "--detectors", "brew",
-                "--select", "brew.gh, brew.jq, brew.gh",
+                "init", "--json", "--select", "brew.gh, brew.jq, brew.gh",
             ],
             home: home,
             environment: ["PATH": bin.path]
@@ -316,8 +292,7 @@ final class InitCommandTests: XCTestCase {
 
         let result = try CLIProcess.run(
             [
-                "init", "--json", "--detectors", "brew",
-                "--select", "ALL",
+                "init", "--json", "--select", "ALL",
             ],
             home: home,
             environment: ["PATH": bin.path]
@@ -329,23 +304,20 @@ final class InitCommandTests: XCTestCase {
         XCTAssertEqual(payload.added, ["brew.gh", "brew.jq"])
     }
 
-    func testInitRejectsEmptyDetectorList() throws {
+    func testInitDetectorsFlagIsRemovedFromCLI() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
 
-        let result = try CLIProcess.run(["init", "--detectors", ","], home: home)
+        let result = try CLIProcess.run(
+            ["init", "--json", "--detectors", "brew", "--select", "all"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(
-            result.stderr.contains("expected brew, npm_global, known, codex_skill, or mcp_config"))
-    }
-
-    func testInitRejectsUnknownDetector() throws {
-        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
-
-        let result = try CLIProcess.run(["init", "--detectors", "brew,foo"], home: home)
-
-        XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.contains("foo: unknown detector"))
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("Unknown option '--detectors'"))
     }
 
     func testInitFiltersCategoryCaseInsensitive() throws {
@@ -354,8 +326,7 @@ final class InitCommandTests: XCTestCase {
 
         let result = try CLIProcess.run(
             [
-                "init", "--json", "--detectors", "brew",
-                "--category", "CLOUD-DEVOPS",
+                "init", "--json", "--category", "CLOUD-DEVOPS",
                 "--select", "brew.gh",
             ],
             home: home,
@@ -376,8 +347,7 @@ final class InitCommandTests: XCTestCase {
 
         let result = try CLIProcess.run(
             [
-                "init", "--json", "--detectors", "brew",
-                "--category", "CLOUD_DEVOPS",
+                "init", "--json", "--category", "CLOUD_DEVOPS",
                 "--select", "brew.gh",
             ],
             home: home,
@@ -398,8 +368,7 @@ final class InitCommandTests: XCTestCase {
 
         let result = try CLIProcess.run(
             [
-                "init", "--json", "--detectors", "brew",
-                "--category", "clouddevops",
+                "init", "--json", "--category", "clouddevops",
                 "--select", "brew.gh",
             ],
             home: home,
@@ -419,7 +388,7 @@ final class InitCommandTests: XCTestCase {
         let bin = try fakeManagers(home: home)
 
         let result = try CLIProcess.run(
-            ["init", "--json", "--detectors", "brew", "--category", "___", "--select", "brew.gh"],
+            ["init", "--json", "--category", "___", "--select", "brew.gh"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -448,8 +417,7 @@ final class InitCommandTests: XCTestCase {
 
         let result = try CLIProcess.run(
             [
-                "init", "--json", "--detectors", "brew", "--category", "___",
-                "--select", "brew.gh",
+                "init", "--json", "--category", "___", "--select", "brew.gh",
             ],
             home: home,
             environment: ["PATH": bin.path]
@@ -520,7 +488,7 @@ final class InitCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["init", "--detectors", "brew"],
+            ["init"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -546,7 +514,7 @@ final class InitCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["init", "--json", "--detectors", "brew", "--select", "ALL"],
+            ["init", "--json", "--select", "ALL"],
             home: home,
             environment: ["PATH": bin.path]
         )
@@ -558,7 +526,7 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("No importable candidates found") })
     }
 
-    private func fakeManagers(home: URL) throws -> URL {
+    private func fakeManagers(home: URL, includeNPM: Bool = false) throws -> URL {
         let bin = home.appendingPathComponent("bin")
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
         try writeExecutable(
@@ -572,15 +540,17 @@ final class InitCommandTests: XCTestCase {
             fi
             """
         )
-        try writeExecutable(
-            bin.appendingPathComponent("npm"),
-            """
-            #!/bin/sh
-            if [ "$1" = "ls" ]; then
-              printf '{"dependencies":{"typescript":{"version":"5.8.3"}}}\\n'
-            fi
-            """
-        )
+        if includeNPM {
+            try writeExecutable(
+                bin.appendingPathComponent("npm"),
+                """
+                #!/bin/sh
+                if [ "$1" = "ls" ]; then
+                  printf '{"dependencies":{"typescript":{"version":"5.8.3"}}}\\n'
+                fi
+                """
+            )
+        }
         return bin
     }
 

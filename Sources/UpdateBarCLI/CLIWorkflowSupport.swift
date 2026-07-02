@@ -1,29 +1,6 @@
 import Foundation
 import UpdateBarCore
 
-func parseScanDetectors(
-    _ value: String?,
-    categoryFilter: String? = nil
-) throws -> [ScanDetector] {
-    guard let value, !value.isEmpty else {
-        return defaultScanDetectors(categoryFilter: categoryFilter)
-    }
-    let values = parseList(value)
-    guard !values.isEmpty else {
-        throw ValidationError("detectors: expected \(scanDetectorDescription())")
-    }
-    var seen = Set<String>()
-    var detectors: [ScanDetector] = []
-    for detector in values where seen.insert(detector).inserted {
-        guard let parsed = ScanDetector(rawValue: detector) else {
-            throw ValidationError(
-                "\(detector): unknown detector; expected \(scanDetectorDescription())")
-        }
-        detectors.append(parsed)
-    }
-    return detectors
-}
-
 func defaultScanDetectors(categoryFilter: String?) -> [ScanDetector] {
     switch categoryFilter {
     case "codex-skill":
@@ -33,17 +10,6 @@ func defaultScanDetectors(categoryFilter: String?) -> [ScanDetector] {
     default:
         return ScanDetector.allCases
     }
-}
-
-func scanDetectorDescription() -> String {
-    let values = ScanDetector.allCases.map(\.rawValue)
-    guard let last = values.last else {
-        return ""
-    }
-    guard values.count > 1 else {
-        return last
-    }
-    return "\(values.dropLast().joined(separator: ", ")), or \(last)"
 }
 
 func parseList(_ raw: String, separators: CharacterSet = .whitespaceAndComma) -> [String] {

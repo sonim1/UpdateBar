@@ -82,7 +82,7 @@ final class DocumentationSnapshotTests: XCTestCase {
             if ["scan", "init"].contains(command) {
                 XCTAssertFalse(
                     optionHasDescription("--detectors", in: helpLines),
-                    "\(command) --detectors is an advanced scan-source override and should stay out of primary help"
+                    "\(command) should not expose scan-source overrides in primary help"
                 )
             }
         }
