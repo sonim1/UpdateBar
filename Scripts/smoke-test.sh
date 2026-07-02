@@ -19,7 +19,6 @@ run_updatebar schema >/dev/null
 run_updatebar validate Fixtures/manifests/valid-basic.json --json >/dev/null
 run_updatebar validate - --json < Fixtures/manifests/valid-basic.json >/dev/null
 run_updatebar import Fixtures/manifests/untrusted-import.json --json >/dev/null
-run_updatebar list --json >/dev/null
 run_updatebar status --json --exit-zero-on-outdated >/dev/null
 run_updatebar guide agent >/dev/null
 run_updatebar guide recipe >/dev/null

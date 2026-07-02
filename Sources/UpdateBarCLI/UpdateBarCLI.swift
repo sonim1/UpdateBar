@@ -17,7 +17,6 @@ struct UpdateBar: ParsableCommand {
                 StatusCommand.self,
                 CheckCommand.self,
                 UpdateCommand.self,
-                ListCommand.self,
             ]),
             CommandGroup(name: "Manage", subcommands: [
                 ApprovalCommand.self,

@@ -20,7 +20,7 @@ Recipe commands run with an allowlisted environment. Common provider and GitHub 
 
 ## Command Boundaries
 
-`status` and `list` do not execute shell commands or network calls. `import` validates and writes manifest data only. `check` is the state refresh path. `update` only runs approved update commands.
+`status` does not execute shell commands or network calls. `import` validates and writes manifest data only. `check` is the state refresh path. `update` only runs approved update commands.
 
 ## Execution Boundary (Honest Statement)
 

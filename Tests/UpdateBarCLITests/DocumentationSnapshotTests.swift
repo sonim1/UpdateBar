@@ -13,7 +13,7 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertTrue(output.contains(command), "missing \(command)")
         }
         let helpLines = output.split(separator: "\n").map(String.init)
-        for command in ["add", "import", "export", "list", "background", "config", "guide", "schema", "template", "validate", "tui"] {
+        for command in ["add", "import", "export", "background", "config", "guide", "schema", "template", "validate", "tui"] {
             XCTAssertFalse(helpShowsCommand(command, in: helpLines), "support command should be hidden: \(command)")
         }
         for command in ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit"] {
@@ -106,7 +106,6 @@ final class DocumentationSnapshotTests: XCTestCase {
             "add": ["--from", "--dry-run", "--json", "--replace"],
             "import": ["--replace", "--json"],
             "export": ["--json"],
-            "list": ["--json"],
         ]
         let expectedArgumentsByCommand: [String: [String]] = [
             "import": ["<file>"],
@@ -447,7 +446,7 @@ final class DocumentationSnapshotTests: XCTestCase {
     func testCompletionScriptsExposePrimaryRootCommandsOnly() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let visibleCommands = ["init", "scan", "status", "check", "update", "approvals", "help"]
-        let hiddenCommands = ["add", "import", "export", "list", "approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit", "background", "config", "guide", "schema", "template", "validate", "tui"]
+        let hiddenCommands = ["add", "import", "export", "approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit", "background", "config", "guide", "schema", "template", "validate", "tui"]
 
         for shell in ["bash", "zsh", "fish"] {
             let result = try CLIProcess.run(["--generate-completion-script", shell], home: home)
@@ -477,7 +476,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(quickStart.contains("cat > recipe.json"), "README Quick Start should not inline a full recipe")
         XCTAssertFalse(quickStart.contains("updatebar approve <id-from-init>"), "README Quick Start should not lead with advanced approval commands")
         XCTAssertFalse(quickStart.contains("--exit-zero-on-outdated"), "README Quick Start should not lead with hidden automation flags")
-        XCTAssertFalse(quickStart.contains("updatebar list"), "README Quick Start should prefer status over hidden list")
+        XCTAssertFalse(quickStart.contains("updatebar list"), "README Quick Start should not mention the removed list command")
         XCTAssertLessThanOrEqual(quickStart.split(separator: "\n").count, 35, "README Quick Start should stay short enough to scan")
     }
 

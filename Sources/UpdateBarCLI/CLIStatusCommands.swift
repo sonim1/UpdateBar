@@ -52,32 +52,3 @@ struct StatusCommand: ParsableCommand {
         printNextCommands(untrustedCommands + checkCommands(for: checking.map(\.id)))
     }
 }
-
-struct ListCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "list",
-        abstract: "List registered recipes.",
-        shouldDisplay: false
-    )
-
-    @Flag(name: .long, help: "Print machine-readable JSON.")
-    var json = false
-
-    func run() throws {
-        let manifest = try ManifestStore().load()
-        let items = manifest.items.sorted { lhs, rhs in
-            lhs.name == rhs.name ? lhs.id < rhs.id : lhs.name < rhs.name
-        }
-
-        if json {
-            try printJSON(items)
-        } else {
-            print("ID\tNAME\tCATEGORY\tENABLED\tPINNED\tTRUST")
-            for item in items {
-                print(
-                    "\(item.id)\t\(item.name)\t\(item.category)\t\(item.enabled)\t\(item.pin != nil)\t\(item.trust.level.rawValue)"
-                )
-            }
-        }
-    }
-}

@@ -141,7 +141,7 @@ run_case_background_install_from_path() {
   fi
 }
 
-# Positive flow: import baseline fixture via stdin, then list and status.
+# Positive flow: import baseline fixture via stdin, then inspect status.
 run_case_ok "import from stdin" import - < Fixtures/manifests/valid-basic.json
 run_case_contains "approvals include command text" 0 '"command":' approvals claude-code --json
 mkdir -p "$TMP_HOME/work"
