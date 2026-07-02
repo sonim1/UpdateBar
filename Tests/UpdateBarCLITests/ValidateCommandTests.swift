@@ -32,6 +32,29 @@ final class ValidateCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("unsupported until runtime support is implemented"))
     }
 
+    func testValidateTreatsProvenanceOnlyObjectAsManifest() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-validate-tests")
+        let file = home.appendingPathComponent("broken-manifest.json")
+        try Data(
+            """
+            {
+              "provenance": {
+                "created_by": "updatebar",
+                "created_at": "2026-06-09T00:00:00Z",
+                "updated_at": "2026-06-09T00:00:00Z"
+              }
+            }
+            """.utf8
+        ).write(to: file)
+
+        let result = try CLIProcess.run(["validate", file.path, "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stdout.contains("schema_version: required"))
+        XCTAssertTrue(result.stdout.contains("items: required"))
+        XCTAssertFalse(result.stdout.contains("CodingKeys"))
+    }
+
     private func recipe() -> Recipe {
         Recipe(
             id: "tool",

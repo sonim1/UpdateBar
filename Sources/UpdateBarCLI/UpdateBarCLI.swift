@@ -877,7 +877,7 @@ struct ValidateCommand: ParsableCommand {
 
     private func validateRecipeDocument(_ data: Data) throws -> ValidationResult {
         if let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-            object["schema_version"] != nil || object["items"] != nil
+            object["schema_version"] != nil || object["items"] != nil || object["provenance"] != nil
         {
             return try ManifestValidator.validate(data: data)
         }
