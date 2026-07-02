@@ -224,6 +224,20 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].update.cwd: must be a string or null when provided"))
     }
 
+    func testRejectsNonStringApprovedCommandFingerprints() throws {
+        let result = try validateFirstRawItem {
+            var trust = try XCTUnwrap($0["trust"] as? [String: Any])
+            trust["approved_commands"] = [
+                "check.cmd": true,
+                "update.cmd": NSNull(),
+            ] as [String: Any]
+            $0["trust"] = trust
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].trust.approved_commands[check.cmd]: must be a string"))
+        XCTAssertTrue(result.errors.contains("items[0].trust.approved_commands[update.cmd]: must be a string"))
+    }
+
     func testRejectsJQVersionParseUntilRuntimeSupportExists() throws {
         var manifest = try loadValid()
         manifest.items[0].versionParse = .jq(".version")

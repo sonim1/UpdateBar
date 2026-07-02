@@ -130,7 +130,11 @@ enum RecipeValidator {
         if let level = trust["level"] as? String, !trustLevels.contains(level) {
             errors.append("\(path).level: unsupported value \(level)")
         }
-        if !(trust["approved_commands"] is [String: Any]) {
+        if let approvedCommands = trust["approved_commands"] as? [String: Any] {
+            for (field, fingerprint) in approvedCommands where !(fingerprint is String) {
+                errors.append("\(path).approved_commands[\(field)]: must be a string")
+            }
+        } else {
             errors.append("\(path).approved_commands: required")
         }
         return errors
