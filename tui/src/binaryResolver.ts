@@ -36,10 +36,10 @@ export async function resolveUpdateBarBinary(
   const cwd = options.cwd ?? process.cwd();
   const defaultPathEntries = options.defaultPathEntries ?? ['/opt/homebrew/bin', '/usr/local/bin'];
 
-  const updateBarBin = await explicitPath(env.UPDATEBAR_BIN, 'UPDATEBAR_BIN');
+  const updateBarBin = await explicitPath(env.UPDATEBAR_BIN, 'UPDATEBAR_BIN', cwd);
   if (updateBarBin) return updateBarBin;
 
-  const configured = await explicitPath(options.configuredPath, 'configured');
+  const configured = await explicitPath(options.configuredPath, 'configured', cwd);
   if (configured) return configured;
 
   if (options.bundledDirectory) {
@@ -58,12 +58,13 @@ export async function resolveUpdateBarBinary(
   );
 }
 
-async function explicitPath(value: string | undefined, source: BinarySource) {
+async function explicitPath(value: string | undefined, source: BinarySource, cwd: string) {
   if (!value) return undefined;
-  if (!(await isExecutable(value))) {
-    throw new BinaryResolutionError(`${source} path is not executable: ${value}`);
+  const candidate = path.isAbsolute(value) ? value : path.resolve(cwd, value);
+  if (!(await isExecutable(candidate))) {
+    throw new BinaryResolutionError(`${source} path is not executable: ${candidate}`);
   }
-  return {path: value, source};
+  return {path: candidate, source};
 }
 
 async function findOnPath(pathValue: string, defaultEntries: string[]) {

@@ -21,6 +21,19 @@ describe('resolveUpdateBarBinary', () => {
     ).resolves.toEqual({path: override, source: 'UPDATEBAR_BIN'});
   });
 
+  it('resolves relative UPDATEBAR_BIN from the configured cwd', async () => {
+    const root = await tempDir();
+    const override = await executable(path.join(root, 'bin', 'updatebar'));
+
+    await expect(
+      resolveUpdateBarBinary({
+        env: {UPDATEBAR_BIN: 'bin/updatebar'},
+        cwd: root,
+        defaultPathEntries: []
+      })
+    ).resolves.toEqual({path: override, source: 'UPDATEBAR_BIN'});
+  });
+
   it('uses configured path after UPDATEBAR_BIN and before bundled binaries', async () => {
     const root = await tempDir();
     const configured = await executable(path.join(root, 'configured-updatebar'));
@@ -31,6 +44,20 @@ describe('resolveUpdateBarBinary', () => {
         env: {},
         configuredPath: configured,
         bundledDirectory: path.dirname(bundled),
+        cwd: root,
+        defaultPathEntries: []
+      })
+    ).resolves.toEqual({path: configured, source: 'configured'});
+  });
+
+  it('resolves relative configured paths from the configured cwd', async () => {
+    const root = await tempDir();
+    const configured = await executable(path.join(root, 'bin', 'configured-updatebar'));
+
+    await expect(
+      resolveUpdateBarBinary({
+        env: {},
+        configuredPath: 'bin/configured-updatebar',
         cwd: root,
         defaultPathEntries: []
       })
