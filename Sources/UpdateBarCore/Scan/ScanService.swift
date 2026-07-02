@@ -64,7 +64,6 @@ public struct ScanService {
                 update: UpdateSpec(cmd: "brew upgrade \(ShellQuote.single(name))", cwd: nil),
                 pin: nil,
                 enabled: true,
-                notify: true,
                 trust: Trust(level: .untrusted, approvedCommands: [:])
             )
             return ScanCandidate(
@@ -102,7 +101,6 @@ public struct ScanService {
                     cmd: "npm install -g \(ShellQuote.single(package))@latest", cwd: nil),
                 pin: nil,
                 enabled: true,
-                notify: true,
                 trust: Trust(level: .untrusted, approvedCommands: [:])
             )
             return ScanCandidate(

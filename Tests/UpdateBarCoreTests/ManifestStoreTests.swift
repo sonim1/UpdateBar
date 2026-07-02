@@ -24,8 +24,20 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertEqual(item.update.cmd, "npm i -g @anthropic-ai/claude-code@latest")
         XCTAssertNil(item.pin)
         XCTAssertTrue(item.enabled)
-        XCTAssertTrue(item.notify)
         XCTAssertEqual(item.trust.level, .trusted)
+    }
+
+    func testDecodeIgnoresLegacyNotifyValue() throws {
+        let notifyTrue = try JSONDecoder.updateBar.decode(
+            Manifest.self,
+            from: validManifestDataUpdatingFirstItem { $0["notify"] = true }
+        )
+        let notifyFalse = try JSONDecoder.updateBar.decode(
+            Manifest.self,
+            from: validManifestDataUpdatingFirstItem { $0["notify"] = false }
+        )
+
+        XCTAssertEqual(notifyTrue.items, notifyFalse.items)
     }
 
     func testDecodeRejectsUnsupportedCheckFileQuery() throws {

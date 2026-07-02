@@ -113,7 +113,6 @@ final class StatusCommandTests: XCTestCase {
             update: UpdateSpec(cmd: "exit 44", cwd: nil),
             pin: nil,
             enabled: true,
-            notify: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
         TrustPolicy.approveAllCommands(in: &item)

@@ -44,7 +44,6 @@ final class CLIOutputTests: XCTestCase {
             update: UpdateSpec(cmd: "printf '\(secret)' >&2; exit 3", cwd: nil),
             pin: nil,
             enabled: true,
-            notify: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
         TrustPolicy.approveAllCommands(in: &recipe)

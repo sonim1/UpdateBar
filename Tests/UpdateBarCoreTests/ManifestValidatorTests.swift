@@ -291,7 +291,7 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].update.requires_write: must be a boolean when provided"))
     }
 
-    func testDefaultsMissingEnabledAndNotifyToTrue() throws {
+    func testDefaultsMissingEnabledAndAcceptsMissingLegacyNotify() throws {
         let data = try validDataUpdatingFirstRawItem {
             $0.removeValue(forKey: "enabled")
             $0.removeValue(forKey: "notify")
@@ -303,7 +303,6 @@ final class ManifestValidatorTests: XCTestCase {
 
         let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
         XCTAssertTrue(manifest.items[0].enabled)
-        XCTAssertTrue(manifest.items[0].notify)
     }
 
     func testRejectsNullOrNonBooleanEnabledAndNotify() throws {

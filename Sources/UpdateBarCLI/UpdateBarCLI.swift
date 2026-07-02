@@ -1470,7 +1470,6 @@ enum TemplateKind: String, ExpressibleByArgument {
             update: UpdateSpec(cmd: update, cwd: nil),
             pin: nil,
             enabled: true,
-            notify: true,
             trust: Trust(level: .untrusted, approvedCommands: [:])
         )
     }
@@ -2368,7 +2367,6 @@ struct AddCommand: ParsableCommand {
             update: UpdateSpec(cmd: updateCommand, cwd: updateCWD),
             pin: nil,
             enabled: true,
-            notify: true,
             trust: Trust(level: .untrusted, approvedCommands: [:])
         )
     }

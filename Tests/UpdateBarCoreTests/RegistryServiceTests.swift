@@ -315,7 +315,6 @@ final class RegistryServiceTests: XCTestCase {
             update: UpdateSpec(cmd: "\(id) update", cwd: nil),
             pin: nil,
             enabled: true,
-            notify: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
         TrustPolicy.approveAllCommands(in: &item)

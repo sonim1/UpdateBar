@@ -106,7 +106,6 @@ final class ValidateCommandTests: XCTestCase {
             update: UpdateSpec(cmd: "printf updated", cwd: nil),
             pin: nil,
             enabled: true,
-            notify: true,
             trust: Trust(level: .untrusted, approvedCommands: [:])
         )
     }

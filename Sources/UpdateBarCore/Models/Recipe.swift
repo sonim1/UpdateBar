@@ -13,7 +13,6 @@ public struct Recipe: Codable, Equatable {
     public var update: UpdateSpec
     public var pin: String?
     public var enabled: Bool
-    public var notify: Bool
     public var trust: Trust
 
     public init(
@@ -29,7 +28,6 @@ public struct Recipe: Codable, Equatable {
         update: UpdateSpec,
         pin: String?,
         enabled: Bool,
-        notify: Bool,
         trust: Trust
     ) {
         self.id = id
@@ -44,7 +42,6 @@ public struct Recipe: Codable, Equatable {
         self.update = update
         self.pin = pin
         self.enabled = enabled
-        self.notify = notify
         self.trust = trust
     }
 
@@ -99,7 +96,6 @@ public struct Recipe: Codable, Equatable {
         case update
         case pin
         case enabled
-        case notify
         case trust
     }
 
@@ -120,11 +116,6 @@ public struct Recipe: Codable, Equatable {
             enabled = try container.decode(Bool.self, forKey: .enabled)
         } else {
             enabled = true
-        }
-        if container.contains(.notify) {
-            notify = try container.decode(Bool.self, forKey: .notify)
-        } else {
-            notify = true
         }
         trust = try container.decode(Trust.self, forKey: .trust)
     }

@@ -121,7 +121,6 @@ final class CoreMenuBarServiceTests: XCTestCase {
             update: UpdateSpec(cmd: updateCommand, cwd: nil),
             pin: nil,
             enabled: true,
-            notify: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
         TrustPolicy.approveAllCommands(in: &item)
