@@ -100,8 +100,8 @@ updatebar approvals <id-from-init>
 # Inspect state without running checks.
 updatebar status --json
 
-# Refresh versions. Outdated items use exit code 10 unless opted out.
-updatebar check --exit-zero-on-outdated
+# Refresh versions. Exit code 10 means outdated items were found.
+updatebar check
 
 # Run approved updates only.
 updatebar update --yes

@@ -423,6 +423,7 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertFalse(quickStart.contains("cat > recipe.json"), "README Quick Start should not inline a full recipe")
         XCTAssertFalse(quickStart.contains("updatebar approve <id-from-init>"), "README Quick Start should not lead with advanced approval commands")
+        XCTAssertFalse(quickStart.contains("--exit-zero-on-outdated"), "README Quick Start should not lead with hidden automation flags")
         XCTAssertLessThanOrEqual(quickStart.split(separator: "\n").count, 35, "README Quick Start should stay short enough to scan")
     }
 
