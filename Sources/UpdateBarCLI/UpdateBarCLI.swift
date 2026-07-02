@@ -1924,13 +1924,18 @@ struct UpdateCommand: ParsableCommand {
         }
 
         let blocked = results.filter { $0.outcome == .skippedUntrusted }
-        guard !blocked.isEmpty else {
+        let cancelled = results.filter { $0.outcome == .cancelled }
+        guard !blocked.isEmpty || !cancelled.isEmpty else {
             return
         }
         print("")
         print("Next")
         for result in blocked {
             print("updatebar approvals \(result.id)")
+        }
+        if !cancelled.isEmpty {
+            let ids = cancelled.map(\.id).joined(separator: " ")
+            print("updatebar update \(ids) --yes")
         }
     }
 

@@ -176,6 +176,25 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertEqual(results.map(\.outcome), [.cancelled])
     }
 
+    func testUpdateHumanCancelledWithoutYesPrintsYesNextStep() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: [
+            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
+        ]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "tool": itemState(status: .outdated)
+        ]))
+
+        let result = try CLIProcess.run(["update", "tool"], home: home)
+
+        XCTAssertEqual(result.exitCode, 2)
+        XCTAssertTrue(result.stderr.contains("Type yes to continue"))
+        XCTAssertTrue(result.stdout.contains("tool\tcancelled"))
+        XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar update tool --yes"))
+    }
+
     func testUpdateRejectsJSONAndJSONStreamTogether() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
