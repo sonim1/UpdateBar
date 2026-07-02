@@ -56,6 +56,20 @@ final class ExecutionPolicyTests: XCTestCase {
         }
     }
 
+    func testCommandExecutorDoesNotWaitForBackgroundChildrenAfterShellExits() throws {
+        let executor = CommandExecutor()
+        let started = Date()
+
+        let result = try executor.run(
+            ShellCommand(command: "sleep 3 & printf done", cwd: nil),
+            policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 1024)
+        )
+
+        XCTAssertLessThan(Date().timeIntervalSince(started), 1.0)
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stdout, "done")
+    }
+
     func testCommandExecutorScrubsProviderSecretsFromEnvironment() throws {
         let executor = CommandExecutor(environment: ["OPENROUTER_API_KEY": "sk-or-v1-secret", "SAFE": "ok"])
         let result = try executor.run(

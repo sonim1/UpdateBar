@@ -69,18 +69,18 @@ public struct CommandExecutor: CommandRunning {
         while process.isRunning && Date() < deadline {
             if cancellationToken?.isCancelled == true {
                 stopProcess(process)
-                _ = readersFinished.wait(timeout: .now() + 2)
+                finishReaders(readersFinished, stdout: stdout, stderr: stderr, timeout: 2.0)
                 throw ExecutionError.cancelled(command: command.command)
             }
             Thread.sleep(forTimeInterval: 0.01)
         }
         if process.isRunning {
             stopProcess(process)
-            _ = readersFinished.wait(timeout: .now() + 2)
+            finishReaders(readersFinished, stdout: stdout, stderr: stderr, timeout: 2.0)
             throw ExecutionError.timedOut(command: command.command)
         }
         process.waitUntilExit()
-        readersFinished.wait()
+        finishReaders(readersFinished, stdout: stdout, stderr: stderr, timeout: 0.2)
 
         return CommandResult(
             exitCode: process.terminationStatus,
@@ -113,6 +113,21 @@ public struct CommandExecutor: CommandRunning {
             Thread.sleep(forTimeInterval: 0.01)
         }
         return !process.isRunning
+    }
+
+    private func finishReaders(
+        _ readersFinished: DispatchGroup,
+        stdout: Pipe,
+        stderr: Pipe,
+        timeout: TimeInterval
+    ) {
+        if readersFinished.wait(timeout: .now() + timeout) == .success {
+            return
+        }
+
+        stdout.fileHandleForReading.closeFile()
+        stderr.fileHandleForReading.closeFile()
+        _ = readersFinished.wait(timeout: .now() + 1.0)
     }
 
     private static func drain(_ handle: FileHandle, into output: LockedData) {
