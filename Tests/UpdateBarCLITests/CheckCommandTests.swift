@@ -96,6 +96,22 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("updatebar approve fixture-tool --field update.cmd"))
     }
 
+    func testCheckHumanOutdatedWithUnapprovedUpdatePrintsUpdateApprovalNextStep() throws {
+        let home = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: home)
+        var recipe = fixtureRecipe()
+        TrustPolicy.approveAllCommands(in: &recipe)
+        recipe.trust.approvedCommands.removeValue(forKey: "update.cmd")
+        try ManifestStore(paths: paths).save(manifest(items: [recipe]))
+
+        let result = try CLIProcess.run(["check", "fixture-tool"], home: home)
+
+        XCTAssertEqual(result.exitCode, 10)
+        XCTAssertTrue(result.stdout.contains("fixture-tool\toutdated"))
+        XCTAssertTrue(result.stdout.contains("updatebar approvals fixture-tool"))
+        XCTAssertTrue(result.stdout.contains("updatebar approve fixture-tool --field update.cmd"))
+    }
+
     func testCheckRejectsJSONAndJSONStreamTogether() throws {
         let home = try temporaryDirectory()
         try saveManifest(home: home)

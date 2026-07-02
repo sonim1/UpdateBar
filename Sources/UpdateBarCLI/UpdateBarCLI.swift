@@ -1537,12 +1537,21 @@ struct CheckCommand: ParsableCommand {
         }
 
         let blocked = results.filter { $0.status == .untrusted }
-        guard !blocked.isEmpty else {
+        let updateApprovalNeeded = results.filter { $0.status == .outdated }
+        guard !blocked.isEmpty || !updateApprovalNeeded.isEmpty else {
             return
         }
 
         let manifest = try ManifestStore().load()
         var printedHeader = false
+        func printHeaderIfNeeded() {
+            if !printedHeader {
+                print("")
+                print("Next")
+                printedHeader = true
+            }
+        }
+
         for result in blocked {
             guard let recipe = manifest.item(id: result.id) else {
                 continue
@@ -1551,15 +1560,22 @@ struct CheckCommand: ParsableCommand {
             guard !fields.isEmpty else {
                 continue
             }
-            if !printedHeader {
-                print("")
-                print("Next")
-                printedHeader = true
-            }
+            printHeaderIfNeeded()
             print("updatebar approvals \(result.id)")
             for field in fields {
                 print("updatebar approve \(result.id) --field \(field)")
             }
+        }
+
+        for result in updateApprovalNeeded {
+            guard let recipe = manifest.item(id: result.id),
+                  !TrustPolicy.isApproved(recipe, field: "update.cmd")
+            else {
+                continue
+            }
+            printHeaderIfNeeded()
+            print("updatebar approvals \(result.id)")
+            print("updatebar approve \(result.id) --field update.cmd")
         }
     }
 
