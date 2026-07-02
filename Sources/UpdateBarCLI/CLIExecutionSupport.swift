@@ -35,6 +35,22 @@ func requireYes(prompt: String, cancelMessage: String, interactive: Bool = true)
     }
 }
 
+func resolveExecutable(_ value: String, environment: [String: String]) -> String? {
+    if FileManager.default.isExecutableFile(atPath: value) {
+        return value
+    }
+    let pathValue = environment["PATH"] ?? ""
+    let pathEntries = pathValue.split(separator: ":").map(String.init)
+    for path in pathEntries {
+        if path.isEmpty { continue }
+        let candidate = URL(fileURLWithPath: path).appendingPathComponent(value).path
+        if FileManager.default.isExecutableFile(atPath: candidate) {
+            return candidate
+        }
+    }
+    return nil
+}
+
 private final class SignalCancellationHandler {
     private var sources: [DispatchSourceSignal] = []
 
