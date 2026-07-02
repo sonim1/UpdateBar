@@ -103,6 +103,26 @@ final class EditCommandTests: XCTestCase {
         XCTAssertEqual(manifest.item(id: "tool")?.name, "Assigned Tool")
     }
 
+    func testEditFallsBackToEditorWhenVisualIsEmpty() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let editor = try editorScript(home: home, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Editor Tool"/' "$1""#)
+
+        let result = try CLIProcess.run(
+            ["edit", "tool"],
+            home: home,
+            environment: [
+                "VISUAL": "",
+                "EDITOR": editor.path,
+            ]
+        )
+        let manifest = try ManifestStore(paths: paths).load()
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(manifest.item(id: "tool")?.name, "Editor Tool")
+    }
+
     func testEditRejectsUnknownEditorCommand() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
         let paths = AppPaths(homeDirectory: home)

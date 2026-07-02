@@ -51,7 +51,9 @@ struct EditCommand: ParsableCommand {
 
     private func runEditor(file: URL) throws {
         let environment = ProcessInfo.processInfo.environment
-        let editor = environment["VISUAL"] ?? environment["EDITOR"] ?? "vi"
+        let editor = nonEmptyEnvironmentValue("VISUAL", in: environment)
+            ?? nonEmptyEnvironmentValue("EDITOR", in: environment)
+            ?? "vi"
         let editorParts = try parseCommand(editor)
         guard let executable = editorParts.first, !executable.isEmpty else {
             throw ValidationError("EDITOR command is empty")
@@ -81,6 +83,15 @@ struct EditCommand: ParsableCommand {
         guard process.terminationStatus == 0 else {
             throw ValidationError("editor exited \(process.terminationStatus)")
         }
+    }
+
+    private func nonEmptyEnvironmentValue(_ key: String, in environment: [String: String]) -> String? {
+        guard let value = environment[key],
+            !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return nil
+        }
+        return value
     }
 
     private func resolveCommandToken(_ command: String, afterAssignmentsIn parts: [String]) -> String? {
