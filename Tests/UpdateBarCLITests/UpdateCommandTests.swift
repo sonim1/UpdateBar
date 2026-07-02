@@ -82,6 +82,7 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("No approved outdated items to update."))
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
     }
 
     func testUpdateHumanRegisteredItemsWithoutOutdatedStateDoesNotPrintInitNextStep() throws {
@@ -201,6 +202,7 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertEqual(events.last?.summary?.total, 0)
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
     }
 
     func testUpdateJSONStreamPreservesFailureExitCodeAndFinishedSummary() throws {

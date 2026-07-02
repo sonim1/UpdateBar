@@ -20,6 +20,14 @@ public struct ConfigStore {
         return try parse(text)
     }
 
+    public func loadExistingOrDefault() throws -> Config {
+        if !fileManager.fileExists(atPath: paths.configFile.path) {
+            return .default
+        }
+        let text = try String(contentsOf: paths.configFile, encoding: .utf8)
+        return try parse(text)
+    }
+
     public func save(_ config: Config) throws {
         try fileManager.createDirectory(at: paths.homeDirectory, withIntermediateDirectories: true)
         try AtomicFileWriter.write(Data(render(config).utf8), to: paths.configFile, fileManager: fileManager)

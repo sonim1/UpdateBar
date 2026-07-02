@@ -115,6 +115,7 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("updatebar init"))
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
     }
 
     func testCheckMissingItemSuggestsStatus() throws {

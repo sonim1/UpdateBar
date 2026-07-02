@@ -25,7 +25,7 @@ struct CheckCommand: ParsableCommand {
 
     func run() throws {
         try ensureJSONModeCompatibility(json: json, jsonStream: jsonStream)
-        let config = try ConfigStore().load()
+        let config = try ConfigStore().loadExistingOrDefault()
         let itemIDs = unique(ids)
         let results: [CheckResult] = try withCancellationToken { cancellationToken in
             let service = RegistryService(
