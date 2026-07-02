@@ -170,7 +170,7 @@ public struct RegistryService {
             if let version {
                 pinVersion = version
             } else {
-                let state = try stateStore.load(now: now())
+                let state = try stateStore.loadExistingOrEmpty(now: now())
                 guard let current = state.items[id]?.current else {
                     throw RegistryError.missingCurrentVersion(id)
                 }

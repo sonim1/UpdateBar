@@ -23,6 +23,18 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertNil(manifest.item(id: "tool")?.pin)
     }
 
+    func testPinWithoutStoredCurrentVersionDoesNotCreateState() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifestOnly(paths: paths)
+
+        let result = try CLIProcess.run(["pin", "tool"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("tool: current version is unavailable"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+    }
+
     func testEnableAndDisableToggleItem() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
@@ -304,11 +316,7 @@ final class ManageItemCommandTests: XCTestCase {
     }
 
     private func saveFixture(paths: AppPaths) throws {
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [recipe()],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try saveManifestOnly(paths: paths)
         try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
             "tool": ItemState(
                 current: "1.0.0",
@@ -319,6 +327,14 @@ final class ManageItemCommandTests: XCTestCase {
                 backoffUntil: nil
             )
         ]))
+    }
+
+    private func saveManifestOnly(paths: AppPaths) throws {
+        try ManifestStore(paths: paths).save(Manifest(
+            schemaVersion: 1,
+            items: [recipe()],
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        ))
     }
 
     private func recipe() -> Recipe {
