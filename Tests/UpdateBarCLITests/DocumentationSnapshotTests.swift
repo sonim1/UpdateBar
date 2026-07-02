@@ -123,6 +123,20 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("all"))
     }
 
+    func testScanAndInitHelpListSupportedCategories() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        for command in ["scan", "init"] {
+            let result = try CLIProcess.run([command, "--help"], home: home)
+
+            XCTAssertEqual(result.exitCode, 0)
+            XCTAssertEqual(result.stderr, "")
+            XCTAssertTrue(result.stdout.contains("ai-agent"), "\(command) help missing ai-agent")
+            XCTAssertTrue(result.stdout.contains("library"), "\(command) help missing library")
+            XCTAssertTrue(result.stdout.contains("mcp-server"), "\(command) help missing mcp-server")
+        }
+    }
+
     func testSystemSubcommandsHaveHelpDescriptions() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         var expectedSubcommandsByCommand: [String: [String]] = [

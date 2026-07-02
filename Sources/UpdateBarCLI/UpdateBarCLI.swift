@@ -360,7 +360,7 @@ struct ScanCommand: ParsableCommand {
     @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known,codex_skill,mcp_config.")
     var detectors: String?
 
-    @Option(name: .long, help: "Filter by category, such as ai-agent or cloud-devops.")
+    @Option(name: .long, help: "Filter by category: ai-agent, package-manager, runtime-sdk, shell-utility, cloud-devops, library, codex-skill, or mcp-server.")
     var category: String?
 
     func run() throws {
@@ -478,7 +478,7 @@ struct InitCommand: ParsableCommand {
     @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known,codex_skill,mcp_config.")
     var detectors: String?
 
-    @Option(name: .long, help: "Filter by category, such as ai-agent or cloud-devops.")
+    @Option(name: .long, help: "Filter by category: ai-agent, package-manager, runtime-sdk, shell-utility, cloud-devops, library, codex-skill, or mcp-server.")
     var category: String?
 
     func run() throws {
