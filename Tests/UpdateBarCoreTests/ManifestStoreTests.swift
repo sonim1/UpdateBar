@@ -51,6 +51,24 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertThrowsError(try JSONDecoder.updateBar.decode(Manifest.self, from: data))
     }
 
+    func testDecodeRejectsUnsupportedJQVersionParse() throws {
+        let data = try validManifestDataUpdatingFirstItem {
+            $0["version_parse"] = ["jq": ".version"]
+        }
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(Manifest.self, from: data))
+    }
+
+    func testDecodeRejectsStoredElevatedTrustLevel() throws {
+        let data = try validManifestDataUpdatingFirstItem {
+            var trust = try XCTUnwrap($0["trust"] as? [String: Any])
+            trust["level"] = "elevated"
+            $0["trust"] = trust
+        }
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(Manifest.self, from: data))
+    }
+
     func testReplacingAndRemovingItems() throws {
         let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
         let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)

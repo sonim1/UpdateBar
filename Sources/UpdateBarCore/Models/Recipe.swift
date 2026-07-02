@@ -261,7 +261,17 @@ public enum VersionParse: Codable, Equatable {
             self = .regex(regex)
             return
         }
-        self = .jq(try container.decode(String.self, forKey: .jq))
+        if container.contains(.jq) {
+            throw DecodingError.dataCorruptedError(
+                forKey: .jq,
+                in: container,
+                debugDescription: "version_parse.jq is unsupported"
+            )
+        }
+        throw DecodingError.keyNotFound(
+            CodingKeys.regex,
+            DecodingError.Context(codingPath: container.codingPath, debugDescription: "version_parse.regex is required")
+        )
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -323,6 +333,19 @@ public struct Trust: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case level
         case approvedCommands = "approved_commands"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        level = try container.decode(TrustLevel.self, forKey: .level)
+        if level == .elevated {
+            throw DecodingError.dataCorruptedError(
+                forKey: .level,
+                in: container,
+                debugDescription: "trust.level elevated is computed and cannot be stored"
+            )
+        }
+        approvedCommands = try container.decode([String: String].self, forKey: .approvedCommands)
     }
 }
 

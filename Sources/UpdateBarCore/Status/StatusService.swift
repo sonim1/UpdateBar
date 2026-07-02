@@ -51,7 +51,7 @@ public struct StatusService {
     ) -> State {
         var copy = state
         for recipe in manifest.items {
-            guard recipe.enabled, recipe.pin == nil, recipe.trust.level == .trusted else {
+            guard recipe.enabled, recipe.pin == nil, TrustPolicy.isCheckApproved(recipe) else {
                 continue
             }
             let existing = copy.items[recipe.id]

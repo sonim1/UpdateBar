@@ -43,7 +43,7 @@ public struct StatusSnapshot: Codable, Equatable {
     private static func resolvedStatus(recipe: Recipe, itemState: ItemState?) -> ItemStatus {
         if !recipe.enabled { return .disabled }
         if recipe.pin != nil { return .pinned }
-        if recipe.trust.level == .untrusted || recipe.trust.level == .elevated {
+        if !TrustPolicy.hasApprovedCommandFingerprints(recipe) {
             return .untrusted
         }
         guard let itemState else { return .checking }

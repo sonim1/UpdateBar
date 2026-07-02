@@ -88,7 +88,7 @@ public struct RegistryService {
                     continue
                 }
 
-                if !isCheckApproved(recipe) {
+                if !TrustPolicy.isCheckApproved(recipe) {
                     let itemState = ItemState(
                         current: existing?.current,
                         latest: existing?.latest,
@@ -353,16 +353,6 @@ public struct RegistryService {
             }
             return item
         }
-    }
-
-    private func isCheckApproved(_ recipe: Recipe) -> Bool {
-        if case .command = recipe.check, !TrustPolicy.isApproved(recipe, field: "check.cmd") {
-            return false
-        }
-        if recipe.latest.strategy == .cmd, !TrustPolicy.isApproved(recipe, field: "latest.cmd") {
-            return false
-        }
-        return recipe.trust.level == .trusted
     }
 
     private func isFresh(_ state: ItemState, now: Date) -> Bool {

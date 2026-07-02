@@ -33,33 +33,48 @@ final class StatusSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.items.first?.pinned, false)
     }
 
+    func testUnapprovedCommandFingerprintOverridesStoredOutdatedState() throws {
+        let manifest = try loadManifest(approved: false)
+        let now = Date(timeIntervalSince1970: 1_812_499_200)
+        let state = State(
+            schemaVersion: 1,
+            generatedAt: now,
+            items: [
+                "claude-code": ItemState(
+                    current: "1.4.2",
+                    latest: "1.5.0",
+                    status: .outdated,
+                    lastChecked: now,
+                    error: nil,
+                    backoffUntil: nil
+                )
+            ]
+        )
+
+        let snapshot = StatusSnapshot.from(manifest: manifest, state: state, now: now)
+
+        XCTAssertEqual(snapshot.summary.outdated, 0)
+        XCTAssertEqual(snapshot.summary.untrusted, 1)
+        XCTAssertEqual(snapshot.items.first?.status, .untrusted)
+    }
+
     func testStatusSummaryCountsAttentionStates() throws {
-        var outdated = try loadManifest().items[0]
-        outdated.id = "outdated"
-        outdated.name = "Outdated"
+        let outdated = try recipe(id: "outdated", name: "Outdated")
 
         var untrusted = outdated
         untrusted.id = "untrusted"
         untrusted.name = "Untrusted"
         untrusted.trust.level = .untrusted
 
-        var pinned = outdated
-        pinned.id = "pinned"
-        pinned.name = "Pinned"
+        var pinned = try recipe(id: "pinned", name: "Pinned")
         pinned.pin = "1.4.2"
 
-        var disabled = outdated
-        disabled.id = "disabled"
-        disabled.name = "Disabled"
+        var disabled = try recipe(id: "disabled", name: "Disabled")
         disabled.enabled = false
 
-        var checking = outdated
-        checking.id = "checking"
-        checking.name = "Checking"
+        let checking = try recipe(id: "checking", name: "Checking")
 
-        var differs = outdated
-        differs.id = "differs"
-        differs.name = "Differs"
+        let differs = try recipe(id: "differs", name: "Differs")
 
         let now = Date(timeIntervalSince1970: 1_812_499_200)
         let manifest = Manifest(
@@ -150,8 +165,22 @@ final class StatusSnapshotTests: XCTestCase {
         )
     }
 
-    private func loadManifest() throws -> Manifest {
+    private func recipe(id: String, name: String) throws -> Recipe {
+        var item = try loadManifest().items[0]
+        item.id = id
+        item.name = name
+        TrustPolicy.approveAllCommands(in: &item)
+        return item
+    }
+
+    private func loadManifest(approved: Bool = true) throws -> Manifest {
         let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
-        return try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        var manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        if approved {
+            for index in manifest.items.indices {
+                TrustPolicy.approveAllCommands(in: &manifest.items[index])
+            }
+        }
+        return manifest
     }
 }

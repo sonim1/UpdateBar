@@ -84,6 +84,29 @@ final class StatusServiceTests: XCTestCase {
         XCTAssertEqual(persisted.items["fresh"]?.status, .ok)
     }
 
+    func testRefreshDoesNotMarkStaleItemCheckingWhenCheckCommandIsUnapproved() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        var item = try recipe(id: "partial")
+        item.trust.approvedCommands.removeValue(forKey: "check.cmd")
+        try ManifestStore(paths: paths).save(manifest(items: [item]))
+        var config = Config.default
+        config.refresh.interval = Duration(hours: 1)
+        try ConfigStore(paths: paths).save(config)
+        let staleChecked = now.addingTimeInterval(-7_200)
+        try StateStore(paths: paths).save(State(
+            schemaVersion: 1,
+            generatedAt: staleChecked,
+            items: ["partial": itemState(lastChecked: staleChecked)]
+        ))
+
+        let snapshot = try statusService(paths: paths).snapshot(refresh: true)
+        let persisted = try StateStore(paths: paths).load()
+
+        XCTAssertEqual(snapshot.items.first?.status, .untrusted)
+        XCTAssertEqual(persisted.items["partial"]?.status, .ok)
+    }
+
     private func statusService(paths: AppPaths) -> StatusService {
         StatusService(
             manifestStore: ManifestStore(paths: paths),
@@ -95,7 +118,11 @@ final class StatusServiceTests: XCTestCase {
 
     private func loadManifest() throws -> Manifest {
         let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
-        return try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        var manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        for index in manifest.items.indices {
+            TrustPolicy.approveAllCommands(in: &manifest.items[index])
+        }
+        return manifest
     }
 
     private func manifest(items: [Recipe]) -> Manifest {
@@ -110,6 +137,7 @@ final class StatusServiceTests: XCTestCase {
         var item = try XCTUnwrap(loadManifest().items.first)
         item.id = id
         item.name = id
+        TrustPolicy.approveAllCommands(in: &item)
         return item
     }
 
