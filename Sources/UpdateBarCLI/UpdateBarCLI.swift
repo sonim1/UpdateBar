@@ -357,7 +357,7 @@ struct ScanCommand: ParsableCommand {
     @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known,codex_skill,mcp_config.")
+    @Option(name: .long, help: .hidden)
     var detectors: String?
 
     @Option(name: .long, help: "Filter by category: ai-agent, package-manager, runtime-sdk, shell-utility, cloud-devops, library, codex-skill, or mcp-server.")
@@ -475,7 +475,7 @@ struct InitCommand: ParsableCommand {
     @Option(name: .long, help: "Comma-separated candidate ids, numbers, or all.")
     var select: String?
 
-    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known,codex_skill,mcp_config.")
+    @Option(name: .long, help: .hidden)
     var detectors: String?
 
     @Option(name: .long, help: "Filter by category: ai-agent, package-manager, runtime-sdk, shell-utility, cloud-devops, library, codex-skill, or mcp-server.")
@@ -570,8 +570,7 @@ struct InitCommand: ParsableCommand {
         if report.candidates.isEmpty {
             return ValidationError(
                 "No importable candidates found. "
-                    + "Use --detectors to choose a different scan source "
-                    + "and ensure any category filter is not too strict."
+                    + "Check that the tool is installed and ensure any category filter is not too strict."
             )
         }
 

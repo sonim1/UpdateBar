@@ -101,13 +101,10 @@ Sets a known config key.
 Adds one recipe from a recipe JSON file, stdin (`--from -`), a single-item manifest, or an interactive wizard. Saved recipes are untrusted by default. Review command fields with `updatebar approvals <id>` and approve them with `updatebar approve <id> --field <field>`.
 In `--json` mode, saved recipes include `outcome: "added"` or `outcome: "replaced"`; dry runs omit `outcome`.
 
-### `updatebar scan [--json] [--detectors <list>] [--category <category>]`
+### `updatebar scan [--json] [--category <category>]`
 
 Scans installed local tools and prints recipe candidates without changing `manifest.json`, `state.json`, config, or approvals.
 
-Detectors are `brew`, `npm_global`, `known`, `codex_skill`, and `mcp_config`.
-`--detectors` accepts a comma-separated list. Whitespace is ignored around
-each token, duplicate values are deduplicated, and unknown ids are rejected.
 Supported categories are `ai-agent`, `package-manager`, `runtime-sdk`,
 `shell-utility`, `cloud-devops`, `library`, `codex-skill`, and `mcp-server`.
 `--category` is normalized (`CLOUD-DEVOPS`, `CLOUD DEVOPS`, `cloud_devops`, etc.
@@ -122,15 +119,15 @@ for importable candidates. `metadata-only` rows include a source ref so local
 skill and MCP config entries can be traced without printing env values. JSON
 output returns the same ids in `candidates[].id`.
 
-### `updatebar init [--json] [--detectors <list>] [--category <category>] [--select <ids>] [--replace]`
+### `updatebar init [--json] [--category <category>] [--select <ids>] [--replace]`
 
 Scans installed local tools, lets the user select importable candidates, and stores selected recipes as untrusted manifest items.
 
 Without `--select`, `init` prints numbered importable candidates and reads comma-
 or whitespace-separated numbers or candidate ids from stdin. Enter `all` to add
 every importable candidate. If no importable candidates are found, `init` exits
-with a usage error and suggests retrying with different detectors or a broader
-filter.
+with a usage error and suggests checking installed tools or using a broader
+category filter.
 `--select` accepts comma-separated candidate numbers or ids such as
 `2,brew.gh,npm.typescript`, optional spaces are ignored, duplicate values are
 ignored, and `ALL` is accepted for `all`. `--json` requires `--select` so stdout

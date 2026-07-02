@@ -41,8 +41,8 @@ final class DocumentationSnapshotTests: XCTestCase {
     func testPrimaryCommandOptionsHaveHelpDescriptions() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let expectedOptionsByCommand: [String: [String]] = [
-            "scan": ["--json", "--detectors", "--category"],
-            "init": ["--json", "--replace", "--select", "--detectors", "--category"],
+            "scan": ["--json", "--category"],
+            "init": ["--json", "--replace", "--select", "--category"],
             "add": ["--from", "--manual", "--dry-run", "--json", "--replace"],
             "import": ["--replace", "--json"],
             "export": ["--json"],
@@ -69,6 +69,12 @@ final class DocumentationSnapshotTests: XCTestCase {
                 XCTAssertFalse(
                     optionHasDescription("--refresh", in: helpLines),
                     "status --refresh is an internal state hint and should stay out of primary help"
+                )
+            }
+            if ["scan", "init"].contains(command) {
+                XCTAssertFalse(
+                    optionHasDescription("--detectors", in: helpLines),
+                    "\(command) --detectors is an advanced scan-source override and should stay out of primary help"
                 )
             }
         }
@@ -410,7 +416,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(initSection.contains("all"), "init docs should mention all")
     }
 
-    func testCliDocsScanDocumentsCurrentDetectorsAndMetadataSourceRefs() throws {
+    func testCliDocsScanDocumentsCategoriesAndMetadataSourceRefs() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
         let scanSection = try readmeSection(
             "### `updatebar scan",
@@ -418,7 +424,8 @@ final class DocumentationSnapshotTests: XCTestCase {
             in: docs
         )
 
-        XCTAssertTrue(scanSection.contains("`brew`, `npm_global`, `known`, `codex_skill`, and `mcp_config`"))
+        XCTAssertTrue(scanSection.contains("`ai-agent`, `package-manager`, `runtime-sdk`"))
+        XCTAssertFalse(scanSection.contains("--detectors"))
         XCTAssertTrue(scanSection.contains("metadata-only"))
         XCTAssertTrue(scanSection.contains("source ref"))
     }
