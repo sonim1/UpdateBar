@@ -43,7 +43,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         let expectedOptionsByCommand: [String: [String]] = [
             "scan": ["--json", "--category"],
             "init": ["--json", "--replace", "--select", "--category"],
-            "add": ["--from", "--manual", "--dry-run", "--json", "--replace"],
+            "add": ["--from", "--dry-run", "--json", "--replace"],
             "import": ["--replace", "--json"],
             "export": ["--json"],
             "status": ["--json"],
@@ -69,6 +69,12 @@ final class DocumentationSnapshotTests: XCTestCase {
                 XCTAssertFalse(
                     optionHasDescription("--refresh", in: helpLines),
                     "status --refresh is an internal state hint and should stay out of primary help"
+                )
+            }
+            if command == "add" {
+                XCTAssertFalse(
+                    optionHasDescription("--manual", in: helpLines),
+                    "add defaults to the manual wizard when --from is omitted"
                 )
             }
             if ["status", "check"].contains(command) {

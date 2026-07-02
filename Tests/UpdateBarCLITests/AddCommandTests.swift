@@ -171,11 +171,33 @@ final class AddCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("Unknown option '--trust'"))
     }
 
-    func testManualWizardCreatesUntrustedRecipe() throws {
+    func testAddWithoutSourceRunsManualWizardAndCreatesUntrustedRecipe() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let paths = AppPaths(homeDirectory: home)
         try ManifestStore(paths: paths).save(manifest(items: []))
-        let input = """
+        let input = wizardInput()
+
+        let result = try CLIProcess.run(["add", "--json"], home: home, stdin: input)
+        let stored = try ManifestStore(paths: paths).load()
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(stored.item(id: "wizard")?.name, "Wizard Tool")
+        XCTAssertEqual(stored.item(id: "wizard")?.trust.level, .untrusted)
+    }
+
+    func testManualFlagStillRunsWizardForCompatibility() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: []))
+        let input = wizardInput()
+
+        let result = try CLIProcess.run(["add", "--manual", "--json"], home: home, stdin: input)
+
+        XCTAssertEqual(result.exitCode, 0)
+    }
+
+    private func wizardInput() -> String {
+        """
         wizard
         Wizard Tool
         cli
@@ -192,13 +214,6 @@ final class AddCommandTests: XCTestCase {
         printf updated
 
         """
-
-        let result = try CLIProcess.run(["add", "--manual", "--json"], home: home, stdin: input)
-        let stored = try ManifestStore(paths: paths).load()
-
-        XCTAssertEqual(result.exitCode, 0)
-        XCTAssertEqual(stored.item(id: "wizard")?.name, "Wizard Tool")
-        XCTAssertEqual(stored.item(id: "wizard")?.trust.level, .untrusted)
     }
 
     private func writeRecipe(home: URL, recipe: Recipe) throws -> URL {

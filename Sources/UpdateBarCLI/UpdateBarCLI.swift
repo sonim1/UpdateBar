@@ -2365,7 +2365,7 @@ struct AddCommand: ParsableCommand {
     @Option(name: .long, help: "Recipe JSON file to add, or '-' for stdin.")
     var from: String?
 
-    @Flag(name: .long, help: "Prompt for recipe fields interactively.")
+    @Flag(name: .long, help: .hidden)
     var manual = false
 
     @Flag(name: .long, help: "Validate and print the recipe without saving it.")
@@ -2378,10 +2378,6 @@ struct AddCommand: ParsableCommand {
     var replace = false
 
     func run() throws {
-        guard manual || from != nil else {
-            throw ValidationError("pass --from <recipe.json> or --manual")
-        }
-
         let recipe = try loadManualRecipe()
         let validated = try validatedRecipe(recipe)
         let prepared = TrustPolicy.untrustedCopy(validated)
