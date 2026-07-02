@@ -20,6 +20,7 @@ final class AddCommandTests: XCTestCase {
         XCTAssertTrue(payload.valid)
         XCTAssertEqual(payload.recipe?.id, "dry-run")
         XCTAssertEqual(payload.recipe?.trust.level, .untrusted)
+        XCTAssertNil(payload.outcome)
     }
 
     func testManualAddDryRunHumanModeDoesNotSayAdded() throws {
@@ -48,6 +49,8 @@ final class AddCommandTests: XCTestCase {
         let stored = try ManifestStore(paths: paths).load()
 
         XCTAssertEqual(result.exitCode, 0)
+        let payload = try JSONDecoder.updateBar.decode(AddPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(payload.outcome, .added)
         XCTAssertEqual(stored.item(id: "manual")?.trust.level, .untrusted)
         XCTAssertEqual(stored.item(id: "manual")?.trust.approvedCommands, [:])
     }
@@ -132,6 +135,8 @@ final class AddCommandTests: XCTestCase {
         let stored = try ManifestStore(paths: paths).load()
 
         XCTAssertEqual(result.exitCode, 0)
+        let payload = try JSONDecoder.updateBar.decode(AddPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(payload.outcome, .replaced)
         XCTAssertEqual(stored.item(id: "tool")?.name, "Replacement")
         XCTAssertEqual(stored.item(id: "tool")?.trust.level, .untrusted)
     }
@@ -245,5 +250,6 @@ final class AddCommandTests: XCTestCase {
     private struct AddPayload: Decodable {
         var valid: Bool
         var recipe: Recipe?
+        var outcome: AddRecipeOutcome?
     }
 }

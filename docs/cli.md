@@ -98,6 +98,7 @@ Sets a known config key.
 ### `updatebar add [--manual] [--from <file|->] [--dry-run] [--json] [--replace]`
 
 Adds one recipe from a recipe JSON file, stdin (`--from -`), a single-item manifest, or an interactive wizard. Saved recipes are untrusted by default. Review command fields with `updatebar approvals <id>` and approve them with `updatebar approve <id> --field <field>`.
+In `--json` mode, saved recipes include `outcome: "added"` or `outcome: "replaced"`; dry runs omit `outcome`.
 
 ### `updatebar scan [--json] [--detectors <list>] [--category <category>]`
 

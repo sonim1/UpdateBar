@@ -2307,7 +2307,11 @@ struct AddCommand: ParsableCommand {
 
         do {
             let outcome = try RegistryService().addRecipe(prepared, replace: replace)
-            try output(AddPayload(valid: true, recipe: prepared, errors: []), saved: true, outcome: outcome)
+            try output(
+                AddPayload(valid: true, recipe: prepared, errors: [], outcome: outcome),
+                saved: true,
+                outcome: outcome
+            )
         } catch {
             if json {
                 try output(AddPayload(
@@ -2452,12 +2456,14 @@ private struct AddPayload: Encodable {
     var valid: Bool
     var recipe: Recipe?
     var errors: [String]
+    var outcome: AddRecipeOutcome?
 
-    init(valid: Bool, recipe: Recipe?, errors: [String]) {
+    init(valid: Bool, recipe: Recipe?, errors: [String], outcome: AddRecipeOutcome? = nil) {
         self.ok = valid
         self.valid = valid
         self.recipe = recipe
         self.errors = errors
+        self.outcome = outcome
     }
 }
 
