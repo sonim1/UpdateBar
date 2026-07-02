@@ -9,7 +9,6 @@ source "$ROOT/version.env"
 VERSION="${UPDATEBAR_VERSION:?UPDATEBAR_VERSION is required}"
 APP_DIR="dist/UpdateBar.app"
 ARCHIVE="dist/UpdateBar-${VERSION}-macos-arm64.app.tar.gz"
-TAR_ARCHIVE="${ARCHIVE%.gz}"
 
 if [[ ! -d "$APP_DIR" ]]; then
   echo "missing app bundle: $APP_DIR" >&2
@@ -17,9 +16,8 @@ if [[ ! -d "$APP_DIR" ]]; then
   exit 1
 fi
 
-rm -f "$ARCHIVE" "$TAR_ARCHIVE" "${ARCHIVE}.sha256"
-COPYFILE_DISABLE=1 tar -C dist -cf "$TAR_ARCHIVE" UpdateBar.app
-gzip -n -f "$TAR_ARCHIVE"
+rm -f "$ARCHIVE" "${ARCHIVE}.sha256"
+COPYFILE_DISABLE=1 tar -C dist -czf "$ARCHIVE" UpdateBar.app
 
 if command -v shasum >/dev/null 2>&1; then
   shasum -a 256 "$ARCHIVE" >"${ARCHIVE}.sha256"
