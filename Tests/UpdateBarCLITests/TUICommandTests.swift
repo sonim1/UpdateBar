@@ -101,6 +101,9 @@ echo "path:$UPDATEBAR_BIN"
 
         XCTAssertNotEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.contains("Could not locate updatebar-tui on PATH."))
+        XCTAssertTrue(result.stderr.contains("UPDATEBAR_TUI"))
+        XCTAssertTrue(result.stderr.contains("npm link"))
+        XCTAssertTrue(result.stderr.contains("tui"))
     }
 
     private func writeExecutable(_ url: URL, _ body: String) throws {

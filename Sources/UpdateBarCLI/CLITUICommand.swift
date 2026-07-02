@@ -36,7 +36,9 @@ struct TUICommand: ParsableCommand {
         if let resolved = commandFromPath(name: "updatebar-tui", environment: environment) {
             return resolved
         }
-        throw ValidationError("Could not locate updatebar-tui on PATH.")
+        throw ValidationError(
+            "Could not locate updatebar-tui on PATH. Build and link it with `cd tui && npm install && npm run build && npm link`, or set UPDATEBAR_TUI=/path/to/updatebar-tui."
+        )
     }
 
     private func makeTUIEnvironment() -> [String: String] {
