@@ -160,7 +160,7 @@ public enum VersionScheme: String, Codable, Equatable {
 
 public enum CheckSpec: Codable, Equatable {
     case command(String)
-    case file(path: String, query: String)
+    case file(path: String, query: String?)
 
     enum CodingKeys: String, CodingKey {
         case cmd
@@ -175,7 +175,7 @@ public enum CheckSpec: Codable, Equatable {
             return
         }
         let file = try container.decode(String.self, forKey: .file)
-        let query = try container.decode(String.self, forKey: .query)
+        let query = try container.decodeIfPresent(String.self, forKey: .query)
         self = .file(path: file, query: query)
     }
 
@@ -186,7 +186,7 @@ public enum CheckSpec: Codable, Equatable {
             try container.encode(cmd, forKey: .cmd)
         case let .file(path, query):
             try container.encode(path, forKey: .file)
-            try container.encode(query, forKey: .query)
+            try container.encodeIfPresent(query, forKey: .query)
         }
     }
 
@@ -195,7 +195,7 @@ public enum CheckSpec: Codable, Equatable {
         case let .command(cmd):
             return "cmd|\(cmd)"
         case let .file(path, query):
-            return "file|\(path)|\(query)"
+            return "file|\(path)|\(query ?? "")"
         }
     }
 }

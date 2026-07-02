@@ -65,6 +65,11 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertEqual(try boolDefault(in: properties, "requires_write", nestedIn: "update"), true)
         XCTAssertEqual(try boolDefault(in: properties, "enabled"), true)
         XCTAssertEqual(try boolDefault(in: properties, "notify"), true)
+        let check = try XCTUnwrap(properties["check"] as? [String: Any])
+        let checkVariants = try XCTUnwrap(check["oneOf"] as? [[String: Any]])
+        XCTAssertTrue(checkVariants.contains { variant in
+            (variant["required"] as? [String]) == ["file"]
+        })
         XCTAssertFalse(result.stdout.contains(#""jq""#))
     }
 

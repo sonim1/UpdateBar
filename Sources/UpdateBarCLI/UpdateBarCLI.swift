@@ -1287,12 +1287,12 @@ struct SchemaCommand: ParsableCommand {
               "type": "object",
               "oneOf": [
                 { "required": ["cmd"] },
-                { "required": ["file", "query"] }
+                { "required": ["file"] }
               ],
               "properties": {
                 "cmd": { "type": "string", "minLength": 1 },
                 "file": { "type": "string", "minLength": 1 },
-                "query": { "type": "string", "minLength": 1 }
+                "query": { "type": ["string", "null"], "deprecated": true }
               }
             },
             "latest": {

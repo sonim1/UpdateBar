@@ -99,22 +99,32 @@ final class ManifestValidatorTests: XCTestCase {
 
         let result = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
 
-        XCTAssertTrue(result.errors.contains("items[0].check: exactly one of cmd or file/query is required"))
+        XCTAssertTrue(result.errors.contains("items[0].check: exactly one of cmd or file is required"))
     }
 
-    func testRejectsWhitespaceOnlyCheckFileQuery() throws {
+    func testAcceptsCheckFileWithoutUnusedQuery() throws {
+        let data = try validDataUpdatingFirstRawItem {
+            $0["check"] = ["file": "/tmp/version.txt"]
+        }
+
+        let result = try ManifestValidator.validate(data: data)
+
+        XCTAssertTrue(result.isValid, result.errors.joined(separator: "\n"))
+        let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        guard case let .file(path, query) = manifest.items[0].check else {
+            return XCTFail("expected check.file")
+        }
+        XCTAssertEqual(path, "/tmp/version.txt")
+        XCTAssertNil(query)
+    }
+
+    func testRejectsWhitespaceOnlyCheckFile() throws {
         var manifest = try loadValid()
         manifest.items[0].check = .file(path: " \t\n", query: "$.version")
 
         let blankPath = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
 
-        XCTAssertTrue(blankPath.errors.contains("items[0].check: exactly one of cmd or file/query is required"))
-
-        manifest.items[0].check = .file(path: "/tmp/version.json", query: " \t\n")
-
-        let blankQuery = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
-
-        XCTAssertTrue(blankQuery.errors.contains("items[0].check: exactly one of cmd or file/query is required"))
+        XCTAssertTrue(blankPath.errors.contains("items[0].check: exactly one of cmd or file is required"))
     }
 
     func testRejectsCheckWithCommandAndBlankFileQueryFields() throws {
@@ -126,7 +136,7 @@ final class ManifestValidatorTests: XCTestCase {
             ] as [String: Any]
         }
 
-        XCTAssertTrue(result.errors.contains("items[0].check: exactly one of cmd or file/query is required"))
+        XCTAssertTrue(result.errors.contains("items[0].check: exactly one of cmd or file is required"))
     }
 
     func testRejectsDuplicateIds() throws {
@@ -293,6 +303,10 @@ final class ManifestValidatorTests: XCTestCase {
             var source = try XCTUnwrap($0["source"] as? [String: Any])
             source["branch"] = false
             $0["source"] = source
+            $0["check"] = [
+                "file": "/tmp/version.txt",
+                "query": 42,
+            ] as [String: Any]
             var latest = try XCTUnwrap($0["latest"] as? [String: Any])
             latest["cmd"] = ["bad"]
             latest["pattern"] = 123
@@ -305,6 +319,7 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].path: must be a string or null when provided"))
         XCTAssertTrue(result.errors.contains("items[0].pin: must be a string or null when provided"))
         XCTAssertTrue(result.errors.contains("items[0].source.branch: must be a string or null when provided"))
+        XCTAssertTrue(result.errors.contains("items[0].check.query: must be a string or null when provided"))
         XCTAssertTrue(result.errors.contains("items[0].latest.cmd: must be a string or null when provided"))
         XCTAssertTrue(result.errors.contains("items[0].latest.pattern: must be a string or null when provided"))
         XCTAssertTrue(result.errors.contains("items[0].update.cwd: must be a string or null when provided"))

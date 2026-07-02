@@ -92,18 +92,22 @@ public enum RecipeValidator {
     }
 
     private static func validateCheck(_ check: [String: Any], path: String) -> [String] {
+        var errors: [String] = []
         let hasCmdField = check.keys.contains("cmd")
         let hasFileField = check.keys.contains("file")
         let hasQueryField = check.keys.contains("query")
         let hasCmd = nonEmptyString(check["cmd"])
         let hasFile = nonEmptyString(check["file"])
-        let hasQuery = nonEmptyString(check["query"])
-        if hasCmdField && (hasFileField || hasQueryField) {
-            return ["\(path): exactly one of cmd or file/query is required"]
+        if hasQueryField, !(check["query"] is String || check["query"] is NSNull) {
+            errors.append("\(path).query: must be a string or null when provided")
         }
-        if hasCmd && !hasFile && !hasQuery { return [] }
-        if !hasCmd && hasFile && hasQuery { return [] }
-        return ["\(path): exactly one of cmd or file/query is required"]
+        if hasCmdField && (hasFileField || hasQueryField) {
+            errors.append("\(path): exactly one of cmd or file is required")
+        }
+        if hasCmd && !hasFileField && !hasQueryField { return errors }
+        if !hasCmdField && hasFile { return errors }
+        errors.append("\(path): exactly one of cmd or file is required")
+        return errors
     }
 
     private static func validateLatest(_ latest: [String: Any], path: String) -> [String] {
