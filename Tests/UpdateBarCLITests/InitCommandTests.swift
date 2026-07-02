@@ -267,6 +267,8 @@ final class InitCommandTests: XCTestCase {
             ErrorPayload.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
         XCTAssertTrue(payload.errors.contains { $0.contains("init --json requires --select") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("init --select all --json") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar scan") })
     }
 
     func testInitSelectSupportsWhitespaceAndDedupe() throws {

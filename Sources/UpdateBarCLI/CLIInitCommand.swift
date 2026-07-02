@@ -81,7 +81,11 @@ struct InitCommand: ParsableCommand {
         }
 
         if json {
-            throw ValidationError("init --json requires --select")
+            throw ValidationError(
+                "init --json requires --select. "
+                    + "Run updatebar scan to review candidate ids, then use "
+                    + "updatebar init --select all --json or pass selected ids."
+            )
         }
 
         let importable = importableCandidates(from: report)

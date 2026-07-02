@@ -562,6 +562,10 @@ final class DocumentationSnapshotTests: XCTestCase {
             initSection.contains("use ids when copying from `updatebar scan`"),
             "init docs should prefer ids for scan output"
         )
+        XCTAssertTrue(
+            initSection.contains("`updatebar init --select all --json`"),
+            "init docs should show the headless add-all form"
+        )
         XCTAssertTrue(initSection.contains("all"), "init docs should mention all")
         for column in ["`ITEM`", "`ID`", "`CATEGORY`", "`SOURCE`"] {
             XCTAssertTrue(initSection.contains(column), "init docs missing \(column)")
