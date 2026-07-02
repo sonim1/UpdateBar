@@ -109,7 +109,7 @@ export class CLIUpdateBarClient implements UpdateBarClient {
   }
 
   async updateAll(options: StreamOptions): Promise<CommandResult> {
-    const result = await this.runner.stream(['update', '--all', '--yes', '--json-stream'], options);
+    const result = await this.runner.stream(['update', '--yes', '--json-stream'], options);
     ensureExit(result, [0, 2, 3]);
     return result;
   }

@@ -48,7 +48,7 @@ final class DocumentationSnapshotTests: XCTestCase {
             "export": ["--json"],
             "status": ["--json"],
             "check": ["--json", "--json-stream", "--force"],
-            "update": ["--all", "--yes", "--json", "--json-stream"],
+            "update": ["--yes", "--json", "--json-stream"],
             "list": ["--json"],
             "approvals": ["--json"],
         ]
@@ -75,6 +75,12 @@ final class DocumentationSnapshotTests: XCTestCase {
                 XCTAssertFalse(
                     optionHasDescription("--manual", in: helpLines),
                     "add defaults to the manual wizard when --from is omitted"
+                )
+            }
+            if command == "update" {
+                XCTAssertFalse(
+                    optionHasDescription("--all", in: helpLines),
+                    "update defaults to all outdated items when ids are omitted"
                 )
             }
             if ["status", "check"].contains(command) {
@@ -394,7 +400,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let quickStart = try readmeSection("## Quick Start", before: "## Scope", in: readme)
 
-        for command in ["updatebar scan", "updatebar init", "updatebar approvals <id-from-init>", "updatebar status --json", "updatebar check", "updatebar update --all --yes"] {
+        for command in ["updatebar scan", "updatebar init", "updatebar approvals <id-from-init>", "updatebar status --json", "updatebar check", "updatebar update --yes"] {
             XCTAssertTrue(quickStart.contains(command), "README Quick Start missing \(command)")
         }
         XCTAssertTrue(quickStart.contains("<candidate-id-from-scan>"))
@@ -457,6 +463,17 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertFalse(checkSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false)
         XCTAssertFalse(statusSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false)
+    }
+
+    func testCliDocsHideDefaultedAllFlagFromUpdateSignature() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let updateSection = try readmeSection(
+            "### `updatebar update",
+            before: "### `updatebar approve",
+            in: docs
+        )
+
+        XCTAssertFalse(updateSection.split(separator: "\n").first?.contains("--all") ?? false)
     }
 
     func testScanInitSpecDocumentsCurrentCategories() throws {

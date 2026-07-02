@@ -73,7 +73,7 @@ final class UpdateBarCLIClientTests: XCTestCase {
                     arguments: ["update", "tool", "--yes", "--json"]),
                 CommandCall(
                     executablePath: "/tmp/updatebar",
-                    arguments: ["update", "--all", "--yes", "--json"]),
+                    arguments: ["update", "--yes", "--json"]),
             ])
     }
 
@@ -92,7 +92,7 @@ final class UpdateBarCLIClientTests: XCTestCase {
                     arguments: ["update", "tool", "--yes", "--json"]),
                 CommandCall(
                     executablePath: "/tmp/updatebar",
-                    arguments: ["update", "--all", "--yes", "--json"]),
+                    arguments: ["update", "--yes", "--json"]),
             ])
     }
 

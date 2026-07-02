@@ -157,9 +157,9 @@ Reads manifest and state without shell or network calls.
 
 Lists manifest items without mutating state.
 
-### `updatebar update [id...|--all] [--yes] [--json|--json-stream]`
+### `updatebar update [id...] [--yes] [--json|--json-stream]`
 
-Runs approved update commands for outdated items. Returns `2` if any selected update fails.
+Runs approved update commands for outdated items. When ids are omitted, all outdated items are selected. Returns `2` if any selected update fails.
 In machine-readable mode (`--json` or `--json-stream`), prompts are suppressed;
 omit `--yes` to skip execution and receive a `.cancelled` outcome.
 

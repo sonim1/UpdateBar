@@ -45,6 +45,29 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertFalse(results[0].error?.contains("sk-or-v1-secret") ?? true)
     }
 
+    func testUpdateWithoutIDsDefaultsToAllOutdatedItems() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: [
+            recipe(id: "one", updateCommand: "printf updated", currentCommand: "printf 'one 1.1.0'"),
+            recipe(id: "two", updateCommand: "printf updated", currentCommand: "printf 'two 1.1.0'")
+        ]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "one": itemState(status: .outdated),
+            "two": itemState(status: .outdated)
+        ]))
+
+        let result = try CLIProcess.run(["update", "--yes", "--json"], home: home)
+
+        guard result.exitCode == 0 else {
+            XCTFail("expected update without ids to default to all, got exit \(result.exitCode): \(result.stdout)")
+            return
+        }
+        let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(results.map(\.id), ["one", "two"])
+        XCTAssertEqual(results.map(\.outcome), [.updated, .updated])
+    }
+
     func testUpdateBlockedOnApprovalReturnsDistinctExitCode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
@@ -294,7 +317,7 @@ final class UpdateCommandTests: XCTestCase {
         ]))
 
         let result = try CLIProcess.runAndInterrupt(
-            ["update", "--all", "--yes", "--json-stream"],
+            ["update", "--yes", "--json-stream"],
             home: home,
             after: 0.5
         )

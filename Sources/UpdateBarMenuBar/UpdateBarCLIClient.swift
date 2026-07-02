@@ -86,7 +86,7 @@ public struct UpdateBarCLIClient: Sendable {
     public func updateAllApproved(cancellationToken: CancellationToken? = nil) throws {
         let result = try runner.run(
             executablePath: executablePath,
-            arguments: ["update", "--all", "--yes", "--json"],
+            arguments: ["update", "--yes", "--json"],
             cancellationToken: cancellationToken
         )
         try ensureSuccess(result, allowedExitCodes: [0, 2])

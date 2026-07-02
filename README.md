@@ -104,7 +104,7 @@ updatebar status --json
 updatebar check --exit-zero-on-outdated
 
 # Run approved updates only.
-updatebar update --all --yes
+updatebar update --yes
 ```
 
 For agent-authored or hand-written recipes:

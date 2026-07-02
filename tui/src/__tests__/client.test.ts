@@ -40,7 +40,7 @@ describe('CLIUpdateBarClient', () => {
     await client.updateAll({onEvent: event => events.push(event.event)});
 
     expect(events).toEqual(['started', 'finished']);
-    expect(runner.calls[0]).toEqual(['update', '--all', '--yes', '--json-stream']);
+    expect(runner.calls[0]).toEqual(['update', '--yes', '--json-stream']);
   });
 
   it('reads scan candidates through the Swift CLI contract', async () => {

@@ -1862,7 +1862,7 @@ struct UpdateCommand: ParsableCommand {
     @Argument(help: "Item ids to update.")
     var ids: [String] = []
 
-    @Flag(name: .long, help: "Update every approved outdated item.")
+    @Flag(name: .long, help: .hidden)
     var all = false
 
     @Flag(name: .long, help: "Run without an interactive confirmation prompt.")
@@ -1879,13 +1879,11 @@ struct UpdateCommand: ParsableCommand {
             throw ValidationError("--all cannot be combined with explicit item ids")
         }
 
-        guard all || !ids.isEmpty else {
-            throw ValidationError("provide item ids or --all")
-        }
         try ensureJSONModeCompatibility(json: json, jsonStream: jsonStream)
 
         let config = try ConfigStore().load()
         let itemIDs = unique(ids)
+        let updateAll = all || itemIDs.isEmpty
         let results: [UpdateResult] = try withCancellationToken { cancellationToken in
             let runner = UpdateRunner(
                 config: config,
@@ -1896,11 +1894,11 @@ struct UpdateCommand: ParsableCommand {
             )
 
             if jsonStream {
-                try runJSONStream(runner: runner, ids: itemIDs)
+                try runJSONStream(runner: runner, ids: itemIDs, all: updateAll)
                 return []
             }
 
-            return try runner.update(ids: itemIDs, all: all, assumeYes: yes)
+            return try runner.update(ids: itemIDs, all: updateAll, assumeYes: yes)
         }
 
         if jsonStream {
@@ -1933,7 +1931,7 @@ struct UpdateCommand: ParsableCommand {
         }
     }
 
-    private func runJSONStream(runner: UpdateRunner, ids: [String]) throws {
+    private func runJSONStream(runner: UpdateRunner, ids: [String], all: Bool) throws {
         let writer = JSONLWriter()
         try writer.write(MachineEvent(
             event: .started,

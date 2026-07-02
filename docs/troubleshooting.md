@@ -18,7 +18,7 @@ and inspect stdout/stderr separately:
 
 ```bash
 updatebar status --json >stdout.json 2>stderr.log
-updatebar update --all --yes --json-stream >events.jsonl 2>stderr.log
+updatebar update --yes --json-stream >events.jsonl 2>stderr.log
 ```
 
 Every JSONL line should parse independently as one JSON object.

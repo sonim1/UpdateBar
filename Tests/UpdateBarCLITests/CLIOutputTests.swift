@@ -226,15 +226,15 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("\"type\":\"finished\""))
     }
 
-    func testUpdateWithJSONEqualsReturnsUsageErrorForMissingTarget() throws {
+    func testUpdateWithJSONEqualsParsesAsJSONMode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 
         let result = try CLIProcess.run(["update", "--json=true"], home: home)
 
-        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.isEmpty)
-        let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
-        XCTAssertEqual(payload.code, "usage_error")
+        let payload = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+        XCTAssertTrue(payload.isEmpty)
     }
 
     func testJSONErrorRedactsSecretLikePathFragments() throws {
