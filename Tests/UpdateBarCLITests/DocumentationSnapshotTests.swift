@@ -13,31 +13,23 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertTrue(output.contains(command), "missing \(command)")
         }
         let helpLines = output.split(separator: "\n").map(String.init)
-        for command in ["config", "guide", "schema", "template", "validate", "tui"] {
+        for command in ["background", "config", "guide", "schema", "template", "validate", "tui"] {
             XCTAssertFalse(helpShowsCommand(command, in: helpLines), "support command should be hidden: \(command)")
         }
         for command in ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit"] {
             XCTAssertFalse(helpShowsCommand(command, in: helpLines), "advanced manage command should be hidden: \(command)")
         }
-        #if os(macOS)
-        XCTAssertTrue(output.contains("\n  background"), "background command should be present on macOS")
-        #else
-        XCTAssertFalse(output.contains("\n  background"), "background command should not be shown on non-macOS")
-        #endif
-        for section in ["SETUP SUBCOMMANDS:", "CHECK & UPDATE SUBCOMMANDS:", "MANAGE SUBCOMMANDS:", "SYSTEM SUBCOMMANDS:"] {
+        for section in ["SETUP SUBCOMMANDS:", "CHECK & UPDATE SUBCOMMANDS:", "MANAGE SUBCOMMANDS:"] {
             XCTAssertTrue(output.contains(section), "missing section \(section)")
         }
+        XCTAssertFalse(output.contains("SYSTEM SUBCOMMANDS:"), "system commands should be hidden from root help")
     }
 
     func testRootHelpVisibleCommandsHaveDescriptions() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let result = try CLIProcess.run(["--help"], home: home)
         let helpLines = result.stdout.split(separator: "\n").map(String.init)
-        var commands = ["init", "scan", "add", "import", "export", "status", "check", "update", "list", "approvals"]
-
-        #if os(macOS)
-        commands.append("background")
-        #endif
+        let commands = ["init", "scan", "add", "import", "export", "status", "check", "update", "list", "approvals"]
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
@@ -357,13 +349,7 @@ final class DocumentationSnapshotTests: XCTestCase {
     func testCompletionScriptsExposePrimaryRootCommandsOnly() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let visibleCommands = ["init", "scan", "add", "import", "export", "status", "check", "update", "list", "approvals", "help"]
-        let hiddenCommands = ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit", "config", "guide", "schema", "template", "validate", "tui"]
-
-        #if os(macOS)
-        let platformVisibleCommands = visibleCommands + ["background"]
-        #else
-        let platformVisibleCommands = visibleCommands
-        #endif
+        let hiddenCommands = ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit", "background", "config", "guide", "schema", "template", "validate", "tui"]
 
         for shell in ["bash", "zsh", "fish"] {
             let result = try CLIProcess.run(["--generate-completion-script", shell], home: home)
@@ -371,7 +357,7 @@ final class DocumentationSnapshotTests: XCTestCase {
 
             XCTAssertEqual(result.exitCode, 0)
             XCTAssertEqual(result.stderr, "")
-            for command in platformVisibleCommands {
+            for command in visibleCommands {
                 XCTAssertTrue(commands.contains(command), "\(shell) completion missing \(command)")
             }
             for command in hiddenCommands {

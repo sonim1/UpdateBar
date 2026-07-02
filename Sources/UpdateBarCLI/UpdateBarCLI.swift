@@ -839,6 +839,7 @@ struct BackgroundCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "background",
         abstract: "Manage the opt-in background check LaunchAgent.",
+        shouldDisplay: false,
         subcommands: [Install.self, Status.self, Uninstall.self]
     )
 
