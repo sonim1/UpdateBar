@@ -104,16 +104,19 @@ In `--json` mode, saved recipes include `outcome: "added"` or `outcome: "replace
 
 Scans installed local tools and prints recipe candidates without changing `manifest.json`, `state.json`, config, or approvals.
 
-V1 detectors are `brew`, `npm_global`, and `known`.
+Detectors are `brew`, `npm_global`, `known`, `codex_skill`, and `mcp_config`.
 `--detectors` accepts a comma-separated list. Whitespace is ignored around
 each token, duplicate values are deduplicated, and unknown ids are rejected.
 `--category` is normalized (`CLOUD-DEVOPS`, `CLOUD DEVOPS`, `cloud_devops`, etc.
 all map to `cloud-devops`) and filters the displayed candidates after scanning.
+For categories that map to a single metadata detector, such as `codex-skill` or
+`mcp-server`, the default scan only runs that relevant detector.
 
 Human output includes each candidate id, such as `brew.gh`, plus the interactive
 `updatebar init` command and a ready-to-run `updatebar init --select ...` command
-for importable candidates. JSON output
-returns the same ids in `candidates[].id`.
+for importable candidates. `metadata-only` rows include a source ref so local
+skill and MCP config entries can be traced without printing env values. JSON
+output returns the same ids in `candidates[].id`.
 
 ### `updatebar init [--json] [--detectors <list>] [--category <category>] [--select <ids>] [--replace]`
 

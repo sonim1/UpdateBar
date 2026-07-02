@@ -389,6 +389,19 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(initSection.contains("all"), "init docs should mention all")
     }
 
+    func testCliDocsScanDocumentsCurrentDetectorsAndMetadataSourceRefs() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let scanSection = try readmeSection(
+            "### `updatebar scan",
+            before: "### `updatebar init",
+            in: docs
+        )
+
+        XCTAssertTrue(scanSection.contains("`brew`, `npm_global`, `known`, `codex_skill`, and `mcp_config`"))
+        XCTAssertTrue(scanSection.contains("metadata-only"))
+        XCTAssertTrue(scanSection.contains("source ref"))
+    }
+
     func testCliDocsDoNotAdvertiseUnsupportedJQVersionParse() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
 
