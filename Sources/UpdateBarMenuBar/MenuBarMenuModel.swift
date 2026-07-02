@@ -88,7 +88,11 @@ public struct MenuBarMenuModelBuilder: Sendable {
         }
         appendSeparator(to: &entries)
 
-        appendUpdates(state.outdatedItems, to: &entries)
+        appendUpdates(
+            state.outdatedItems,
+            approvalStatuses: approvalStatuses,
+            to: &entries
+        )
         appendApprovals(
             state.approvalItems,
             approvalStatuses: approvalStatuses,
@@ -116,9 +120,18 @@ public struct MenuBarMenuModelBuilder: Sendable {
         return MenuBarMenuModel(entries: entries)
     }
 
-    private func appendUpdates(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
+    private func appendUpdates(
+        _ items: [StatusItem],
+        approvalStatuses: [String: [CommandApprovalStatus]],
+        to entries: inout [MenuBarMenuEntry]
+    ) {
         appendSection("Updates (\(items.count))", items: items, to: &entries) { item in
-            let confirmation = MenuBarActionConfirmation.updateItem(id: item.id)
+            let updateCommand = approvalStatuses[item.id]?.first { $0.field == "update.cmd" }
+            let confirmation = MenuBarActionConfirmation.updateItem(
+                id: item.id,
+                command: updateCommand?.command,
+                cwd: updateCommand?.cwd
+            )
             return MenuBarMenuItem(
                 title: "\(item.name) \(item.current ?? "?") -> \(item.latest ?? "?")",
                 action: .update(id: item.id),

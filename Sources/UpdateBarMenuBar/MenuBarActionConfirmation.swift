@@ -33,10 +33,21 @@ public struct MenuBarActionConfirmation: Equatable, Sendable {
         }
     }
 
-    public static func updateItem(id: String) -> MenuBarActionConfirmation {
-        MenuBarActionConfirmation(
+    public static func updateItem(
+        id: String,
+        command: String? = nil,
+        cwd: String? = nil
+    ) -> MenuBarActionConfirmation {
+        var message = "This runs the update command for \(id)."
+        if let command, !command.isEmpty {
+            message += "\n\nCommand:\n\(command)"
+        }
+        if let cwd, !cwd.isEmpty {
+            message += "\n\nWorking directory:\n\(cwd)"
+        }
+        return MenuBarActionConfirmation(
             title: "Update \(id)?",
-            message: "This runs the update command for \(id).",
+            message: message,
             toolTip: "Runs \(id) after confirmation.",
             confirmButton: "Update"
         )
