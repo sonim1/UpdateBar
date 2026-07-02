@@ -42,8 +42,12 @@ if [[ -z "$archive" ]]; then
   exit 1
 fi
 
-mkdir -p "$(dirname "$archive")"
-printf 'archive\n' >"$archive"
+if [[ "$archive" != "-" ]]; then
+  mkdir -p "$(dirname "$archive")"
+  printf 'archive\n' >"$archive"
+else
+  printf 'archive\n'
+fi
 SH
 
 cat >"$BIN_DIR/gzip" <<'SH'
@@ -51,8 +55,7 @@ cat >"$BIN_DIR/gzip" <<'SH'
 set -euo pipefail
 
 printf '%s\n' "$@" >"${GZIP_LOG:?}"
-input="${*: -1}"
-mv "$input" "$input.gz"
+cat
 SH
 
 cat >"$BIN_DIR/shasum" <<'SH'
@@ -89,13 +92,23 @@ if [[ ! -f "${expected_archive}.sha256" ]]; then
   exit 1
 fi
 
-if [[ -f "$GZIP_LOG" ]]; then
-  echo "build-app-archive.sh invoked gzip; expected direct tar gzip output" >&2
+if [[ ! -f "$GZIP_LOG" ]]; then
+  echo "build-app-archive.sh did not invoke gzip" >&2
   exit 1
 fi
 
-if ! grep -Fx -- "-czf" "$TAR_LOG" >/dev/null; then
-  echo "build-app-archive.sh did not pass -czf to tar" >&2
+if ! grep -Fx -- "-n" "$GZIP_LOG" >/dev/null; then
+  echo "build-app-archive.sh did not pass -n to gzip" >&2
+  exit 1
+fi
+
+if ! grep -Fx -- "-cf" "$TAR_LOG" >/dev/null || ! grep -Fx -- "-" "$TAR_LOG" >/dev/null; then
+  echo "build-app-archive.sh did not stream tar output to stdout" >&2
+  exit 1
+fi
+
+if [[ -f "${expected_archive%.gz}" ]]; then
+  echo "build-app-archive.sh left an intermediate tar archive" >&2
   exit 1
 fi
 

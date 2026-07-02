@@ -17,7 +17,7 @@ if [[ ! -d "$APP_DIR" ]]; then
 fi
 
 rm -f "$ARCHIVE" "${ARCHIVE}.sha256"
-COPYFILE_DISABLE=1 tar -C dist -czf "$ARCHIVE" UpdateBar.app
+COPYFILE_DISABLE=1 tar -C dist -cf - UpdateBar.app | gzip -n >"$ARCHIVE"
 
 if command -v shasum >/dev/null 2>&1; then
   shasum -a 256 "$ARCHIVE" >"${ARCHIVE}.sha256"
