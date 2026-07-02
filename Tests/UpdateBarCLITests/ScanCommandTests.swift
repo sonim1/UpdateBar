@@ -157,6 +157,36 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("secret-token"))
     }
 
+    func testScanHumanOutputShowsMetadataSourceRefWithoutSecrets() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let config = home.appendingPathComponent(".cursor/mcp.json")
+        try FileManager.default.createDirectory(
+            at: config.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try """
+            {
+              "mcpServers": {
+                "filesystem": {
+                  "command": "npx",
+                  "env": { "TOKEN": "secret-token" }
+                }
+              }
+            }
+            """.write(to: config, atomically: true, encoding: .utf8)
+
+        let result = try CLIProcess.run(
+            ["scan", "--detectors", "mcp_config"],
+            home: home,
+            environment: ["HOME": home.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("mcp_config.filesystem"))
+        XCTAssertTrue(result.stdout.contains("npx"))
+        XCTAssertFalse(result.stdout.contains("secret-token"))
+    }
+
     func testScanHumanOutputShowsCandidateIDsAndNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
         let bin = home.appendingPathComponent("bin")

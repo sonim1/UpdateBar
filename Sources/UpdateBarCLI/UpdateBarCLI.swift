@@ -417,10 +417,23 @@ struct ScanCommand: ParsableCommand {
                 candidate.detector.rawValue,
                 candidate.capability.rawValue,
             ]
-            print(fields.joined(separator: "\t"))
+            let visibleFields = metadataSourceRef(for: candidate).map {
+                fields + [$0]
+            } ?? fields
+            print(visibleFields.joined(separator: "\t"))
         }
         print("")
         return startIndex + candidates.count
+    }
+
+    private func metadataSourceRef(for candidate: ScanCandidate) -> String? {
+        guard candidate.capability != .full,
+            let sourceRef = candidate.sourceRef,
+            !sourceRef.isEmpty
+        else {
+            return nil
+        }
+        return sourceRef
     }
 
     private func printNextStep(_ candidates: [ScanCandidate]) {
