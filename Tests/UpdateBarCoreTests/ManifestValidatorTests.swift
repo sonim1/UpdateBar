@@ -15,6 +15,28 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].name: required"))
     }
 
+    func testRejectsItemsValueThatIsNotAnArray() throws {
+        var manifest = try loadValidJSONObject()
+        manifest["items"] = "not an array"
+
+        let result = try ManifestValidator.validate(data: JSONSerialization.data(withJSONObject: manifest))
+
+        XCTAssertTrue(result.errors.contains("items: must be an array"))
+        XCTAssertFalse(result.errors.contains("items: required"))
+    }
+
+    func testRejectsItemsArrayEntriesThatAreNotObjects() throws {
+        var manifest = try loadValidJSONObject()
+        var item = try XCTUnwrap((manifest["items"] as? [[String: Any]])?.first)
+        item.removeValue(forKey: "name")
+        manifest["items"] = ["not an object", item] as [Any]
+
+        let result = try ManifestValidator.validate(data: JSONSerialization.data(withJSONObject: manifest))
+
+        XCTAssertTrue(result.errors.contains("items[0]: must be an object"))
+        XCTAssertTrue(result.errors.contains("items[1].name: required"))
+    }
+
     func testRejectsWhitespaceOnlyRequiredStrings() throws {
         var manifest = try loadValid()
         manifest.items[0].name = " \t\n"

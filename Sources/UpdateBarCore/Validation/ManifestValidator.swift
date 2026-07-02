@@ -16,13 +16,22 @@ public enum ManifestValidator {
             errors.append("schema_version: required")
         }
 
-        guard let items = root["items"] as? [[String: Any]] else {
+        guard root.keys.contains("items") else {
             errors.append("items: required")
             return ValidationResult(errors: errors)
         }
 
+        guard let rawItems = root["items"] as? [Any] else {
+            errors.append("items: must be an array")
+            return ValidationResult(errors: errors)
+        }
+
         var ids: [String: Int] = [:]
-        for (index, item) in items.enumerated() {
+        for (index, rawItem) in rawItems.enumerated() {
+            guard let item = rawItem as? [String: Any] else {
+                errors.append("items[\(index)]: must be an object")
+                continue
+            }
             errors.append(contentsOf: RecipeValidator.validateRaw(item, path: "items[\(index)]"))
             if let id = item["id"] as? String {
                 if let firstIndex = ids[id] {
