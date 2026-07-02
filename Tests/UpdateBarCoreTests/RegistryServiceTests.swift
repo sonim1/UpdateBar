@@ -257,6 +257,26 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertEqual(approvals.first { $0.field == "update.cmd" }?.cwd, "/tmp/tool")
     }
 
+    func testApproveRejectsInvalidManifestWithoutSavingApproval() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let stores = Stores(paths: paths)
+        var item = recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
+        item.update.cmd = "OPENROUTER_API_KEY=sk-or-v1-secret-value tool update"
+        item.trust.approvedCommands = [:]
+        try stores.manifest.save(manifest(items: [item]))
+        let service = registryService(paths: paths, commands: MockCommandExecutor(results: [:]))
+
+        XCTAssertThrowsError(try service.approve(id: "tool", field: "update.cmd")) { error in
+            guard case let RegistryError.invalidManifest(errors) = error else {
+                return XCTFail("expected invalid manifest, got \(error)")
+            }
+            XCTAssertTrue(errors.contains("items[0].update.cmd: must not contain literal secrets"))
+        }
+        let stored = try XCTUnwrap(stores.manifest.loadExistingOrEmpty().item(id: "tool"))
+        XCTAssertNil(stored.trust.approvedCommands["update.cmd"])
+    }
+
     func testCheckEmitsProgressEventsFromCoreContract() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)

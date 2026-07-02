@@ -179,7 +179,7 @@ public struct RegistryService {
             recipe.pin = pinVersion
             manifest = manifest.replacing(item: recipe)
             manifest.provenance.updatedAt = now()
-            try manifestStore.save(manifest)
+            try saveValid(manifest)
             return recipe
         }
     }
@@ -193,7 +193,7 @@ public struct RegistryService {
             recipe.pin = nil
             manifest = manifest.replacing(item: recipe)
             manifest.provenance.updatedAt = now()
-            try manifestStore.save(manifest)
+            try saveValid(manifest)
             return recipe
         }
     }
@@ -207,7 +207,7 @@ public struct RegistryService {
             recipe.enabled = enabled
             manifest = manifest.replacing(item: recipe)
             manifest.provenance.updatedAt = now()
-            try manifestStore.save(manifest)
+            try saveValid(manifest)
             return recipe
         }
     }
@@ -230,7 +230,7 @@ public struct RegistryService {
             }
             manifest = manifest.replacing(item: recipe)
             manifest.provenance.updatedAt = now()
-            try manifestStore.save(manifest)
+            try saveValid(manifest)
             return recipe
         }
     }
@@ -279,7 +279,7 @@ public struct RegistryService {
             }
             manifest = manifest.replacing(item: recipe)
             manifest.provenance.updatedAt = now()
-            try manifestStore.save(manifest)
+            try saveValid(manifest)
             return recipe
         }
     }
@@ -325,7 +325,7 @@ public struct RegistryService {
             }
             manifest = manifest.replacing(item: recipe)
             manifest.provenance.updatedAt = now()
-            try manifestStore.save(manifest)
+            try saveValid(manifest)
             return outcome
         }
     }
@@ -352,9 +352,14 @@ public struct RegistryService {
             }
 
             manifest.provenance.updatedAt = now()
-            try manifestStore.save(manifest)
+            try saveValid(manifest)
             return ImportSummary(added: added, replaced: replaced)
         }
+    }
+
+    private func saveValid(_ manifest: Manifest) throws {
+        try validate(manifest)
+        try manifestStore.save(manifest)
     }
 
     private func validate(_ manifest: Manifest) throws {
