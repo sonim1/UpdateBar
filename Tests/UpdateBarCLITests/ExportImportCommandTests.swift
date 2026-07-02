@@ -155,6 +155,18 @@ final class ExportImportCommandTests: XCTestCase {
         XCTAssertTrue(combined.contains("export --json does not accept a file argument."))
     }
 
+    func testExportJSONUsageErrorDoesNotCreateManifest() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-export-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let output = home.appendingPathComponent("exported.json")
+
+        let result = try CLIProcess.run(["export", output.path, "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: output.path))
+    }
+
     func testExportMissingOutputDirectoryReportsWritablePath() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-export-tests")
         let paths = AppPaths(homeDirectory: home)

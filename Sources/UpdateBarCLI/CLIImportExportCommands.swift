@@ -16,17 +16,19 @@ struct ExportCommand: ParsableCommand {
     var json = false
 
     func run() throws {
-        let manifest = try RegistryService().exportManifest()
         if json, file != nil {
             throw ValidationError("export --json does not accept a file argument.")
         }
+        guard json || file != nil else {
+            throw ValidationError("provide an export file or --json")
+        }
+
+        let manifest = try RegistryService().exportManifest()
         if json {
             try printJSON(manifest)
             return
         }
-        guard let file else {
-            throw ValidationError("provide an export file or --json")
-        }
+        guard let file else { return }
         try writeOutputData(JSONEncoder.updateBar.encode(manifest), to: file)
         print("exported \(file)")
     }
