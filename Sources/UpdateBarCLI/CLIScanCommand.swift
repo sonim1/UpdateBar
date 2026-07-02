@@ -40,10 +40,10 @@ struct ScanCommand: ParsableCommand {
         printReviewOnlyNote(recommended: recommended, needsReview: needsReview)
         printNextStep(recommended, categoryFilter: categoryFilter)
         if !report.errors.isEmpty {
-            print("")
-            print("Errors")
+            writeStderr("")
+            writeStderr("Errors")
             for error in report.errors {
-                print("- \(error.detector.rawValue): \(error.message)")
+                writeStderr("- \(error.detector.rawValue): \(error.message)")
             }
         }
     }

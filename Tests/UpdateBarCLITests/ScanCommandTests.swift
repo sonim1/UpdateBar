@@ -93,10 +93,13 @@ final class ScanCommandTests: XCTestCase {
         )
 
         XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stdout.contains("Errors"))
-        XCTAssertTrue(result.stdout.contains("brew: exited 42"))
-        XCTAssertTrue(result.stdout.contains("brew exploded"))
-        XCTAssertFalse(result.stdout.contains("brew exploded\nbrew exploded"))
+        XCTAssertFalse(result.stdout.contains("Errors"))
+        XCTAssertFalse(result.stdout.contains("brew: exited 42"))
+        XCTAssertFalse(result.stdout.contains("brew exploded"))
+        XCTAssertTrue(result.stderr.contains("Errors"))
+        XCTAssertTrue(result.stderr.contains("brew: exited 42"))
+        XCTAssertTrue(result.stderr.contains("brew exploded"))
+        XCTAssertFalse(result.stderr.contains("brew exploded\nbrew exploded"))
         XCTAssertFalse(result.stdout.contains("if command -v brew"))
     }
 
@@ -120,8 +123,9 @@ final class ScanCommandTests: XCTestCase {
         )
 
         XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stdout.contains("[REDACTED]"))
+        XCTAssertTrue(result.stderr.contains("[REDACTED]"))
         XCTAssertFalse(result.stdout.contains("sk-or-v1-secret-value"))
+        XCTAssertFalse(result.stderr.contains("sk-or-v1-secret-value"))
     }
 
     func testScanJSONRedactsDetectorErrorSecrets() throws {
