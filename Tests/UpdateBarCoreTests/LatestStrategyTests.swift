@@ -35,6 +35,26 @@ final class LatestStrategyTests: XCTestCase {
         XCTAssertEqual(latest, "abc123")
     }
 
+    func testGitHeadFailureReportsCommandAndExitCode() throws {
+        var item = recipe()
+        item.source.kind = .git
+        item.source.ref = "https://github.com/example/missing.git"
+        item.source.branch = "main"
+        let command = "git ls-remote -- 'https://github.com/example/missing.git' 'refs/heads/main'"
+        let context = LatestContext(
+            httpClient: emptyHTTP(),
+            commandRunner: MockCommandExecutor(results: [
+                command: CommandResult(exitCode: 128, stdout: "", stderr: "fatal: repository not found")
+            ])
+        )
+
+        XCTAssertThrowsError(
+            try GitLatestStrategy(mode: .head).latest(for: item, context: context)
+        ) { error in
+            XCTAssertEqual(String(describing: error), "git ls-remote exited 128: fatal: repository not found")
+        }
+    }
+
     func testGitTagsSelectsHighestSemverTag() throws {
         var item = recipe()
         item.source.kind = .git
@@ -113,6 +133,25 @@ final class LatestStrategyTests: XCTestCase {
         let latest = try BrewLatestStrategy().latest(for: item, context: context)
 
         XCTAssertEqual(latest, "14.1.0")
+    }
+
+    func testBrewFailureReportsCommandAndExitCode() throws {
+        var item = recipe()
+        item.source.kind = .brew
+        item.source.ref = "missing-formula"
+        let command = "brew info --json=v2 -- 'missing-formula'"
+        let context = LatestContext(
+            httpClient: emptyHTTP(),
+            commandRunner: MockCommandExecutor(results: [
+                command: CommandResult(exitCode: 2, stdout: "", stderr: "No available formula")
+            ])
+        )
+
+        XCTAssertThrowsError(
+            try BrewLatestStrategy().latest(for: item, context: context)
+        ) { error in
+            XCTAssertEqual(String(describing: error), "brew info exited 2: No available formula")
+        }
     }
 
     func testBrewSourceRefIsShellQuoted() throws {

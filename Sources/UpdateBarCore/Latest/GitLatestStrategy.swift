@@ -27,7 +27,9 @@ public struct GitLatestStrategy: LatestStrategy {
                 ShellCommand(command: command, cwd: nil),
                 policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)
             )
-            guard result.exitCode == 0 else { throw LatestError.commandFailed(result.stderr) }
+            guard result.exitCode == 0 else {
+                throw LatestError.commandFailed("git ls-remote exited \(result.exitCode): \(result.stderr)")
+            }
             let fields = result.stdout.split { $0 == "\t" || $0 == " " || $0 == "\n" }
             return fields.first.map(String.init) ?? ""
         case .tags:
@@ -37,7 +39,9 @@ public struct GitLatestStrategy: LatestStrategy {
                 ShellCommand(command: command, cwd: nil),
                 policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)
             )
-            guard result.exitCode == 0 else { throw LatestError.commandFailed(result.stderr) }
+            guard result.exitCode == 0 else {
+                throw LatestError.commandFailed("git ls-remote exited \(result.exitCode): \(result.stderr)")
+            }
             let tags = result.stdout.split(separator: "\n").compactMap { line -> String? in
                 guard let tagPart = line.split(separator: "\t").last else { return nil }
                 var tag = String(tagPart).replacingOccurrences(of: "refs/tags/", with: "")
