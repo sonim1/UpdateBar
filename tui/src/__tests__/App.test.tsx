@@ -100,14 +100,24 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('Run Updates');
   });
 
-  it('shows the UPDATEBAR_HOME config path from Open Config', async () => {
+  it('labels the config action as a path view', async () => {
+    const client = createClient();
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Config Path');
+
+    expect(view.lastFrame()).toContain('Config Path');
+    expect(view.lastFrame()).not.toContain('Open Config');
+  });
+
+  it('shows the UPDATEBAR_HOME config path from Config Path', async () => {
     const previousHome = process.env.UPDATEBAR_HOME;
     process.env.UPDATEBAR_HOME = '/tmp/updatebar-custom-home';
     const client = createClient();
     const view = render(<App client={client} />);
 
     try {
-      await waitForFrame(view, 'Open Config');
+      await waitForFrame(view, 'Config Path');
       view.stdin.write('\u001B[B');
       view.stdin.write('\u001B[B');
       view.stdin.write('\u001B[B');

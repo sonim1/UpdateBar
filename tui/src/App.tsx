@@ -10,7 +10,7 @@ type MenuAction =
   | 'scan-add'
   | 'check-now'
   | 'run-updates'
-  | 'open-config'
+  | 'config-path'
   | 'view-logs'
   | 'quit';
 type SummaryCountField<TKey extends string> = readonly [TKey, string];
@@ -40,7 +40,7 @@ const MENU_ITEMS: Array<{label: string; action: MenuAction}> = [
   {label: 'Scan & Add', action: 'scan-add'},
   {label: 'Check Now', action: 'check-now'},
   {label: 'Run Updates', action: 'run-updates'},
-  {label: 'Open Config', action: 'open-config'},
+  {label: 'Config Path', action: 'config-path'},
   {label: 'View Logs', action: 'view-logs'},
   {label: 'Quit', action: 'quit'}
 ];
@@ -182,7 +182,7 @@ export function App({client: providedClient}: AppProps) {
       case 'run-updates':
         await runUpdates(client);
         return;
-      case 'open-config':
+      case 'config-path':
         setScreen('logs');
         setLogs([
           `config path: ${getConfigPath()}`,
