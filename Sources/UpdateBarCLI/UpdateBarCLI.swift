@@ -1828,7 +1828,8 @@ struct StatusCommand: ParsableCommand {
 struct ListCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "list",
-        abstract: "List registered recipes."
+        abstract: "List registered recipes.",
+        shouldDisplay: false
     )
 
     @Flag(name: .long, help: "Print machine-readable JSON.")
@@ -2256,7 +2257,8 @@ private struct RemovePayload: Encodable {
 struct ExportCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "export",
-        abstract: "Export registered recipes as a manifest."
+        abstract: "Export registered recipes as a manifest.",
+        shouldDisplay: false
     )
 
     @Argument(help: "Output file path; omit when using --json.")
@@ -2285,7 +2287,8 @@ struct ExportCommand: ParsableCommand {
 struct ImportCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "import",
-        abstract: "Import recipes from a manifest file or stdin."
+        abstract: "Import recipes from a manifest file or stdin.",
+        shouldDisplay: false
     )
 
     @Argument(help: "Manifest file path, or '-' for stdin.")
@@ -2357,7 +2360,8 @@ private struct ImportPayload: Encodable {
 struct AddCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "add",
-        abstract: "Add one recipe from JSON or the manual wizard."
+        abstract: "Add one recipe from JSON or the manual wizard.",
+        shouldDisplay: false
     )
 
     @Option(name: .long, help: "Recipe JSON file to add, or '-' for stdin.")

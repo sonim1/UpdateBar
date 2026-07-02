@@ -9,11 +9,11 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
-        for command in ["add", "init", "scan", "check", "status", "update", "list", "approvals"] {
+        for command in ["init", "scan", "check", "status", "update", "approvals"] {
             XCTAssertTrue(output.contains(command), "missing \(command)")
         }
         let helpLines = output.split(separator: "\n").map(String.init)
-        for command in ["background", "config", "guide", "schema", "template", "validate", "tui"] {
+        for command in ["add", "import", "export", "list", "background", "config", "guide", "schema", "template", "validate", "tui"] {
             XCTAssertFalse(helpShowsCommand(command, in: helpLines), "support command should be hidden: \(command)")
         }
         for command in ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit"] {
@@ -29,7 +29,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let result = try CLIProcess.run(["--help"], home: home)
         let helpLines = result.stdout.split(separator: "\n").map(String.init)
-        let commands = ["init", "scan", "add", "import", "export", "status", "check", "update", "list", "approvals"]
+        let commands = ["init", "scan", "status", "check", "update", "approvals"]
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
@@ -43,13 +43,9 @@ final class DocumentationSnapshotTests: XCTestCase {
         let expectedOptionsByCommand: [String: [String]] = [
             "scan": ["--json", "--category"],
             "init": ["--json", "--replace", "--select", "--category"],
-            "add": ["--from", "--dry-run", "--json", "--replace"],
-            "import": ["--replace", "--json"],
-            "export": ["--json"],
             "status": ["--json"],
             "check": ["--json", "--json-stream", "--force"],
             "update": ["--yes", "--json", "--json-stream"],
-            "list": ["--json"],
             "approvals": ["--json"],
         ]
 
@@ -69,12 +65,6 @@ final class DocumentationSnapshotTests: XCTestCase {
                 XCTAssertFalse(
                     optionHasDescription("--refresh", in: helpLines),
                     "status --refresh is an internal state hint and should stay out of primary help"
-                )
-            }
-            if command == "add" {
-                XCTAssertFalse(
-                    optionHasDescription("--manual", in: helpLines),
-                    "add defaults to the manual wizard when --from is omitted"
                 )
             }
             if command == "update" {
@@ -110,11 +100,57 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(optionHasDescription("--yes", in: helpLines))
     }
 
-    func testPrimaryCommandArgumentsHaveHelpDescriptions() throws {
+    func testHiddenWorkflowCommandInputsHaveHelpDescriptions() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+        let expectedOptionsByCommand: [String: [String]] = [
+            "add": ["--from", "--dry-run", "--json", "--replace"],
+            "import": ["--replace", "--json"],
+            "export": ["--json"],
+            "list": ["--json"],
+        ]
         let expectedArgumentsByCommand: [String: [String]] = [
             "import": ["<file>"],
             "export": ["<file>"],
+        ]
+
+        for (command, options) in expectedOptionsByCommand {
+            let result = try CLIProcess.run([command, "--help"], home: home)
+            let helpLines = result.stdout.split(separator: "\n").map(String.init)
+
+            XCTAssertEqual(result.exitCode, 0, "\(command) --help should succeed")
+            XCTAssertEqual(result.stderr, "", "\(command) --help should not write stderr")
+            for option in options {
+                XCTAssertTrue(
+                    optionHasDescription(option, in: helpLines),
+                    "\(command) \(option) should have a help description"
+                )
+            }
+            if command == "add" {
+                XCTAssertFalse(
+                    optionHasDescription("--manual", in: helpLines),
+                    "add defaults to the manual wizard when --from is omitted"
+                )
+            }
+        }
+
+        for (command, arguments) in expectedArgumentsByCommand {
+            let result = try CLIProcess.run([command, "--help"], home: home)
+            let helpLines = result.stdout.split(separator: "\n").map(String.init)
+
+            XCTAssertEqual(result.exitCode, 0, "\(command) --help should succeed")
+            XCTAssertEqual(result.stderr, "", "\(command) --help should not write stderr")
+            for argument in arguments {
+                XCTAssertTrue(
+                    optionHasDescription(argument, in: helpLines),
+                    "\(command) \(argument) should have a help description"
+                )
+            }
+        }
+    }
+
+    func testPrimaryCommandArgumentsHaveHelpDescriptions() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+        let expectedArgumentsByCommand: [String: [String]] = [
             "approvals": ["<id>"],
             "update": ["<ids>"],
         ]
@@ -393,8 +429,8 @@ final class DocumentationSnapshotTests: XCTestCase {
 
     func testCompletionScriptsExposePrimaryRootCommandsOnly() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
-        let visibleCommands = ["init", "scan", "add", "import", "export", "status", "check", "update", "list", "approvals", "help"]
-        let hiddenCommands = ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit", "background", "config", "guide", "schema", "template", "validate", "tui"]
+        let visibleCommands = ["init", "scan", "status", "check", "update", "approvals", "help"]
+        let hiddenCommands = ["add", "import", "export", "list", "approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit", "background", "config", "guide", "schema", "template", "validate", "tui"]
 
         for shell in ["bash", "zsh", "fish"] {
             let result = try CLIProcess.run(["--generate-completion-script", shell], home: home)
@@ -479,6 +515,13 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertFalse(checkSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false)
         XCTAssertFalse(statusSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false)
+    }
+
+    func testCliDocsExplainHiddenWorkflowExtensionCommands() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+
+        XCTAssertTrue(docs.contains("Recipe authoring, import/export, list"))
+        XCTAssertTrue(docs.contains("hidden from default root help and shell completions"))
     }
 
     func testCliDocsHideDefaultedAllFlagFromUpdateSignature() throws {
