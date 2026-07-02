@@ -15,7 +15,7 @@ func handleCLIError(_ error: Error, arguments: [String]) -> Never {
 
     let exitCode = UpdateBar.exitCode(for: error)
     if exitCode == .success {
-        for message in sanitizedErrorMessages(for: error) where !message.isEmpty {
+        for message in sanitizedErrorMessages(for: error, arguments: arguments) where !message.isEmpty {
             writeStdout(message)
         }
         terminate(0)
@@ -24,11 +24,11 @@ func handleCLIError(_ error: Error, arguments: [String]) -> Never {
     if requestedJSONOutput(arguments),
         !JSONOutputTracker.shared.didWrite
     {
-        writeJSONError(error, code: exitCode)
+        writeJSONError(error, code: exitCode, arguments: arguments)
         terminate(processExitCode(for: exitCode))
     }
 
-    for message in sanitizedErrorMessages(for: error) where !message.isEmpty {
+    for message in sanitizedErrorMessages(for: error, arguments: arguments) where !message.isEmpty {
         writeStderr(message)
     }
     terminate(processExitCode(for: exitCode))
@@ -39,11 +39,11 @@ private func requestedJSONOutput(_ arguments: [String]) -> Bool {
         || arguments.contains(where: { $0.hasPrefix("--json=") || $0.hasPrefix("--json-stream=") })
 }
 
-private func writeJSONError(_ error: Error, code exitCode: ExitCode) {
+private func writeJSONError(_ error: Error, code exitCode: ExitCode, arguments: [String]) {
     let payload = ErrorEnvelope(
         ok: false,
         code: errorCode(for: error, exitCode: exitCode),
-        errors: sanitizedErrorMessages(for: error)
+        errors: sanitizedErrorMessages(for: error, arguments: arguments)
     )
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
@@ -72,20 +72,54 @@ private func errorCode(for error: Error, exitCode: ExitCode) -> String {
     return "runtime_error"
 }
 
-private func sanitizedErrorMessages(for error: Error) -> [String] {
+private func sanitizedErrorMessages(for error: Error, arguments: [String]) -> [String] {
     let message = sanitizedErrorMessage(for: error)
     let messages = message.isEmpty ? [] : [message]
-    guard let recoveryHint = recoveryHint(for: error) else {
+    guard let recoveryHint = recoveryHint(for: error, arguments: arguments) else {
         return messages
     }
     return messages + [recoveryHint]
 }
 
-private func recoveryHint(for error: Error) -> String? {
-    guard case RegistryError.itemNotFound = error else {
+private func recoveryHint(for error: Error, arguments: [String]) -> String? {
+    switch error {
+    case RegistryError.itemNotFound:
+        return "Run updatebar status to list registered item ids."
+    case RegistryError.commandFieldNotFound:
+        guard let id = approvalCommandID(from: arguments) else {
+            return nil
+        }
+        return "Run updatebar approvals \(id) to review command fields."
+    default:
         return nil
     }
-    return "Run updatebar status to list registered item ids."
+}
+
+private func approvalCommandID(from arguments: [String]) -> String? {
+    guard let command = arguments.first,
+          command == "approve" || command == "revoke"
+    else {
+        return nil
+    }
+
+    var index = 1
+    while index < arguments.count {
+        let argument = arguments[index]
+        if argument == "--field" {
+            index += 2
+            continue
+        }
+        if argument.hasPrefix("--field=") || argument == "--json" {
+            index += 1
+            continue
+        }
+        if argument.hasPrefix("-") {
+            index += 1
+            continue
+        }
+        return argument
+    }
+    return nil
 }
 
 private func processExitCode(for exitCode: ExitCode) -> Int32 {

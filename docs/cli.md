@@ -204,6 +204,8 @@ fingerprint, and whether the fingerprint is approved. Human output is
 tab-separated with `FIELD`, `STATUS`, `COMMAND`, and `DETAIL` columns; `DETAIL`
 currently shows `cwd=...` when a command has a working directory. Human output
 also includes `Next` approval commands for unapproved fields.
+If a command field is not found while approving or revoking, run
+`updatebar approvals <id>` to review the valid command fields.
 
 The direct mutation commands below are hidden from default root help, but remain
 stable for scripts and explicit workflows.

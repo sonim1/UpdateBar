@@ -209,6 +209,8 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertTrue(approvalsSection.contains(column), "approvals docs missing \(column)")
         }
         XCTAssertTrue(approvalsSection.contains("Next"))
+        XCTAssertTrue(approvalsSection.contains("If a command field is not found"))
+        XCTAssertTrue(approvalsSection.contains("`updatebar approvals <id>`"))
     }
 
     func testInitHelpDocumentsSelectNumbersAndAll() throws {

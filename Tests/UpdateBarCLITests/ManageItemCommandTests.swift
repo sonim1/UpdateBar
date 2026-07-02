@@ -96,6 +96,33 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("updatebar status") })
     }
 
+    func testApproveInvalidFieldJSONSuggestsApprovals() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveFixture(paths: paths)
+
+        let result = try CLIProcess.run(["approve", "tool", "--field", "install.cmd", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.isEmpty)
+        XCTAssertEqual(payload.code, "registry_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("install.cmd: command field not found") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar approvals tool") })
+    }
+
+    func testRevokeInvalidFieldHumanSuggestsApprovals() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveFixture(paths: paths)
+
+        let result = try CLIProcess.run(["revoke", "tool", "--field", "install.cmd"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("install.cmd: command field not found"))
+        XCTAssertTrue(result.stderr.contains("updatebar approvals tool"))
+    }
+
     func testApproveListAndRevokeCommandFields() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
