@@ -41,7 +41,8 @@ struct StatusCommand: ParsableCommand {
         }
 
         let untrusted = snapshot.items.filter { $0.status == .untrusted }
-        guard !untrusted.isEmpty else {
+        let checking = snapshot.items.filter { $0.status == .checking }
+        guard !untrusted.isEmpty || !checking.isEmpty else {
             return
         }
 
@@ -50,7 +51,7 @@ struct StatusCommand: ParsableCommand {
                 "updatebar approvals \(item.id)",
                 "updatebar check \(item.id)",
             ]
-        })
+        } + checking.map { "updatebar check \($0.id)" })
     }
 }
 
