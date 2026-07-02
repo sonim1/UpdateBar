@@ -95,6 +95,33 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains("remove cancelled"))
     }
 
+    func testRemoveMissingItemDoesNotPrompt() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+
+        let result = try CLIProcess.run(["remove", "missing"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("missing: item not found"))
+        XCTAssertTrue(result.stderr.contains("updatebar status"))
+        XCTAssertFalse(result.stderr.contains("Remove missing?"))
+        XCTAssertFalse(result.stderr.contains("remove cancelled"))
+    }
+
+    func testRemoveMissingItemJSONReportsRegistryError() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+
+        let result = try CLIProcess.run(["remove", "missing", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.isEmpty)
+        XCTAssertEqual(payload.code, "registry_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("missing: item not found") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar status") })
+        XCTAssertFalse(payload.errors.contains("remove cancelled"))
+    }
+
     func testApprovalsMissingItemJSONSuggestsStatus() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
 

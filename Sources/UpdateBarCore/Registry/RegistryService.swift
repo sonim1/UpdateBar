@@ -252,6 +252,14 @@ public struct RegistryService {
             .sorted { $0.field < $1.field }
     }
 
+    public func recipe(id: String) throws -> Recipe {
+        let manifest = try manifestStore.load()
+        guard let recipe = manifest.item(id: id) else {
+            throw RegistryError.itemNotFound(id)
+        }
+        return recipe
+    }
+
     public func revokeApproval(id: String, field: String) throws -> Recipe {
         try manifestStore.withExclusiveLock {
             var manifest = try manifestStore.load()

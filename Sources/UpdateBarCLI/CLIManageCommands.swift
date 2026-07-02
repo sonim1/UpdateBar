@@ -114,14 +114,16 @@ struct RemoveCommand: ParsableCommand {
     var json = false
 
     func run() throws {
+        let service = RegistryService()
         if !yes {
+            _ = try service.recipe(id: id)
             try requireYes(
                 prompt: "Remove \(id)? Type yes to continue:",
                 cancelMessage: "remove cancelled",
                 interactive: !json
             )
         }
-        try RegistryService().remove(id: id)
+        try service.remove(id: id)
         if json {
             try printJSON(RemovePayload(ok: true, id: id, removed: true))
         } else {
