@@ -25,7 +25,6 @@ Shape:
       "update": { "cmd": "printf updated", "requires_write": true, "cwd": null },
       "pin": null,
       "enabled": true,
-      "notify": true,
       "trust": { "level": "untrusted", "approved_commands": {} }
     }
   ],

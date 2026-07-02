@@ -7,7 +7,7 @@ final class ConfigStoreTests: XCTestCase {
 
         XCTAssertEqual(config.refresh.interval, Duration(hours: 6))
         XCTAssertTrue(config.security.requireHTTPSSource)
-        XCTAssertTrue(config.notify.enabled)
+        XCTAssertNil(config.get("notify.enabled"))
     }
 
     func testConfigStoreCreatesDefaultConfigFile() throws {
@@ -41,9 +41,11 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(config.get("refresh.interval"), "30m")
         XCTAssertNil(config.get("refresh.concurrency"))
         XCTAssertNil(config.get("provider.default"))
+        XCTAssertNil(config.get("notify.enabled"))
         XCTAssertNil(config.get("security.allow_import_exec"))
         XCTAssertThrowsError(try config.set("provider.default", value: "openrouter"))
         XCTAssertThrowsError(try config.set("refresh.concurrency", value: "2"))
+        XCTAssertThrowsError(try config.set("notify.enabled", value: "false"))
         XCTAssertThrowsError(try config.set("security.allow_import_exec", value: "true"))
         XCTAssertThrowsError(try config.set("unknown.key", value: "x"))
     }
@@ -56,6 +58,7 @@ final class ConfigStoreTests: XCTestCase {
 
         XCTAssertFalse(text.contains("allow_import_exec"))
         XCTAssertFalse(text.contains("concurrency"))
+        XCTAssertFalse(text.contains("notify"))
         XCTAssertTrue(text.contains("interval"))
         XCTAssertTrue(text.contains("require_https_source"))
     }
@@ -88,6 +91,7 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(config.refresh.interval, Duration(minutes: 30))
         XCTAssertNil(config.get("refresh.concurrency"))
         XCTAssertNil(config.get("provider.default"))
+        XCTAssertNil(config.get("notify.enabled"))
         XCTAssertNil(config.get("security.allow_plaintext_secret_file"))
     }
 
@@ -113,15 +117,15 @@ final class ConfigStoreTests: XCTestCase {
         let configFile = root.appendingPathComponent("config.toml")
         try Data(
             """
-            [notify]
-            enabled = maybe
+            [security]
+            require_https_source = maybe
             """.utf8
         ).write(to: configFile)
 
         XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) { error in
             let message = String(describing: error)
             XCTAssertTrue(message.contains("line 2"))
-            XCTAssertTrue(message.contains("notify.enabled: invalid value maybe"))
+            XCTAssertTrue(message.contains("security.require_https_source: invalid value maybe"))
         }
     }
 

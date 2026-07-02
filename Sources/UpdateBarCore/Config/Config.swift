@@ -3,12 +3,10 @@ import Foundation
 public struct Config: Equatable, Sendable {
     public var refresh: RefreshConfig
     public var security: SecurityConfig
-    public var notify: NotifyConfig
 
     public static let `default` = Config(
         refresh: RefreshConfig(interval: Duration(hours: 6)),
-        security: SecurityConfig(requireHTTPSSource: true),
-        notify: NotifyConfig(enabled: true)
+        security: SecurityConfig(requireHTTPSSource: true)
     )
 
     public mutating func set(_ key: String, value: String) throws {
@@ -17,8 +15,6 @@ public struct Config: Equatable, Sendable {
             refresh.interval = try Duration(parse: value)
         case "security.require_https_source":
             security.requireHTTPSSource = try parseBool(key: key, value: value)
-        case "notify.enabled":
-            notify.enabled = try parseBool(key: key, value: value)
         default:
             throw ConfigError.unknownKey(key)
         }
@@ -28,7 +24,6 @@ public struct Config: Equatable, Sendable {
         switch key {
         case "refresh.interval": refresh.interval.description
         case "security.require_https_source": String(security.requireHTTPSSource)
-        case "notify.enabled": String(notify.enabled)
         default: nil
         }
     }
@@ -48,10 +43,6 @@ public struct RefreshConfig: Equatable, Sendable {
 
 public struct SecurityConfig: Equatable, Sendable {
     public var requireHTTPSSource: Bool
-}
-
-public struct NotifyConfig: Equatable, Sendable {
-    public var enabled: Bool
 }
 
 public enum ConfigError: Error, CustomStringConvertible, Equatable, Sendable {

@@ -5,12 +5,22 @@ final class ConfigCommandTests: XCTestCase {
     func testConfigSetSupportsJSONOutput() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
 
-        let result = try CLIProcess.run(["config", "set", "notify.enabled", "false", "--json"], home: home)
+        let result = try CLIProcess.run(["config", "set", "security.require_https_source", "false", "--json"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stdout.contains(#""ok":true"#))
-        XCTAssertTrue(result.stdout.contains(#""key":"notify.enabled""#))
+        XCTAssertTrue(result.stdout.contains(#""key":"security.require_https_source""#))
         XCTAssertTrue(result.stdout.contains(#""value":"false""#))
+    }
+
+    func testConfigSetRejectsRemovedNotifyKey() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
+
+        let result = try CLIProcess.run(["config", "set", "notify.enabled", "false", "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stdout.contains(#""ok":false"#))
+        XCTAssertTrue(result.stdout.contains("unknown config key"))
     }
 
     func testConfigJSONOmitsRemovedConfigKeys() throws {
@@ -21,6 +31,7 @@ final class ConfigCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertFalse(result.stdout.contains("allow_import_exec"))
         XCTAssertFalse(result.stdout.contains("concurrency"))
+        XCTAssertFalse(result.stdout.contains("notify"))
         XCTAssertTrue(result.stdout.contains("interval"))
         XCTAssertTrue(result.stdout.contains("require_https_source"))
     }

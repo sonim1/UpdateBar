@@ -1005,12 +1005,10 @@ private struct ConfigValuePayload: Encodable {
 private struct ConfigDumpPayload: Encodable {
     var refresh: Refresh
     var security: Security
-    var notify: Notify
 
     init(config: Config) {
         refresh = Refresh(interval: config.refresh.interval.description)
         security = Security(requireHTTPSSource: config.security.requireHTTPSSource)
-        notify = Notify(enabled: config.notify.enabled)
     }
 
     struct Refresh: Encodable {
@@ -1025,9 +1023,6 @@ private struct ConfigDumpPayload: Encodable {
         }
     }
 
-    struct Notify: Encodable {
-        var enabled: Bool
-    }
 }
 
 private struct ValidationError: Error, CustomStringConvertible {
@@ -1211,7 +1206,7 @@ struct GuideCommand: ParsableCommand {
                 id, name, category, source, version_scheme, check, latest,
                 version_parse.regex, update, trust.
 
-                Defaults: enabled=true, notify=true, update.requires_write=true
+                Defaults: enabled=true, update.requires_write=true
 
                 Rules:
                 - use version_parse.regex with exactly one capture group
@@ -1321,7 +1316,6 @@ struct SchemaCommand: ParsableCommand {
             },
             "pin": { "type": ["string", "null"] },
             "enabled": { "type": "boolean", "default": true },
-            "notify": { "type": "boolean", "default": true },
             "trust": {
               "type": "object",
               "required": ["level", "approved_commands"],

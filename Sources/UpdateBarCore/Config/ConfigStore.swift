@@ -53,6 +53,7 @@ public struct ConfigStore {
             if key == "refresh.concurrency"
                 || key == "security.allow_import_exec"
                 || key == "security.allow_plaintext_secret_file"
+                || key == "notify.enabled"
             {
                 continue
             }
@@ -73,9 +74,6 @@ public struct ConfigStore {
 
         [security]
         require_https_source = \(config.security.requireHTTPSSource)
-
-        [notify]
-        enabled = \(config.notify.enabled)
 
         """
     }

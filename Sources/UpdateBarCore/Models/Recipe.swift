@@ -128,6 +128,23 @@ public struct Recipe: Codable, Equatable {
         }
         trust = try container.decode(Trust.self, forKey: .trust)
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(category, forKey: .category)
+        try container.encodeIfPresent(path, forKey: .path)
+        try container.encode(source, forKey: .source)
+        try container.encode(versionScheme, forKey: .versionScheme)
+        try container.encode(check, forKey: .check)
+        try container.encode(latest, forKey: .latest)
+        try container.encode(versionParse, forKey: .versionParse)
+        try container.encode(update, forKey: .update)
+        try container.encodeIfPresent(pin, forKey: .pin)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encode(trust, forKey: .trust)
+    }
 }
 
 public struct Source: Codable, Equatable {

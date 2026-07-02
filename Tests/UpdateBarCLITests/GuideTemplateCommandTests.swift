@@ -27,6 +27,7 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertEqual(recipe.latest.strategy, .npmRegistry)
         XCTAssertEqual(recipe.trust.level, .untrusted)
         XCTAssertEqual(recipe.trust.approvedCommands, [:])
+        XCTAssertFalse(result.stdout.contains(#""notify""#))
     }
 
     func testTemplateRecipeCanBeValidatedByCLI() throws {
@@ -65,7 +66,7 @@ final class GuideTemplateCommandTests: XCTestCase {
         let properties = try XCTUnwrap(recipe["properties"] as? [String: Any])
         XCTAssertEqual(try boolDefault(in: properties, "requires_write", nestedIn: "update"), true)
         XCTAssertEqual(try boolDefault(in: properties, "enabled"), true)
-        XCTAssertEqual(try boolDefault(in: properties, "notify"), true)
+        XCTAssertNil(properties["notify"])
         let check = try XCTUnwrap(properties["check"] as? [String: Any])
         let checkVariants = try XCTUnwrap(check["oneOf"] as? [[String: Any]])
         XCTAssertTrue(checkVariants.contains { variant in
@@ -94,7 +95,8 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("Recipe authoring"))
         XCTAssertTrue(result.stdout.contains("version_parse.regex"))
         XCTAssertFalse(result.stdout.contains("update, enabled, notify, trust"))
-        XCTAssertTrue(result.stdout.contains("Defaults: enabled=true, notify=true, update.requires_write=true"))
+        XCTAssertFalse(result.stdout.contains("notify"))
+        XCTAssertTrue(result.stdout.contains("Defaults: enabled=true, update.requires_write=true"))
     }
 
     func testTemplateRecipeAcceptsAgentOverrides() throws {
