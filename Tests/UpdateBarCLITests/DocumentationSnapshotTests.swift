@@ -600,6 +600,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         for column in ["`ID`", "`OUTCOME`", "`CURRENT`", "`LATEST`", "`DETAIL`"] {
             XCTAssertTrue(updateSection.contains(column), "update docs missing \(column)")
         }
+        XCTAssertTrue(updateSection.contains("`updatebar init`"))
+        XCTAssertTrue(updateSection.contains("no items are registered"))
     }
 
     func testScanInitSpecDocumentsCurrentCategories() throws {

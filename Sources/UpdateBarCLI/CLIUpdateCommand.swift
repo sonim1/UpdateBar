@@ -50,14 +50,19 @@ struct UpdateCommand: ParsableCommand {
         if json {
             try printJSON(results)
         } else {
-            printHuman(results)
+            let registryIsEmpty = try ManifestStore().loadExistingOrEmpty().items.isEmpty
+            printHuman(results, registryIsEmpty: registryIsEmpty)
         }
 
         try enforceExitCodes(results)
     }
 
-    private func printHuman(_ results: [UpdateResult]) {
+    private func printHuman(_ results: [UpdateResult], registryIsEmpty: Bool) {
         if results.isEmpty {
+            if registryIsEmpty {
+                printEmptyRegistryNextStep()
+                return
+            }
             print("No approved outdated items to update.")
             return
         }
