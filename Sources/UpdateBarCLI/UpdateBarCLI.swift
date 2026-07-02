@@ -2252,12 +2252,6 @@ struct AddCommand: ParsableCommand {
     @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Flag(name: .long, help: .hidden)
-    var trust = false
-
-    @Flag(name: .long, help: .hidden)
-    var yes = false
-
     @Flag(name: .long, help: "Overwrite an existing item with the same id.")
     var replace = false
 
@@ -2268,7 +2262,7 @@ struct AddCommand: ParsableCommand {
 
         let recipe = try loadManualRecipe()
         let validated = try validatedRecipe(recipe)
-        let prepared = try prepareForSave(validated)
+        let prepared = TrustPolicy.untrustedCopy(validated)
 
         if dryRun {
             try output(AddPayload(valid: true, recipe: prepared, errors: []))
@@ -2337,23 +2331,6 @@ struct AddCommand: ParsableCommand {
         return recipe
     }
 
-    private func prepareForSave(_ recipe: Recipe) throws -> Recipe {
-        var prepared = TrustPolicy.untrustedCopy(recipe)
-        guard trust else {
-            return prepared
-        }
-        printCommands(prepared)
-        if !yes {
-            try requireYes(
-                prompt: "Trust and approve these commands? Type yes to continue:",
-                cancelMessage: "command approval cancelled",
-                interactive: !json
-            )
-        }
-        TrustPolicy.approveAllCommands(in: &prepared)
-        return prepared
-    }
-
     private func output(_ payload: AddPayload) throws {
         if json {
             try printJSON(payload)
@@ -2363,26 +2340,6 @@ struct AddCommand: ParsableCommand {
             for error in payload.errors {
                 writeStderr(error)
             }
-        }
-    }
-
-    private func printCommands(_ recipe: Recipe) {
-        guard !json else {
-            return
-        }
-        for (field, _) in recipe.commandFingerprints().sorted(by: { $0.key < $1.key }) {
-            let command: String
-            switch field {
-            case "check.cmd":
-                if case let .command(cmd) = recipe.check { command = cmd } else { continue }
-            case "latest.cmd":
-                command = recipe.latest.cmd ?? ""
-            case "update.cmd":
-                command = recipe.update.cmd
-            default:
-                continue
-            }
-            writeStderr("\(field): \(command)")
         }
     }
 

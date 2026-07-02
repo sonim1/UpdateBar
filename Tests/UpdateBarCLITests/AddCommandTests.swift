@@ -104,57 +104,20 @@ final class AddCommandTests: XCTestCase {
         XCTAssertEqual(stored.item(id: "tool")?.trust.level, .untrusted)
     }
 
-    func testManualAddTrustCanApproveHeadlesslyWithYes() throws {
-        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
-        let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: []))
-        let file = try writeRecipe(home: home, recipe: recipe(id: "trusted"))
-
-        let result = try CLIProcess.run(["add", "--from", file.path, "--trust", "--yes", "--json"], home: home)
-        let stored = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "trusted"))
-
-        XCTAssertEqual(result.exitCode, 0)
-        XCTAssertEqual(stored.trust.level, .trusted)
-        XCTAssertFalse(stored.trust.approvedCommands.isEmpty)
-    }
-
-    func testManualAddTrustWithoutYesRequiresPromptConfirmation() throws {
-        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
-        let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: []))
-        let file = try writeRecipe(home: home, recipe: recipe(id: "denied"))
-
-        let result = try CLIProcess.run(["add", "--from", file.path, "--trust"], home: home)
-        let stored = try ManifestStore(paths: paths).load()
-
-        XCTAssertNotEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stderr.contains("command approval cancelled"))
-        XCTAssertNil(stored.item(id: "denied"))
-    }
-
-    func testManualAddTrustWithoutYesJSONReturnsErrorEnvelope() throws {
-        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
-        let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: []))
-        let file = try writeRecipe(home: home, recipe: recipe(id: "denied"))
-
-        let result = try CLIProcess.run(["add", "--from", file.path, "--trust", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
-
-        XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.isEmpty)
-        XCTAssertTrue(result.stdout.contains("\"ok\":false"))
-        XCTAssertEqual(payload.code, "usage_error")
-        XCTAssertFalse(payload.ok)
-        XCTAssertTrue(payload.errors.contains("command approval cancelled"))
-    }
-
     func testAIAddFlagsAreRemovedFromCLI() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let result = try CLIProcess.run(["add", "--ai", "--from", "anything"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.contains("Unknown option '--ai'"))
+    }
+
+    func testAddTrustFlagIsRemovedFromCLI() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+        let result = try CLIProcess.run(["add", "--trust", "--from", "anything"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("Unknown option '--trust'"))
     }
 
     func testManualWizardCreatesUntrustedRecipe() throws {
