@@ -25,7 +25,7 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertEqual(state.items["tool"]?.current, "1.1.0")
     }
 
-    func testUpdateAllReturnsPartialFailureExitCode() throws {
+    func testUpdateWithoutIDsReturnsPartialFailureExitCode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
         try ManifestStore(paths: paths).save(manifest(items: [
@@ -37,7 +37,7 @@ final class UpdateCommandTests: XCTestCase {
             "good": itemState(status: .outdated)
         ]))
 
-        let result = try CLIProcess.run(["update", "--all", "--yes", "--json"], home: home)
+        let result = try CLIProcess.run(["update", "--yes", "--json"], home: home)
 
         XCTAssertEqual(result.exitCode, 2)
         let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
@@ -229,7 +229,7 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.isEmpty)
     }
 
-    func testUpdateRejectsAllWithExplicitIDs() throws {
+    func testUpdateRejectsRemovedAllFlag() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
         try ManifestStore(paths: paths).save(manifest(items: [
@@ -240,12 +240,12 @@ final class UpdateCommandTests: XCTestCase {
         ]))
 
         let result = try CLIProcess.run(
-            ["update", "tool", "--all", "--yes", "--json"],
+            ["update", "--all", "--yes", "--json"],
             home: home
         )
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stdout.contains("--all cannot be combined with explicit item ids"))
+        XCTAssertTrue(result.stdout.contains("Unknown option '--all'"))
         XCTAssertFalse(result.stdout.contains("\"ok\":true"))
         XCTAssertTrue(result.stderr.isEmpty)
     }

@@ -11,9 +11,6 @@ struct UpdateCommand: ParsableCommand {
     @Argument(help: "Item ids to update. Updates every outdated item when omitted.")
     var ids: [String] = []
 
-    @Flag(name: .long, help: .hidden)
-    var all = false
-
     @Flag(name: .long, help: "Run without an interactive confirmation prompt.")
     var yes = false
 
@@ -24,15 +21,11 @@ struct UpdateCommand: ParsableCommand {
     var jsonStream = false
 
     func run() throws {
-        if all, !ids.isEmpty {
-            throw ValidationError("--all cannot be combined with explicit item ids")
-        }
-
         try ensureJSONModeCompatibility(json: json, jsonStream: jsonStream)
 
         let config = try ConfigStore().load()
         let itemIDs = unique(ids)
-        let updateAll = all || itemIDs.isEmpty
+        let updateAll = itemIDs.isEmpty
         let results: [UpdateResult] = try withCancellationToken { cancellationToken in
             let runner = UpdateRunner(
                 config: config,

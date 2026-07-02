@@ -277,7 +277,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                     field: "update.cmd",
                     approved: true,
                     fingerprint: "abc",
-                    command: "old update --all",
+                    command: "old-tool update",
                     cwd: "/tmp/old"
                 )
             ]
@@ -296,7 +296,7 @@ final class MenuBarMenuModelTests: XCTestCase {
             This runs the update command for old.
 
             Command:
-            old update --all
+            old-tool update
 
             Working directory:
             /tmp/old
