@@ -25,7 +25,7 @@ struct ConfigCommand: ParsableCommand {
             let config = try ConfigStore().load()
             if let key {
                 guard let value = config.get(key) else {
-                    throw ValidationError("unknown config key: \(key)")
+                    throw ConfigError.unknownKey(key)
                 }
                 if json {
                     try printJSON(ConfigValuePayload(key: key, value: value))

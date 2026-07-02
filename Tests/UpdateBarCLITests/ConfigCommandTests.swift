@@ -13,6 +13,18 @@ final class ConfigCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains(#""value":"false""#))
     }
 
+    func testConfigGetUnknownKeyJSONReturnsConfigError() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
+
+        let result = try CLIProcess.run(["config", "get", "missing.key", "--json"], home: home)
+        let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "config_error")
+        XCTAssertTrue(payload.errors.contains("missing.key: unknown config key"))
+    }
+
     func testConfigSetRejectsRemovedNotifyKey() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
 
@@ -34,5 +46,10 @@ final class ConfigCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("notify"))
         XCTAssertTrue(result.stdout.contains("interval"))
         XCTAssertTrue(result.stdout.contains("require_https_source"))
+    }
+
+    private struct ErrorEnvelope: Decodable {
+        var code: String
+        var errors: [String]
     }
 }
