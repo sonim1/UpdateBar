@@ -1195,6 +1195,9 @@ struct GuideCommand: ParsableCommand {
                 7. Do not approve commands silently.
                 8. After user confirmation, approve exact fields:
                    Repeat approval for each command field the user accepts.
+                   Common fields: check.cmd, latest.cmd, update.cmd.
+                   updatebar approve <id> --field check.cmd --json.
+                   updatebar approve <id> --field latest.cmd --json.
                    updatebar approve <id> --field update.cmd --json.
                 9. Verify with updatebar check <id> --json and updatebar status --json.
 

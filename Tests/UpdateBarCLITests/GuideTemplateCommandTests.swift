@@ -11,6 +11,9 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stdout.contains("Do not approve commands silently"))
         XCTAssertTrue(result.stdout.contains("Repeat approval for each command field the user accepts"))
+        XCTAssertTrue(result.stdout.contains("Common fields: check.cmd, latest.cmd, update.cmd"))
+        XCTAssertTrue(result.stdout.contains("updatebar approve <id> --field check.cmd --json"))
+        XCTAssertTrue(result.stdout.contains("updatebar approve <id> --field latest.cmd --json"))
         XCTAssertTrue(result.stdout.contains("updatebar validate"))
         XCTAssertTrue(result.stdout.contains("updatebar add --from"))
     }

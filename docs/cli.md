@@ -214,6 +214,7 @@ Validates a manifest object or a single recipe object without storing it.
 ### `updatebar guide agent`
 
 Prints the safe external-agent workflow for authoring recipes.
+The guide lists common approval fields (`check.cmd`, `latest.cmd`, `update.cmd`) and reminds agents to approve only fields the user accepts.
 
 ### `updatebar guide recipe`
 
