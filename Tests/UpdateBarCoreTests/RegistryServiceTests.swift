@@ -120,6 +120,31 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertFalse(state.items["broken"]?.error?.contains(githubToken) ?? true)
     }
 
+    func testCheckReportsMissingCheckFileWithReadableError() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let stores = Stores(paths: paths)
+        var item = recipe(id: "file-tool", currentCommand: "unused", latestCommand: "file-tool latest")
+        let missingPath = root.appendingPathComponent("missing-version.txt").path
+        item.check = .file(path: missingPath, query: "$.version")
+        try stores.manifest.save(manifest(items: [item]))
+        let commands = MockCommandExecutor(results: [
+            "file-tool latest": CommandResult(exitCode: 0, stdout: "file-tool 1.1.0", stderr: "")
+        ])
+        let service = registryService(paths: paths, commands: commands)
+
+        let results = try service.check()
+        let state = try stores.state.load()
+        let error = try XCTUnwrap(results.first?.error)
+
+        XCTAssertEqual(results.first?.status, .error)
+        XCTAssertEqual(state.items["file-tool"]?.status, .error)
+        XCTAssertTrue(error.contains("check.file not readable"))
+        XCTAssertTrue(error.contains(missingPath))
+        XCTAssertFalse(error.contains("Error Domain"))
+        XCTAssertFalse(error.contains("NSCocoaErrorDomain"))
+    }
+
     func testCheckHonorsTTLUnlessForced() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)

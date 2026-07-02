@@ -381,7 +381,16 @@ public struct RegistryService {
                 using: recipe.versionParse
             )
         case let .file(path, _):
-            let data = try Data(contentsOf: URL(fileURLWithPath: expandedPath(path)))
+            let resolvedPath = expandedPath(path)
+            guard FileManager.default.isReadableFile(atPath: resolvedPath) else {
+                throw RegistryError.checkFileNotReadable(resolvedPath)
+            }
+            let data: Data
+            do {
+                data = try Data(contentsOf: URL(fileURLWithPath: resolvedPath))
+            } catch {
+                throw RegistryError.checkFileNotReadable(resolvedPath)
+            }
             return try VersionParser.extract(from: String(decoding: data, as: UTF8.self), using: recipe.versionParse)
         }
     }
@@ -444,6 +453,7 @@ public enum RegistryError: Error, CustomStringConvertible, Equatable {
     case invalidManifest([String])
     case commandFailed(String)
     case commandFieldNotFound(String)
+    case checkFileNotReadable(String)
 
     public var description: String {
         switch self {
@@ -459,6 +469,8 @@ public enum RegistryError: Error, CustomStringConvertible, Equatable {
             return message
         case let .commandFieldNotFound(field):
             return "\(field): command field not found"
+        case let .checkFileNotReadable(path):
+            return "check.file not readable: \(path)"
         }
     }
 }
