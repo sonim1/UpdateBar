@@ -531,8 +531,21 @@ public enum ScanServiceError: Error, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .commandFailed(let command, let exitCode, let stderr):
-            return "\(command): exited \(exitCode): \(stderr)"
+        case .commandFailed(_, let exitCode, let stderr):
+            let detail = Self.normalizedStderr(stderr)
+            guard !detail.isEmpty else {
+                return "exited \(exitCode)"
+            }
+            return "exited \(exitCode): \(detail)"
         }
+    }
+
+    private static func normalizedStderr(_ stderr: String) -> String {
+        var seen = Set<String>()
+        return stderr
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && seen.insert($0).inserted }
+            .joined(separator: "\n")
     }
 }

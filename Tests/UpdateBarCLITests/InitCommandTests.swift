@@ -564,6 +564,7 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("No importable candidates found"))
         XCTAssertTrue(result.stderr.contains("brew"))
         XCTAssertTrue(result.stderr.contains("brew exploded"))
+        XCTAssertFalse(result.stderr.contains("if command -v brew"))
     }
 
     func testInitAllRequiresImportableCandidatesInJSONMode() throws {
@@ -620,6 +621,7 @@ final class InitCommandTests: XCTestCase {
         XCTAssertFalse(payload.ok)
         XCTAssertTrue(payload.errors.contains { $0.contains("No importable candidates found") })
         XCTAssertTrue(payload.errors.contains { $0.contains("brew") && $0.contains("brew exploded") })
+        XCTAssertFalse(payload.errors.contains { $0.contains("if command -v brew") })
     }
 
     private func fakeManagers(home: URL, includeNPM: Bool = false) throws -> URL {

@@ -73,6 +73,33 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("jq"))
     }
 
+    func testScanHumanOutputReportsConciseDetectorErrors() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            printf 'brew exploded\\n' >&2
+            exit 42
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["scan"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("Errors"))
+        XCTAssertTrue(result.stdout.contains("brew: exited 42"))
+        XCTAssertTrue(result.stdout.contains("brew exploded"))
+        XCTAssertFalse(result.stdout.contains("brew exploded\nbrew exploded"))
+        XCTAssertFalse(result.stdout.contains("if command -v brew"))
+    }
+
     func testScanHumanEmptyCategoryResultSuggestsBroaderScan() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
 
