@@ -183,6 +183,43 @@ final class LatestStrategyTests: XCTestCase {
         XCTAssertEqual(latest, "1.5.0")
     }
 
+    func testGitHubReleaseRejectsOwnerOnlyRefWithoutHTTP() throws {
+        var item = recipe()
+        item.source.kind = .githubRelease
+        item.source.ref = "owner"
+        let http = MockHTTPClient()
+
+        XCTAssertThrowsError(
+            try GitHubReleaseLatestStrategy().latest(
+                for: item,
+                context: LatestContext(httpClient: http, commandRunner: emptyCommands())
+            )
+        ) { error in
+            XCTAssertEqual(String(describing: error), "owner: invalid GitHub repository ref")
+        }
+        XCTAssertEqual(http.requestedURLs, [])
+    }
+
+    func testGitHubReleaseRejectsIncompleteGitHubURLWithoutHTTP() throws {
+        var item = recipe()
+        item.source.kind = .githubRelease
+        item.source.ref = "https://github.com/owner"
+        let http = MockHTTPClient()
+
+        XCTAssertThrowsError(
+            try GitHubReleaseLatestStrategy().latest(
+                for: item,
+                context: LatestContext(httpClient: http, commandRunner: emptyCommands())
+            )
+        ) { error in
+            XCTAssertEqual(
+                String(describing: error),
+                "https://github.com/owner: invalid GitHub repository ref"
+            )
+        }
+        XCTAssertEqual(http.requestedURLs, [])
+    }
+
     func testBrewParsesFormulaVersion() throws {
         var item = recipe()
         item.source.kind = .brew
