@@ -148,6 +148,7 @@ final class ManifestStoreTests: XCTestCase {
 
     func testManifestStoreWritesAndReadsAtomicallyWithPrivatePermissions() throws {
         let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
         let store = ManifestStore(paths: AppPaths(homeDirectory: root))
         let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
         let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
@@ -160,6 +161,8 @@ final class ManifestStoreTests: XCTestCase {
             atPath: root.appendingPathComponent("manifest.json").path
         )
         XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
     }
 
     func testManifestStoreOverwritesExistingFile() throws {

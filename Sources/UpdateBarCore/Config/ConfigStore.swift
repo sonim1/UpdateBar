@@ -10,7 +10,7 @@ public struct ConfigStore {
     }
 
     public func load() throws -> Config {
-        try fileManager.createDirectory(at: paths.homeDirectory, withIntermediateDirectories: true)
+        try ensureHome()
         if !fileManager.fileExists(atPath: paths.configFile.path) {
             let config = Config.default
             try save(config)
@@ -29,7 +29,7 @@ public struct ConfigStore {
     }
 
     public func save(_ config: Config) throws {
-        try fileManager.createDirectory(at: paths.homeDirectory, withIntermediateDirectories: true)
+        try ensureHome()
         try AtomicFileWriter.write(Data(render(config).utf8), to: paths.configFile, fileManager: fileManager)
     }
 
@@ -91,5 +91,9 @@ public struct ConfigStore {
             return String(value.dropFirst().dropLast())
         }
         return value
+    }
+
+    private func ensureHome() throws {
+        try AppHomeDirectory.ensure(paths.homeDirectory, fileManager: fileManager)
     }
 }

@@ -48,14 +48,15 @@ public struct ManifestStore {
     }
 
     public func withExclusiveLock<T>(_ body: () throws -> T) throws -> T {
-        try FileLock(
+        try ensureHome()
+        return try FileLock(
             url: paths.homeDirectory.appendingPathComponent("manifest.lock"),
             fileManager: fileManager
         ).withExclusiveLock(body)
     }
 
     private func ensureHome() throws {
-        try fileManager.createDirectory(at: paths.homeDirectory, withIntermediateDirectories: true)
+        try AppHomeDirectory.ensure(paths.homeDirectory, fileManager: fileManager)
     }
 
     private func emptyManifest(now: Date) -> Manifest {

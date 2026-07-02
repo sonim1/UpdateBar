@@ -38,6 +38,7 @@ final class StateStoreTests: XCTestCase {
 
     func testStateStoreWritesAndReadsPrivateFile() throws {
         let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
         let store = StateStore(paths: AppPaths(homeDirectory: root))
         let now = Date(timeIntervalSince1970: 1_812_499_200)
         let state = State(
@@ -63,6 +64,8 @@ final class StateStoreTests: XCTestCase {
             atPath: root.appendingPathComponent("state.json").path
         )
         XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
     }
 
     func testStateStoreOverwritesExistingFile() throws {

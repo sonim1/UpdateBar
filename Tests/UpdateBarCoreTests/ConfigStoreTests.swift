@@ -12,12 +12,19 @@ final class ConfigStoreTests: XCTestCase {
 
     func testConfigStoreCreatesDefaultConfigFile() throws {
         let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
         let store = ConfigStore(paths: AppPaths(homeDirectory: root))
 
         let config = try store.load()
 
         XCTAssertEqual(config, .default)
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("config.toml").path))
+        let configAttributes = try FileManager.default.attributesOfItem(
+            atPath: root.appendingPathComponent("config.toml").path
+        )
+        XCTAssertEqual((configAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
     }
 
     func testReadsAndWritesKnownConfigKeys() throws {

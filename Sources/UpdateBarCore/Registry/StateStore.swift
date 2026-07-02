@@ -48,14 +48,15 @@ public struct StateStore {
     }
 
     public func withExclusiveLock<T>(_ body: () throws -> T) throws -> T {
-        try FileLock(
+        try ensureHome()
+        return try FileLock(
             url: paths.homeDirectory.appendingPathComponent("state.lock"),
             fileManager: fileManager
         ).withExclusiveLock(body)
     }
 
     private func ensureHome() throws {
-        try fileManager.createDirectory(at: paths.homeDirectory, withIntermediateDirectories: true)
+        try AppHomeDirectory.ensure(paths.homeDirectory, fileManager: fileManager)
     }
 
     private func emptyState(now: Date) -> State {
