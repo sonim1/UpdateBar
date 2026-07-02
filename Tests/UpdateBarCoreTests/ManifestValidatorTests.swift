@@ -111,11 +111,10 @@ final class ManifestValidatorTests: XCTestCase {
 
         XCTAssertTrue(result.isValid, result.errors.joined(separator: "\n"))
         let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
-        guard case let .file(path, query) = manifest.items[0].check else {
+        guard case let .file(path) = manifest.items[0].check else {
             return XCTFail("expected check.file")
         }
         XCTAssertEqual(path, "/tmp/version.txt")
-        XCTAssertNil(query)
     }
 
     func testRejectsUnsupportedCheckFileQuery() throws {
@@ -131,7 +130,7 @@ final class ManifestValidatorTests: XCTestCase {
 
     func testRejectsWhitespaceOnlyCheckFile() throws {
         var manifest = try loadValid()
-        manifest.items[0].check = .file(path: " \t\n", query: "$.version")
+        manifest.items[0].check = .file(path: " \t\n")
 
         let blankPath = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
 

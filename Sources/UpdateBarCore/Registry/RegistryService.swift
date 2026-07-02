@@ -384,7 +384,7 @@ public struct RegistryService {
                 from: "\(result.stdout)\n\(result.stderr)",
                 using: recipe.versionParse
             )
-        case let .file(path, _):
+        case let .file(path):
             let resolvedPath = expandedPath(path)
             guard FileManager.default.isReadableFile(atPath: resolvedPath) else {
                 throw RegistryError.checkFileNotReadable(resolvedPath)

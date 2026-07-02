@@ -177,7 +177,7 @@ public enum VersionScheme: String, Codable, Equatable {
 
 public enum CheckSpec: Codable, Equatable {
     case command(String)
-    case file(path: String, query: String?)
+    case file(path: String)
 
     enum CodingKeys: String, CodingKey {
         case cmd
@@ -191,9 +191,15 @@ public enum CheckSpec: Codable, Equatable {
             self = .command(cmd)
             return
         }
+        if container.contains(.query) {
+            throw DecodingError.dataCorruptedError(
+                forKey: .query,
+                in: container,
+                debugDescription: "check.query is unsupported"
+            )
+        }
         let file = try container.decode(String.self, forKey: .file)
-        let query = try container.decodeIfPresent(String.self, forKey: .query)
-        self = .file(path: file, query: query)
+        self = .file(path: file)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -201,9 +207,8 @@ public enum CheckSpec: Codable, Equatable {
         switch self {
         case let .command(cmd):
             try container.encode(cmd, forKey: .cmd)
-        case let .file(path, query):
+        case let .file(path):
             try container.encode(path, forKey: .file)
-            try container.encodeIfPresent(query, forKey: .query)
         }
     }
 
@@ -211,8 +216,8 @@ public enum CheckSpec: Codable, Equatable {
         switch self {
         case let .command(cmd):
             return "cmd|\(cmd)"
-        case let .file(path, query):
-            return "file|\(path)|\(query ?? "")"
+        case let .file(path):
+            return "file|\(path)"
         }
     }
 }

@@ -28,6 +28,17 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertEqual(item.trust.level, .trusted)
     }
 
+    func testDecodeRejectsUnsupportedCheckFileQuery() throws {
+        let data = try validManifestDataUpdatingFirstItem {
+            $0["check"] = [
+                "file": "/tmp/version.json",
+                "query": "$.version",
+            ] as [String: Any]
+        }
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(Manifest.self, from: data))
+    }
+
     func testReplacingAndRemovingItems() throws {
         let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
         let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
@@ -183,5 +194,17 @@ final class ManifestStoreTests: XCTestCase {
             .appendingPathComponent("updatebar-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    private func validManifestDataUpdatingFirstItem(_ update: (inout [String: Any]) throws -> Void) throws -> Data {
+        let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
+        let object = try JSONSerialization.jsonObject(with: data)
+        var manifest = try XCTUnwrap(object as? [String: Any])
+        var items = try XCTUnwrap(manifest["items"] as? [[String: Any]])
+        var item = try XCTUnwrap(items.first)
+        try update(&item)
+        items[0] = item
+        manifest["items"] = items
+        return try JSONSerialization.data(withJSONObject: manifest)
     }
 }
