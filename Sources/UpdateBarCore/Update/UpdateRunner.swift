@@ -31,8 +31,9 @@ public struct UpdateRunner {
     }
 
     public func update(ids: [String], all: Bool, assumeYes: Bool) throws -> [UpdateResult] {
-        let manifest = try manifestStore.load()
-        let state = try stateStore.load(now: now())
+        let planDate = now()
+        let manifest = try manifestStore.loadExistingOrEmpty(now: planDate)
+        let state = try stateStore.loadExistingOrEmpty(now: planDate)
         let plan = UpdatePlanner(manifest: manifest, state: state).plan(ids: ids, all: all)
         var results: [UpdateResult] = []
 
@@ -61,8 +62,9 @@ public struct UpdateRunner {
     }
 
     public func plan(ids: [String], all: Bool) throws -> [UpdatePlanItem] {
-        let manifest = try manifestStore.load()
-        let state = try stateStore.load(now: now())
+        let planDate = now()
+        let manifest = try manifestStore.loadExistingOrEmpty(now: planDate)
+        let state = try stateStore.loadExistingOrEmpty(now: planDate)
         return UpdatePlanner(manifest: manifest, state: state).plan(ids: ids, all: all)
     }
 

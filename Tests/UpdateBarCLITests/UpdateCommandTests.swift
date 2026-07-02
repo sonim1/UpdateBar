@@ -70,6 +70,7 @@ final class UpdateCommandTests: XCTestCase {
 
     func testUpdateHumanEmptyResultExplainsNoUpdatesWereRun() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
 
         let result = try CLIProcess.run(["update", "--yes"], home: home)
 
@@ -79,6 +80,8 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("Next"))
         XCTAssertTrue(result.stdout.contains("updatebar init"))
         XCTAssertFalse(result.stdout.contains("No approved outdated items to update."))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
     }
 
     func testUpdateHumanRegisteredItemsWithoutOutdatedStateDoesNotPrintInitNextStep() throws {
@@ -184,6 +187,20 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertEqual(events[3].result?.outcome, .updated)
         XCTAssertEqual(events[4].summary?.updated, 1)
         XCTAssertEqual(events[4].summary?.hardFailures, 0)
+    }
+
+    func testUpdateJSONStreamEmptyRegistryDoesNotCreateRegistryFiles() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+
+        let result = try CLIProcess.run(["update", "--yes", "--json-stream"], home: home)
+        let events = try decodeEvents(result.stdout)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(events.map(\.event), [.started, .log, .finished])
+        XCTAssertEqual(events.last?.summary?.total, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
     }
 
     func testUpdateJSONStreamPreservesFailureExitCodeAndFinishedSummary() throws {
