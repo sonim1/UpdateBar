@@ -1,7 +1,4 @@
-import Foundation
-
 enum RecipeValidator {
-    private static let idRegex = try! NSRegularExpression(pattern: "^[a-z0-9][a-z0-9._-]*$")
     private static let sourceKinds = Set(["git", "npm", "github_release", "brew", "http", "custom"])
     private static let versionSchemes = Set(["semver", "commit", "calver", "opaque"])
     private static let latestStrategies = Set([
@@ -128,7 +125,26 @@ enum RecipeValidator {
     }
 
     private static func matchesID(_ id: String) -> Bool {
-        let range = NSRange(id.startIndex..<id.endIndex, in: id)
-        return idRegex.firstMatch(in: id, range: range) != nil
+        guard let first = id.utf8.first, isIDStartByte(first) else { return false }
+        return id.utf8.dropFirst().allSatisfy(isIDContinuationByte)
+    }
+
+    private static func isIDStartByte(_ byte: UInt8) -> Bool {
+        isLowercaseASCIILetter(byte) || isASCIIDigit(byte)
+    }
+
+    private static func isIDContinuationByte(_ byte: UInt8) -> Bool {
+        isIDStartByte(byte)
+            || byte == UInt8(ascii: ".")
+            || byte == UInt8(ascii: "_")
+            || byte == UInt8(ascii: "-")
+    }
+
+    private static func isLowercaseASCIILetter(_ byte: UInt8) -> Bool {
+        byte >= UInt8(ascii: "a") && byte <= UInt8(ascii: "z")
+    }
+
+    private static func isASCIIDigit(_ byte: UInt8) -> Bool {
+        byte >= UInt8(ascii: "0") && byte <= UInt8(ascii: "9")
     }
 }

@@ -26,6 +26,15 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[1].id: duplicate id claude-code"))
     }
 
+    func testRejectsIDsWithTrailingNewlines() throws {
+        var manifest = try loadValid()
+        manifest.items[0].id = "claude-code\n"
+
+        let result = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
+
+        XCTAssertTrue(result.errors.contains("items[0].id: must match ^[a-z0-9][a-z0-9._-]*$"))
+    }
+
     func testRejectsInvalidEnumsAndStrategyRequirements() throws {
         let json = """
         {
