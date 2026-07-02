@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import UpdateBarCore
 
 #if os(macOS)
 final class BackgroundCommandTests: XCTestCase {
@@ -54,6 +55,22 @@ final class BackgroundCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stdout.contains(#""ok":false"#))
         XCTAssertFalse(FileManager.default.fileExists(atPath: plistURL(home: home).path))
+    }
+
+    func testBackgroundInstallDoesNotCreateDefaultConfigFile() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-background-tests")
+        let updatebarHome = home.appendingPathComponent("updatebar-home")
+        let paths = AppPaths(homeDirectory: updatebarHome)
+
+        let result = try CLIProcess.run(
+            ["background", "install", "--yes", "--json"],
+            home: updatebarHome,
+            environment: ["HOME": home.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains(#""installed":true"#))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
     }
 
     func testBackgroundStatusAndUninstall() throws {

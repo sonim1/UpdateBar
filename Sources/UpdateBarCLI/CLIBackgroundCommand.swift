@@ -28,7 +28,7 @@ struct BackgroundCommand: ParsableCommand {
             }
 
             let manager = BackgroundLaunchAgentManager()
-            let intervalSeconds = try ConfigStore().load().refresh.interval.seconds
+            let intervalSeconds = try ConfigStore().loadExistingOrDefault().refresh.interval.seconds
             let url = try manager.install(intervalSeconds: intervalSeconds)
             let payload = BackgroundInstallPayload(
                 ok: true,
