@@ -76,19 +76,19 @@ export class CLIUpdateBarClient implements UpdateBarClient {
   async status(): Promise<StatusSnapshot> {
     const result = await this.runner.run(['status', '--json', '--exit-zero-on-outdated']);
     ensureExit(result, [0, 10]);
-    return normalizeStatusSnapshot(JSON.parse(result.stdout) as StatusSnapshot);
+    return normalizeStatusSnapshot(parseJSON<StatusSnapshot>(result.stdout, 'status'));
   }
 
   async scan(options: RunOptions = {}): Promise<ScanReport> {
     const result = await this.runner.run(['scan', '--json'], options);
     ensureExit(result, [0]);
-    return JSON.parse(result.stdout) as ScanReport;
+    return parseJSON<ScanReport>(result.stdout, 'scan');
   }
 
   async initSelected(ids: string[]): Promise<InitResult> {
     const result = await this.runner.run(['init', '--select', ids.join(','), '--json']);
     ensureExit(result, [0]);
-    return JSON.parse(result.stdout) as InitResult;
+    return parseJSON<InitResult>(result.stdout, 'init');
   }
 
   async checkNow(options: RunOptions = {}): Promise<CheckReport> {
@@ -97,7 +97,7 @@ export class CLIUpdateBarClient implements UpdateBarClient {
       options
     );
     ensureExit(result, [0, 10]);
-    const parsed = parseJSON<unknown>(result.stdout);
+    const parsed = parseJSON<unknown>(result.stdout, 'check');
     if (!Array.isArray(parsed)) {
       throw new Error('unexpected check result format from updatebar');
     }
@@ -178,11 +178,11 @@ function waitForExit(child: ReturnType<typeof spawn>): Promise<number> {
   });
 }
 
-function parseJSON<T>(payload: string): T {
+function parseJSON<T>(payload: string, command: string): T {
   try {
     return JSON.parse(payload) as T;
   } catch {
-    throw new Error('updatebar check returned invalid JSON');
+    throw new Error(`updatebar ${command} returned invalid JSON`);
   }
 }
 

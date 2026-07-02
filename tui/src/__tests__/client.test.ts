@@ -96,6 +96,13 @@ describe('CLIUpdateBarClient', () => {
     expect(runner.runOptions[0]?.signal).toBe(controller.signal);
   });
 
+  it('reports invalid status JSON with command context', async () => {
+    const runner = new FakeRunner({exitCode: 0, stdout: 'not json', stderr: ''});
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.status()).rejects.toThrow('updatebar status returned invalid JSON');
+  });
+
   it('summarizes differs check results from the Swift CLI contract', async () => {
     const runner = new FakeRunner({
       exitCode: 10,
