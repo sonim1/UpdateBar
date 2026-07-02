@@ -37,10 +37,14 @@ public struct RegistryService {
         force: Bool = false,
         onEvent: ((CheckProgressEvent) throws -> Void)? = nil
     ) throws -> [CheckResult] {
-        let manifest = try manifestStore.load()
+        let manifest = try manifestStore.loadExistingOrEmpty(now: now())
         try validate(manifest)
 
         let selected = try selectedRecipes(from: manifest, ids: ids)
+        if selected.isEmpty {
+            return []
+        }
+
         return try stateStore.withExclusiveLock {
             let checkDate = now()
             var state = try stateStore.load(now: checkDate)

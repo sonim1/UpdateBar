@@ -104,6 +104,7 @@ final class CheckCommandTests: XCTestCase {
 
     func testCheckHumanEmptyRegistryPrintsInitNextStep() throws {
         let home = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: home)
 
         let result = try CLIProcess.run(["check"], home: home)
 
@@ -112,6 +113,8 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("No items registered."))
         XCTAssertTrue(result.stdout.contains("Next"))
         XCTAssertTrue(result.stdout.contains("updatebar init"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
     }
 
     func testCheckMissingItemSuggestsStatus() throws {
