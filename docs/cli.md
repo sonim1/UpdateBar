@@ -134,6 +134,7 @@ Duplicate ids are skipped by default. Pass `--replace` to overwrite existing rec
 ### `updatebar import <file|-> [--replace] [--json]`
 
 Validates and merges a manifest. Imported items are marked untrusted. Duplicate ids require `--replace`.
+In `--json` mode, the payload includes `added`, `replaced`, and `errors` arrays.
 
 ### `updatebar export [file] [--json]`
 

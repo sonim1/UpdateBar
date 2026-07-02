@@ -12,8 +12,13 @@ final class ExportImportCommandTests: XCTestCase {
 
         let result = try CLIProcess.run(["import", importFile.path, "--json"], home: home)
         let manifest = try ManifestStore(paths: paths).load()
+        let payload = try JSONDecoder.updateBar.decode(ImportPayload.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(payload.ok)
+        XCTAssertEqual(payload.added, ["imported"])
+        XCTAssertEqual(payload.replaced, [])
+        XCTAssertEqual(payload.errors, [])
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
         XCTAssertEqual(manifest.item(id: "imported")?.trust.level, .untrusted)
         XCTAssertEqual(manifest.item(id: "imported")?.trust.approvedCommands, [:])
@@ -27,14 +32,24 @@ final class ExportImportCommandTests: XCTestCase {
 
         let duplicate = try CLIProcess.run(["import", importFile.path, "--json"], home: home)
         var stored = try ManifestStore(paths: paths).load()
+        let duplicatePayload = try JSONDecoder.updateBar.decode(ImportPayload.self, from: Data(duplicate.stdout.utf8))
 
         XCTAssertNotEqual(duplicate.exitCode, 0)
+        XCTAssertFalse(duplicatePayload.ok)
+        XCTAssertEqual(duplicatePayload.added, [])
+        XCTAssertEqual(duplicatePayload.replaced, [])
+        XCTAssertTrue(duplicatePayload.errors.contains("tool: duplicate item; pass --replace to overwrite"))
         XCTAssertEqual(stored.item(id: "tool")?.name, "Original")
 
         let replaced = try CLIProcess.run(["import", importFile.path, "--replace", "--json"], home: home)
         stored = try ManifestStore(paths: paths).load()
+        let replacedPayload = try JSONDecoder.updateBar.decode(ImportPayload.self, from: Data(replaced.stdout.utf8))
 
         XCTAssertEqual(replaced.exitCode, 0)
+        XCTAssertTrue(replacedPayload.ok)
+        XCTAssertEqual(replacedPayload.added, [])
+        XCTAssertEqual(replacedPayload.replaced, ["tool"])
+        XCTAssertEqual(replacedPayload.errors, [])
         XCTAssertEqual(stored.item(id: "tool")?.name, "Replacement")
         XCTAssertEqual(stored.item(id: "tool")?.trust.level, .untrusted)
     }
@@ -64,8 +79,11 @@ final class ExportImportCommandTests: XCTestCase {
             stdin: String(decoding: encoded, as: UTF8.self)
         )
         let stored = try ManifestStore(paths: paths).load()
+        let payload = try JSONDecoder.updateBar.decode(ImportPayload.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(payload.added, ["stdin"])
+        XCTAssertEqual(payload.replaced, [])
         XCTAssertEqual(stored.item(id: "stdin")?.trust.level, .untrusted)
     }
 
@@ -116,6 +134,13 @@ final class ExportImportCommandTests: XCTestCase {
         let file = home.appendingPathComponent("import.json")
         try JSONEncoder.updateBar.encode(manifest(items: items)).write(to: file)
         return file
+    }
+
+    private struct ImportPayload: Decodable {
+        var ok: Bool
+        var added: [String]
+        var replaced: [String]
+        var errors: [String]
     }
 
     private func manifest(items: [Recipe]) -> Manifest {
