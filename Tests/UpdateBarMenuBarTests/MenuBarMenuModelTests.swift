@@ -126,6 +126,26 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 
+    func testRunUpdatesActionExplainsConfirmation() {
+        let state = MenuBarState(
+            title: "1 update",
+            badgeValue: "1",
+            outdatedItems: [],
+            approvalItems: [],
+            errorItems: [],
+            okItems: []
+        )
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:]
+        )
+
+        let runUpdatesItem = model.entries.item(titled: "Run Updates")
+
+        XCTAssertEqual(runUpdatesItem?.toolTip, "Runs approved outdated items after confirmation.")
+    }
+
     func testBuildsErrorRecoveryMenu() {
         let model = MenuBarMenuModelBuilder().makeErrorMenu(
             errorDescription: "manifest invalid"
@@ -256,6 +276,13 @@ extension Array where Element == MenuBarMenuEntry {
             guard case .item(let item) = entry else { return nil }
             return item.action
         }
+    }
+
+    fileprivate func item(titled title: String) -> MenuBarMenuItem? {
+        compactMap { entry in
+            guard case .item(let item) = entry else { return nil }
+            return item
+        }.first { $0.title == title }
     }
 
     fileprivate var hasRepeatedSeparators: Bool {

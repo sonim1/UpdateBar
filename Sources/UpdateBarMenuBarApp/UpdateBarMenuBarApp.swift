@@ -80,6 +80,9 @@
         }
 
         @objc private func updateAllApproved() {
+            guard confirm(MenuBarActionConfirmation.confirmation(for: .updateAllApprovedOutdated)) else {
+                return
+            }
             runAction("Run Updates") { [service] token in
                 try service?.updateAllApproved(cancellationToken: token)
             }
@@ -315,6 +318,17 @@
                 return
             }
             showError(failureMessage)
+        }
+
+        private func confirm(_ confirmation: MenuBarActionConfirmation?) -> Bool {
+            guard let confirmation else { return true }
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = confirmation.title
+            alert.informativeText = confirmation.message
+            alert.addButton(withTitle: confirmation.confirmButton)
+            alert.addButton(withTitle: confirmation.cancelButton)
+            return alert.runModal() == .alertFirstButtonReturn
         }
 
         private static var logDirectory: URL {

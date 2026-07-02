@@ -68,9 +68,11 @@ public struct MenuBarMenuModelBuilder: Sendable {
         }
         appendSeparator(to: &entries)
         appendAction(MenuBarMenuAction.checkNow.title, action: .menu(.checkNow), to: &entries)
+        let updateAllAction = MenuBarMenuAction.updateAllApprovedOutdated
         appendAction(
-            MenuBarMenuAction.updateAllApprovedOutdated.title,
-            action: .menu(.updateAllApprovedOutdated),
+            updateAllAction.title,
+            action: .menu(updateAllAction),
+            toolTip: MenuBarActionConfirmation.confirmation(for: updateAllAction)?.toolTip,
             to: &entries
         )
         appendSeparator(to: &entries)
@@ -229,9 +231,10 @@ public struct MenuBarMenuModelBuilder: Sendable {
     private func appendAction(
         _ title: String,
         action: MenuBarMenuItemAction,
+        toolTip: String? = nil,
         to entries: inout [MenuBarMenuEntry]
     ) {
-        entries.append(.item(MenuBarMenuItem(title: title, action: action)))
+        entries.append(.item(MenuBarMenuItem(title: title, action: action, toolTip: toolTip)))
     }
 
     private func appendSeparator(to entries: inout [MenuBarMenuEntry]) {
