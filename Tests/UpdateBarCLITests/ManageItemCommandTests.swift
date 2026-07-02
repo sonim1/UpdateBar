@@ -106,8 +106,13 @@ final class ManageItemCommandTests: XCTestCase {
 
         let list = try CLIProcess.run(["approvals", "tool"], home: home)
         XCTAssertEqual(list.exitCode, 0)
-        XCTAssertTrue(list.stdout.contains("update.cmd\tapproved"))
-        XCTAssertTrue(list.stdout.contains("check.cmd\tunapproved"))
+        XCTAssertTrue(list.stdout.contains("update.cmd\tapproved\tprintf updated"))
+        XCTAssertTrue(list.stdout.contains("check.cmd\tunapproved\tprintf 'tool 1.0.0'"))
+        XCTAssertTrue(list.stdout.contains("latest.cmd\tunapproved\tprintf 'tool 1.1.0'"))
+        XCTAssertTrue(list.stdout.contains("Next"))
+        XCTAssertTrue(list.stdout.contains("updatebar approve tool --field check.cmd"))
+        XCTAssertTrue(list.stdout.contains("updatebar approve tool --field latest.cmd"))
+        XCTAssertFalse(list.stdout.contains("updatebar approve tool --field update.cmd"))
 
         let listJSON = try CLIProcess.run(["approvals", "tool", "--json"], home: home)
         XCTAssertEqual(listJSON.exitCode, 0)

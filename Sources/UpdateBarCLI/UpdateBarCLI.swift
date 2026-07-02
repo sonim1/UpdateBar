@@ -2188,7 +2188,7 @@ struct ApprovalCommand: ParsableCommand {
 struct ApprovalsCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "approvals",
-        abstract: "Show command approval status for an item."
+        abstract: "Review command fields for approval."
     )
 
     @Argument(help: "Item id to inspect.")
@@ -2203,9 +2203,21 @@ struct ApprovalsCommand: ParsableCommand {
             try printJSON(rows)
         } else {
             for row in rows {
-                print("\(row.field)\t\(row.approved ? "approved" : "unapproved")")
+                print("\(row.field)\t\(row.approved ? "approved" : "unapproved")\t\(oneLine(row.command))")
+            }
+            let unapprovedRows = rows.filter { !$0.approved }
+            if !unapprovedRows.isEmpty {
+                print("")
+                print("Next")
+                for row in unapprovedRows {
+                    print("updatebar approve \(id) --field \(row.field)")
+                }
             }
         }
+    }
+
+    private func oneLine(_ value: String) -> String {
+        value.split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 }
 

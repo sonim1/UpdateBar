@@ -185,6 +185,23 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(normalizedUpdateHelp.contains("Updates every outdated item when omitted."))
     }
 
+    func testApprovalsHelpAndDocsExplainReviewWorkflow() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+        let rootResult = try CLIProcess.run(["--help"], home: home)
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let approvalsSection = try readmeSection(
+            "### `updatebar approvals",
+            before: "The direct mutation commands below",
+            in: docs
+        )
+
+        XCTAssertEqual(rootResult.exitCode, 0)
+        XCTAssertEqual(rootResult.stderr, "")
+        XCTAssertTrue(rootResult.stdout.contains("Review command fields for approval."))
+        XCTAssertTrue(approvalsSection.contains("command text"))
+        XCTAssertTrue(approvalsSection.contains("Next"))
+    }
+
     func testInitHelpDocumentsSelectNumbersAndAll() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 
