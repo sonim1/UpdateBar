@@ -48,7 +48,9 @@ export async function resolveUpdateBarBinary(
   const development = await developmentFallback(cwd);
   if (development) return {path: development, source: 'development_fallback'};
 
-  throw new BinaryResolutionError('updatebar binary not found');
+  throw new BinaryResolutionError(
+    'updatebar binary not found; install updatebar on PATH, run swift build from the UpdateBar project, or set UPDATEBAR_BIN=/path/to/updatebar'
+  );
 }
 
 async function explicitPath(value: string | undefined, source: BinarySource) {

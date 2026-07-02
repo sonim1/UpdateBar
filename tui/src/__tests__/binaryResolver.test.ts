@@ -46,12 +46,12 @@ describe('resolveUpdateBarBinary', () => {
     ).resolves.toEqual({path: dev, source: 'development_fallback'});
   });
 
-  it('reports missing binaries', async () => {
+  it('reports missing binaries with setup guidance', async () => {
     const root = await tempDir();
 
     await expect(
       resolveUpdateBarBinary({env: {}, cwd: root, defaultPathEntries: []})
-    ).rejects.toThrow('updatebar binary not found');
+    ).rejects.toThrow(/updatebar binary not found.*swift build.*set UPDATEBAR_BIN/);
   });
 });
 
