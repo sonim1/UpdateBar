@@ -304,6 +304,49 @@ final class MenuBarMenuModelTests: XCTestCase {
         )
     }
 
+    func testSingleUpdateActionConfirmationRedactsSecretLikeCommandDetails() {
+        let state = MenuBarState(
+            title: "1 update",
+            badgeValue: "1",
+            outdatedItems: [
+                statusItem(
+                    id: "old",
+                    name: "Old Tool",
+                    current: "1.0.0",
+                    latest: "1.1.0",
+                    status: .outdated
+                )
+            ],
+            approvalItems: [],
+            errorItems: [],
+            okItems: []
+        )
+        let approvals = [
+            "old": [
+                CommandApprovalStatus(
+                    field: "update.cmd",
+                    approved: true,
+                    fingerprint: "abc",
+                    command: "OPENROUTER_API_KEY=sk-or-v1-secret-value old update",
+                    cwd: "/tmp/sk-or-v1-secret-value"
+                )
+            ]
+        ]
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: approvals
+        )
+
+        let updateItem = model.entries.item(titled: "Old Tool 1.0.0 -> 1.1.0")
+
+        XCTAssertNotNil(updateItem)
+        XCTAssertTrue(updateItem?.confirmation?.message.contains("[REDACTED] old update") ?? false)
+        XCTAssertTrue(updateItem?.confirmation?.message.contains("/tmp/[REDACTED]") ?? false)
+        XCTAssertFalse(updateItem?.confirmation?.message.contains("sk-or-v1-secret-value") ?? true)
+        XCTAssertFalse(updateItem?.confirmation?.message.contains("OPENROUTER_API_KEY=") ?? true)
+    }
+
     func testApprovalMenuRedactsSecretLikeCommandDetails() {
         let state = MenuBarState(
             title: "Needs approval",

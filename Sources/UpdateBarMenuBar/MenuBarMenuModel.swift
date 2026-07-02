@@ -133,8 +133,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
             let updateCommand = approvalStatuses[item.id]?.first { $0.field == "update.cmd" }
             let confirmation = MenuBarActionConfirmation.updateItem(
                 id: item.id,
-                command: updateCommand?.command,
-                cwd: updateCommand?.cwd
+                command: updateCommand.map { SecretRedactor.redact($0.command) },
+                cwd: updateCommand?.cwd.map(SecretRedactor.redact)
             )
             return MenuBarMenuItem(
                 title: "\(item.name) \(item.current ?? "?") -> \(item.latest ?? "?")",
