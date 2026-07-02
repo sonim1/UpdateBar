@@ -46,8 +46,8 @@ final class DocumentationSnapshotTests: XCTestCase {
             "add": ["--from", "--manual", "--dry-run", "--json", "--replace"],
             "import": ["--replace", "--json"],
             "export": ["--json"],
-            "status": ["--json", "--exit-zero-on-outdated"],
-            "check": ["--json", "--json-stream", "--force", "--exit-zero-on-outdated"],
+            "status": ["--json"],
+            "check": ["--json", "--json-stream", "--force"],
             "update": ["--all", "--yes", "--json", "--json-stream"],
             "list": ["--json"],
             "approvals": ["--json"],
@@ -69,6 +69,12 @@ final class DocumentationSnapshotTests: XCTestCase {
                 XCTAssertFalse(
                     optionHasDescription("--refresh", in: helpLines),
                     "status --refresh is an internal state hint and should stay out of primary help"
+                )
+            }
+            if ["status", "check"].contains(command) {
+                XCTAssertFalse(
+                    optionHasDescription("--exit-zero-on-outdated", in: helpLines),
+                    "\(command) --exit-zero-on-outdated is for automation and should stay out of primary help"
                 )
             }
             if ["scan", "init"].contains(command) {
@@ -428,6 +434,23 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(scanSection.contains("--detectors"))
         XCTAssertTrue(scanSection.contains("metadata-only"))
         XCTAssertTrue(scanSection.contains("source ref"))
+    }
+
+    func testCliDocsHideAutomationExitFlagFromPrimarySignatures() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let checkSection = try readmeSection(
+            "### `updatebar check",
+            before: "### `updatebar status",
+            in: docs
+        )
+        let statusSection = try readmeSection(
+            "### `updatebar status",
+            before: "### `updatebar list",
+            in: docs
+        )
+
+        XCTAssertFalse(checkSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false)
+        XCTAssertFalse(statusSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false)
     }
 
     func testScanInitSpecDocumentsCurrentCategories() throws {

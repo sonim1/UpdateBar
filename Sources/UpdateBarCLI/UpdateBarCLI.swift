@@ -1600,7 +1600,7 @@ struct CheckCommand: ParsableCommand {
     @Flag(name: .long, help: "Ignore refresh TTL and check every selected item now.")
     var force = false
 
-    @Flag(name: .long, help: "Return exit code 0 even when outdated items exist.")
+    @Flag(name: .long, help: .hidden)
     var exitZeroOnOutdated = false
 
     func run() throws {
@@ -1790,7 +1790,7 @@ struct StatusCommand: ParsableCommand {
     @Flag(name: .long, help: .hidden)
     var refresh = false
 
-    @Flag(name: .long, help: "Return exit code 0 even when outdated items exist.")
+    @Flag(name: .long, help: .hidden)
     var exitZeroOnOutdated = false
 
     func run() throws {

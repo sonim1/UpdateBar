@@ -145,11 +145,11 @@ In `--json` mode, the payload includes `added`, `replaced`, and `errors` arrays.
 
 Exports the manifest to a file or stdout JSON.
 
-### `updatebar check [id...] [--json|--json-stream] [--force] [--exit-zero-on-outdated]`
+### `updatebar check [id...] [--json|--json-stream] [--force]`
 
 Runs approved check/latest commands and updates `state.json`. Returns `10` when any checked item is outdated unless `--exit-zero-on-outdated` is set.
 
-### `updatebar status [--json] [--exit-zero-on-outdated]`
+### `updatebar status [--json]`
 
 Reads manifest and state without shell or network calls.
 
