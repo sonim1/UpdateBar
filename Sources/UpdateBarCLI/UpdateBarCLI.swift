@@ -390,6 +390,7 @@ struct ScanCommand: ParsableCommand {
         let needsReview = report.candidates.filter { $0.capability != .full }
         let nextIndex = printSection("Recommended", candidates: recommended, startIndex: 1)
         _ = printSection("Needs Review", candidates: needsReview, startIndex: nextIndex)
+        printReviewOnlyNote(recommended: recommended, needsReview: needsReview)
         printNextStep(recommended)
         if !report.errors.isEmpty {
             print("")
@@ -424,6 +425,17 @@ struct ScanCommand: ParsableCommand {
         }
         print("")
         return startIndex + candidates.count
+    }
+
+    private func printReviewOnlyNote(
+        recommended: [ScanCandidate],
+        needsReview: [ScanCandidate]
+    ) {
+        guard recommended.isEmpty, !needsReview.isEmpty else {
+            return
+        }
+        print("Review-only candidates are not importable yet.")
+        print("")
     }
 
     private func metadataSourceRef(for candidate: ScanCandidate) -> String? {

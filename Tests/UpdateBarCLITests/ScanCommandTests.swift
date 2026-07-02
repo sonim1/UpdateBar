@@ -187,6 +187,31 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("secret-token"))
     }
 
+    func testScanHumanOutputExplainsReviewOnlyCandidatesAreNotImportable() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let config = home.appendingPathComponent(".cursor/mcp.json")
+        try FileManager.default.createDirectory(
+            at: config.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try #"{"mcpServers":{"filesystem":{"command":"npx"}}}"#.write(
+            to: config,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--category", "mcp-server"],
+            home: home,
+            environment: ["HOME": home.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("Needs Review"))
+        XCTAssertTrue(result.stdout.contains("not importable yet"))
+        XCTAssertFalse(result.stdout.contains("updatebar init --select"))
+    }
+
     func testScanCategoryMCPServerRunsOnlyRelevantDefaultDetector() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
         let bin = home.appendingPathComponent("bin")
