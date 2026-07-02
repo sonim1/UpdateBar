@@ -78,6 +78,21 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("No approved outdated items to update."))
     }
 
+    func testUpdateHumanSkippedNotOutdatedPrintsCheckNextStep() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: [
+            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
+        ]))
+
+        let result = try CLIProcess.run(["update", "tool", "--yes"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("tool\tskipped_not_outdated"))
+        XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar check tool"))
+    }
+
     func testUpdateBlockedOnApprovalReturnsDistinctExitCode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)

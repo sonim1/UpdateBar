@@ -75,13 +75,18 @@ struct UpdateCommand: ParsableCommand {
 
         let blocked = results.filter { $0.outcome == .skippedUntrusted }
         let cancelled = results.filter { $0.outcome == .cancelled }
-        guard !blocked.isEmpty || !cancelled.isEmpty else {
+        let notOutdated = results.filter { $0.outcome == .skippedNotOutdated }
+        guard !blocked.isEmpty || !cancelled.isEmpty || !notOutdated.isEmpty else {
             return
         }
         var commands = blocked.map { "updatebar approvals \($0.id)" }
         if !cancelled.isEmpty {
             let ids = cancelled.map(\.id).joined(separator: " ")
             commands.append("updatebar update \(ids) --yes")
+        }
+        if !notOutdated.isEmpty {
+            let ids = notOutdated.map(\.id).joined(separator: " ")
+            commands.append("updatebar check \(ids)")
         }
         printNextCommands(commands)
     }
