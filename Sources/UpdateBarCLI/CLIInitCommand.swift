@@ -189,6 +189,10 @@ struct InitCommand: ParsableCommand {
                 "skipped \(payload.skipped.count)",
             ].joined(separator: ", ")
             print(message)
+            if !payload.skipped.isEmpty {
+                print("Skipped: \(payload.skipped.joined(separator: ", "))")
+                print("Pass --replace to overwrite skipped item(s).")
+            }
             printApprovalAndCheckNextSteps(for: payload.added + payload.replaced)
         } else {
             for error in payload.errors {

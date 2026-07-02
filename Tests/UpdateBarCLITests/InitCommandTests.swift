@@ -160,6 +160,28 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("updatebar check brew.gh"))
     }
 
+    func testInitHumanModeExplainsSkippedDuplicates() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        _ = try CLIProcess.run(
+            ["init", "--detectors", "brew", "--select", "brew.gh"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        let result = try CLIProcess.run(
+            ["init", "--detectors", "brew", "--select", "brew.gh"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("skipped 1"))
+        XCTAssertTrue(result.stdout.contains("brew.gh"))
+        XCTAssertTrue(result.stdout.contains("--replace"))
+    }
+
     func testInitInteractiveSelectionAcceptsAll() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = try fakeManagers(home: home)
