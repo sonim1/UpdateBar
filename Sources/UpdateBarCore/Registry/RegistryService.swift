@@ -300,7 +300,7 @@ public struct RegistryService {
     }
 
     public func exportManifest() throws -> Manifest {
-        try manifestStore.load()
+        try manifestStore.loadExistingOrEmpty(now: now())
     }
 
     public func addRecipe(_ recipe: Recipe, replace: Bool) throws -> AddRecipeOutcome {

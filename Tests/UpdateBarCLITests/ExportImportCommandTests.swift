@@ -141,6 +141,18 @@ final class ExportImportCommandTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder.updateBar.decode(Manifest.self, from: Data(jsonResult.stdout.utf8)).items.count, 1)
     }
 
+    func testExportJSONDoesNotCreateManifestOnFreshHome() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-export-tests")
+        let paths = AppPaths(homeDirectory: home)
+
+        let result = try CLIProcess.run(["export", "--json"], home: home)
+        let exported = try JSONDecoder.updateBar.decode(Manifest.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(exported.items.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
+    }
+
     func testExportWithJSONDisallowsFileOutputPath() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-export-tests")
         let paths = AppPaths(homeDirectory: home)
