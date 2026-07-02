@@ -600,11 +600,22 @@ struct InitCommand: ParsableCommand {
                 "skipped \(payload.skipped.count)",
             ].joined(separator: ", ")
             print(message)
+            printNextSteps(for: payload.added + payload.replaced)
         } else {
             for error in payload.errors {
                 writeStderr(error)
             }
         }
+    }
+
+    private func printNextSteps(for ids: [String]) {
+        guard !ids.isEmpty else { return }
+        print("")
+        print("Next")
+        for id in ids {
+            print("updatebar approvals \(id)")
+        }
+        print("updatebar check \(ids.joined(separator: " "))")
     }
 }
 

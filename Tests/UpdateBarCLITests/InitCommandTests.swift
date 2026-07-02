@@ -142,6 +142,24 @@ final class InitCommandTests: XCTestCase {
         XCTAssertEqual(manifest.items.map(\.id), ["brew.jq"])
     }
 
+    func testInitHumanModePrintsApprovalAndCheckNextSteps() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            ["init", "--detectors", "brew", "--select", "brew.gh"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("added 1"))
+        XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar approvals brew.gh"))
+        XCTAssertTrue(result.stdout.contains("updatebar check brew.gh"))
+    }
+
     func testInitInteractiveSelectionAcceptsAll() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = try fakeManagers(home: home)

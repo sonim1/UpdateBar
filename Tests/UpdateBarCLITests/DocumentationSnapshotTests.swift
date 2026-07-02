@@ -364,13 +364,13 @@ final class DocumentationSnapshotTests: XCTestCase {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let quickStart = try readmeSection("## Quick Start", before: "## Scope", in: readme)
 
-        for command in ["updatebar scan", "updatebar init", "updatebar status --json", "updatebar check", "updatebar update --all --yes"] {
+        for command in ["updatebar scan", "updatebar init", "updatebar approvals <id-from-init>", "updatebar status --json", "updatebar check", "updatebar update --all --yes"] {
             XCTAssertTrue(quickStart.contains(command), "README Quick Start missing \(command)")
         }
         XCTAssertTrue(quickStart.contains("<candidate-id-or-number-from-scan>"))
 
         XCTAssertFalse(quickStart.contains("cat > recipe.json"), "README Quick Start should not inline a full recipe")
-        XCTAssertFalse(quickStart.contains("updatebar approve"), "README Quick Start should not lead with advanced approval commands")
+        XCTAssertFalse(quickStart.contains("updatebar approve <id-from-init>"), "README Quick Start should not lead with advanced approval commands")
         XCTAssertLessThanOrEqual(quickStart.split(separator: "\n").count, 35, "README Quick Start should stay short enough to scan")
     }
 
