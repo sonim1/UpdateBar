@@ -110,6 +110,7 @@ final class ManageItemCommandTests: XCTestCase {
 
     func testRemoveMissingItemJSONReportsRegistryError() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
 
         let result = try CLIProcess.run(["remove", "missing", "--json"], home: home)
         let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
@@ -120,10 +121,12 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("missing: item not found") })
         XCTAssertTrue(payload.errors.contains { $0.contains("updatebar status") })
         XCTAssertFalse(payload.errors.contains("remove cancelled"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
     }
 
     func testApprovalsMissingItemJSONSuggestsStatus() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
 
         let result = try CLIProcess.run(["approvals", "missing", "--json"], home: home)
         let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
@@ -133,6 +136,7 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertEqual(payload.code, "registry_error")
         XCTAssertTrue(payload.errors.contains { $0.contains("missing: item not found") })
         XCTAssertTrue(payload.errors.contains { $0.contains("updatebar status") })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
     }
 
     func testApproveInvalidFieldJSONSuggestsApprovals() throws {

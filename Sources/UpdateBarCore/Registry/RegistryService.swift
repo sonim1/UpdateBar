@@ -232,7 +232,7 @@ public struct RegistryService {
     }
 
     public func approvals(id: String) throws -> [ApprovalStatus] {
-        let manifest = try manifestStore.load()
+        let manifest = try manifestStore.loadExistingOrEmpty(now: now())
         guard let recipe = manifest.item(id: id) else {
             throw RegistryError.itemNotFound(id)
         }
@@ -253,7 +253,7 @@ public struct RegistryService {
     }
 
     public func recipe(id: String) throws -> Recipe {
-        let manifest = try manifestStore.load()
+        let manifest = try manifestStore.loadExistingOrEmpty(now: now())
         guard let recipe = manifest.item(id: id) else {
             throw RegistryError.itemNotFound(id)
         }
