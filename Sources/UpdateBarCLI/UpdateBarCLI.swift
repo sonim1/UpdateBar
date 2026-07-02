@@ -488,27 +488,23 @@ struct InitCommand: ParsableCommand {
             guard !values.isEmpty else {
                 throw ValidationError("select: expected at least one candidate id")
             }
+            let importable = importableCandidates(from: report)
             if values.count == 1, values[0] == "all" {
-                let importable = report.candidates.filter {
-                    $0.capability == .full && $0.recipe != nil
-                }.map(\.id)
                 guard !importable.isEmpty else {
                     throw ValidationError("No importable candidates found. "
                         + "Use --detectors to choose a different scan source "
                         + "and ensure any category filter is not too strict.")
                 }
-                return importable
+                return importable.map(\.id)
             }
-            return values
+            return try parseSelectionValues(values, candidates: importable)
         }
 
         if json {
             throw ValidationError("init --json requires --select")
         }
 
-        let importable = report.candidates.filter {
-            $0.capability == .full && $0.recipe != nil
-        }
+        let importable = importableCandidates(from: report)
         guard !importable.isEmpty else {
             throw ValidationError(
                 "No importable candidates found. "
@@ -527,6 +523,12 @@ struct InitCommand: ParsableCommand {
         return try parseInteractiveSelection(line, candidates: importable)
     }
 
+    private func importableCandidates(from report: ScanReport) -> [ScanCandidate] {
+        report.candidates.filter {
+            $0.capability == .full && $0.recipe != nil
+        }
+    }
+
     private func parseInteractiveSelection(
         _ line: String,
         candidates: [ScanCandidate]
@@ -535,6 +537,13 @@ struct InitCommand: ParsableCommand {
         guard !values.isEmpty else {
             throw ValidationError("selection required")
         }
+        return try parseSelectionValues(values, candidates: candidates)
+    }
+
+    private func parseSelectionValues(
+        _ values: [String],
+        candidates: [ScanCandidate]
+    ) throws -> [String] {
         if values.count == 1 && values[0].lowercased() == "all" {
             return candidates.map(\.id)
         }

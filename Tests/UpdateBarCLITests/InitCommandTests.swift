@@ -94,6 +94,24 @@ final class InitCommandTests: XCTestCase {
         XCTAssertEqual(manifest.items.map(\.id), ["brew.jq"])
     }
 
+    func testInitSelectAcceptsCandidateNumbersInHeadlessMode() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            ["init", "--json", "--detectors", "brew", "--select", "2"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        let payload = try JSONDecoder.updateBar.decode(
+            InitPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(payload.added, ["brew.jq"])
+        let manifest = try ManifestStore(paths: AppPaths(homeDirectory: home)).load()
+        XCTAssertEqual(manifest.items.map(\.id), ["brew.jq"])
+    }
+
     func testInitInteractiveSelectionAcceptsAll() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = try fakeManagers(home: home)
