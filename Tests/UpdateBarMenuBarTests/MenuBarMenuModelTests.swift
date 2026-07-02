@@ -333,6 +333,42 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 
+    func testErrorRecoveryMenuRedactsSecretLikeValues() {
+        let model = MenuBarMenuModelBuilder().makeErrorMenu(
+            errorDescription: "failed with OPENROUTER_API_KEY=sk-or-v1-secret-value"
+        )
+
+        XCTAssertTrue(model.entries.labels.contains("failed with [REDACTED]"))
+        XCTAssertFalse(model.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
+        XCTAssertFalse(model.entries.labels.contains { $0.contains("OPENROUTER_API_KEY=") })
+    }
+
+    func testStatusErrorItemsRedactSecretLikeValues() {
+        let state = MenuBarState(
+            title: "1 error",
+            badgeValue: "!",
+            outdatedItems: [],
+            approvalItems: [],
+            errorItems: [
+                statusItem(
+                    id: "broken",
+                    name: "Broken Tool",
+                    status: .error,
+                    error: "failed with sk-or-v1-secret-value"
+                )
+            ],
+            okItems: []
+        )
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:]
+        )
+
+        XCTAssertTrue(model.entries.labels.contains("Broken Tool: failed with [REDACTED]"))
+        XCTAssertFalse(model.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
+    }
+
     func testBuildsCompactMenuWithOverflowSummaries() {
         let outdated = Array(1...8).map {
             statusItem(

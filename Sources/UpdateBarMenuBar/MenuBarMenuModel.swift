@@ -116,7 +116,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
     public func makeErrorMenu(errorDescription: String) -> MenuBarMenuModel {
         var entries: [MenuBarMenuEntry] = []
         appendDisabled("UpdateBar Error", to: &entries)
-        appendDisabled(errorDescription, to: &entries)
+        appendDisabled(SecretRedactor.redact(errorDescription), to: &entries)
         appendSeparator(to: &entries)
         for action in MenuBarMenuAction.errorRecovery {
             appendAction(action.title, action: .menu(action), to: &entries)
@@ -235,7 +235,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
 
     private func appendErrors(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
         appendSection("Errors (\(items.count))", items: items, to: &entries) { item in
-            MenuBarMenuItem(title: "\(item.name): \(item.error ?? "error")")
+            let error = SecretRedactor.redact(item.error ?? "error")
+            return MenuBarMenuItem(title: "\(item.name): \(error)")
         }
     }
 

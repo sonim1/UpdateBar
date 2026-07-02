@@ -308,10 +308,11 @@
         }
 
         private func showError(_ error: Error) {
-            Self.debugLog("showing error: \(error)")
+            let errorDescription = SecretRedactor.redact(String(describing: error))
+            Self.debugLog("showing error: \(errorDescription)")
             setTitle("!", accessibilityLabel: "UpdateBar error")
             let model = menuBuilder.makeErrorMenu(
-                errorDescription: String(describing: error)
+                errorDescription: errorDescription
             )
             statusItem.menu = makeMenu(from: model)
         }
