@@ -51,10 +51,11 @@ Fields:
   then resolves versions with `brew list --formula --versions`.
 - `npm_global`: reads `npm ls -g --depth=0 --json`.
 - `known`: checks a curated list of common developer tools on `PATH`.
+- `codex_skill`: scans `~/.codex/skills` and `~/.agents/skills` for skill
+  directories that contain `SKILL.md`.
 
 ### Later
 
-- `codex_skill`: scans `~/.codex/skills` and `~/.agents/skills`.
 - `mcp_config`: scans Claude/Codex/Cursor MCP config names and command paths, never env values.
 - `git_checkout`: scans explicitly configured local git checkouts.
 
@@ -114,7 +115,7 @@ are listed for review but not importable until manual-update recipes exist.
 ```bash
 updatebar scan
 updatebar scan --json
-updatebar scan --detectors brew,npm_global,known
+updatebar scan --detectors brew,npm_global,known,codex_skill
 updatebar scan --detectors " brew , npm_global "
 updatebar scan --category ai-agent
 updatebar scan --category " cloud devops "

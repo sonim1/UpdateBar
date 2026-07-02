@@ -14,9 +14,15 @@ public struct ScanService {
         #"for tool in rtk gstack gh claude codex node swift brew npm; do if command -v "$tool" >/dev/null 2>&1; then version=$("$tool" --version 2>/dev/null | head -n 1 || true); printf "%s\t%s\n" "$tool" "$version"; fi; done"#
 
     private let commandRunner: CommandRunning
+    private let homeDirectory: URL
 
-    public init(commandRunner: CommandRunning = CommandExecutor()) {
+    public init(
+        commandRunner: CommandRunning = CommandExecutor(),
+        homeDirectory: URL? = nil,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) {
         self.commandRunner = commandRunner
+        self.homeDirectory = homeDirectory ?? Self.defaultHomeDirectory(environment: environment)
     }
 
     public func scan(detectors: [ScanDetector] = ScanDetector.allCases) throws -> ScanReport {
@@ -42,6 +48,8 @@ public struct ScanService {
             return try npmGlobalCandidates()
         case .known:
             return try knownCandidates()
+        case .codexSkill:
+            return try codexSkillCandidates()
         }
     }
 
@@ -139,6 +147,51 @@ public struct ScanService {
                     recipe: nil
                 )
             }
+    }
+
+    private func codexSkillCandidates() throws -> [ScanCandidate] {
+        try [
+            ".codex/skills",
+            ".agents/skills",
+        ].flatMap { root in
+            try codexSkillCandidates(in: homeDirectory.appendingPathComponent(root), root: root)
+        }
+    }
+
+    private func codexSkillCandidates(in directory: URL, root: String) throws -> [ScanCandidate] {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory),
+            isDirectory.boolValue
+        else {
+            return []
+        }
+
+        let children = try FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )
+        return children.compactMap { url in
+            guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true,
+                FileManager.default.fileExists(
+                    atPath: url.appendingPathComponent("SKILL.md").path
+                )
+            else {
+                return nil
+            }
+            let name = url.lastPathComponent
+            return ScanCandidate(
+                id: "codex_skill.\(idComponent(name))",
+                name: name,
+                detector: .codexSkill,
+                category: "codex-skill",
+                capability: .metadataOnly,
+                confidence: .high,
+                installedVersion: nil,
+                sourceRef: "~/\(root)/\(name)",
+                recipe: nil
+            )
+        }
     }
 
     private func run(_ command: String) throws -> String {
@@ -252,6 +305,13 @@ public struct ScanService {
             return nil
         }
         return String(line[range])
+    }
+
+    private static func defaultHomeDirectory(environment: [String: String]) -> URL {
+        if let home = environment["HOME"], !home.isEmpty {
+            return URL(fileURLWithPath: home, isDirectory: true).standardizedFileURL
+        }
+        return FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
     }
 
     private struct NPMGlobalList: Decodable {

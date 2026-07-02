@@ -295,7 +295,7 @@ final class InitCommandTests: XCTestCase {
         let result = try CLIProcess.run(["init", "--detectors", ","], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.contains("expected brew, npm_global, or known"))
+        XCTAssertTrue(result.stderr.contains("expected brew, npm_global, known, or codex_skill"))
     }
 
     func testInitRejectsUnknownDetector() throws {

@@ -97,6 +97,31 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("typescript"))
     }
 
+    func testScanJSONCanScanCodexSkills() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let skill = home.appendingPathComponent(".codex/skills/openspec-propose")
+        try FileManager.default.createDirectory(at: skill, withIntermediateDirectories: true)
+        try "Skill instructions\n".write(
+            to: skill.appendingPathComponent("SKILL.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--json", "--detectors", "codex_skill"],
+            home: home,
+            environment: ["HOME": home.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        let report = try JSONDecoder.updateBar.decode(
+            ScanReport.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(report.candidates.map(\.id), ["codex_skill.openspec-propose"])
+        XCTAssertEqual(report.candidates.first?.category, "codex-skill")
+        XCTAssertEqual(report.candidates.first?.capability, .metadataOnly)
+        XCTAssertNil(report.candidates.first?.recipe)
+    }
+
     func testScanHumanOutputShowsCandidateIDsAndNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
         let bin = home.appendingPathComponent("bin")
@@ -131,7 +156,7 @@ final class ScanCommandTests: XCTestCase {
         let result = try CLIProcess.run(["scan", "--detectors", ","], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.contains("expected brew, npm_global, or known"))
+        XCTAssertTrue(result.stderr.contains("expected brew, npm_global, known, or codex_skill"))
     }
 
     func testScanAcceptsCaseInsensitiveAndDuplicateDetectors() throws {

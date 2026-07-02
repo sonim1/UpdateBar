@@ -357,7 +357,7 @@ struct ScanCommand: ParsableCommand {
     @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known.")
+    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known,codex_skill.")
     var detectors: String?
 
     @Option(name: .long, help: "Filter by category, such as ai-agent or cloud-devops.")
@@ -449,7 +449,7 @@ struct InitCommand: ParsableCommand {
     @Option(name: .long, help: "Comma-separated candidate ids, numbers, or all.")
     var select: String?
 
-    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known.")
+    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known,codex_skill.")
     var detectors: String?
 
     @Option(name: .long, help: "Filter by category, such as ai-agent or cloud-devops.")
@@ -615,18 +615,29 @@ private func parseScanDetectors(_ value: String?) throws -> [ScanDetector] {
     }
     let values = parseList(value)
     guard !values.isEmpty else {
-        throw ValidationError("detectors: expected brew, npm_global, or known")
+        throw ValidationError("detectors: expected \(scanDetectorDescription())")
     }
     var seen = Set<String>()
     var detectors: [ScanDetector] = []
     for detector in values where seen.insert(detector).inserted {
         guard let parsed = ScanDetector(rawValue: detector) else {
             throw ValidationError(
-                "\(detector): unknown detector; expected brew, npm_global, or known")
+                "\(detector): unknown detector; expected \(scanDetectorDescription())")
         }
         detectors.append(parsed)
     }
     return detectors
+}
+
+private func scanDetectorDescription() -> String {
+    let values = ScanDetector.allCases.map(\.rawValue)
+    guard let last = values.last else {
+        return ""
+    }
+    guard values.count > 1 else {
+        return last
+    }
+    return "\(values.dropLast().joined(separator: ", ")), or \(last)"
 }
 
 private func ensureJSONModeCompatibility(json: Bool, jsonStream: Bool) throws {

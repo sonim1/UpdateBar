@@ -126,7 +126,53 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertEqual(try category("npm.typescript", in: report), "library")
     }
 
+    func testScanParsesCodexSkillDirectoriesAsMetadataOnlyCandidates() throws {
+        let home = try temporaryHome(prefix: "updatebar-core-scan-tests")
+        try writeSkill(named: "openspec-propose", under: ".codex/skills", home: home)
+        try writeSkill(named: "gstack-review", under: ".agents/skills", home: home)
+        try FileManager.default.createDirectory(
+            at: home.appendingPathComponent(".codex/skills/not-a-skill"),
+            withIntermediateDirectories: true
+        )
+        let service = ScanService(
+            commandRunner: MockCommandExecutor(results: [:]),
+            homeDirectory: home
+        )
+
+        let report = try service.scan(detectors: [.codexSkill])
+
+        XCTAssertEqual(report.errors, [])
+        XCTAssertEqual(
+            report.candidates.map(\.id),
+            ["codex_skill.gstack-review", "codex_skill.openspec-propose"]
+        )
+        let skill = try XCTUnwrap(
+            report.candidates.first { $0.id == "codex_skill.openspec-propose" })
+        XCTAssertEqual(skill.category, "codex-skill")
+        XCTAssertEqual(skill.capability, .metadataOnly)
+        XCTAssertEqual(skill.confidence, .high)
+        XCTAssertEqual(skill.sourceRef, "~/.codex/skills/openspec-propose")
+        XCTAssertNil(skill.recipe)
+    }
+
     private func category(_ id: String, in report: ScanReport) throws -> String {
         try XCTUnwrap(report.candidates.first { $0.id == id }).category
+    }
+
+    private func writeSkill(named name: String, under root: String, home: URL) throws {
+        let directory = home.appendingPathComponent(root).appendingPathComponent(name)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try "Skill instructions\n".write(
+            to: directory.appendingPathComponent("SKILL.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+    }
+
+    private func temporaryHome(prefix: String) throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(prefix)-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
     }
 }

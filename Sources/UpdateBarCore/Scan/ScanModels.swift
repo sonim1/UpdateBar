@@ -60,6 +60,7 @@ public enum ScanDetector: String, Codable, Equatable, CaseIterable {
     case brew
     case npmGlobal = "npm_global"
     case known
+    case codexSkill = "codex_skill"
 }
 
 public enum ScanCapability: String, Codable, Equatable {
