@@ -1,4 +1,7 @@
 import {describe, expect, it} from 'vitest';
+import {mkdtemp, rm, stat} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import {
   CLIUpdateBarClient,
   SubprocessRunner,
@@ -162,6 +165,24 @@ describe('CLIUpdateBarClient', () => {
 
     expect(result.exitCode).not.toBe(0);
   });
+
+  it('terminates streaming subprocesses when JSONL parsing fails', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'updatebar-tui-stream-'));
+    const marker = path.join(root, 'marker');
+    const runner = new SubprocessRunner('/bin/sh');
+
+    try {
+      await expect(
+        runner.stream(['-c', `printf 'not-json\\n'; sleep 1; touch ${shellQuote(marker)}`], {
+          onEvent: () => {}
+        })
+      ).rejects.toThrow('invalid JSONL event');
+      await sleep(1200);
+      await expect(pathExists(marker)).resolves.toBe(false);
+    } finally {
+      await rm(root, {recursive: true, force: true});
+    }
+  });
 });
 
 class FakeRunner implements CommandRunner {
@@ -184,4 +205,21 @@ class FakeRunner implements CommandRunner {
     }
     return this.result;
   }
+}
+
+async function pathExists(candidate: string) {
+  try {
+    await stat(candidate);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function shellQuote(value: string) {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }

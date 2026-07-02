@@ -47,11 +47,20 @@ export class SubprocessRunner implements CommandRunner {
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe']
     });
+    let exited = false;
+    child.once('close', () => {
+      exited = true;
+    });
     bindAbort(child, options.signal);
 
     const stdoutEvents = (async () => {
-      for await (const event of parseJSONLines(child.stdout)) {
-        options.onEvent(event);
+      try {
+        for await (const event of parseJSONLines(child.stdout)) {
+          options.onEvent(event);
+        }
+      } catch (error) {
+        stopChild(child, () => exited, 250);
+        throw error;
       }
     })();
     const [stderr, exitCode] = await Promise.all([
@@ -152,17 +161,26 @@ function bindAbort(child: ReturnType<typeof spawn>, signal: AbortSignal | undefi
     exited = true;
   });
   const cancel = () => {
-    child.kill('SIGINT');
-    const timer = setTimeout(() => {
-      if (!exited) child.kill('SIGTERM');
-    }, 2000);
-    timer.unref();
+    stopChild(child, () => exited);
   };
   if (signal.aborted) {
     cancel();
     return;
   }
   signal.addEventListener('abort', cancel, {once: true});
+}
+
+function stopChild(
+  child: ReturnType<typeof spawn>,
+  isExited: () => boolean,
+  terminateAfterMs = 2000
+) {
+  if (isExited()) return;
+  child.kill('SIGINT');
+  const timer = setTimeout(() => {
+    if (!isExited()) child.kill('SIGTERM');
+  }, terminateAfterMs);
+  timer.unref();
 }
 
 async function collect(stream: Readable | null): Promise<string> {
