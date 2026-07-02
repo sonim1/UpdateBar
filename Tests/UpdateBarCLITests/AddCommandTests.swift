@@ -71,6 +71,17 @@ final class AddCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("updatebar check manual"))
     }
 
+    func testAddWithoutInputSeparatesPromptFromRequiredError() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+
+        let result = try CLIProcess.run(["add"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertEqual(result.stderr, "id \nid: required\n")
+        XCTAssertFalse(result.stderr.contains("id id: required"))
+    }
+
     func testManualAddRejectsMalformedManifestWithValidationErrors() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let file = home.appendingPathComponent("broken-manifest.json")
