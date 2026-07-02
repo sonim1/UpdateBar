@@ -20,7 +20,7 @@ public struct StatusSnapshot: Codable, Equatable {
                 status: status,
                 pinned: recipe.pin != nil,
                 lastChecked: itemState?.lastChecked,
-                error: status == .error ? itemState?.error : nil
+                error: status == .error ? itemState?.error.map(SecretRedactor.redact) : nil
             )
         }
 
