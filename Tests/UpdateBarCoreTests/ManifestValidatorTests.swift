@@ -200,6 +200,30 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].notify: must be a boolean when provided"))
     }
 
+    func testRejectsInvalidOptionalStringFieldTypes() throws {
+        let result = try validateFirstRawItem {
+            $0["path"] = 42
+            $0["pin"] = true
+            var source = try XCTUnwrap($0["source"] as? [String: Any])
+            source["branch"] = false
+            $0["source"] = source
+            var latest = try XCTUnwrap($0["latest"] as? [String: Any])
+            latest["cmd"] = ["bad"]
+            latest["pattern"] = 123
+            $0["latest"] = latest
+            var update = try XCTUnwrap($0["update"] as? [String: Any])
+            update["cwd"] = ["bad": true]
+            $0["update"] = update
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].path: must be a string or null when provided"))
+        XCTAssertTrue(result.errors.contains("items[0].pin: must be a string or null when provided"))
+        XCTAssertTrue(result.errors.contains("items[0].source.branch: must be a string or null when provided"))
+        XCTAssertTrue(result.errors.contains("items[0].latest.cmd: must be a string or null when provided"))
+        XCTAssertTrue(result.errors.contains("items[0].latest.pattern: must be a string or null when provided"))
+        XCTAssertTrue(result.errors.contains("items[0].update.cwd: must be a string or null when provided"))
+    }
+
     func testRejectsJQVersionParseUntilRuntimeSupportExists() throws {
         var manifest = try loadValid()
         manifest.items[0].versionParse = .jq(".version")

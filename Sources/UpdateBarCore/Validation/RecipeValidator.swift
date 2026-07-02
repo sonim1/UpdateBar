@@ -1,3 +1,5 @@
+import Foundation
+
 enum RecipeValidator {
     private static let sourceKinds = Set(["git", "npm", "github_release", "brew", "http", "custom"])
     private static let versionSchemes = Set(["semver", "commit", "calver", "opaque"])
@@ -12,6 +14,8 @@ enum RecipeValidator {
         errors += requireString(item, "name", path: path)
         errors += requireString(item, "category", path: path)
         errors += requireString(item, "version_scheme", path: path)
+        errors += requireOptionalStringIfPresent(item, "path", path: path)
+        errors += requireOptionalStringIfPresent(item, "pin", path: path)
 
         if let id = item["id"] as? String, !matchesID(id) {
             errors.append("\(path).id: must match ^[a-z0-9][a-z0-9._-]*$")
@@ -43,6 +47,7 @@ enum RecipeValidator {
         errors += requireBooleanIfPresent(item, "notify", path: path)
         if let update = item["update"] as? [String: Any] {
             errors += requireString(update, "cmd", path: "\(path).update")
+            errors += requireOptionalStringIfPresent(update, "cwd", path: "\(path).update")
             errors += requireBooleanIfPresent(update, "requires_write", path: "\(path).update")
         } else {
             errors.append("\(path).update: required")
@@ -62,6 +67,7 @@ enum RecipeValidator {
         var errors: [String] = []
         errors += requireString(source, "kind", path: path)
         errors += requireString(source, "ref", path: path)
+        errors += requireOptionalStringIfPresent(source, "branch", path: path)
         if let kind = source["kind"] as? String, !sourceKinds.contains(kind) {
             errors.append("\(path).kind: unsupported value \(kind)")
         }
@@ -85,6 +91,8 @@ enum RecipeValidator {
 
     private static func validateLatest(_ latest: [String: Any], path: String) -> [String] {
         var errors = requireString(latest, "strategy", path: path)
+        errors += requireOptionalStringIfPresent(latest, "cmd", path: path)
+        errors += requireOptionalStringIfPresent(latest, "pattern", path: path)
         guard let strategy = latest["strategy"] as? String else {
             return errors
         }
@@ -135,6 +143,12 @@ enum RecipeValidator {
     private static func requireBooleanIfPresent(_ object: [String: Any], _ key: String, path: String) -> [String] {
         guard object.keys.contains(key), !(object[key] is Bool) else { return [] }
         return ["\(path).\(key): must be a boolean when provided"]
+    }
+
+    private static func requireOptionalStringIfPresent(_ object: [String: Any], _ key: String, path: String) -> [String] {
+        guard object.keys.contains(key) else { return [] }
+        if object[key] is String || object[key] is NSNull { return [] }
+        return ["\(path).\(key): must be a string or null when provided"]
     }
 
     private static func nonEmptyString(_ value: Any?) -> Bool {
