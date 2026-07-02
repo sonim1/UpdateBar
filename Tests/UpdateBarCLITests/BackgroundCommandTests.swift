@@ -7,6 +7,12 @@ final class BackgroundCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-background-tests")
         let updatebarHome = home.appendingPathComponent("updatebar-home")
         try FileManager.default.createDirectory(at: updatebarHome, withIntermediateDirectories: true)
+        let config = try CLIProcess.run(
+            ["config", "set", "refresh.interval", "30m"],
+            home: updatebarHome,
+            environment: ["HOME": home.path]
+        )
+        XCTAssertEqual(config.exitCode, 0)
 
         let result = try CLIProcess.run(
             ["background", "install", "--yes", "--json"],
@@ -23,7 +29,7 @@ final class BackgroundCommandTests: XCTestCase {
             .appendingPathComponent("com.updatebar.check.plist")
         let plist = try loadPlist(plistURL)
         XCTAssertEqual(plist["Label"] as? String, "com.updatebar.check")
-        XCTAssertEqual(plist["StartInterval"] as? Int, 3600)
+        XCTAssertEqual(plist["StartInterval"] as? Int, 1800)
         XCTAssertEqual(plist["RunAtLoad"] as? Bool, true)
         XCTAssertEqual((plist["EnvironmentVariables"] as? [String: String])?["UPDATEBAR_HOME"], updatebarHome.path)
 

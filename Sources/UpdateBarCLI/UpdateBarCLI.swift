@@ -854,19 +854,14 @@ struct BackgroundCommand: ParsableCommand {
         @Flag(name: .long, help: "Print machine-readable JSON.")
         var json = false
 
-        @Option(name: .long, help: "Seconds between background checks.")
-        var intervalSeconds = 3600
-
         func run() throws {
 #if os(macOS)
             guard yes else {
                 throw ValidationError("background install requires --yes")
             }
-            guard intervalSeconds > 0 else {
-                throw ValidationError("interval-seconds must be greater than 0")
-            }
 
             let manager = BackgroundLaunchAgentManager()
+            let intervalSeconds = try ConfigStore().load().refresh.interval.seconds
             let url = try manager.install(intervalSeconds: intervalSeconds)
             let payload = BackgroundInstallPayload(ok: true, installed: true, path: url.path)
             if json {

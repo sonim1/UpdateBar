@@ -74,10 +74,11 @@ See [completions.md](completions.md).
 
 ## Primary Commands
 
-### `updatebar background install --yes [--interval-seconds <seconds>] [--json]`
+### `updatebar background install --yes [--json]`
 
 Writes the opt-in macOS per-user LaunchAgent plist for background checks.
-The plist invokes only `updatebar check --exit-zero-on-outdated`.
+The plist invokes only `updatebar check --exit-zero-on-outdated` and uses
+`refresh.interval` from `updatebar config`.
 
 ### `updatebar background status [--json]`
 

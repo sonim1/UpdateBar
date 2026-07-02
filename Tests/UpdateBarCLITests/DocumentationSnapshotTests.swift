@@ -168,7 +168,7 @@ final class DocumentationSnapshotTests: XCTestCase {
             ["config", "set"]: ["--json"],
         ]
         #if os(macOS)
-        expectedOptionsByCommand[["background", "install"]] = ["--yes", "--json", "--interval-seconds"]
+        expectedOptionsByCommand[["background", "install"]] = ["--yes", "--json"]
         expectedOptionsByCommand[["background", "status"]] = ["--json"]
         expectedOptionsByCommand[["background", "uninstall"]] = ["--json"]
         #endif
@@ -187,6 +187,12 @@ final class DocumentationSnapshotTests: XCTestCase {
                 XCTAssertTrue(
                     optionHasDescription(option, in: helpLines),
                     "\(commandPath.joined(separator: " ")) \(option) should have a help description"
+                )
+            }
+            if commandPath == ["background", "install"] {
+                XCTAssertFalse(
+                    optionHasDescription("--interval-seconds", in: helpLines),
+                    "background install should use refresh.interval instead of a separate interval option"
                 )
             }
         }
