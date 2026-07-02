@@ -145,6 +145,26 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertFalse(error.contains("NSCocoaErrorDomain"))
     }
 
+    func testCheckReportsVersionParseFailureWithReadableError() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let stores = Stores(paths: paths)
+        try stores.manifest.save(manifest(items: [
+            recipe(id: "parse-tool", currentCommand: "parse-tool current", latestCommand: "parse-tool latest")
+        ]))
+        let commands = MockCommandExecutor(results: [
+            "parse-tool current": CommandResult(exitCode: 0, stdout: "no version here", stderr: "")
+        ])
+        let service = registryService(paths: paths, commands: commands)
+
+        let results = try service.check()
+        let error = try XCTUnwrap(results.first?.error)
+
+        XCTAssertEqual(results.first?.status, .error)
+        XCTAssertTrue(error.contains("version_parse.regex did not match"))
+        XCTAssertFalse(error.contains("missingMatch"))
+    }
+
     func testCheckHonorsTTLUnlessForced() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
