@@ -146,6 +146,9 @@ or whitespace-separated numbers or candidate ids from stdin. Enter `all` to add
 every importable candidate. If no importable candidates are found, `init` exits
 with a usage error and suggests checking installed tools or using a broader
 category filter.
+Scan detector errors are included in that failure message when available. In
+human mode they are written to stderr; in `--json` mode they are included in the
+error envelope.
 The interactive candidate table is tab-separated with `ITEM`, `ID`, `CATEGORY`,
 and `SOURCE` columns; candidate ids are the second column.
 If a category only has review-only candidates, `init` refuses to import them and

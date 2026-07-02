@@ -608,7 +608,10 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertTrue(initSection.contains("review-only"))
         XCTAssertTrue(initSection.contains("updatebar scan --category"))
+        XCTAssertTrue(initSection.contains("Scan detector errors"))
+        XCTAssertTrue(initSection.contains("stderr"))
         XCTAssertTrue(scanSpec.contains("updatebar scan --category"))
+        XCTAssertTrue(scanSpec.contains("Scan detector errors"))
     }
 
     func testCliDocsScanDocumentsCategoriesAndMetadataSourceRefs() throws {
