@@ -187,6 +187,41 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("secret-token"))
     }
 
+    func testScanCategoryMCPServerRunsOnlyRelevantDefaultDetector() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        let marker = home.appendingPathComponent("brew-ran")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            printf 'ran' > \(marker.path)
+            exit 42
+            """
+        )
+        let config = home.appendingPathComponent(".cursor/mcp.json")
+        try FileManager.default.createDirectory(
+            at: config.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try #"{"mcpServers":{"filesystem":{"command":"npx"}}}"#.write(
+            to: config,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--category", "mcp-server"],
+            home: home,
+            environment: ["HOME": home.path, "PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("mcp_config.filesystem"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
     func testScanHumanOutputShowsCandidateIDsAndNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
         let bin = home.appendingPathComponent("bin")

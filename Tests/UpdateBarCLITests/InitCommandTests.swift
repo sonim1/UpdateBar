@@ -424,6 +424,44 @@ final class InitCommandTests: XCTestCase {
         XCTAssertFalse(result.stderr.contains("detector should not run"))
     }
 
+    func testInitCategoryMCPServerRunsOnlyRelevantDefaultDetector() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = home.appendingPathComponent("bin")
+        let marker = home.appendingPathComponent("brew-ran")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            printf 'ran' > \(marker.path)
+            exit 42
+            """
+        )
+        let config = home.appendingPathComponent(".cursor/mcp.json")
+        try FileManager.default.createDirectory(
+            at: config.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try #"{"mcpServers":{"filesystem":{"command":"npx"}}}"#.write(
+            to: config,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try CLIProcess.run(
+            ["init", "--json", "--category", "mcp-server", "--select", "all"],
+            home: home,
+            environment: ["HOME": home.path, "PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertTrue(payload.errors.contains { $0.contains("No importable candidates found") })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
     func testInitWithoutSelectRequiresImportableCandidates() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = home.appendingPathComponent("bin")

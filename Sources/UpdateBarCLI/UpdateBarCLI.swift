@@ -364,8 +364,8 @@ struct ScanCommand: ParsableCommand {
     var category: String?
 
     func run() throws {
-        let selectedDetectors = try parseDetectors()
         let categoryFilter = try parseCategoryFilter(category)
+        let selectedDetectors = try parseDetectors(categoryFilter: categoryFilter)
         let service = ScanService()
         var report = try service.scan(detectors: selectedDetectors)
         if let category = categoryFilter {
@@ -379,8 +379,8 @@ struct ScanCommand: ParsableCommand {
         }
     }
 
-    private func parseDetectors() throws -> [ScanDetector] {
-        try parseScanDetectors(detectors)
+    private func parseDetectors(categoryFilter: String?) throws -> [ScanDetector] {
+        try parseScanDetectors(detectors, categoryFilter: categoryFilter)
     }
 
     private func printHuman(_ report: ScanReport) {
@@ -470,8 +470,12 @@ struct InitCommand: ParsableCommand {
     var category: String?
 
     func run() throws {
-        let selectedDetectors = try parseDetectors()
-        let report = try filteredReport(detectors: selectedDetectors)
+        let categoryFilter = try parseCategoryFilter(category)
+        let selectedDetectors = try parseDetectors(categoryFilter: categoryFilter)
+        let report = try filteredReport(
+            detectors: selectedDetectors,
+            categoryFilter: categoryFilter
+        )
         let selectedIDs = try parseSelection(from: report)
 
         do {
@@ -494,8 +498,10 @@ struct InitCommand: ParsableCommand {
         }
     }
 
-    private func filteredReport(detectors: [ScanDetector]) throws -> ScanReport {
-        let categoryFilter = try parseCategoryFilter(category)
+    private func filteredReport(
+        detectors: [ScanDetector],
+        categoryFilter: String?
+    ) throws -> ScanReport {
         var report = try ScanService().scan(detectors: detectors)
         if let category = categoryFilter {
             report.candidates = report.candidates.filter { $0.category == category }
@@ -503,8 +509,8 @@ struct InitCommand: ParsableCommand {
         return report
     }
 
-    private func parseDetectors() throws -> [ScanDetector] {
-        try parseScanDetectors(detectors)
+    private func parseDetectors(categoryFilter: String?) throws -> [ScanDetector] {
+        try parseScanDetectors(detectors, categoryFilter: categoryFilter)
     }
 
     private func parseSelection(from report: ScanReport) throws -> [String] {
@@ -624,9 +630,12 @@ struct InitCommand: ParsableCommand {
     }
 }
 
-private func parseScanDetectors(_ value: String?) throws -> [ScanDetector] {
+private func parseScanDetectors(
+    _ value: String?,
+    categoryFilter: String? = nil
+) throws -> [ScanDetector] {
     guard let value, !value.isEmpty else {
-        return ScanDetector.allCases
+        return defaultScanDetectors(categoryFilter: categoryFilter)
     }
     let values = parseList(value)
     guard !values.isEmpty else {
@@ -642,6 +651,17 @@ private func parseScanDetectors(_ value: String?) throws -> [ScanDetector] {
         detectors.append(parsed)
     }
     return detectors
+}
+
+private func defaultScanDetectors(categoryFilter: String?) -> [ScanDetector] {
+    switch categoryFilter {
+    case "codex-skill":
+        return [.codexSkill]
+    case "mcp-server":
+        return [.mcpConfig]
+    default:
+        return ScanDetector.allCases
+    }
 }
 
 private func scanDetectorDescription() -> String {
