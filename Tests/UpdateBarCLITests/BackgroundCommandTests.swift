@@ -116,6 +116,25 @@ final class BackgroundCommandTests: XCTestCase {
         XCTAssertTrue(missing.stdout.contains("not_installed\tcom.updatebar.check\t\(plistPath)"))
     }
 
+    func testBackgroundInstallAndUninstallHumanOutputShowsManualLaunchctlNextSteps() throws {
+        let base = try makeTemporaryHome(prefix: "updatebar-cli-background-tests")
+        let home = base.appendingPathComponent("Home With Spaces")
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        let quotedPlistPath = "'\(plistURL(home: home).path)'"
+
+        let install = try CLIProcess.run(["background", "install", "--yes"], home: home, environment: ["HOME": home.path])
+        XCTAssertEqual(install.exitCode, 0)
+        XCTAssertEqual(install.stderr, "")
+        XCTAssertTrue(install.stdout.contains("Next"))
+        XCTAssertTrue(install.stdout.contains("launchctl bootstrap gui/$(id -u) \(quotedPlistPath)"))
+
+        let uninstall = try CLIProcess.run(["background", "uninstall"], home: home, environment: ["HOME": home.path])
+        XCTAssertEqual(uninstall.exitCode, 0)
+        XCTAssertEqual(uninstall.stderr, "")
+        XCTAssertTrue(uninstall.stdout.contains("Next"))
+        XCTAssertTrue(uninstall.stdout.contains("launchctl bootout gui/$(id -u)/com.updatebar.check"))
+    }
+
     private func plistURL(home: URL) -> URL {
         home
             .appendingPathComponent("Library")

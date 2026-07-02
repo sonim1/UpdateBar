@@ -453,6 +453,26 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testBackgroundDocsDocumentManualLaunchctlSteps() throws {
+        let backgroundDocs = try String(contentsOfFile: "docs/background.md", encoding: .utf8)
+        let cliDocs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let backgroundInstallSection = try readmeSection(
+            "### `updatebar background install",
+            before: "### `updatebar background status",
+            in: cliDocs
+        )
+        let backgroundUninstallSection = try readmeSection(
+            "### `updatebar background uninstall",
+            before: "### `updatebar config",
+            in: cliDocs
+        )
+
+        XCTAssertTrue(backgroundDocs.contains("launchctl bootstrap gui/$(id -u)"))
+        XCTAssertTrue(backgroundDocs.contains("launchctl bootout gui/$(id -u)/com.updatebar.check"))
+        XCTAssertTrue(backgroundInstallSection.contains("launchctl bootstrap gui/$(id -u)"))
+        XCTAssertTrue(backgroundUninstallSection.contains("launchctl bootout gui/$(id -u)/com.updatebar.check"))
+    }
+
     func testUpdateHelpDocumentsHeadlessJSONFlags() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 

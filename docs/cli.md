@@ -80,6 +80,8 @@ Writes the opt-in macOS per-user LaunchAgent plist for background checks.
 The plist invokes only `updatebar check --exit-zero-on-outdated` and uses
 `refresh.interval` from `updatebar config`.
 Human output is tab-separated with `STATUS`, `LABEL`, and `PATH` columns.
+Human output also prints the manual load command:
+`launchctl bootstrap gui/$(id -u) <plist-path>`.
 
 ### `updatebar background status [--json]`
 
@@ -90,6 +92,8 @@ Human output is tab-separated with `STATUS`, `LABEL`, and `PATH` columns.
 
 Removes the LaunchAgent plist.
 Human output is tab-separated with `STATUS`, `LABEL`, and `PATH` columns.
+When a plist is removed, human output also prints the manual unload command:
+`launchctl bootout gui/$(id -u)/com.updatebar.check`.
 
 ### `updatebar config get [key] [--json]`
 

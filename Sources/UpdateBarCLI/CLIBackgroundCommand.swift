@@ -35,6 +35,7 @@ struct BackgroundCommand: ParsableCommand {
                 try printJSON(payload)
             } else {
                 printBackgroundHuman(status: "installed", path: url.path)
+                printBackgroundInstallNextStep(path: url.path)
             }
 #else
             throw ValidationError("background helper is only supported on macOS")
@@ -89,6 +90,9 @@ struct BackgroundCommand: ParsableCommand {
                 try printJSON(payload)
             } else {
                 printBackgroundHuman(status: removed ? "removed" : "not_installed", path: manager.plistURL.path)
+                if removed {
+                    printBackgroundUninstallNextStep()
+                }
             }
 #else
             throw ValidationError("background helper is only supported on macOS")
@@ -101,5 +105,21 @@ struct BackgroundCommand: ParsableCommand {
 private func printBackgroundHuman(status: String, path: String) {
     print("STATUS\tLABEL\tPATH")
     print("\(status)\t\(BackgroundLaunchAgentManager.label)\t\(path)")
+}
+
+private func printBackgroundInstallNextStep(path: String) {
+    printNextCommands([
+        "launchctl bootstrap gui/$(id -u) \(shellQuote(path))"
+    ])
+}
+
+private func printBackgroundUninstallNextStep() {
+    printNextCommands([
+        "launchctl bootout gui/$(id -u)/\(BackgroundLaunchAgentManager.label)"
+    ])
+}
+
+private func shellQuote(_ value: String) -> String {
+    "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
 }
 #endif

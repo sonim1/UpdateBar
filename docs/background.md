@@ -8,6 +8,12 @@ Install:
 updatebar background install --yes
 ```
 
+The human output includes the manual load command:
+
+```bash
+launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.updatebar.check.plist"
+```
+
 Status:
 
 ```bash
@@ -21,6 +27,12 @@ Uninstall:
 
 ```bash
 updatebar background uninstall
+```
+
+If the agent was loaded manually, the human output includes the unload command:
+
+```bash
+launchctl bootout gui/$(id -u)/com.updatebar.check
 ```
 
 Behavior:
