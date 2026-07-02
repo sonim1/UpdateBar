@@ -76,7 +76,7 @@ export class CLIUpdateBarClient implements UpdateBarClient {
   async status(): Promise<StatusSnapshot> {
     const result = await this.runner.run(['status', '--json', '--exit-zero-on-outdated']);
     ensureExit(result, [0, 10]);
-    return normalizeStatusSnapshot(parseJSON<StatusSnapshot>(result.stdout, 'status'));
+    return normalizeStatusSnapshot(parseStatusSnapshot(result.stdout));
   }
 
   async scan(options: RunOptions = {}): Promise<ScanReport> {
@@ -184,6 +184,18 @@ function parseJSON<T>(payload: string, command: string): T {
   } catch {
     throw new Error(`updatebar ${command} returned invalid JSON`);
   }
+}
+
+function parseStatusSnapshot(payload: string): StatusSnapshot {
+  const snapshot = parseJSON<unknown>(payload, 'status');
+  if (!isObject(snapshot) || !isObject(snapshot.summary) || !Array.isArray(snapshot.items)) {
+    throw new Error('unexpected status result format from updatebar');
+  }
+  return snapshot as unknown as StatusSnapshot;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 function normalizeStatusSnapshot(snapshot: StatusSnapshot): StatusSnapshot {
