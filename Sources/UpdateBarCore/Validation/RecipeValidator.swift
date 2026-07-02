@@ -55,6 +55,15 @@ public enum RecipeValidator {
         } else {
             errors.append("\(path).latest: required")
         }
+        if let source = item["source"] as? [String: Any],
+            let latest = item["latest"] as? [String: Any]
+        {
+            errors += validateSourceMatchesLatest(
+                source: source,
+                latest: latest,
+                path: path
+            )
+        }
         if let versionParse = item["version_parse"] as? [String: Any] {
             errors += validateVersionParse(versionParse, path: "\(path).version_parse")
         } else {
@@ -80,6 +89,25 @@ public enum RecipeValidator {
         return errors
     }
 
+    private static func validateSourceMatchesLatest(
+        source: [String: Any],
+        latest: [String: Any],
+        path: String
+    ) -> [String] {
+        guard let sourceKind = source["kind"] as? String,
+            sourceKinds.contains(sourceKind),
+            let strategy = latest["strategy"] as? String,
+            latestStrategies.contains(strategy),
+            let expectedSourceKind = expectedSourceKind(for: strategy),
+            sourceKind != expectedSourceKind
+        else {
+            return []
+        }
+        return [
+            "\(path).latest.strategy: \(strategy) requires source.kind \(expectedSourceKind)"
+        ]
+    }
+
     private static func validateSource(_ source: [String: Any], path: String) -> [String] {
         var errors: [String] = []
         errors += requireString(source, "kind", path: path)
@@ -96,6 +124,23 @@ public enum RecipeValidator {
             errors.append("\(path).ref: invalid GitHub repository ref")
         }
         return errors
+    }
+
+    private static func expectedSourceKind(for strategy: String) -> String? {
+        switch strategy {
+        case "git_tags", "git_head":
+            return "git"
+        case "npm_registry":
+            return "npm"
+        case "github_release":
+            return "github_release"
+        case "brew":
+            return "brew"
+        case "http_regex":
+            return "http"
+        default:
+            return nil
+        }
     }
 
     private static func validateCheck(_ check: [String: Any], path: String) -> [String] {

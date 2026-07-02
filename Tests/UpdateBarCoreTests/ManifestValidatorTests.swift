@@ -237,6 +237,19 @@ final class ManifestValidatorTests: XCTestCase {
         )
     }
 
+    func testRejectsLatestStrategyThatDoesNotMatchSourceKind() throws {
+        let result = try validateFirstRawItem {
+            $0["source"] = ["kind": "npm", "ref": "left-pad"]
+            $0["latest"] = ["strategy": "github_release"]
+        }
+
+        XCTAssertTrue(
+            result.errors.contains(
+                "items[0].latest.strategy: github_release requires source.kind github_release"
+            )
+        )
+    }
+
     func testRejectsHttpRegexWithoutPattern() throws {
         var manifest = try loadValid()
         manifest.items[0].latest.strategy = .httpRegex
