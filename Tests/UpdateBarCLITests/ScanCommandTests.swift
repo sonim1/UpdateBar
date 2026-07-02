@@ -100,6 +100,56 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("if command -v brew"))
     }
 
+    func testScanHumanOutputRedactsDetectorErrorSecrets() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            printf 'token sk-or-v1-secret-value\\n' >&2
+            exit 42
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["scan"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("[REDACTED]"))
+        XCTAssertFalse(result.stdout.contains("sk-or-v1-secret-value"))
+    }
+
+    func testScanJSONRedactsDetectorErrorSecrets() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            printf 'token sk-or-v1-secret-value\\n' >&2
+            exit 42
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--json"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        let report = try JSONDecoder.updateBar.decode(
+            ScanReport.self, from: Data(result.stdout.utf8))
+        XCTAssertTrue(report.errors.contains { $0.message.contains("[REDACTED]") })
+        XCTAssertFalse(report.errors.contains { $0.message.contains("sk-or-v1-secret-value") })
+    }
+
     func testScanHumanEmptyCategoryResultSuggestsBroaderScan() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
 

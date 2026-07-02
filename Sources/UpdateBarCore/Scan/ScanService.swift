@@ -542,10 +542,11 @@ public enum ScanServiceError: Error, CustomStringConvertible {
 
     private static func normalizedStderr(_ stderr: String) -> String {
         var seen = Set<String>()
-        return stderr
+        let normalized = stderr
             .split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty && seen.insert($0).inserted }
             .joined(separator: "\n")
+        return SecretRedactor.redact(normalized)
     }
 }
