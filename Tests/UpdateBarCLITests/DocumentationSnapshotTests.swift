@@ -545,6 +545,9 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertFalse(checkSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false)
         XCTAssertFalse(statusSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false)
+        for column in ["`ID`", "`STATUS`", "`CURRENT`", "`LATEST`", "`DETAIL`"] {
+            XCTAssertTrue(checkSection.contains(column), "check docs missing \(column)")
+        }
     }
 
     func testCliDocsStatusDocumentsReadOnlyBehavior() throws {

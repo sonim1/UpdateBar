@@ -64,8 +64,16 @@ struct CheckCommand: ParsableCommand {
             return
         }
 
+        print("ID\tSTATUS\tCURRENT\tLATEST\tDETAIL")
         for result in results {
-            print("\(result.id)\t\(result.status.rawValue)")
+            let fields = [
+                result.id,
+                result.status.rawValue,
+                result.current ?? "-",
+                result.latest ?? "-",
+                result.error ?? "",
+            ]
+            print(fields.joined(separator: "\t"))
         }
 
         let manifest = try ManifestStore().load()

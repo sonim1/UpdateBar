@@ -125,7 +125,8 @@ final class CheckCommandTests: XCTestCase {
         let result = try CLIProcess.run(["check", "fixture-tool"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stdout.contains("fixture-tool\tuntrusted"))
+        XCTAssertTrue(result.stdout.contains("ID\tSTATUS\tCURRENT\tLATEST\tDETAIL"))
+        XCTAssertTrue(result.stdout.contains("fixture-tool\tuntrusted\t-\t-\tcommands are not approved"))
         XCTAssertTrue(result.stdout.contains("updatebar approvals fixture-tool"))
         XCTAssertFalse(result.stdout.contains("updatebar approve fixture-tool"))
     }
@@ -153,7 +154,8 @@ final class CheckCommandTests: XCTestCase {
         let result = try CLIProcess.run(["check", "fixture-tool"], home: home)
 
         XCTAssertEqual(result.exitCode, 10)
-        XCTAssertTrue(result.stdout.contains("fixture-tool\toutdated"))
+        XCTAssertTrue(result.stdout.contains("ID\tSTATUS\tCURRENT\tLATEST\tDETAIL"))
+        XCTAssertTrue(result.stdout.contains("fixture-tool\toutdated\t1.0.0\t1.1.0\t"))
         XCTAssertFalse(result.stdout.contains("updatebar approvals fixture-tool"))
         XCTAssertFalse(result.stdout.contains("Next"))
     }
