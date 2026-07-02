@@ -143,6 +143,33 @@ final class ManifestStoreTests: XCTestCase {
         }
     }
 
+    func testManifestStoreReportsDecodingFailureWithoutSwiftInternals() throws {
+        let root = try temporaryDirectory()
+        let manifestURL = root.appendingPathComponent("manifest.json")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(
+            """
+            {
+              "schema_version": 1,
+              "provenance": {
+                "created_by": "updatebar",
+                "created_at": "2026-06-09T00:00:00Z",
+                "updated_at": "2026-06-09T00:00:00Z"
+              }
+            }
+            """.utf8
+        ).write(to: manifestURL)
+        let store = ManifestStore(paths: AppPaths(homeDirectory: root))
+
+        XCTAssertThrowsError(try store.load()) { error in
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("manifest.json"))
+            XCTAssertTrue(message.contains("missing required key items"))
+            XCTAssertFalse(message.contains("CodingKeys"))
+            XCTAssertFalse(message.contains("keyNotFound"))
+        }
+    }
+
     func testAppPathsUsesExplicitHomeAndDoesNotEscapeIt() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)

@@ -20,7 +20,7 @@ public struct ManifestStore {
             let data = try Data(contentsOf: paths.manifestFile)
             return try JSONDecoder.updateBar.decode(Manifest.self, from: data)
         } catch {
-            throw StoreError.corruptFile(path: paths.manifestFile.path, reason: String(describing: error))
+            throw StoreError.corruptFile(path: paths.manifestFile.path, reason: storeErrorReason(for: error))
         }
     }
 

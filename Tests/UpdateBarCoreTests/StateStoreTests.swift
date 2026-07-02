@@ -87,6 +87,29 @@ final class StateStoreTests: XCTestCase {
         XCTAssertEqual(try store.load(), state)
     }
 
+    func testStateStoreReportsDecodingFailureWithoutSwiftInternals() throws {
+        let root = try temporaryDirectory()
+        let stateURL = root.appendingPathComponent("state.json")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(
+            """
+            {
+              "schema_version": 1,
+              "generated_at": "2026-06-09T00:00:00Z"
+            }
+            """.utf8
+        ).write(to: stateURL)
+        let store = StateStore(paths: AppPaths(homeDirectory: root))
+
+        XCTAssertThrowsError(try store.load()) { error in
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("state.json"))
+            XCTAssertTrue(message.contains("missing required key items"))
+            XCTAssertFalse(message.contains("CodingKeys"))
+            XCTAssertFalse(message.contains("keyNotFound"))
+        }
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("updatebar-tests-\(UUID().uuidString)")
