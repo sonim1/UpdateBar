@@ -203,7 +203,7 @@ commands for automation, release checks, and recipe authoring.
 
 ### `updatebar schema`
 
-Prints the manifest/recipe JSON Schema. The schema documents currently executable fields only; `version_parse.jq` is rejected until runtime support exists.
+Prints the manifest/recipe JSON Schema. The schema documents currently executable fields only.
 
 ### `updatebar validate <file|-> [--json] [--explain]`
 

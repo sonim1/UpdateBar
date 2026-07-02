@@ -389,6 +389,12 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(initSection.contains("all"), "init docs should mention all")
     }
 
+    func testCliDocsDoNotAdvertiseUnsupportedJQVersionParse() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+
+        XCTAssertFalse(docs.contains("version_parse.jq"))
+    }
+
     private func readmeSection(_ heading: String, before nextHeading: String, in readme: String) throws -> String {
         guard
             let start = readme.range(of: heading)?.upperBound,
