@@ -332,6 +332,9 @@ public struct ScanService {
         {
             names.insert(packageLeafName)
         }
+        if candidate.detector == .npmGlobal {
+            names.formUnion(scopedPackageCommandAliases(candidate.name))
+        }
         return names
     }
 
@@ -351,6 +354,15 @@ public struct ScanService {
         }
         let leafName = normalized[normalized.index(after: slashIndex)...]
         return leafName.isEmpty ? nil : String(leafName)
+    }
+
+    private func scopedPackageCommandAliases(_ name: String) -> Set<String> {
+        switch name.lowercased() {
+        case "@anthropic-ai/claude-code":
+            return ["claude"]
+        default:
+            return []
+        }
     }
 
     private func sortCandidates(_ lhs: ScanCandidate, _ rhs: ScanCandidate) -> Bool {

@@ -103,6 +103,29 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertNotNil(report.candidates.first { $0.id == "known.rtk" })
     }
 
+    func testKnownToolsAreDedupedWhenScopedManagerPackageUsesCommandAlias() throws {
+        let commands = MockCommandExecutor(results: [
+            ScanService.brewListCommand: CommandResult(exitCode: 0, stdout: "", stderr: ""),
+            ScanService.npmGlobalListCommand: CommandResult(
+                exitCode: 0,
+                stdout: #"{"dependencies":{"@anthropic-ai/claude-code":{"version":"1.0.43"}}}"#,
+                stderr: ""
+            ),
+            ScanService.knownToolsCommand: CommandResult(
+                exitCode: 0,
+                stdout: "claude\t1.0.43\ncodex\t0.140.0\n",
+                stderr: ""
+            ),
+        ])
+        let service = ScanService(commandRunner: commands)
+
+        let report = try service.scan(detectors: [.brew, .npmGlobal, .known])
+
+        XCTAssertNotNil(report.candidates.first { $0.id == "npm.anthropic-ai.claude-code" })
+        XCTAssertNil(report.candidates.first { $0.id == "known.claude" })
+        XCTAssertNotNil(report.candidates.first { $0.id == "known.codex" })
+    }
+
     func testScanDeduplicatesRepeatedManagerOutputByID() throws {
         let commands = MockCommandExecutor(results: [
             ScanService.brewListCommand: CommandResult(
