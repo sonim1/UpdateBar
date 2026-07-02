@@ -18,7 +18,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testGitHeadUsesRemoteHeadSHA() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .git
         item.source.ref = "https://github.com/example/tool.git"
         item.source.branch = "main"
@@ -36,7 +36,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testGitHeadFailureReportsCommandAndExitCode() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .git
         item.source.ref = "https://github.com/example/missing.git"
         item.source.branch = "main"
@@ -56,7 +56,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testGitHeadEmptyOutputReportsMissingHead() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .git
         item.source.ref = "https://github.com/example/tool.git"
         item.source.branch = "missing"
@@ -76,7 +76,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testGitTagsSelectsHighestSemverTag() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .git
         item.source.ref = "https://github.com/example/tool.git"
         let command = "git ls-remote --tags -- 'https://github.com/example/tool.git'"
@@ -100,7 +100,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testGitTagsIgnoreNonSemverTags() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .git
         item.source.ref = "https://github.com/example/tool.git"
         let command = "git ls-remote --tags -- 'https://github.com/example/tool.git'"
@@ -124,7 +124,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testGitTagsReportWhenNoSemverTagsExist() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .git
         item.source.ref = "https://github.com/example/tool.git"
         let command = "git ls-remote --tags -- 'https://github.com/example/tool.git'"
@@ -149,7 +149,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testGitSourceAndBranchAreShellQuoted() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .git
         item.source.ref = "https://example.com/tool.git'; touch /tmp/pwn #"
         item.source.branch = "main'; touch /tmp/branch #"
@@ -167,7 +167,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testGitHubReleaseReadsLatestNonDraftRelease() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .githubRelease
         item.source.ref = "owner/repo"
         let data = try Data(contentsOf: TestFixtures.fixtureURL("github", "releases.json"))
@@ -184,7 +184,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testGitHubReleaseRejectsOwnerOnlyRefWithoutHTTP() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .githubRelease
         item.source.ref = "owner"
         let http = MockHTTPClient()
@@ -201,7 +201,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testGitHubReleaseRejectsIncompleteGitHubURLWithoutHTTP() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .githubRelease
         item.source.ref = "https://github.com/owner"
         let http = MockHTTPClient()
@@ -221,7 +221,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testBrewParsesFormulaVersion() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .brew
         item.source.ref = "ripgrep"
         let command = "brew info --json=v2 -- 'ripgrep'"
@@ -242,7 +242,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testBrewFailureReportsCommandAndExitCode() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .brew
         item.source.ref = "missing-formula"
         let command = "brew info --json=v2 -- 'missing-formula'"
@@ -261,7 +261,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testBrewSourceRefIsShellQuoted() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .brew
         item.source.ref = "ripgrep'; touch /tmp/pwn #"
         let command = "brew info --json=v2 -- 'ripgrep'\\''; touch /tmp/pwn #'"
@@ -280,7 +280,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testHTTPRegexExtractsVersion() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .http
         item.source.ref = "https://example.com/tool"
         item.latest.pattern = #"version: ([0-9]+\.[0-9]+\.[0-9]+)"#
@@ -297,7 +297,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testHTTPRegexRejectsPlainHTTPWhenHTTPSIsRequired() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .http
         item.source.ref = "http://example.com/tool"
         item.latest.pattern = #"version: ([0-9]+\.[0-9]+\.[0-9]+)"#
@@ -318,7 +318,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testHTTPRegexAllowsPlainHTTPWhenHTTPSIsNotRequired() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .http
         item.source.ref = "http://example.com/tool"
         item.latest.pattern = #"version: ([0-9]+\.[0-9]+\.[0-9]+)"#
@@ -337,7 +337,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testHTTPRegexRejectsHTTPSDowngradeRedirect() throws {
-        var item = recipe()
+        var item = try recipe()
         item.source.kind = .http
         item.source.ref = "https://example.com/tool"
         item.latest.pattern = #"version: ([0-9]+\.[0-9]+\.[0-9]+)"#
@@ -362,7 +362,7 @@ final class LatestStrategyTests: XCTestCase {
     }
 
     func testCmdStrategyRunsApprovedCommandAndParsesVersion() throws {
-        var item = recipe()
+        var item = try recipe()
         item.latest.strategy = .cmd
         item.latest.cmd = "tool latest"
         item.versionParse = .regex("([0-9]+\\.[0-9]+\\.[0-9]+)")
@@ -378,9 +378,9 @@ final class LatestStrategyTests: XCTestCase {
         XCTAssertEqual(latest, "9.8.7")
     }
 
-    private func recipe() -> Recipe {
-        let data = try! Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
-        return try! JSONDecoder.updateBar.decode(Manifest.self, from: data).items[0]
+    private func recipe() throws -> Recipe {
+        let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
+        return try JSONDecoder.updateBar.decode(Manifest.self, from: data).items[0]
     }
 
     private func emptyHTTP() -> MockHTTPClient {
