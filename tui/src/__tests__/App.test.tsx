@@ -701,11 +701,39 @@ describe('App', () => {
     await new Promise(resolve => setTimeout(resolve, 20));
     view.stdin.write('\r');
     await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\r');
+    await new Promise(resolve => setTimeout(resolve, 20));
     view.stdin.write('c');
     await new Promise(resolve => setTimeout(resolve, 20));
 
     expect(view.lastFrame()).toContain('update cancelled');
     expect(view.lastFrame()).not.toContain('exit 1');
+  });
+
+  it('asks for confirmation before running updates', async () => {
+    let updateCalls = 0;
+    const client = createClient({
+      async updateAll() {
+        updateCalls += 1;
+        return {exitCode: 0, stdout: '', stderr: ''};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Run Updates');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run approved updates now?');
+
+    expect(updateCalls).toBe(0);
+
+    view.stdin.write('\r');
+    await waitForFrame(view, 'update started');
+
+    expect(updateCalls).toBe(1);
   });
 
   it('clears stale errors when starting updates', async () => {
@@ -736,6 +764,8 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await new Promise(resolve => setTimeout(resolve, 20));
     view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\r');
     await new Promise(resolve => setTimeout(resolve, 20));
     view.stdin.write('\r');
     await new Promise(resolve => setTimeout(resolve, 20));

@@ -4,7 +4,7 @@ import {Box, Text, useApp, useInput, useStdin} from 'ink';
 import {createDefaultClient, type UpdateBarClient} from './client.js';
 import type {CheckReport, MachineEvent, ScanCandidate, ScanReport, StatusItem, StatusSnapshot} from './types.js';
 
-type Screen = 'menu' | 'status' | 'logs' | 'scan' | 'updating';
+type Screen = 'menu' | 'status' | 'logs' | 'scan' | 'confirm-update' | 'updating';
 type MenuAction =
   | 'refresh-status'
   | 'scan-add'
@@ -99,6 +99,12 @@ export function App({client: providedClient}: AppProps) {
         handleScanInput(_input, key);
         return;
       }
+      if (screen === 'confirm-update') {
+        if (key.return && client) {
+          void runUpdates(client);
+        }
+        return;
+      }
       if (screen === 'menu') {
         if (key.upArrow) {
           setMenuIndex(index => Math.max(0, index - 1));
@@ -180,7 +186,8 @@ export function App({client: providedClient}: AppProps) {
         await runCheck(client);
         return;
       case 'run-updates':
-        await runUpdates(client);
+        setScreen('confirm-update');
+        setError(undefined);
         return;
       case 'config-path':
         setScreen('logs');
@@ -304,6 +311,12 @@ export function App({client: providedClient}: AppProps) {
       {screen === 'status' && <StatusList status={status} />}
       {screen === 'scan' && (
         <ScanList report={scanReport} selectedIds={selectedScanIds} cursorIndex={scanIndex} />
+      )}
+      {screen === 'confirm-update' && (
+        <Box flexDirection="column" marginTop={1}>
+          <Text color="yellow">Run approved updates now?</Text>
+          <Text dimColor>Only tracked items approved for update will run.</Text>
+        </Box>
       )}
       {(screen === 'logs' || screen === 'updating') && (
         <Box flexDirection="column" marginTop={1}>
@@ -453,6 +466,7 @@ function helpText(screen: Screen, canCancel: boolean) {
   if (screen === 'scan') {
     return '↑/↓ navigate · a all · A clear · space select · enter add · m menu · q quit';
   }
+  if (screen === 'confirm-update') return 'enter run · m menu · q quit';
   if (screen !== 'menu') return 'm menu · q quit';
   return '↑/↓ navigate · enter select · q quit';
 }
