@@ -101,6 +101,12 @@
             guard let action = sender.representedObject as? ApprovalAction else { return }
             let id = action.id
             let field = action.field
+            let confirmation = MenuBarActionConfirmation.commandApproval(
+                id: id,
+                field: field,
+                approving: true
+            )
+            guard confirm(confirmation) else { return }
             runAction("Approve \(id) \(field)") { [service] token in
                 try service?.approve(id: id, field: field, cancellationToken: token)
             }
@@ -110,6 +116,12 @@
             guard let action = sender.representedObject as? ApprovalAction else { return }
             let id = action.id
             let field = action.field
+            let confirmation = MenuBarActionConfirmation.commandApproval(
+                id: id,
+                field: field,
+                approving: false
+            )
+            guard confirm(confirmation) else { return }
             runAction("Revoke \(id) \(field)") { [service] token in
                 try service?.revoke(id: id, field: field, cancellationToken: token)
             }

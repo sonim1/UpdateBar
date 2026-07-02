@@ -41,4 +41,19 @@ public struct MenuBarActionConfirmation: Equatable, Sendable {
             confirmButton: "Update"
         )
     }
+
+    public static func commandApproval(
+        id: String,
+        field: String,
+        approving: Bool
+    ) -> MenuBarActionConfirmation {
+        let verb = approving ? "Approve" : "Revoke"
+        let sentenceVerb = approving ? "approves" : "revokes"
+        return MenuBarActionConfirmation(
+            title: "\(verb) \(field)?",
+            message: "This \(sentenceVerb) \(field) for \(id).",
+            toolTip: "\(verb)s \(field) for \(id) after confirmation.",
+            confirmButton: verb
+        )
+    }
 }

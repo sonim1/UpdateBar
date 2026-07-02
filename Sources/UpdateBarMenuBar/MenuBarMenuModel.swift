@@ -166,6 +166,11 @@ public struct MenuBarMenuModelBuilder: Sendable {
                     approval.approved
                     ? .revoke(id: item.id, field: approval.field)
                     : .approve(id: item.id, field: approval.field)
+                let confirmation = MenuBarActionConfirmation.commandApproval(
+                    id: item.id,
+                    field: approval.field,
+                    approving: !approval.approved
+                )
                 guard showCount > 0 else { break }
                 let label = "      \(verb) \(approval.field): \(command)\(cwd)"
                 entries.append(
@@ -173,7 +178,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
                         MenuBarMenuItem(
                             title: label,
                             action: action,
-                            toolTip: "\(approval.field): \(approval.command)\(cwd)"
+                            toolTip: "\(confirmation.toolTip)\n\(approval.field): \(approval.command)\(cwd)"
                         )))
                 addedItems += 1
                 if addedItems >= Self.maxApprovalItems {
