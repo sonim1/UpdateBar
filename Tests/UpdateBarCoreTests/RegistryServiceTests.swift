@@ -180,9 +180,11 @@ final class RegistryServiceTests: XCTestCase {
 
         let results = try service.check()
         let state = try stores.state.load()
+        let error = try XCTUnwrap(results.first?.error)
 
         XCTAssertEqual(results.first?.status, .error)
         XCTAssertEqual(results.first?.current, "1.0.0")
+        XCTAssertTrue(error.contains("latest.cmd exited 1"))
         XCTAssertEqual(state.items["partial-tool"]?.current, "1.0.0")
     }
 

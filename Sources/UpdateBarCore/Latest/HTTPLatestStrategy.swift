@@ -34,7 +34,9 @@ public struct CommandLatestStrategy: LatestStrategy {
             ShellCommand(command: cmd, cwd: nil),
             policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)
         )
-        guard result.exitCode == 0 else { throw LatestError.commandFailed(result.stderr) }
+        guard result.exitCode == 0 else {
+            throw LatestError.commandFailed("latest.cmd exited \(result.exitCode): \(result.stderr)")
+        }
         return try VersionParser.extract(from: result.stdout, using: recipe.versionParse)
     }
 }
