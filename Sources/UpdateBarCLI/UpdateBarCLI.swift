@@ -754,19 +754,24 @@ private func unique(_ values: [String]) -> [String] {
 
 private func printApprovalAndCheckNextSteps(for ids: [String]) {
     guard !ids.isEmpty else { return }
-    print("")
-    print("Next")
-    for id in ids {
-        print("updatebar approvals \(id)")
-    }
-    print("updatebar check \(ids.joined(separator: " "))")
+    printNextCommands(
+        ids.map { "updatebar approvals \($0)" }
+            + ["updatebar check \(ids.joined(separator: " "))"]
+    )
 }
 
 private func printEmptyRegistryNextStep() {
     print("No items registered.")
+    printNextCommands(["updatebar init"])
+}
+
+private func printNextCommands(_ commands: [String]) {
+    guard !commands.isEmpty else { return }
     print("")
     print("Next")
-    print("updatebar init")
+    for command in commands {
+        print(command)
+    }
 }
 
 private func normalizedCategory(for value: String) throws -> String {
@@ -1675,24 +1680,10 @@ struct CheckCommand: ParsableCommand {
             return
         }
 
-        var printedHeader = false
-        func printHeaderIfNeeded() {
-            if !printedHeader {
-                print("")
-                print("Next")
-                printedHeader = true
-            }
-        }
-
-        for result in blocked {
-            printHeaderIfNeeded()
-            print("updatebar approvals \(result.id)")
-        }
-
-        for result in updateApprovalNeeded {
-            printHeaderIfNeeded()
-            print("updatebar approvals \(result.id)")
-        }
+        printNextCommands(
+            blocked.map { "updatebar approvals \($0.id)" }
+                + updateApprovalNeeded.map { "updatebar approvals \($0.id)" }
+        )
     }
 
     private func runJSONStream(service: RegistryService, ids: [String]) throws {
@@ -1814,12 +1805,12 @@ struct StatusCommand: ParsableCommand {
             return
         }
 
-        print("")
-        print("Next")
-        for item in untrusted {
-            print("updatebar approvals \(item.id)")
-            print("updatebar check \(item.id)")
-        }
+        printNextCommands(untrusted.flatMap { item in
+            [
+                "updatebar approvals \(item.id)",
+                "updatebar check \(item.id)",
+            ]
+        })
     }
 }
 
@@ -1928,15 +1919,12 @@ struct UpdateCommand: ParsableCommand {
         guard !blocked.isEmpty || !cancelled.isEmpty else {
             return
         }
-        print("")
-        print("Next")
-        for result in blocked {
-            print("updatebar approvals \(result.id)")
-        }
+        var commands = blocked.map { "updatebar approvals \($0.id)" }
         if !cancelled.isEmpty {
             let ids = cancelled.map(\.id).joined(separator: " ")
-            print("updatebar update \(ids) --yes")
+            commands.append("updatebar update \(ids) --yes")
         }
+        printNextCommands(commands)
     }
 
     private func runJSONStream(runner: UpdateRunner, ids: [String], all: Bool) throws {
@@ -2195,12 +2183,10 @@ struct ApprovalCommand: ParsableCommand {
     }
 
     private func printApprovalNextStep(for recipe: Recipe) {
-        print("")
-        print("Next")
         if recipe.commandFingerprints().keys.allSatisfy({ TrustPolicy.isApproved(recipe, field: $0) }) {
-            print("updatebar check \(recipe.id)")
+            printNextCommands(["updatebar check \(recipe.id)"])
         } else {
-            print("updatebar approvals \(recipe.id)")
+            printNextCommands(["updatebar approvals \(recipe.id)"])
         }
     }
 }
@@ -2227,17 +2213,13 @@ struct ApprovalsCommand: ParsableCommand {
             }
             let unapprovedRows = rows.filter { !$0.approved }
             if !unapprovedRows.isEmpty {
-                print("")
-                print("Next")
-                for row in unapprovedRows {
-                    print("updatebar approve \(id) --field \(row.field)")
-                }
+                printNextCommands(unapprovedRows.map {
+                    "updatebar approve \(id) --field \($0.field)"
+                })
             } else {
                 print("")
                 print("All command fields approved.")
-                print("")
-                print("Next")
-                print("updatebar check \(id)")
+                printNextCommands(["updatebar check \(id)"])
             }
         }
     }
@@ -2281,9 +2263,7 @@ struct RevokeCommand: ParsableCommand {
             try printJSON(ApprovalMutationPayload(ok: true, id: recipe.id, field: field, item: recipe))
         } else {
             print("revoked \(recipe.id) \(field)")
-            print("")
-            print("Next")
-            print("updatebar approvals \(recipe.id)")
+            printNextCommands(["updatebar approvals \(recipe.id)"])
         }
     }
 }
