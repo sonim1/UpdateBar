@@ -555,7 +555,7 @@ struct InitCommand: ParsableCommand {
         guard let line = readLine(),
             !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else {
-            throw ValidationError("selection required")
+            throw selectionRequiredError()
         }
         return try parseInteractiveSelection(line, candidates: importable)
     }
@@ -586,9 +586,15 @@ struct InitCommand: ParsableCommand {
     ) throws -> [String] {
         let values = parseSelectionTokens(line)
         guard !values.isEmpty else {
-            throw ValidationError("selection required")
+            throw selectionRequiredError()
         }
         return try parseSelectionValues(values, candidates: candidates)
+    }
+
+    private func selectionRequiredError() -> ValidationError {
+        ValidationError(
+            "selection required; enter numbers, ids, or all, or pass --select all for headless use"
+        )
     }
 
     private func parseSelectionValues(

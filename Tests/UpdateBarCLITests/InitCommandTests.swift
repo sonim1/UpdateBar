@@ -177,6 +177,23 @@ final class InitCommandTests: XCTestCase {
         XCTAssertEqual(manifest.items.map(\.id).sorted(), ["brew.gh", "brew.jq"])
     }
 
+    func testInitWithoutSelectionExplainsHeadlessSelectUsage() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            ["init", "--detectors", "brew"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stdout.contains("[1] gh"))
+        XCTAssertTrue(result.stderr.contains("selection required"))
+        XCTAssertTrue(result.stderr.contains("--select"))
+        XCTAssertTrue(result.stderr.contains("all"))
+    }
+
     func testInitInteractiveSelectionAcceptsWhitespaceSeparatedNumbers() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = try fakeManagers(home: home)
