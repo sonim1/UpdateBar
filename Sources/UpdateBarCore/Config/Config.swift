@@ -7,10 +7,7 @@ public struct Config: Equatable, Sendable {
 
     public static let `default` = Config(
         refresh: RefreshConfig(interval: Duration(hours: 6), concurrency: 8),
-        security: SecurityConfig(
-            allowImportExec: false,
-            requireHTTPSSource: true
-        ),
+        security: SecurityConfig(requireHTTPSSource: true),
         notify: NotifyConfig(enabled: true)
     )
 
@@ -23,8 +20,6 @@ public struct Config: Equatable, Sendable {
                 throw ConfigError.invalidValue(key: key, value: value)
             }
             refresh.concurrency = intValue
-        case "security.allow_import_exec":
-            security.allowImportExec = try parseBool(key: key, value: value)
         case "security.require_https_source":
             security.requireHTTPSSource = try parseBool(key: key, value: value)
         case "notify.enabled":
@@ -38,7 +33,6 @@ public struct Config: Equatable, Sendable {
         switch key {
         case "refresh.interval": refresh.interval.description
         case "refresh.concurrency": String(refresh.concurrency)
-        case "security.allow_import_exec": String(security.allowImportExec)
         case "security.require_https_source": String(security.requireHTTPSSource)
         case "notify.enabled": String(notify.enabled)
         default: nil
@@ -60,7 +54,6 @@ public struct RefreshConfig: Equatable, Sendable {
 }
 
 public struct SecurityConfig: Equatable, Sendable {
-    public var allowImportExec: Bool
     public var requireHTTPSSource: Bool
 }
 

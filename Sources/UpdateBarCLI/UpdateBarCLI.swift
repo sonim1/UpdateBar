@@ -1009,10 +1009,7 @@ private struct ConfigDumpPayload: Encodable {
 
     init(config: Config) {
         refresh = Refresh(interval: config.refresh.interval.description, concurrency: config.refresh.concurrency)
-        security = Security(
-            allowImportExec: config.security.allowImportExec,
-            requireHTTPSSource: config.security.requireHTTPSSource
-        )
+        security = Security(requireHTTPSSource: config.security.requireHTTPSSource)
         notify = Notify(enabled: config.notify.enabled)
     }
 
@@ -1022,11 +1019,9 @@ private struct ConfigDumpPayload: Encodable {
     }
 
     struct Security: Encodable {
-        var allowImportExec: Bool
         var requireHTTPSSource: Bool
 
         enum CodingKeys: String, CodingKey {
-            case allowImportExec = "allow_import_exec"
             case requireHTTPSSource = "require_https_source"
         }
     }

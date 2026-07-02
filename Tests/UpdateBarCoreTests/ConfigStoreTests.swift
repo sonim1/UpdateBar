@@ -7,7 +7,6 @@ final class ConfigStoreTests: XCTestCase {
 
         XCTAssertEqual(config.refresh.interval, Duration(hours: 6))
         XCTAssertEqual(config.refresh.concurrency, 8)
-        XCTAssertFalse(config.security.allowImportExec)
         XCTAssertTrue(config.security.requireHTTPSSource)
         XCTAssertTrue(config.notify.enabled)
     }
@@ -46,8 +45,20 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(config.get("refresh.interval"), "30m")
         XCTAssertEqual(config.get("refresh.concurrency"), "2")
         XCTAssertNil(config.get("provider.default"))
+        XCTAssertNil(config.get("security.allow_import_exec"))
         XCTAssertThrowsError(try config.set("provider.default", value: "openrouter"))
+        XCTAssertThrowsError(try config.set("security.allow_import_exec", value: "true"))
         XCTAssertThrowsError(try config.set("unknown.key", value: "x"))
+    }
+
+    func testRenderedConfigOmitsRemovedImportExecKey() throws {
+        let root = try temporaryDirectory()
+        let store = ConfigStore(paths: AppPaths(homeDirectory: root))
+
+        let text = store.renderForDisplay(.default)
+
+        XCTAssertFalse(text.contains("allow_import_exec"))
+        XCTAssertTrue(text.contains("require_https_source"))
     }
 
     func testLoadsOldProviderConfigButDropsRemovedAIKeys() throws {

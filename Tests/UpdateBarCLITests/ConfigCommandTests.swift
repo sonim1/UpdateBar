@@ -12,4 +12,14 @@ final class ConfigCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains(#""key":"notify.enabled""#))
         XCTAssertTrue(result.stdout.contains(#""value":"false""#))
     }
+
+    func testConfigJSONOmitsRemovedImportExecKey() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
+
+        let result = try CLIProcess.run(["config", "get", "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertFalse(result.stdout.contains("allow_import_exec"))
+        XCTAssertTrue(result.stdout.contains("require_https_source"))
+    }
 }

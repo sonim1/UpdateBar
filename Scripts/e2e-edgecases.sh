@@ -177,8 +177,8 @@ run_case_fail "validate invalid manifest should fail" validate Fixtures/manifest
 run_case_ok "validate stdin should pass" validate - --json < Fixtures/manifests/valid-basic.json
 run_case_fail "approve non-command field should fail" approve claude-code --field latest.cmd --json
 run_case_fail "config set unknown key should fail" config set provider.default local
-run_case_ok "config set known key" config set security.allow_import_exec false
-run_case_ok "config get known key" config get security.allow_import_exec
+run_case_ok "config set known key" config set notify.enabled false
+run_case_ok "config get known key" config get notify.enabled
 run_case_fail "remove missing item should fail" remove missing-item --yes
 run_case_empty_home "background status (macOS only)" background status --json
 run_case_background_install_from_path
