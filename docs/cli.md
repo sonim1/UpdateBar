@@ -34,6 +34,9 @@ the CLI returns an error envelope:
 Known top-level error codes: `usage_error`, `config_error`, `registry_error`,
 `decode_error`, `runtime_error`.
 
+Malformed JSON input returns `decode_error` with `document is not valid JSON`.
+Missing files and unreadable paths return `usage_error` with the path included.
+
 JSONL streaming mode is available for `updatebar check --json-stream` and
 `updatebar update --json-stream`. Each
 stdout line is exactly one JSON object. No human log text is written to stdout.

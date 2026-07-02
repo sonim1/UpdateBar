@@ -191,6 +191,14 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("`updatebar status`"))
     }
 
+    func testCliDocsExplainMalformedJSONDecodeErrors() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+
+        XCTAssertTrue(docs.contains("Malformed JSON"))
+        XCTAssertTrue(docs.contains("`decode_error`"))
+        XCTAssertTrue(docs.contains("document is not valid JSON"))
+    }
+
     func testApprovalsHelpAndDocsExplainReviewWorkflow() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let rootResult = try CLIProcess.run(["--help"], home: home)
