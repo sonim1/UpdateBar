@@ -66,9 +66,15 @@ enum RecipeValidator {
     }
 
     private static func validateCheck(_ check: [String: Any], path: String) -> [String] {
+        let hasCmdField = check.keys.contains("cmd")
+        let hasFileField = check.keys.contains("file")
+        let hasQueryField = check.keys.contains("query")
         let hasCmd = nonEmptyString(check["cmd"])
         let hasFile = nonEmptyString(check["file"])
         let hasQuery = nonEmptyString(check["query"])
+        if hasCmdField && (hasFileField || hasQueryField) {
+            return ["\(path): exactly one of cmd or file/query is required"]
+        }
         if hasCmd && !hasFile && !hasQuery { return [] }
         if !hasCmd && hasFile && hasQuery { return [] }
         return ["\(path): exactly one of cmd or file/query is required"]
@@ -93,12 +99,16 @@ enum RecipeValidator {
 
     private static func validateVersionParse(_ versionParse: [String: Any], path: String) -> [String] {
         var errors: [String] = []
+        let hasRegexField = versionParse.keys.contains("regex")
+        let hasJQField = versionParse.keys.contains("jq")
         let hasRegex = nonEmptyString(versionParse["regex"])
         let hasJQ = nonEmptyString(versionParse["jq"])
-        if hasRegex == hasJQ {
+        if hasRegexField && hasJQField {
+            errors.append("\(path): exactly one of regex or jq is required")
+        } else if !hasRegex && !hasJQ {
             errors.append("\(path): exactly one of regex or jq is required")
         }
-        if hasJQ {
+        if hasJQField {
             errors.append("\(path).jq: unsupported until runtime support is implemented")
         }
         return errors

@@ -48,6 +48,18 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(blankQuery.errors.contains("items[0].check: exactly one of cmd or file/query is required"))
     }
 
+    func testRejectsCheckWithCommandAndBlankFileQueryFields() throws {
+        let result = try validateFirstRawItem {
+            $0["check"] = [
+                "cmd": "claude --version",
+                "file": " \t\n",
+                "query": " \t\n",
+            ] as [String: Any]
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].check: exactly one of cmd or file/query is required"))
+    }
+
     func testRejectsDuplicateIds() throws {
         var manifest = try loadValid()
         manifest.items.append(manifest.items[0])
@@ -127,6 +139,17 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].version_parse: exactly one of regex or jq is required"))
     }
 
+    func testRejectsVersionRegexWithBlankJQField() throws {
+        let result = try validateFirstRawItem {
+            $0["version_parse"] = [
+                "regex": "([0-9]+\\.[0-9]+\\.[0-9]+)",
+                "jq": " \t\n",
+            ] as [String: Any]
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].version_parse: exactly one of regex or jq is required"))
+    }
+
     func testRejectsJQVersionParseUntilRuntimeSupportExists() throws {
         var manifest = try loadValid()
         manifest.items[0].versionParse = .jq(".version")
@@ -143,5 +166,21 @@ final class ManifestValidatorTests: XCTestCase {
 
     private func loadValid() throws -> Manifest {
         try JSONDecoder.updateBar.decode(Manifest.self, from: data("valid-basic.json"))
+    }
+
+    private func validateFirstRawItem(_ update: (inout [String: Any]) -> Void) throws -> ValidationResult {
+        var manifest = try loadValidJSONObject()
+        var items = try XCTUnwrap(manifest["items"] as? [[String: Any]])
+        var item = try XCTUnwrap(items.first)
+        update(&item)
+        items[0] = item
+        manifest["items"] = items
+
+        return try ManifestValidator.validate(data: JSONSerialization.data(withJSONObject: manifest))
+    }
+
+    private func loadValidJSONObject() throws -> [String: Any] {
+        let object = try JSONSerialization.jsonObject(with: data("valid-basic.json"))
+        return try XCTUnwrap(object as? [String: Any])
     }
 }
