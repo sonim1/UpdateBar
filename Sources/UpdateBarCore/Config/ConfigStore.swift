@@ -32,7 +32,8 @@ public struct ConfigStore {
     private func parse(_ text: String) throws -> Config {
         var config = Config.default
         var section = ""
-        for rawLine in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        for (lineIndex, rawLine) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+            let lineNumber = lineIndex + 1
             let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
             if line.isEmpty || line.hasPrefix("#") { continue }
             if line.hasPrefix("[") && line.hasSuffix("]") {
@@ -43,7 +44,7 @@ public struct ConfigStore {
                 $0.trimmingCharacters(in: .whitespaces)
             }
             guard parts.count == 2, !section.isEmpty else {
-                throw ConfigError.corruptConfig("invalid line \(line)")
+                throw ConfigError.corruptConfig("line \(lineNumber): invalid line \(line)")
             }
             if section == "provider" {
                 continue
@@ -53,7 +54,11 @@ public struct ConfigStore {
                 continue
             }
             let value = unquote(parts[1])
-            try config.set(key, value: value)
+            do {
+                try config.set(key, value: value)
+            } catch {
+                throw ConfigError.corruptConfig("line \(lineNumber): \(error)")
+            }
         }
         return config
     }

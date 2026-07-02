@@ -81,6 +81,40 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertNil(config.get("security.allow_plaintext_secret_file"))
     }
 
+    func testInvalidConfigLineReportsLineNumber() throws {
+        let root = try temporaryDirectory()
+        let configFile = root.appendingPathComponent("config.toml")
+        try Data(
+            """
+            [refresh]
+            concurrency 2
+            """.utf8
+        ).write(to: configFile)
+
+        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) { error in
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("line 2"))
+            XCTAssertTrue(message.contains("invalid line concurrency 2"))
+        }
+    }
+
+    func testInvalidConfigValueReportsLineNumber() throws {
+        let root = try temporaryDirectory()
+        let configFile = root.appendingPathComponent("config.toml")
+        try Data(
+            """
+            [refresh]
+            concurrency = no
+            """.utf8
+        ).write(to: configFile)
+
+        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) { error in
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("line 2"))
+            XCTAssertTrue(message.contains("refresh.concurrency: invalid value no"))
+        }
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("updatebar-tests-\(UUID().uuidString)")
