@@ -77,6 +77,32 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertNil(rtk.recipe)
     }
 
+    func testKnownToolsAreDedupedWhenManagerNamesAreVersionedOrScoped() throws {
+        let commands = MockCommandExecutor(results: [
+            ScanService.brewListCommand: CommandResult(
+                exitCode: 0, stdout: "node@22 22.22.0\n", stderr: ""),
+            ScanService.npmGlobalListCommand: CommandResult(
+                exitCode: 0,
+                stdout: #"{"dependencies":{"@openai/codex":{"version":"0.140.0"}}}"#,
+                stderr: ""
+            ),
+            ScanService.knownToolsCommand: CommandResult(
+                exitCode: 0,
+                stdout: "node\tv22.22.2\ncodex\t0.140.0\nrtk\trtk 0.9.0\n",
+                stderr: ""
+            ),
+        ])
+        let service = ScanService(commandRunner: commands)
+
+        let report = try service.scan(detectors: [.brew, .npmGlobal, .known])
+
+        XCTAssertNotNil(report.candidates.first { $0.id == "brew.node22" })
+        XCTAssertNotNil(report.candidates.first { $0.id == "npm.openai.codex" })
+        XCTAssertNil(report.candidates.first { $0.id == "known.node" })
+        XCTAssertNil(report.candidates.first { $0.id == "known.codex" })
+        XCTAssertNotNil(report.candidates.first { $0.id == "known.rtk" })
+    }
+
     func testScanDeduplicatesRepeatedManagerOutputByID() throws {
         let commands = MockCommandExecutor(results: [
             ScanService.brewListCommand: CommandResult(

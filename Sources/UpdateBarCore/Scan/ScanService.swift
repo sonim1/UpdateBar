@@ -305,11 +305,12 @@ public struct ScanService {
     }
 
     private func dedupe(_ candidates: [ScanCandidate]) -> [ScanCandidate] {
-        let managerOwnedNames = Set(
+        let managerOwnedNames =
             candidates
                 .filter { $0.detector != .known && $0.capability == .full }
-                .map { $0.name.lowercased() }
-        )
+                .reduce(into: Set<String>()) { names, candidate in
+                    names.formUnion(managerOwnedKnownToolNames(for: candidate))
+                }
         var seenIDs = Set<String>()
         return candidates.filter { candidate in
             guard seenIDs.insert(candidate.id).inserted else {
@@ -318,6 +319,38 @@ public struct ScanService {
             return !(candidate.detector == .known
                 && managerOwnedNames.contains(candidate.name.lowercased()))
         }
+    }
+
+    private func managerOwnedKnownToolNames(for candidate: ScanCandidate) -> Set<String> {
+        var names = Set([candidate.name.lowercased()])
+        if candidate.detector == .brew, let versionlessName = versionlessBrewName(candidate.name) {
+            names.insert(versionlessName)
+        }
+        if candidate.detector == .npmGlobal,
+            candidate.category == "ai-agent",
+            let packageLeafName = scopedPackageLeafName(candidate.name)
+        {
+            names.insert(packageLeafName)
+        }
+        return names
+    }
+
+    private func versionlessBrewName(_ name: String) -> String? {
+        let normalized = name.lowercased()
+        guard let suffixStart = normalized.firstIndex(of: "@") else { return nil }
+        let versionlessName = normalized[..<suffixStart]
+        return versionlessName.isEmpty ? nil : String(versionlessName)
+    }
+
+    private func scopedPackageLeafName(_ name: String) -> String? {
+        let normalized = name.lowercased()
+        guard normalized.hasPrefix("@"),
+            let slashIndex = normalized.firstIndex(of: "/")
+        else {
+            return nil
+        }
+        let leafName = normalized[normalized.index(after: slashIndex)...]
+        return leafName.isEmpty ? nil : String(leafName)
     }
 
     private func sortCandidates(_ lhs: ScanCandidate, _ rhs: ScanCandidate) -> Bool {
