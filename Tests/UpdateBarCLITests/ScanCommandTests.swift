@@ -274,7 +274,38 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stdout.contains("brew.gh"))
         XCTAssertTrue(result.stdout.contains("updatebar init\n"))
-        XCTAssertTrue(result.stdout.contains("updatebar init --select brew.gh"))
+        XCTAssertTrue(result.stdout.contains("updatebar init --select all"))
+        XCTAssertFalse(result.stdout.contains("updatebar init --select brew.gh"))
+    }
+
+    func testScanHumanCategoryNextStepPreservesCategoryAndUsesAllSelection() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            if [ "$1" = "leaves" ]; then
+              printf 'jq\\ngh\\n'
+            elif [ "$1" = "list" ]; then
+              printf 'jq 1.7.1\\ngh 2.74.0\\n'
+            fi
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--category", "cloud-devops"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("brew.gh"))
+        XCTAssertFalse(result.stdout.contains("brew.jq"))
+        XCTAssertTrue(result.stdout.contains("updatebar init --category cloud-devops\n"))
+        XCTAssertTrue(result.stdout.contains("updatebar init --category cloud-devops --select all"))
+        XCTAssertFalse(result.stdout.contains("updatebar init\nupdatebar init --select"))
     }
 
     func testScanDetectorsFlagIsRemovedFromCLI() throws {

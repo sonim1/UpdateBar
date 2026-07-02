@@ -5,7 +5,11 @@ import UpdateBarCore
 struct InitCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "init",
-        abstract: "Scan installed local tools and register selected recipes."
+        abstract: "Scan installed local tools and register selected recipes.",
+        discussion: """
+        Without --select, init prints numbered importable candidates and prompts for numbers, ids, or all.
+        Use ids copied from `updatebar scan` when running headless setup with --select.
+        """
     )
 
     @Flag(name: .long, help: "Print machine-readable JSON.")

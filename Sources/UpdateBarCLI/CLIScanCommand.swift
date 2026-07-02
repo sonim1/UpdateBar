@@ -25,11 +25,11 @@ struct ScanCommand: ParsableCommand {
         if json {
             try printJSON(report)
         } else {
-            printHuman(report)
+            printHuman(report, categoryFilter: categoryFilter)
         }
     }
 
-    private func printHuman(_ report: ScanReport) {
+    private func printHuman(_ report: ScanReport, categoryFilter: String?) {
         print("Found \(report.candidates.count) candidate(s)")
         print("")
         let recommended = report.candidates.filter { $0.capability == .full }
@@ -37,7 +37,7 @@ struct ScanCommand: ParsableCommand {
         let nextIndex = printSection("Recommended", candidates: recommended, startIndex: 1)
         _ = printSection("Needs Review", candidates: needsReview, startIndex: nextIndex)
         printReviewOnlyNote(recommended: recommended, needsReview: needsReview)
-        printNextStep(recommended)
+        printNextStep(recommended, categoryFilter: categoryFilter)
         if !report.errors.isEmpty {
             print("")
             print("Errors")
@@ -94,15 +94,15 @@ struct ScanCommand: ParsableCommand {
         return sourceRef
     }
 
-    private func printNextStep(_ candidates: [ScanCandidate]) {
-        let ids = candidates.compactMap { candidate in
-            candidate.recipe == nil ? nil : candidate.id
-        }
-        guard !ids.isEmpty else { return }
+    private func printNextStep(_ candidates: [ScanCandidate], categoryFilter: String?) {
+        guard candidates.contains(where: { $0.recipe != nil }) else { return }
+        let baseCommand = categoryFilter.map {
+            "updatebar init --category \($0)"
+        } ?? "updatebar init"
         printNextCommands(
             [
-                "updatebar init",
-                "updatebar init --select \(ids.joined(separator: ","))",
+                baseCommand,
+                "\(baseCommand) --select all",
             ],
             leadingBlank: false
         )

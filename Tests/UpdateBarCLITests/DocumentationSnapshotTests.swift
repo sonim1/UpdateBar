@@ -210,6 +210,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertEqual(result.stderr, "")
         XCTAssertTrue(result.stdout.contains("numbers"))
         XCTAssertTrue(result.stdout.contains("all"))
+        XCTAssertTrue(result.stdout.contains("Without --select"))
+        XCTAssertTrue(result.stdout.contains("Use ids copied from `updatebar scan`"))
     }
 
     func testScanAndInitHelpListSupportedCategories() throws {
@@ -515,6 +517,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(scanSection.contains("--detectors"))
         XCTAssertTrue(scanSection.contains("metadata-only"))
         XCTAssertTrue(scanSection.contains("source ref"))
+        XCTAssertTrue(scanSection.contains("`updatebar init --select all`"))
+        XCTAssertTrue(scanSection.contains("preserve the same `--category` filter"))
     }
 
     func testCliDocsHideAutomationExitFlagFromPrimarySignatures() throws {

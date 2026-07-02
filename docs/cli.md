@@ -114,10 +114,11 @@ For categories that map to a single metadata detector, such as `codex-skill` or
 `mcp-server`, the default scan only runs that relevant detector.
 
 Human output includes each candidate id, such as `brew.gh`, plus the interactive
-`updatebar init` command and a ready-to-run `updatebar init --select ...` command
-for importable candidates. `metadata-only` rows include a source ref so local
-skill and MCP config entries can be traced without printing env values. JSON
-output returns the same ids in `candidates[].id`.
+`updatebar init` command and a ready-to-run `updatebar init --select all`
+command for importable candidates. Category-filtered scans preserve the same `--category` filter in those Next commands.
+`metadata-only` rows include a source ref so local skill and MCP config entries
+can be traced without printing env values. JSON output returns the same ids in
+`candidates[].id`.
 
 ### `updatebar init [--json] [--category <category>] [--select <ids>] [--replace]`
 
