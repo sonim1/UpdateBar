@@ -159,8 +159,12 @@ public struct ScanService {
                 .filter { $0.detector != .known && $0.capability == .full }
                 .map { $0.name.lowercased() }
         )
+        var seenIDs = Set<String>()
         return candidates.filter { candidate in
-            !(candidate.detector == .known
+            guard seenIDs.insert(candidate.id).inserted else {
+                return false
+            }
+            return !(candidate.detector == .known
                 && managerOwnedNames.contains(candidate.name.lowercased()))
         }
     }

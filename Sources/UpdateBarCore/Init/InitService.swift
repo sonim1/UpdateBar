@@ -25,7 +25,10 @@ public struct InitService {
         replace: Bool
     ) throws -> InitSummary {
         let selectedIDs = unique(selectedIDs)
-        let candidatesByID = Dictionary(uniqueKeysWithValues: candidates.map { ($0.id, $0) })
+        let candidatesByID = Dictionary(
+            candidates.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
         var recipesByID: [String: Recipe] = [:]
         var errors: [String] = []
 

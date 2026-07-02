@@ -77,6 +77,21 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertNil(rtk.recipe)
     }
 
+    func testScanDeduplicatesRepeatedManagerOutputByID() throws {
+        let commands = MockCommandExecutor(results: [
+            ScanService.brewListCommand: CommandResult(
+                exitCode: 0,
+                stdout: "gh 2.74.0\ngh 2.74.0\n",
+                stderr: ""
+            ),
+        ])
+        let service = ScanService(commandRunner: commands)
+
+        let report = try service.scan(detectors: [.brew])
+
+        XCTAssertEqual(report.candidates.map(\.id), ["brew.gh"])
+    }
+
     func testScanCategoriesCommonVersionedAndScopedTools() throws {
         let commands = MockCommandExecutor(results: [
             ScanService.brewListCommand: CommandResult(

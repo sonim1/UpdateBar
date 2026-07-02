@@ -75,6 +75,36 @@ final class InitCommandTests: XCTestCase {
         XCTAssertEqual(replacedPayload.skipped, [])
     }
 
+    func testInitDeduplicatesRepeatedScanCandidates() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            if [ "$1" = "leaves" ]; then
+              printf 'gh\\ngh\\n'
+            elif [ "$1" = "list" ]; then
+              printf 'gh 2.74.0\\ngh 2.74.0\\n'
+            fi
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["init", "--json", "--detectors", "brew", "--select", "ALL"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        let payload = try JSONDecoder.updateBar.decode(
+            InitPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(payload.added, ["brew.gh"])
+        let manifest = try ManifestStore(paths: AppPaths(homeDirectory: home)).load()
+        XCTAssertEqual(manifest.items.map(\.id), ["brew.gh"])
+    }
+
     func testInitInteractiveSelectionAcceptsCandidateNumbers() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = try fakeManagers(home: home)
