@@ -158,7 +158,7 @@ public struct RegistryService {
 
     public func pin(id: String, version: String? = nil) throws -> Recipe {
         try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.load()
+            var manifest = try manifestStore.loadExistingOrEmpty(now: now())
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }
@@ -182,7 +182,7 @@ public struct RegistryService {
 
     public func unpin(id: String) throws -> Recipe {
         try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.load()
+            var manifest = try manifestStore.loadExistingOrEmpty(now: now())
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }
@@ -196,7 +196,7 @@ public struct RegistryService {
 
     public func setEnabled(id: String, enabled: Bool) throws -> Recipe {
         try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.load()
+            var manifest = try manifestStore.loadExistingOrEmpty(now: now())
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }
@@ -210,7 +210,7 @@ public struct RegistryService {
 
     public func approve(id: String, field: String? = nil) throws -> Recipe {
         try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.load()
+            var manifest = try manifestStore.loadExistingOrEmpty(now: now())
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }
@@ -262,7 +262,7 @@ public struct RegistryService {
 
     public func revokeApproval(id: String, field: String) throws -> Recipe {
         try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.load()
+            var manifest = try manifestStore.loadExistingOrEmpty(now: now())
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }
@@ -282,7 +282,7 @@ public struct RegistryService {
 
     public func remove(id: String) throws {
         try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.load()
+            var manifest = try manifestStore.loadExistingOrEmpty(now: now())
             guard manifest.item(id: id) != nil else {
                 throw RegistryError.itemNotFound(id)
             }

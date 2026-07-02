@@ -139,6 +139,31 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
     }
 
+    func testMissingItemMutationsDoNotCreateManifest() throws {
+        let commands = [
+            ["pin", "missing", "1.0.0", "--json"],
+            ["unpin", "missing", "--json"],
+            ["disable", "missing", "--json"],
+            ["enable", "missing", "--json"],
+            ["approve", "missing", "--json"],
+            ["revoke", "missing", "--field", "update.cmd", "--json"],
+            ["remove", "missing", "--yes", "--json"],
+        ]
+
+        for command in commands {
+            let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+            let paths = AppPaths(homeDirectory: home)
+
+            let result = try CLIProcess.run(command, home: home)
+
+            XCTAssertEqual(result.exitCode, 1, command.joined(separator: " "))
+            XCTAssertFalse(
+                FileManager.default.fileExists(atPath: paths.manifestFile.path),
+                command.joined(separator: " ")
+            )
+        }
+    }
+
     func testApproveInvalidFieldJSONSuggestsApprovals() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
