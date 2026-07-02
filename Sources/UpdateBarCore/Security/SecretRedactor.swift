@@ -8,7 +8,7 @@ public enum SecretRedactor {
             #"sk-[A-Za-z0-9._-]{8,}"#,
             #"ghp_[A-Za-z0-9_]{20,}"#,
             #"github_pat_[A-Za-z0-9_]{20,}"#,
-            #"(?i)(OPENROUTER_API_KEY|ANTHROPIC_API_KEY|OPENAI_API_KEY|GOOGLE_API_KEY|GITHUB_TOKEN|GH_TOKEN)=\S+"#
+            #"(?i)(OPENROUTER_API_KEY|ANTHROPIC_API_KEY|OPENAI_API_KEY|GOOGLE_API_KEY|GITHUB_TOKEN|GH_TOKEN|NPM_TOKEN|NODE_AUTH_TOKEN|HOMEBREW_GITHUB_API_TOKEN|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN)=\S+"#
         ]
         for pattern in patterns {
             output = output.replacingOccurrences(

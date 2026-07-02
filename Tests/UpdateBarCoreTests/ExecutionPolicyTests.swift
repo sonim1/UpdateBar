@@ -135,6 +135,17 @@ final class ExecutionPolicyTests: XCTestCase {
         )
     }
 
+    func testSecretRedactorMasksPackageManagerAndCloudTokenEnvironmentNames() {
+        let redacted = SecretRedactor.redact(
+            "NPM_TOKEN=npm_secret HOMEBREW_GITHUB_API_TOKEN=brew-secret AWS_SECRET_ACCESS_KEY=aws-secret"
+        )
+
+        XCTAssertFalse(redacted.contains("npm_secret"))
+        XCTAssertFalse(redacted.contains("brew-secret"))
+        XCTAssertFalse(redacted.contains("aws-secret"))
+        XCTAssertEqual(redacted, "[REDACTED] [REDACTED] [REDACTED]")
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("updatebar-execution-tests-\(UUID().uuidString)")

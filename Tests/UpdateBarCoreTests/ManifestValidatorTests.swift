@@ -343,6 +343,25 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].update.cwd: must not contain literal secrets"))
     }
 
+    func testRejectsPackageManagerAndCloudTokenNamesInExecutableFields() throws {
+        let result = try validateFirstRawItem {
+            $0["check"] = [
+                "cmd": "NPM_TOKEN=npm-secret tool --version",
+            ] as [String: Any]
+            $0["latest"] = [
+                "strategy": "cmd",
+                "cmd": "HOMEBREW_GITHUB_API_TOKEN=brew-secret brew livecheck tool",
+            ] as [String: Any]
+            var update = try XCTUnwrap($0["update"] as? [String: Any])
+            update["cmd"] = "AWS_SECRET_ACCESS_KEY=aws-secret tool update"
+            $0["update"] = update
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].check.cmd: must not contain literal secrets"))
+        XCTAssertTrue(result.errors.contains("items[0].latest.cmd: must not contain literal secrets"))
+        XCTAssertTrue(result.errors.contains("items[0].update.cmd: must not contain literal secrets"))
+    }
+
     func testDefaultsMissingEnabledAndAcceptsMissingLegacyNotify() throws {
         let data = try validDataUpdatingFirstRawItem {
             $0.removeValue(forKey: "enabled")
