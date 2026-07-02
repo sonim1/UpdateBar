@@ -46,12 +46,10 @@ struct StatusCommand: ParsableCommand {
             return
         }
 
-        printNextCommands(untrusted.flatMap { item in
-            [
-                "updatebar approvals \(item.id)",
-                "updatebar check \(item.id)",
-            ]
-        } + checking.map { "updatebar check \($0.id)" })
+        let untrustedCommands = untrusted.map(\.id).flatMap { id in
+            [approvalCommand(for: id), checkCommand(for: id)]
+        }
+        printNextCommands(untrustedCommands + checkCommands(for: checking.map(\.id)))
     }
 }
 

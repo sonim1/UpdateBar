@@ -79,14 +79,12 @@ struct UpdateCommand: ParsableCommand {
         guard !blocked.isEmpty || !cancelled.isEmpty || !notOutdated.isEmpty else {
             return
         }
-        var commands = blocked.map { "updatebar approvals \($0.id)" }
-        if !cancelled.isEmpty {
-            let ids = cancelled.map(\.id).joined(separator: " ")
-            commands.append("updatebar update \(ids) --yes")
+        var commands = approvalCommands(for: blocked.map(\.id))
+        if let retry = batchUpdateYesCommand(for: cancelled.map(\.id)) {
+            commands.append(retry)
         }
-        if !notOutdated.isEmpty {
-            let ids = notOutdated.map(\.id).joined(separator: " ")
-            commands.append("updatebar check \(ids)")
+        if let check = batchCheckCommand(for: notOutdated.map(\.id)) {
+            commands.append(check)
         }
         printNextCommands(commands)
     }

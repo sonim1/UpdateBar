@@ -69,11 +69,11 @@ func unique(_ values: [String]) -> [String] {
 }
 
 func printApprovalAndCheckNextSteps(for ids: [String]) {
-    guard !ids.isEmpty else { return }
-    printNextCommands(
-        ids.map { "updatebar approvals \($0)" }
-            + ["updatebar check \(ids.joined(separator: " "))"]
-    )
+    var commands = approvalCommands(for: ids)
+    if let check = batchCheckCommand(for: ids) {
+        commands.append(check)
+    }
+    printNextCommands(commands)
 }
 
 func printEmptyRegistryNextStep() {
@@ -88,6 +88,34 @@ func printNextCommands(_ commands: [String]) {
     for command in commands {
         print(command)
     }
+}
+
+func approvalCommand(for id: String) -> String {
+    "updatebar approvals \(id)"
+}
+
+func approvalCommands(for ids: [String]) -> [String] {
+    ids.map(approvalCommand)
+}
+
+func checkCommand(for id: String) -> String {
+    "updatebar check \(id)"
+}
+
+func checkCommands(for ids: [String]) -> [String] {
+    ids.map(checkCommand)
+}
+
+func batchCheckCommand(for ids: [String]) -> String? {
+    let ids = ids.filter { !$0.isEmpty }
+    guard !ids.isEmpty else { return nil }
+    return "updatebar check \(ids.joined(separator: " "))"
+}
+
+func batchUpdateYesCommand(for ids: [String]) -> String? {
+    let ids = ids.filter { !$0.isEmpty }
+    guard !ids.isEmpty else { return nil }
+    return "updatebar update \(ids.joined(separator: " ")) --yes"
 }
 
 func normalizedCategory(for value: String) throws -> String {

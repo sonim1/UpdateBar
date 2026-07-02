@@ -83,8 +83,7 @@ struct CheckCommand: ParsableCommand {
         }
 
         printNextCommands(
-            blocked.map { "updatebar approvals \($0.id)" }
-                + updateApprovalNeeded.map { "updatebar approvals \($0.id)" }
+            approvalCommands(for: blocked.map(\.id) + updateApprovalNeeded.map(\.id))
         )
     }
 
