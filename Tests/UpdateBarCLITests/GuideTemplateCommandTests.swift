@@ -105,6 +105,7 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("notify"))
         XCTAssertFalse(result.stdout.contains("jq"))
         XCTAssertTrue(result.stdout.contains("Defaults: enabled=true, update.requires_write=true"))
+        XCTAssertTrue(result.stdout.contains("Literal API keys and token values are rejected"))
     }
 
     func testTemplateRecipeAcceptsAgentOverrides() throws {

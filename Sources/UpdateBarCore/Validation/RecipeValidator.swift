@@ -75,6 +75,8 @@ public enum RecipeValidator {
             errors += requireString(update, "cmd", path: "\(path).update")
             errors += requireOptionalStringIfPresent(update, "cwd", path: "\(path).update")
             errors += requireBooleanIfPresent(update, "requires_write", path: "\(path).update")
+            errors += rejectLiteralSecret(update["cmd"], path: "\(path).update.cmd")
+            errors += rejectLiteralSecret(update["cwd"], path: "\(path).update.cwd")
         } else {
             errors.append("\(path).update: required")
         }
@@ -150,6 +152,7 @@ public enum RecipeValidator {
         let hasQueryField = check.keys.contains("query")
         let hasCmd = nonEmptyString(check["cmd"])
         let hasFile = nonEmptyString(check["file"])
+        errors += rejectLiteralSecret(check["cmd"], path: "\(path).cmd")
         if hasQueryField {
             errors.append("\(path).query: unsupported until runtime support is implemented")
             if !(check["query"] is String || check["query"] is NSNull) {
@@ -169,6 +172,7 @@ public enum RecipeValidator {
         var errors = requireString(latest, "strategy", path: path)
         errors += requireOptionalStringIfPresent(latest, "cmd", path: path)
         errors += requireOptionalStringIfPresent(latest, "pattern", path: path)
+        errors += rejectLiteralSecret(latest["cmd"], path: "\(path).cmd")
         guard let strategy = latest["strategy"] as? String else {
             return errors
         }
@@ -244,6 +248,11 @@ public enum RecipeValidator {
         guard object.keys.contains(key) else { return [] }
         if object[key] is String || object[key] is NSNull { return [] }
         return ["\(path).\(key): must be a string or null when provided"]
+    }
+
+    private static func rejectLiteralSecret(_ value: Any?, path: String) -> [String] {
+        guard let text = value as? String, SecretRedactor.redact(text) != text else { return [] }
+        return ["\(path): must not contain literal secrets"]
     }
 
     private static func nonEmptyString(_ value: Any?) -> Bool {

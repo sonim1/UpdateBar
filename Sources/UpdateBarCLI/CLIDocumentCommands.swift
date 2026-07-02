@@ -77,6 +77,7 @@ struct GuideCommand: ParsableCommand {
                 - check.file reads local file content and parses it with version_parse.regex
                 - latest.strategy cmd and all update commands require explicit approval
                 - imported recipes should stay untrusted until a user reviews commands
+                - Literal API keys and token values are rejected; reference environment variables instead
 
                 Start with:
                 updatebar schema

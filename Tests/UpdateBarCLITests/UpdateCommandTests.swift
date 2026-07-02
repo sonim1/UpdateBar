@@ -29,7 +29,7 @@ final class UpdateCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
         try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "bad", updateCommand: "printf 'sk-or-v1-secret' >&2; exit 3", currentCommand: "printf 'bad 1.0.0'"),
+            recipe(id: "bad", updateCommand: "printf 'sk-or-v1-%s' 'secret' >&2; exit 3", currentCommand: "printf 'bad 1.0.0'"),
             recipe(id: "good", updateCommand: "printf updated", currentCommand: "printf 'good 1.1.0'")
         ]))
         try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
@@ -209,7 +209,7 @@ final class UpdateCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
         try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "bad", updateCommand: "printf 'sk-or-v1-secret' >&2; exit 3", currentCommand: "printf 'bad 1.0.0'")
+            recipe(id: "bad", updateCommand: "printf 'sk-or-v1-%s' 'secret' >&2; exit 3", currentCommand: "printf 'bad 1.0.0'")
         ]))
         try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
             "bad": itemState(status: .outdated)

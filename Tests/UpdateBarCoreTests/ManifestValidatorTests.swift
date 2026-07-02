@@ -322,6 +322,27 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].update.requires_write: must be a boolean when provided"))
     }
 
+    func testRejectsLiteralSecretsInExecutableFields() throws {
+        let result = try validateFirstRawItem {
+            $0["check"] = [
+                "cmd": "OPENROUTER_API_KEY=sk-or-v1-secret-value tool --version",
+            ] as [String: Any]
+            $0["latest"] = [
+                "strategy": "cmd",
+                "cmd": "printf sk-or-v1-secret-value",
+            ] as [String: Any]
+            var update = try XCTUnwrap($0["update"] as? [String: Any])
+            update["cmd"] = "tool update --token ghp_1234567890abcdefghijklmnopqrstu"
+            update["cwd"] = "/tmp/sk-or-v1-secret-value"
+            $0["update"] = update
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].check.cmd: must not contain literal secrets"))
+        XCTAssertTrue(result.errors.contains("items[0].latest.cmd: must not contain literal secrets"))
+        XCTAssertTrue(result.errors.contains("items[0].update.cmd: must not contain literal secrets"))
+        XCTAssertTrue(result.errors.contains("items[0].update.cwd: must not contain literal secrets"))
+    }
+
     func testDefaultsMissingEnabledAndAcceptsMissingLegacyNotify() throws {
         let data = try validDataUpdatingFirstRawItem {
             $0.removeValue(forKey: "enabled")
