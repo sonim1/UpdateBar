@@ -794,7 +794,6 @@ private func normalizedCategory(for value: String) throws -> String {
         "runtimesdk": "runtime-sdk",
         "shellutility": "shell-utility",
         "clouddevops": "cloud-devops",
-        "localservice": "local-service",
         "mcpserver": "mcp-server",
         "codexskill": "codex-skill",
     ]

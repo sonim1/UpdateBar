@@ -481,13 +481,14 @@ final class ScanCommandTests: XCTestCase {
         )
 
         let result = try CLIProcess.run(
-            ["scan", "--detectors", "brew", "--category", "not-a-real-category"],
+            ["scan", "--detectors", "brew", "--category", "localservice"],
             home: home,
             environment: ["PATH": bin.path]
         )
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.contains("not-a-real-category: unknown category"))
+        XCTAssertTrue(result.stderr.contains("localservice: unknown category"))
+        XCTAssertFalse(result.stderr.contains("local-service: unknown category"))
         XCTAssertTrue(result.stderr.contains("ai-agent"))
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
         XCTAssertFalse(result.stderr.contains("detector should not run"))
