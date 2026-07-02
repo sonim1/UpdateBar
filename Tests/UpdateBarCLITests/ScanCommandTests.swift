@@ -73,6 +73,22 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("jq"))
     }
 
+    func testScanHumanEmptyCategoryResultSuggestsBroaderScan() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+
+        let result = try CLIProcess.run(
+            ["scan", "--category", "mcp-server"],
+            home: home,
+            environment: ["HOME": home.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("Found 0 candidate(s)"))
+        XCTAssertTrue(result.stdout.contains("No candidates found for category mcp-server."))
+        XCTAssertTrue(result.stdout.contains("Try updatebar scan without --category."))
+        XCTAssertFalse(result.stdout.contains("Next"))
+    }
+
     func testScanHumanOutputCanFilterScopedAIAgentPackages() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
         let bin = home.appendingPathComponent("bin")

@@ -587,6 +587,20 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testCliDocsScanDocumentsEmptyResultGuidance() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let scanSpec = try String(contentsOfFile: "docs/scan-init-spec.md", encoding: .utf8)
+        let scanSection = try readmeSection(
+            "### `updatebar scan",
+            before: "### `updatebar init",
+            in: docs
+        )
+
+        XCTAssertTrue(scanSection.contains("No candidates found"))
+        XCTAssertTrue(scanSection.contains("without `--category`"))
+        XCTAssertTrue(scanSpec.contains("No candidates found"))
+    }
+
     func testCliDocsHideAutomationExitFlagFromPrimarySignatures() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
         let checkSection = try readmeSection(

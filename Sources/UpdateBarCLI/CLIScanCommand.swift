@@ -32,6 +32,7 @@ struct ScanCommand: ParsableCommand {
     private func printHuman(_ report: ScanReport, categoryFilter: String?) {
         print("Found \(report.candidates.count) candidate(s)")
         print("")
+        printEmptyResultHintIfNeeded(report, categoryFilter: categoryFilter)
         let recommended = report.candidates.filter { $0.capability == .full }
         let needsReview = report.candidates.filter { $0.capability != .full }
         let nextIndex = printSection("Recommended", candidates: recommended, startIndex: 1)
@@ -45,6 +46,17 @@ struct ScanCommand: ParsableCommand {
                 print("- \(error.detector.rawValue): \(error.message)")
             }
         }
+    }
+
+    private func printEmptyResultHintIfNeeded(_ report: ScanReport, categoryFilter: String?) {
+        guard report.candidates.isEmpty else { return }
+        if let categoryFilter {
+            print("No candidates found for category \(categoryFilter).")
+            print("Try updatebar scan without --category.")
+        } else {
+            print("No candidates found. Check that supported tools are installed.")
+        }
+        print("")
     }
 
     private func printSection(
