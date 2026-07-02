@@ -20,16 +20,15 @@ final class ValidateCommandTests: XCTestCase {
 
     func testValidateExplainRejectsUnsupportedJQVersionParse() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-validate-tests")
-        var item = recipe()
-        item.versionParse = .jq(".version")
         let file = home.appendingPathComponent("jq-recipe.json")
-        try JSONEncoder.updateBar.encode(item).write(to: file)
+        try Data(jqRecipeJSON().utf8).write(to: file)
 
         let result = try CLIProcess.run(["validate", file.path, "--json", "--explain"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stdout.contains("version_parse.jq"))
         XCTAssertTrue(result.stdout.contains("unsupported until runtime support is implemented"))
+        XCTAssertFalse(result.stdout.contains("decoded by the schema"))
     }
 
     func testValidateExplainGuidesInvalidVersionRegex() throws {
@@ -108,6 +107,25 @@ final class ValidateCommandTests: XCTestCase {
             enabled: true,
             trust: Trust(level: .untrusted, approvedCommands: [:])
         )
+    }
+
+    private func jqRecipeJSON() -> String {
+        """
+        {
+          "id": "tool",
+          "name": "Tool",
+          "category": "cli",
+          "source": { "kind": "custom", "ref": "tool", "branch": null },
+          "version_scheme": "semver",
+          "check": { "cmd": "printf 'tool 1.0.0'" },
+          "latest": { "strategy": "cmd", "cmd": "printf 'tool 1.1.0'", "pattern": null },
+          "version_parse": { "jq": ".version" },
+          "update": { "cmd": "printf updated", "requires_write": true, "cwd": null },
+          "pin": null,
+          "enabled": true,
+          "trust": { "level": "untrusted", "approved_commands": {} }
+        }
+        """
     }
 
     private struct ValidationPayload: Decodable {

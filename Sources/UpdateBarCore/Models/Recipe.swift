@@ -248,7 +248,6 @@ public enum LatestStrategyKind: String, Codable, Equatable {
 
 public enum VersionParse: Codable, Equatable {
     case regex(String)
-    case jq(String)
 
     enum CodingKeys: String, CodingKey {
         case regex
@@ -279,8 +278,6 @@ public enum VersionParse: Codable, Equatable {
         switch self {
         case let .regex(regex):
             try container.encode(regex, forKey: .regex)
-        case let .jq(jq):
-            try container.encode(jq, forKey: .jq)
         }
     }
 }
@@ -338,13 +335,6 @@ public struct Trust: Codable, Equatable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         level = try container.decode(TrustLevel.self, forKey: .level)
-        if level == .elevated {
-            throw DecodingError.dataCorruptedError(
-                forKey: .level,
-                in: container,
-                debugDescription: "trust.level elevated is computed and cannot be stored"
-            )
-        }
         approvedCommands = try container.decode([String: String].self, forKey: .approvedCommands)
     }
 }
@@ -352,5 +342,4 @@ public struct Trust: Codable, Equatable {
 public enum TrustLevel: String, Codable, Equatable {
     case trusted
     case untrusted
-    case elevated
 }

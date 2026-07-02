@@ -359,10 +359,9 @@ final class ManifestValidatorTests: XCTestCase {
     }
 
     func testRejectsJQVersionParseUntilRuntimeSupportExists() throws {
-        var manifest = try loadValid()
-        manifest.items[0].versionParse = .jq(".version")
-
-        let result = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
+        let result = try validateFirstRawItem {
+            $0["version_parse"] = ["jq": ".version"]
+        }
 
         XCTAssertFalse(result.isValid)
         XCTAssertTrue(result.errors.contains("items[0].version_parse.jq: unsupported until runtime support is implemented"))

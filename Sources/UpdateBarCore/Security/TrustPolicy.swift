@@ -1,13 +1,6 @@
 import Foundation
 
 public enum TrustPolicy {
-    public static func effectiveLevel(for recipe: Recipe) -> TrustLevel {
-        if recipe.latest.strategy == .cmd || recipe.hasCommandFields && recipe.source.kind == .custom {
-            return .elevated
-        }
-        return recipe.trust.level
-    }
-
     public static func isApproved(_ recipe: Recipe, field: String) -> Bool {
         guard recipe.trust.level == .trusted else { return false }
         guard let current = recipe.commandFingerprints()[field] else { return false }

@@ -3,13 +3,15 @@ import UpdateBarCore
 import UpdateBarTestSupport
 
 final class TrustPolicyTests: XCTestCase {
-    func testCmdLatestStrategyIsElevatedTrust() throws {
+    func testCmdLatestStrategyRequiresLatestCommandApproval() throws {
         var recipe = try loadRecipe()
         recipe.latest.strategy = .cmd
         recipe.latest.cmd = "tool latest"
-        recipe.trust.level = .trusted
+        TrustPolicy.approveAllCommands(in: &recipe)
+        recipe.latest.cmd = "tool latest v2"
 
-        XCTAssertEqual(TrustPolicy.effectiveLevel(for: recipe), .elevated)
+        XCTAssertFalse(TrustPolicy.isCheckApproved(recipe))
+        XCTAssertFalse(TrustPolicy.hasApprovedCommandFingerprints(recipe))
     }
 
     func testUntrustedRecipeCannotRunCommandFields() throws {
