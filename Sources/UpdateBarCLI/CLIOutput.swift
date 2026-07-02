@@ -26,6 +26,9 @@ func printJSON<T: Encodable>(_ value: T) throws {
 }
 
 func sanitizedErrorMessage(for error: Error) -> String {
+    if isJSONSyntaxError(error) {
+        return "document is not valid JSON"
+    }
     let rawMessage = UpdateBar.fullMessage(for: error).isEmpty
         ? String(describing: error)
         : UpdateBar.fullMessage(for: error)
@@ -34,6 +37,13 @@ func sanitizedErrorMessage(for error: Error) -> String {
         : rawMessage
     return SecretRedactor.redact(normalizedMessage)
 }
+
+func isJSONSyntaxError(_ error: Error) -> Bool {
+    let nsError = error as NSError
+    return nsError.domain == NSCocoaErrorDomain && nsError.code == jsonSerializationParseErrorCode
+}
+
+private let jsonSerializationParseErrorCode = 3840
 
 func writeStderr(_ message: String, addNewline: Bool = true) {
     let value = addNewline ? "\(message)\n" : message

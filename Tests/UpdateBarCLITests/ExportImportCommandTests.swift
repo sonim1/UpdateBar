@@ -100,6 +100,18 @@ final class ExportImportCommandTests: XCTestCase {
         XCTAssertEqual(stored.item(id: "stdin")?.trust.level, .untrusted)
     }
 
+    func testImportEmptyStdinJSONReturnsDecodeError() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-import-tests")
+
+        let result = try CLIProcess.run(["import", "-", "--json"], home: home, stdin: "")
+        let payload = try JSONDecoder.updateBar.decode(ErrorPayload.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "decode_error")
+        XCTAssertTrue(payload.errors.contains("document is not valid JSON"))
+    }
+
     func testImportHumanModePrintsApprovalAndCheckNextSteps() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-import-tests")
         let importFile = try writeImportManifest(home: home, items: [recipe(id: "imported")])

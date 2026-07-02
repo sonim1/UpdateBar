@@ -66,7 +66,7 @@ private func errorCode(for error: Error, exitCode: ExitCode) -> String {
     if error is RegistryError {
         return "registry_error"
     }
-    if error is DecodingError {
+    if error is DecodingError || isJSONSyntaxError(error) {
         return "decode_error"
     }
     return "runtime_error"

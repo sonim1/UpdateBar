@@ -18,6 +18,18 @@ final class ValidateCommandTests: XCTestCase {
         XCTAssertEqual(payload.errors, [])
     }
 
+    func testValidateEmptyStdinJSONReturnsDecodeError() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-validate-tests")
+
+        let result = try CLIProcess.run(["validate", "-", "--json"], home: home, stdin: "")
+        let payload = try JSONDecoder.updateBar.decode(ErrorPayload.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "decode_error")
+        XCTAssertTrue(payload.errors.contains("document is not valid JSON"))
+    }
+
     func testValidateExplainRejectsUnsupportedJQVersionParse() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-validate-tests")
         let file = home.appendingPathComponent("jq-recipe.json")
