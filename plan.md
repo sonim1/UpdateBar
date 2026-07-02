@@ -3,6 +3,8 @@
 > Historical plan snapshot. For current implementation decisions, see
 > [`current-plan.md`](current-plan.md). For upcoming work, see
 > [`next-plan.md`](next-plan.md).
+> Do not use this file as the source of truth for new implementation work.
+> The OpenRouter/provider direction below was superseded by the CLI-first reset.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
