@@ -43,7 +43,7 @@ export interface ScanReport {
 export interface ScanCandidate {
   id: string;
   name: string;
-  detector: 'brew' | 'npm_global' | 'known';
+  detector: 'brew' | 'npm_global' | 'known' | 'codex_skill' | 'mcp_config';
   category: string;
   capability: 'full' | 'check-only' | 'metadata-only' | 'unsupported';
   confidence: 'high' | 'medium' | 'low';
@@ -53,7 +53,7 @@ export interface ScanCandidate {
 }
 
 export interface ScanError {
-  detector: 'brew' | 'npm_global' | 'known';
+  detector: 'brew' | 'npm_global' | 'known' | 'codex_skill' | 'mcp_config';
   message: string;
 }
 

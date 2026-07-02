@@ -265,8 +265,40 @@ describe('App', () => {
     view.stdin.write(' ');
     await wait();
 
-    expect(view.lastFrame()).toContain('known.node is not importable yet');
+    expect(view.lastFrame()).toContain('known.node is not importable yet (check-only)');
     expect(selected).toEqual([]);
+  });
+
+  it('shows metadata-only scan candidates with their source ref', async () => {
+    const client = createClient({
+      async scan() {
+        return {
+          candidates: [
+            {
+              id: 'mcp_config.filesystem',
+              name: 'filesystem',
+              detector: 'mcp_config',
+              category: 'mcp-server',
+              capability: 'metadata-only',
+              confidence: 'medium',
+              source_ref: 'npx'
+            }
+          ],
+          errors: []
+        };
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'mcp_config.filesystem');
+
+    expect(view.lastFrame()).toContain('mcp_config');
+    expect(view.lastFrame()).toContain('metadata-only');
+    expect(view.lastFrame()).toContain('source: npx');
   });
 
   it('reports when trying to bulk-select with no importable candidates', async () => {

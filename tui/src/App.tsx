@@ -155,7 +155,7 @@ export function App({client: providedClient}: AppProps) {
       const candidate = candidates[scanIndex];
       if (!candidate) return;
       if (!canRegister(candidate)) {
-        setError(`${candidate.id} is not importable yet`);
+        setError(`${candidate.id} is not importable yet (${candidate.capability})`);
         return;
       }
       setError(undefined);
@@ -430,9 +430,7 @@ function ScanList({
       } of ${report.candidates.length}`}</Text>
       {visibleRows.map(({row, candidate}) => (
         <Text key={candidate.id} color={row === cursorIndex ? 'cyan' : undefined}>
-          {scanMarker(candidate, selectedIds.has(candidate.id))} {candidate.id} · {candidate.name}
-          {candidate.installed_version ? ` ${candidate.installed_version}` : ''} · {candidate.category} ·{' '}
-          {candidate.detector} · {candidate.capability}
+          {renderScanRow(candidate, selectedIds.has(candidate.id))}
         </Text>
       ))}
       {report.errors.map(error => (
@@ -459,6 +457,12 @@ function getVisibleRows(candidates: ScanCandidate[], cursorIndex: number, maxLin
 function scanMarker(candidate: ScanCandidate, selected: boolean) {
   if (!canRegister(candidate)) return '-';
   return selected ? '[x]' : '[ ]';
+}
+
+function renderScanRow(candidate: ScanCandidate, selected: boolean) {
+  const version = candidate.installed_version ? ` ${candidate.installed_version}` : '';
+  const source = candidate.source_ref ? ` · source: ${candidate.source_ref}` : '';
+  return `${scanMarker(candidate, selected)} ${candidate.id} · ${candidate.name}${version} · ${candidate.category} · ${candidate.detector} · ${candidate.capability}${source}`;
 }
 
 function canRegister(candidate: ScanCandidate) {
