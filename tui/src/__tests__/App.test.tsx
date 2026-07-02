@@ -100,6 +100,33 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('Run Updates');
   });
 
+  it('shows the UPDATEBAR_HOME config path from Open Config', async () => {
+    const previousHome = process.env.UPDATEBAR_HOME;
+    process.env.UPDATEBAR_HOME = '/tmp/updatebar-custom-home';
+    const client = createClient();
+    const view = render(<App client={client} />);
+
+    try {
+      await waitForFrame(view, 'Open Config');
+      view.stdin.write('\u001B[B');
+      view.stdin.write('\u001B[B');
+      view.stdin.write('\u001B[B');
+      view.stdin.write('\u001B[B');
+      await wait();
+      view.stdin.write('\r');
+      await waitForFrame(view, 'config path: /tmp/updatebar-custom-home/config.toml');
+
+      expect(view.lastFrame()).toContain('config path: /tmp/updatebar-custom-home/config.toml');
+    } finally {
+      view.unmount();
+      if (previousHome === undefined) {
+        delete process.env.UPDATEBAR_HOME;
+      } else {
+        process.env.UPDATEBAR_HOME = previousHome;
+      }
+    }
+  });
+
   it('selects all importable scan candidates at once', async () => {
     const selected: string[][] = [];
     const client = createClient({

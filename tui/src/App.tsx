@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
+import path from 'node:path';
 import {Box, Text, useApp, useInput, useStdin} from 'ink';
 import {createDefaultClient, type UpdateBarClient} from './client.js';
 import type {CheckReport, MachineEvent, ScanCandidate, ScanReport, StatusItem, StatusSnapshot} from './types.js';
@@ -513,8 +514,10 @@ function appendItemSample(lines: string[], report: CheckReport, status: StatusIt
 }
 
 function getConfigPath() {
+  const updateBarHome = process.env.UPDATEBAR_HOME?.trim();
+  if (updateBarHome) return path.join(updateBarHome, 'config.toml');
   const home = process.env.HOME || process.env.USERPROFILE || '~';
-  return `${home}/.updatebar/config.toml`;
+  return path.join(home, '.updatebar', 'config.toml');
 }
 
 function messageFor(error: unknown) {
