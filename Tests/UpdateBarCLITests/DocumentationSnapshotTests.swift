@@ -362,6 +362,21 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertLessThanOrEqual(quickStart.split(separator: "\n").count, 35, "README Quick Start should stay short enough to scan")
     }
 
+    func testCliDocsInitSelectMatchesHeadlessSelectionContract() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let initSection = try readmeSection(
+            "### `updatebar init",
+            before: "### `updatebar import",
+            in: docs
+        )
+
+        XCTAssertTrue(
+            initSection.contains("`--select` accepts comma-separated candidate numbers or ids"),
+            "init docs should mention numeric --select values"
+        )
+        XCTAssertTrue(initSection.contains("all"), "init docs should mention all")
+    }
+
     private func readmeSection(_ heading: String, before nextHeading: String, in readme: String) throws -> String {
         guard
             let start = readme.range(of: heading)?.upperBound,

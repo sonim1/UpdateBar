@@ -125,9 +125,10 @@ or whitespace-separated numbers or candidate ids from stdin. Enter `all` to add
 every importable candidate. If no importable candidates are found, `init` exits
 with a usage error and suggests retrying with different detectors or a broader
 filter.
-`--select` accepts comma-separated candidate ids such as `brew.gh,npm.typescript`,
-optional spaces are ignored, duplicate ids are ignored, and `ALL` is accepted for
-`all`. `--json` requires `--select` so stdout stays JSON-only.
+`--select` accepts comma-separated candidate numbers or ids such as
+`2,brew.gh,npm.typescript`, optional spaces are ignored, duplicate values are
+ignored, and `ALL` is accepted for `all`. `--json` requires `--select` so stdout
+stays JSON-only.
 
 Duplicate ids are skipped by default. Pass `--replace` to overwrite existing recipes. `init` never approves commands.
 
