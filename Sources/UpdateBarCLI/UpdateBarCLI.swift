@@ -2472,6 +2472,10 @@ struct EditCommand: ParsableCommand {
 
         try runEditor(file: temp)
         let editedData = try Data(contentsOf: temp)
+        let validation = try RecipeValidator.validate(data: editedData)
+        guard validation.isValid else {
+            throw ValidationError(validation.errors.joined(separator: "\n"))
+        }
         var edited = try JSONDecoder.updateBar.decode(Recipe.self, from: editedData)
         guard edited.id == original.id else {
             throw ValidationError("id cannot be changed during edit")

@@ -152,6 +152,22 @@ final class EditCommandTests: XCTestCase {
         XCTAssertEqual(manifest.item(id: "tool")?.name, "Tool")
     }
 
+    func testInvalidEditReportsValidationErrorsWithoutCodingKeys() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let editor = try editorScript(home: home, body: #"printf '{ "id": "tool" }' > "$1""#)
+
+        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
+        let manifest = try ManifestStore(paths: paths).load()
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("$.name: required"))
+        XCTAssertTrue(result.stderr.contains("$.source: required"))
+        XCTAssertFalse(result.stderr.contains("CodingKeys"))
+        XCTAssertEqual(manifest.item(id: "tool")?.name, "Tool")
+    }
+
     func testCommandChangesInvalidateAffectedApproval() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
         let paths = AppPaths(homeDirectory: home)
