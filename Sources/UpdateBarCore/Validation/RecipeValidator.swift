@@ -6,7 +6,7 @@ public enum RecipeValidator {
     private static let latestStrategies = Set([
         "git_tags", "git_head", "npm_registry", "github_release", "brew", "http_regex", "cmd"
     ])
-    private static let trustLevels = Set(["trusted", "untrusted", "elevated"])
+    private static let trustLevels = Set(["trusted", "untrusted"])
 
     public static func validate(data: Data) throws -> ValidationResult {
         let object = try JSONSerialization.jsonObject(with: data)

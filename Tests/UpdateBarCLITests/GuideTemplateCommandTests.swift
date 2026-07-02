@@ -67,6 +67,10 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertEqual(try boolDefault(in: properties, "requires_write", nestedIn: "update"), true)
         XCTAssertEqual(try boolDefault(in: properties, "enabled"), true)
         XCTAssertNil(properties["notify"])
+        let trust = try XCTUnwrap(properties["trust"] as? [String: Any])
+        let trustProperties = try XCTUnwrap(trust["properties"] as? [String: Any])
+        let trustLevel = try XCTUnwrap(trustProperties["level"] as? [String: Any])
+        XCTAssertEqual(trustLevel["enum"] as? [String], ["trusted", "untrusted"])
         let check = try XCTUnwrap(properties["check"] as? [String: Any])
         let checkVariants = try XCTUnwrap(check["oneOf"] as? [[String: Any]])
         XCTAssertTrue(checkVariants.contains { variant in

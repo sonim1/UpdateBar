@@ -1319,7 +1319,7 @@ struct SchemaCommand: ParsableCommand {
               "type": "object",
               "required": ["level", "approved_commands"],
               "properties": {
-                "level": { "enum": ["trusted", "untrusted", "elevated"] },
+                "level": { "enum": ["trusted", "untrusted"] },
                 "approved_commands": { "type": "object", "additionalProperties": { "type": "string" } }
               }
             }

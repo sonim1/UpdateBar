@@ -170,6 +170,16 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].id: must match ^[a-z0-9][a-z0-9._-]*$"))
     }
 
+    func testRejectsStoredElevatedTrustLevel() throws {
+        let result = try validateFirstRawItem { item in
+            var trust = try XCTUnwrap(item["trust"] as? [String: Any])
+            trust["level"] = "elevated"
+            item["trust"] = trust
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].trust.level: unsupported value elevated"))
+    }
+
     func testRejectsInvalidEnumsAndStrategyRequirements() throws {
         let json = """
         {
