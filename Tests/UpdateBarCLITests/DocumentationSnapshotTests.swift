@@ -473,6 +473,16 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(backgroundUninstallSection.contains("launchctl bootout gui/$(id -u)/com.updatebar.check"))
     }
 
+    func testBackgroundDocsDocumentJSONLabelField() throws {
+        let backgroundDocs = try String(contentsOfFile: "docs/background.md", encoding: .utf8)
+        let cliDocs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+
+        XCTAssertTrue(backgroundDocs.contains("`label`"))
+        XCTAssertTrue(cliDocs.contains("`label`"))
+        XCTAssertTrue(backgroundDocs.contains("`installed`"))
+        XCTAssertTrue(backgroundDocs.contains("`removed`"))
+    }
+
     func testUpdateHelpDocumentsHeadlessJSONFlags() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 

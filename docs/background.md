@@ -22,6 +22,8 @@ updatebar background status
 
 Plain status output is tab-separated with `STATUS`, `LABEL`, and `PATH` columns.
 Install and uninstall use the same columns. Use `--json` for machine-readable automation.
+JSON output includes `ok`, `path`, `label`, and the subcommand state:
+`installed` for install/status or `removed` for uninstall.
 
 Uninstall:
 

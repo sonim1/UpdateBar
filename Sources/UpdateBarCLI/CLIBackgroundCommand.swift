@@ -30,7 +30,12 @@ struct BackgroundCommand: ParsableCommand {
             let manager = BackgroundLaunchAgentManager()
             let intervalSeconds = try ConfigStore().load().refresh.interval.seconds
             let url = try manager.install(intervalSeconds: intervalSeconds)
-            let payload = BackgroundInstallPayload(ok: true, installed: true, path: url.path)
+            let payload = BackgroundInstallPayload(
+                ok: true,
+                installed: true,
+                path: url.path,
+                label: BackgroundLaunchAgentManager.label
+            )
             if json {
                 try printJSON(payload)
             } else {
@@ -85,7 +90,12 @@ struct BackgroundCommand: ParsableCommand {
 #if os(macOS)
             let manager = BackgroundLaunchAgentManager()
             let removed = try manager.uninstall()
-            let payload = BackgroundUninstallPayload(ok: true, removed: removed, path: manager.plistURL.path)
+            let payload = BackgroundUninstallPayload(
+                ok: true,
+                removed: removed,
+                path: manager.plistURL.path,
+                label: BackgroundLaunchAgentManager.label
+            )
             if json {
                 try printJSON(payload)
             } else {

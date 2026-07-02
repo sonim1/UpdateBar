@@ -74,6 +74,18 @@ final class BackgroundCommandTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: plistURL(home: home).path))
     }
 
+    func testBackgroundActionJSONIncludesLaunchAgentLabel() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-background-tests")
+
+        let install = try CLIProcess.run(["background", "install", "--yes", "--json"], home: home, environment: ["HOME": home.path])
+        XCTAssertEqual(install.exitCode, 0)
+        XCTAssertEqual(try jsonObject(in: install.stdout)["label"] as? String, "com.updatebar.check")
+
+        let uninstall = try CLIProcess.run(["background", "uninstall", "--json"], home: home, environment: ["HOME": home.path])
+        XCTAssertEqual(uninstall.exitCode, 0)
+        XCTAssertEqual(try jsonObject(in: uninstall.stdout)["label"] as? String, "com.updatebar.check")
+    }
+
     func testBackgroundStatusHumanOutputShowsLabelAndPath() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-background-tests")
         let plistPath = plistURL(home: home).path
@@ -145,6 +157,10 @@ final class BackgroundCommandTests: XCTestCase {
     private func loadPlist(_ url: URL) throws -> [String: Any] {
         let data = try Data(contentsOf: url)
         return try XCTUnwrap(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+    }
+
+    private func jsonObject(in output: String) throws -> [String: Any] {
+        try XCTUnwrap(JSONSerialization.jsonObject(with: Data(output.utf8)) as? [String: Any])
     }
 }
 #endif

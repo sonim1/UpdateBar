@@ -29,6 +29,7 @@ struct BackgroundInstallPayload: Encodable {
     var ok: Bool
     var installed: Bool
     var path: String
+    var label: String
 }
 
 struct BackgroundStatusPayload: Encodable {
@@ -42,6 +43,7 @@ struct BackgroundUninstallPayload: Encodable {
     var ok: Bool
     var removed: Bool
     var path: String
+    var label: String
 }
 
 struct ValidationPayload: Encodable {
