@@ -51,7 +51,7 @@ These invariants must hold across every future milestone.
 2. **Untrusted by default.** Imported, templated, or agent-authored recipes land untrusted unless explicitly approved.
 3. **Exact command fingerprints.** `check.cmd`, `latest.cmd`, and `update.cmd` run only when their current fingerprint is approved.
 4. **Separated approval.** Use `approve` / `revoke`; `add --trust` is removed.
-5. **Status is read-only.** `status --json` remains the future UI contract and never runs shell or network.
+5. **Status never executes recipes.** Plain `status --json` remains the future UI contract and is read-only; `status --refresh` may only mark stale trusted items as `checking`, never run shell or network.
 6. **CLI is the single writer.** Future app/daemon surfaces mutate stores only by invoking the bundled CLI.
 7. **Secrets stay out.** Recipe child processes get allowlisted env only. Captured output/errors are redacted.
 8. **Validate-execute parity.** `validate` must never pass a recipe that `check`/`update` cannot execute (no "valid" recipes using unimplemented strategies).
