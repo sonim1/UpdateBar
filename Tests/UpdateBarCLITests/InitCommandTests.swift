@@ -207,7 +207,8 @@ final class InitCommandTests: XCTestCase {
         let payload = try JSONDecoder.updateBar.decode(
             InitPayload.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
-        XCTAssertTrue(payload.errors.contains("known.gh: not importable"))
+        XCTAssertTrue(payload.errors.contains { $0.contains("known.gh: not importable") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("check-only") })
         XCTAssertTrue(try ManifestStore(paths: AppPaths(homeDirectory: home)).load().items.isEmpty)
     }
 

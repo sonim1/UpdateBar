@@ -38,7 +38,7 @@ public struct InitService {
                 continue
             }
             guard candidate.capability == .full, let recipe = candidate.recipe else {
-                errors.append("\(id): not importable")
+                errors.append("\(id): not importable (\(candidate.capability.rawValue))")
                 continue
             }
             recipesByID[id] = TrustPolicy.untrustedCopy(recipe)
