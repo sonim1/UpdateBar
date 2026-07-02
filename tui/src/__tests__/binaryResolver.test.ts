@@ -21,6 +21,22 @@ describe('resolveUpdateBarBinary', () => {
     ).resolves.toEqual({path: override, source: 'UPDATEBAR_BIN'});
   });
 
+  it('uses configured path after UPDATEBAR_BIN and before bundled binaries', async () => {
+    const root = await tempDir();
+    const configured = await executable(path.join(root, 'configured-updatebar'));
+    const bundled = await executable(path.join(root, 'Resources', 'updatebar'));
+
+    await expect(
+      resolveUpdateBarBinary({
+        env: {},
+        configuredPath: configured,
+        bundledDirectory: path.dirname(bundled),
+        cwd: root,
+        defaultPathEntries: []
+      })
+    ).resolves.toEqual({path: configured, source: 'configured'});
+  });
+
   it('uses bundled before PATH and development fallback', async () => {
     const root = await tempDir();
     const bundled = await executable(path.join(root, 'Resources', 'updatebar'));

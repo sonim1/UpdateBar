@@ -4,6 +4,7 @@ import path from 'node:path';
 
 export type BinarySource =
   | 'UPDATEBAR_BIN'
+  | 'configured'
   | 'bundled'
   | 'PATH'
   | 'development_fallback';
@@ -15,6 +16,7 @@ export interface BinaryResolution {
 
 export interface BinaryResolverOptions {
   env?: NodeJS.ProcessEnv;
+  configuredPath?: string;
   bundledDirectory?: string;
   cwd?: string;
   defaultPathEntries?: string[];
@@ -36,6 +38,9 @@ export async function resolveUpdateBarBinary(
 
   const updateBarBin = await explicitPath(env.UPDATEBAR_BIN, 'UPDATEBAR_BIN');
   if (updateBarBin) return updateBarBin;
+
+  const configured = await explicitPath(options.configuredPath, 'configured');
+  if (configured) return configured;
 
   if (options.bundledDirectory) {
     const bundled = path.join(options.bundledDirectory, 'updatebar');
