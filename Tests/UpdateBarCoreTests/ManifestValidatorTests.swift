@@ -15,6 +15,22 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].name: required"))
     }
 
+    func testRejectsSchemaVersionWithWrongType() throws {
+        var manifest = try loadValidJSONObject()
+        manifest["schema_version"] = "1"
+
+        let result = try ManifestValidator.validate(data: JSONSerialization.data(withJSONObject: manifest))
+
+        XCTAssertTrue(result.errors.contains("schema_version: must be integer 1"))
+        XCTAssertFalse(result.errors.contains("schema_version: required"))
+
+        manifest["schema_version"] = true
+
+        let booleanResult = try ManifestValidator.validate(data: JSONSerialization.data(withJSONObject: manifest))
+
+        XCTAssertTrue(booleanResult.errors.contains("schema_version: must be integer 1"))
+    }
+
     func testRejectsItemsValueThatIsNotAnArray() throws {
         var manifest = try loadValidJSONObject()
         manifest["items"] = "not an array"
@@ -35,6 +51,37 @@ final class ManifestValidatorTests: XCTestCase {
 
         XCTAssertTrue(result.errors.contains("items[0]: must be an object"))
         XCTAssertTrue(result.errors.contains("items[1].name: required"))
+    }
+
+    func testRejectsMissingOrNonObjectProvenance() throws {
+        var missingProvenance = try loadValidJSONObject()
+        missingProvenance.removeValue(forKey: "provenance")
+
+        let missingResult = try ManifestValidator.validate(data: JSONSerialization.data(withJSONObject: missingProvenance))
+
+        XCTAssertTrue(missingResult.errors.contains("provenance: required"))
+
+        var wrongTypeProvenance = try loadValidJSONObject()
+        wrongTypeProvenance["provenance"] = "generated"
+
+        let wrongTypeResult = try ManifestValidator.validate(data: JSONSerialization.data(withJSONObject: wrongTypeProvenance))
+
+        XCTAssertTrue(wrongTypeResult.errors.contains("provenance: must be an object"))
+    }
+
+    func testRejectsInvalidProvenanceFields() throws {
+        var manifest = try loadValidJSONObject()
+        manifest["provenance"] = [
+            "created_by": " \t\n",
+            "created_at": "not a date",
+            "updated_at": 42,
+        ] as [String: Any]
+
+        let result = try ManifestValidator.validate(data: JSONSerialization.data(withJSONObject: manifest))
+
+        XCTAssertTrue(result.errors.contains("provenance.created_by: required"))
+        XCTAssertTrue(result.errors.contains("provenance.created_at: must be an ISO-8601 date string"))
+        XCTAssertTrue(result.errors.contains("provenance.updated_at: must be an ISO-8601 date string"))
     }
 
     func testRejectsWhitespaceOnlyRequiredStrings() throws {

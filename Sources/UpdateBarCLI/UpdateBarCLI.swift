@@ -1246,7 +1246,15 @@ struct SchemaCommand: ParsableCommand {
           "type": "array",
           "items": { "$ref": "#/$defs/recipe" }
         },
-        "provenance": { "type": "object" }
+        "provenance": {
+          "type": "object",
+          "required": ["created_by", "created_at", "updated_at"],
+          "properties": {
+            "created_by": { "type": "string", "minLength": 1 },
+            "created_at": { "type": "string", "format": "date-time" },
+            "updated_at": { "type": "string", "format": "date-time" }
+          }
+        }
       },
       "$defs": {
         "recipe": {

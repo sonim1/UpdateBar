@@ -40,6 +40,7 @@ Shape:
 Rules:
 
 - `schema_version` must be `1`.
+- `provenance.created_by`, `provenance.created_at`, and `provenance.updated_at` are required; timestamps use ISO-8601 date-time strings.
 - `id` must match `^[a-z0-9][a-z0-9._-]*$`.
 - `source.kind`: `git`, `npm`, `github_release`, `brew`, `http`, or `custom`.
 - `version_scheme`: `semver`, `commit`, `calver`, or `opaque`.
