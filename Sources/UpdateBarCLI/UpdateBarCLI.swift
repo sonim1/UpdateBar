@@ -1008,14 +1008,13 @@ private struct ConfigDumpPayload: Encodable {
     var notify: Notify
 
     init(config: Config) {
-        refresh = Refresh(interval: config.refresh.interval.description, concurrency: config.refresh.concurrency)
+        refresh = Refresh(interval: config.refresh.interval.description)
         security = Security(requireHTTPSSource: config.security.requireHTTPSSource)
         notify = Notify(enabled: config.notify.enabled)
     }
 
     struct Refresh: Encodable {
         var interval: String
-        var concurrency: Int
     }
 
     struct Security: Encodable {

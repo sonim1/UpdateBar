@@ -50,7 +50,10 @@ public struct ConfigStore {
                 continue
             }
             let key = "\(section).\(parts[0])"
-            if key == "security.allow_import_exec" || key == "security.allow_plaintext_secret_file" {
+            if key == "refresh.concurrency"
+                || key == "security.allow_import_exec"
+                || key == "security.allow_plaintext_secret_file"
+            {
                 continue
             }
             let value = unquote(parts[1])
@@ -67,7 +70,6 @@ public struct ConfigStore {
         """
         [refresh]
         interval = "\(config.refresh.interval)"
-        concurrency = \(config.refresh.concurrency)
 
         [security]
         require_https_source = \(config.security.requireHTTPSSource)

@@ -6,7 +6,7 @@ public struct Config: Equatable, Sendable {
     public var notify: NotifyConfig
 
     public static let `default` = Config(
-        refresh: RefreshConfig(interval: Duration(hours: 6), concurrency: 8),
+        refresh: RefreshConfig(interval: Duration(hours: 6)),
         security: SecurityConfig(requireHTTPSSource: true),
         notify: NotifyConfig(enabled: true)
     )
@@ -15,11 +15,6 @@ public struct Config: Equatable, Sendable {
         switch key {
         case "refresh.interval":
             refresh.interval = try Duration(parse: value)
-        case "refresh.concurrency":
-            guard let intValue = Int(value), intValue > 0 else {
-                throw ConfigError.invalidValue(key: key, value: value)
-            }
-            refresh.concurrency = intValue
         case "security.require_https_source":
             security.requireHTTPSSource = try parseBool(key: key, value: value)
         case "notify.enabled":
@@ -32,7 +27,6 @@ public struct Config: Equatable, Sendable {
     public func get(_ key: String) -> String? {
         switch key {
         case "refresh.interval": refresh.interval.description
-        case "refresh.concurrency": String(refresh.concurrency)
         case "security.require_https_source": String(security.requireHTTPSSource)
         case "notify.enabled": String(notify.enabled)
         default: nil
@@ -50,7 +44,6 @@ public struct Config: Equatable, Sendable {
 
 public struct RefreshConfig: Equatable, Sendable {
     public var interval: Duration
-    public var concurrency: Int
 }
 
 public struct SecurityConfig: Equatable, Sendable {

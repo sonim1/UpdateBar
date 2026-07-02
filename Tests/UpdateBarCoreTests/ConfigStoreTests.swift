@@ -6,7 +6,6 @@ final class ConfigStoreTests: XCTestCase {
         let config = Config.default
 
         XCTAssertEqual(config.refresh.interval, Duration(hours: 6))
-        XCTAssertEqual(config.refresh.concurrency, 8)
         XCTAssertTrue(config.security.requireHTTPSSource)
         XCTAssertTrue(config.notify.enabled)
     }
@@ -26,38 +25,38 @@ final class ConfigStoreTests: XCTestCase {
         let store = ConfigStore(paths: AppPaths(homeDirectory: root))
         var config = Config.default
         config.refresh.interval = Duration(minutes: 30)
-        config.refresh.concurrency = 4
         config.security.requireHTTPSSource = false
 
         try store.save(config)
         let loaded = try store.load()
 
         XCTAssertEqual(loaded.refresh.interval, Duration(minutes: 30))
-        XCTAssertEqual(loaded.refresh.concurrency, 4)
         XCTAssertFalse(loaded.security.requireHTTPSSource)
     }
 
     func testSetKnownKeyRejectsUnknownKey() throws {
         var config = Config.default
         try config.set("refresh.interval", value: "30m")
-        try config.set("refresh.concurrency", value: "2")
 
         XCTAssertEqual(config.get("refresh.interval"), "30m")
-        XCTAssertEqual(config.get("refresh.concurrency"), "2")
+        XCTAssertNil(config.get("refresh.concurrency"))
         XCTAssertNil(config.get("provider.default"))
         XCTAssertNil(config.get("security.allow_import_exec"))
         XCTAssertThrowsError(try config.set("provider.default", value: "openrouter"))
+        XCTAssertThrowsError(try config.set("refresh.concurrency", value: "2"))
         XCTAssertThrowsError(try config.set("security.allow_import_exec", value: "true"))
         XCTAssertThrowsError(try config.set("unknown.key", value: "x"))
     }
 
-    func testRenderedConfigOmitsRemovedImportExecKey() throws {
+    func testRenderedConfigOmitsRemovedConfigKeys() throws {
         let root = try temporaryDirectory()
         let store = ConfigStore(paths: AppPaths(homeDirectory: root))
 
         let text = store.renderForDisplay(.default)
 
         XCTAssertFalse(text.contains("allow_import_exec"))
+        XCTAssertFalse(text.contains("concurrency"))
+        XCTAssertTrue(text.contains("interval"))
         XCTAssertTrue(text.contains("require_https_source"))
     }
 
@@ -87,7 +86,7 @@ final class ConfigStoreTests: XCTestCase {
         let config = try ConfigStore(paths: AppPaths(homeDirectory: root)).load()
 
         XCTAssertEqual(config.refresh.interval, Duration(minutes: 30))
-        XCTAssertEqual(config.refresh.concurrency, 2)
+        XCTAssertNil(config.get("refresh.concurrency"))
         XCTAssertNil(config.get("provider.default"))
         XCTAssertNil(config.get("security.allow_plaintext_secret_file"))
     }
@@ -114,15 +113,15 @@ final class ConfigStoreTests: XCTestCase {
         let configFile = root.appendingPathComponent("config.toml")
         try Data(
             """
-            [refresh]
-            concurrency = no
+            [notify]
+            enabled = maybe
             """.utf8
         ).write(to: configFile)
 
         XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) { error in
             let message = String(describing: error)
             XCTAssertTrue(message.contains("line 2"))
-            XCTAssertTrue(message.contains("refresh.concurrency: invalid value no"))
+            XCTAssertTrue(message.contains("notify.enabled: invalid value maybe"))
         }
     }
 
