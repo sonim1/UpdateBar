@@ -50,7 +50,7 @@ These invariants must hold across every future milestone.
 1. **No built-in AI recipe generation.** Agents author recipe files outside UpdateBar. UpdateBar validates and gates them.
 2. **Untrusted by default.** Imported, templated, or agent-authored recipes land untrusted unless explicitly approved.
 3. **Exact command fingerprints.** `check.cmd`, `latest.cmd`, and `update.cmd` run only when their current fingerprint is approved.
-4. **Separated approval.** Prefer `approve` / `revoke` over `add --trust` for agent workflows.
+4. **Separated approval.** Use `approve` / `revoke`; `add --trust` is removed.
 5. **Status is read-only.** `status --json` remains the future UI contract and never runs shell or network.
 6. **CLI is the single writer.** Future app/daemon surfaces mutate stores only by invoking the bundled CLI.
 7. **Secrets stay out.** Recipe child processes get allowlisted env only. Captured output/errors are redacted.
@@ -163,7 +163,7 @@ Contract work (new — the machine-readable surface):
   payload has already been written.
 - **Done: granular exit code for approval block.** `update` returns `3` when blocked on approval
   without harder failures.
-- **Done: `--yes` on `add --trust`.** The `--manual` wizard remains intentionally interactive.
+- **Done: removed `add --trust`.** Imported/manual/templated recipes stay untrusted until explicit `approve`.
 - **Done: stdin for `validate` and `import`.** `add --from -` already existed.
 - **Done: JSON output for mutators:** `approve`, `revoke`, `config set`, `enable`, `disable`,
   `pin`, `unpin`, `remove`.
