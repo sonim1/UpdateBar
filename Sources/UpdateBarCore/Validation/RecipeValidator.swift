@@ -39,8 +39,11 @@ enum RecipeValidator {
         } else {
             errors.append("\(path).version_parse: required")
         }
+        errors += requireBooleanIfPresent(item, "enabled", path: path)
+        errors += requireBooleanIfPresent(item, "notify", path: path)
         if let update = item["update"] as? [String: Any] {
             errors += requireString(update, "cmd", path: "\(path).update")
+            errors += requireBooleanIfPresent(update, "requires_write", path: "\(path).update")
         } else {
             errors.append("\(path).update: required")
         }
@@ -127,6 +130,11 @@ enum RecipeValidator {
 
     private static func requireString(_ object: [String: Any], _ key: String, path: String) -> [String] {
         nonEmptyString(object[key]) ? [] : ["\(path).\(key): required"]
+    }
+
+    private static func requireBooleanIfPresent(_ object: [String: Any], _ key: String, path: String) -> [String] {
+        guard object.keys.contains(key), !(object[key] is Bool) else { return [] }
+        return ["\(path).\(key): must be a boolean when provided"]
     }
 
     private static func nonEmptyString(_ value: Any?) -> Bool {

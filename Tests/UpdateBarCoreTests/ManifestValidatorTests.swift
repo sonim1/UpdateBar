@@ -165,6 +165,16 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(manifest.items[0].update.requiresWrite)
     }
 
+    func testRejectsNonBooleanUpdateRequiresWrite() throws {
+        let result = try validateFirstRawItem {
+            var update = try XCTUnwrap($0["update"] as? [String: Any])
+            update["requires_write"] = NSNull()
+            $0["update"] = update
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].update.requires_write: must be a boolean when provided"))
+    }
+
     func testDefaultsMissingEnabledAndNotifyToTrue() throws {
         let data = try validDataUpdatingFirstRawItem {
             $0.removeValue(forKey: "enabled")
@@ -178,6 +188,16 @@ final class ManifestValidatorTests: XCTestCase {
         let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
         XCTAssertTrue(manifest.items[0].enabled)
         XCTAssertTrue(manifest.items[0].notify)
+    }
+
+    func testRejectsNullOrNonBooleanEnabledAndNotify() throws {
+        let result = try validateFirstRawItem {
+            $0["enabled"] = NSNull()
+            $0["notify"] = "true"
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].enabled: must be a boolean when provided"))
+        XCTAssertTrue(result.errors.contains("items[0].notify: must be a boolean when provided"))
     }
 
     func testRejectsJQVersionParseUntilRuntimeSupportExists() throws {
@@ -198,7 +218,7 @@ final class ManifestValidatorTests: XCTestCase {
         try JSONDecoder.updateBar.decode(Manifest.self, from: data("valid-basic.json"))
     }
 
-    private func validateFirstRawItem(_ update: (inout [String: Any]) -> Void) throws -> ValidationResult {
+    private func validateFirstRawItem(_ update: (inout [String: Any]) throws -> Void) throws -> ValidationResult {
         try ManifestValidator.validate(data: validDataUpdatingFirstRawItem(update))
     }
 

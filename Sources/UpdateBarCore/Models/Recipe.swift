@@ -116,8 +116,16 @@ public struct Recipe: Codable, Equatable {
         versionParse = try container.decode(VersionParse.self, forKey: .versionParse)
         update = try container.decode(UpdateSpec.self, forKey: .update)
         pin = try container.decodeIfPresent(String.self, forKey: .pin)
-        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
-        notify = try container.decodeIfPresent(Bool.self, forKey: .notify) ?? true
+        if container.contains(.enabled) {
+            enabled = try container.decode(Bool.self, forKey: .enabled)
+        } else {
+            enabled = true
+        }
+        if container.contains(.notify) {
+            notify = try container.decode(Bool.self, forKey: .notify)
+        } else {
+            notify = true
+        }
         trust = try container.decode(Trust.self, forKey: .trust)
     }
 }
