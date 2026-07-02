@@ -582,6 +582,9 @@ final class DocumentationSnapshotTests: XCTestCase {
         )
 
         XCTAssertFalse(updateSection.split(separator: "\n").first?.contains("--all") ?? false)
+        for column in ["`ID`", "`OUTCOME`", "`CURRENT`", "`LATEST`", "`DETAIL`"] {
+            XCTAssertTrue(updateSection.contains(column), "update docs missing \(column)")
+        }
     }
 
     func testScanInitSpecDocumentsCurrentCategories() throws {

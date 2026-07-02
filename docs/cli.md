@@ -166,7 +166,9 @@ Human output is tab-separated: `ID`, `STATUS`, `CURRENT`, `LATEST`, `NAME`, and
 
 ### `updatebar update [id...] [--yes] [--json|--json-stream]`
 
-Runs approved update commands for outdated items. When ids are omitted, all outdated items are selected. Returns `2` if any selected update fails.
+Runs approved update commands for outdated items. When ids are omitted, all outdated items are selected. Human output is tab-separated with `ID`, `OUTCOME`,
+`CURRENT`, `LATEST`, and `DETAIL` columns; `DETAIL` is used for item errors.
+Returns `2` if any selected update fails.
 In machine-readable mode (`--json` or `--json-stream`), prompts are suppressed;
 omit `--yes` to skip execution and receive a `.cancelled` outcome.
 

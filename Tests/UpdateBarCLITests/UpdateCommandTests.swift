@@ -88,7 +88,8 @@ final class UpdateCommandTests: XCTestCase {
         let result = try CLIProcess.run(["update", "tool", "--yes"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stdout.contains("tool\tskipped_not_outdated"))
+        XCTAssertTrue(result.stdout.contains("ID\tOUTCOME\tCURRENT\tLATEST\tDETAIL"))
+        XCTAssertTrue(result.stdout.contains("tool\tskipped_not_outdated\t-\t-\t"))
         XCTAssertTrue(result.stdout.contains("Next"))
         XCTAssertTrue(result.stdout.contains("updatebar check tool"))
     }
@@ -125,7 +126,8 @@ final class UpdateCommandTests: XCTestCase {
         let result = try CLIProcess.run(["update", "tool", "--yes"], home: home)
 
         XCTAssertEqual(result.exitCode, 3)
-        XCTAssertTrue(result.stdout.contains("tool\tskipped_untrusted"))
+        XCTAssertTrue(result.stdout.contains("ID\tOUTCOME\tCURRENT\tLATEST\tDETAIL"))
+        XCTAssertTrue(result.stdout.contains("tool\tskipped_untrusted\t1.0.0\t1.1.0\t"))
         XCTAssertTrue(result.stdout.contains("updatebar approvals tool"))
         XCTAssertFalse(result.stdout.contains("updatebar approve tool"))
     }
@@ -205,7 +207,8 @@ final class UpdateCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 2)
         XCTAssertTrue(result.stderr.contains("Type yes to continue"))
-        XCTAssertTrue(result.stdout.contains("tool\tcancelled"))
+        XCTAssertTrue(result.stdout.contains("ID\tOUTCOME\tCURRENT\tLATEST\tDETAIL"))
+        XCTAssertTrue(result.stdout.contains("tool\tcancelled\t1.0.0\t1.1.0\t"))
         XCTAssertTrue(result.stdout.contains("Next"))
         XCTAssertTrue(result.stdout.contains("updatebar update tool --yes"))
     }
@@ -344,7 +347,8 @@ final class UpdateCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.isEmpty)
-        XCTAssertTrue(result.stdout.contains("tool\tupdated"))
+        XCTAssertTrue(result.stdout.contains("ID\tOUTCOME\tCURRENT\tLATEST\tDETAIL"))
+        XCTAssertTrue(result.stdout.contains("tool\tupdated\t1.1.0\t1.1.0\t"))
         XCTAssertFalse(result.stdout.contains("\"id\""))
     }
 

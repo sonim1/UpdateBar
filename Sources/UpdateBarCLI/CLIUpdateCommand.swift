@@ -62,8 +62,16 @@ struct UpdateCommand: ParsableCommand {
             return
         }
 
+        print("ID\tOUTCOME\tCURRENT\tLATEST\tDETAIL")
         for result in results {
-            print("\(result.id)\t\(result.outcome.rawValue)")
+            let fields = [
+                result.id,
+                result.outcome.rawValue,
+                result.current ?? "-",
+                result.latest ?? "-",
+                result.error ?? "",
+            ]
+            print(fields.joined(separator: "\t"))
         }
 
         let blocked = results.filter { $0.outcome == .skippedUntrusted }
