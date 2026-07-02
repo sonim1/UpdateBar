@@ -185,15 +185,14 @@ final class AddCommandTests: XCTestCase {
         XCTAssertEqual(stored.item(id: "wizard")?.trust.level, .untrusted)
     }
 
-    func testManualFlagStillRunsWizardForCompatibility() throws {
+    func testAddManualFlagIsRemovedFromCLI() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
-        let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: []))
-        let input = wizardInput()
 
-        let result = try CLIProcess.run(["add", "--manual", "--json"], home: home, stdin: input)
+        let result = try CLIProcess.run(["add", "--manual", "--json"], home: home)
 
-        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.isEmpty)
+        XCTAssertTrue(result.stdout.contains("Unknown option '--manual'"))
     }
 
     private func wizardInput() -> String {
