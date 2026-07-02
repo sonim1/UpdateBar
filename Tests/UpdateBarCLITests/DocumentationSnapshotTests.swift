@@ -13,7 +13,7 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertTrue(output.contains(command), "missing \(command)")
         }
         let helpLines = output.split(separator: "\n").map(String.init)
-        for command in ["guide", "schema", "template", "validate", "tui"] {
+        for command in ["config", "guide", "schema", "template", "validate", "tui"] {
             XCTAssertFalse(helpShowsCommand(command, in: helpLines), "support command should be hidden: \(command)")
         }
         for command in ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit"] {
@@ -33,7 +33,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let result = try CLIProcess.run(["--help"], home: home)
         let helpLines = result.stdout.split(separator: "\n").map(String.init)
-        var commands = ["init", "scan", "add", "import", "export", "status", "check", "update", "list", "approvals", "config"]
+        var commands = ["init", "scan", "add", "import", "export", "status", "check", "update", "list", "approvals"]
 
         #if os(macOS)
         commands.append("background")
@@ -356,8 +356,8 @@ final class DocumentationSnapshotTests: XCTestCase {
 
     func testCompletionScriptsExposePrimaryRootCommandsOnly() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
-        let visibleCommands = ["init", "scan", "add", "import", "export", "status", "check", "update", "list", "approvals", "config", "help"]
-        let hiddenCommands = ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit", "guide", "schema", "template", "validate", "tui"]
+        let visibleCommands = ["init", "scan", "add", "import", "export", "status", "check", "update", "list", "approvals", "help"]
+        let hiddenCommands = ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit", "config", "guide", "schema", "template", "validate", "tui"]
 
         #if os(macOS)
         let platformVisibleCommands = visibleCommands + ["background"]

@@ -1031,6 +1031,7 @@ struct ConfigCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "config",
         abstract: "Read or update UpdateBar configuration.",
+        shouldDisplay: false,
         subcommands: [Get.self, Set.self]
     )
 
