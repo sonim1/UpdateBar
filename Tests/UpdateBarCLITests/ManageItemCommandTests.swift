@@ -104,6 +104,10 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertEqual(stored.trust.level, .trusted)
         XCTAssertNotNil(stored.trust.approvedCommands["update.cmd"])
         XCTAssertNil(stored.trust.approvedCommands["check.cmd"])
+        XCTAssertTrue(approve.stdout.contains("approved tool update.cmd"))
+        XCTAssertTrue(approve.stdout.contains("Next"))
+        XCTAssertTrue(approve.stdout.contains("updatebar approvals tool"))
+        XCTAssertFalse(approve.stdout.contains("updatebar check tool"))
 
         let list = try CLIProcess.run(["approvals", "tool"], home: home)
         XCTAssertEqual(list.exitCode, 0)
@@ -142,6 +146,27 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("Next"))
         XCTAssertTrue(result.stdout.contains("updatebar check tool"))
         XCTAssertFalse(result.stdout.contains("updatebar approve tool"))
+    }
+
+    func testApproveAllHumanPrintsCheckNextStep() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        var item = recipe()
+        item.trust.level = .untrusted
+        item.trust.approvedCommands = [:]
+        try ManifestStore(paths: paths).save(Manifest(
+            schemaVersion: 1,
+            items: [item],
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        ))
+
+        let result = try CLIProcess.run(["approve", "tool"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("approved tool all"))
+        XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar check tool"))
+        XCTAssertFalse(result.stdout.contains("updatebar approvals tool"))
     }
 
     func testMutatingManageCommandsSupportJSONOutput() throws {

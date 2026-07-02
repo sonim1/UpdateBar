@@ -2184,10 +2184,23 @@ struct ApprovalCommand: ParsableCommand {
         let recipe = try RegistryService().approve(id: id, field: field)
         if json {
             try printJSON(ApprovalMutationPayload(ok: true, id: recipe.id, field: field, item: recipe))
-        } else if let field {
-            print("approved \(recipe.id) \(field)")
         } else {
-            print("approved \(recipe.id) all")
+            if let field {
+                print("approved \(recipe.id) \(field)")
+            } else {
+                print("approved \(recipe.id) all")
+            }
+            printApprovalNextStep(for: recipe)
+        }
+    }
+
+    private func printApprovalNextStep(for recipe: Recipe) {
+        print("")
+        print("Next")
+        if recipe.commandFingerprints().keys.allSatisfy({ TrustPolicy.isApproved(recipe, field: $0) }) {
+            print("updatebar check \(recipe.id)")
+        } else {
+            print("updatebar approvals \(recipe.id)")
         }
     }
 }
