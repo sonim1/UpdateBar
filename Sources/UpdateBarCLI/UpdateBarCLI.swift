@@ -109,8 +109,13 @@ enum UpdateBarMain {
                 continue
             }
 
-            if let normalizedArgument = normalizeBooleanAssignmentArgument(argument) {
-                normalized.append(normalizedArgument)
+            if let action = normalizeBooleanAssignmentArgument(argument) {
+                switch action {
+                case .keep(let value):
+                    normalized.append(value)
+                case .drop:
+                    break
+                }
                 index += 1
                 continue
             }
@@ -132,9 +137,9 @@ enum UpdateBarMain {
         return boolValue ? [flag] : []
     }
 
-    private static func normalizeBooleanAssignmentArgument(_ argument: String) -> String? {
+    private static func normalizeBooleanAssignmentArgument(_ argument: String) -> NormalizedArgument? {
         guard argument.hasPrefix("--"), let equalsRange = argument.firstIndex(of: "=") else {
-            return argument
+            return nil
         }
 
         let key = String(argument[..<equalsRange])
@@ -143,15 +148,20 @@ enum UpdateBarMain {
         switch key {
         case "--json", "--json-stream":
             if trueBooleanValues.contains(value) {
-                return key
+                return .keep(key)
             }
             if falseBooleanValues.contains(value) {
-                return nil
+                return .drop
             }
-            return argument
+            return .keep(argument)
         default:
-            return argument
+            return .keep(argument)
         }
+    }
+
+    private enum NormalizedArgument {
+        case keep(String)
+        case drop
     }
 
     private static func isBooleanFlag(_ argument: String) -> Bool {
