@@ -308,9 +308,13 @@ export function App({client: providedClient}: AppProps) {
       {(screen === 'logs' || screen === 'updating') && (
         <Box flexDirection="column" marginTop={1}>
           {screen === 'updating' && <Text color="yellow">Running updates. Press c to cancel.</Text>}
-          {logs.slice(-12).map((line, index) => (
-            <Text key={`${index}-${line}`}>{line}</Text>
-          ))}
+          {logs.length === 0 ? (
+            <Text dimColor>No logs yet</Text>
+          ) : (
+            logs.slice(-12).map((line, index) => (
+              <Text key={`${index}-${line}`}>{line}</Text>
+            ))
+          )}
         </Box>
       )}
       <Text dimColor>

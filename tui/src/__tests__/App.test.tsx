@@ -127,6 +127,23 @@ describe('App', () => {
     }
   });
 
+  it('shows an empty state when viewing logs before an action runs', async () => {
+    const client = createClient();
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'View Logs');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'No logs yet');
+
+    expect(view.lastFrame()).toContain('No logs yet');
+  });
+
   it('selects all importable scan candidates at once', async () => {
     const selected: string[][] = [];
     const client = createClient({
