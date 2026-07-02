@@ -568,6 +568,20 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testCliDocsInitDocumentsReviewOnlyScanGuidance() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let scanSpec = try String(contentsOfFile: "docs/scan-init-spec.md", encoding: .utf8)
+        let initSection = try readmeSection(
+            "### `updatebar init",
+            before: "### `updatebar import",
+            in: docs
+        )
+
+        XCTAssertTrue(initSection.contains("review-only"))
+        XCTAssertTrue(initSection.contains("updatebar scan --category"))
+        XCTAssertTrue(scanSpec.contains("updatebar scan --category"))
+    }
+
     func testCliDocsScanDocumentsCategoriesAndMetadataSourceRefs() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
         let scanSection = try readmeSection(

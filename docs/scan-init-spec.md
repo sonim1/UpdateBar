@@ -159,6 +159,9 @@ JSON output prints:
 
 `updatebar init` reuses scan results, shows numbered `full` candidates, and adds
 only selected recipes. It does not approve commands.
+If scan finds only review-only candidates for a filtered category, `init`
+refuses to import them and points the user back to `updatebar scan --category`
+for review.
 
 Initial UX:
 

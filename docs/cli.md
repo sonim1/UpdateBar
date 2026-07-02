@@ -145,6 +145,9 @@ with a usage error and suggests checking installed tools or using a broader
 category filter.
 The interactive candidate table is tab-separated with `ITEM`, `ID`, `CATEGORY`,
 and `SOURCE` columns; candidate ids are the second column.
+If a category only has review-only candidates, `init` refuses to import them and
+suggests `updatebar scan --category <category>` so you can inspect the detected
+entries.
 `--select` accepts comma-separated candidate numbers or ids such as
 `2,brew.gh,npm.typescript`, optional spaces are ignored, duplicate values are
 ignored, and `ALL` is accepted for `all`. `--json` requires `--select` so stdout

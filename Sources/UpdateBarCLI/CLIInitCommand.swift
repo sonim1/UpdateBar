@@ -31,7 +31,7 @@ struct InitCommand: ParsableCommand {
             detectors: selectedDetectors,
             categoryFilter: categoryFilter
         )
-        let selectedIDs = try parseSelection(from: report)
+        let selectedIDs = try parseSelection(from: report, categoryFilter: categoryFilter)
 
         do {
             let summary = try InitService().register(
@@ -64,7 +64,7 @@ struct InitCommand: ParsableCommand {
         return report
     }
 
-    private func parseSelection(from report: ScanReport) throws -> [String] {
+    private func parseSelection(from report: ScanReport, categoryFilter: String?) throws -> [String] {
         if let select {
             let values = parseSelectionTokens(select)
             guard !values.isEmpty else {
@@ -73,7 +73,7 @@ struct InitCommand: ParsableCommand {
             let importable = importableCandidates(from: report)
             if values.count == 1, values[0] == "all" {
                 guard !importable.isEmpty else {
-                    throw noImportableCandidatesError(for: report)
+                    throw noImportableCandidatesError(for: report, categoryFilter: categoryFilter)
                 }
                 return importable.map(\.id)
             }
@@ -86,7 +86,7 @@ struct InitCommand: ParsableCommand {
 
         let importable = importableCandidates(from: report)
         guard !importable.isEmpty else {
-            throw noImportableCandidatesError(for: report)
+            throw noImportableCandidatesError(for: report, categoryFilter: categoryFilter)
         }
         printImportable(importable)
         let prompt = "Select items to add (numbers, ids, or all): "
@@ -105,7 +105,7 @@ struct InitCommand: ParsableCommand {
         }
     }
 
-    private func noImportableCandidatesError(for report: ScanReport) -> ValidationError {
+    private func noImportableCandidatesError(for report: ScanReport, categoryFilter: String?) -> ValidationError {
         if report.candidates.isEmpty {
             return ValidationError(
                 "No importable candidates found. "
@@ -113,6 +113,13 @@ struct InitCommand: ParsableCommand {
             )
         }
 
+        if let categoryFilter {
+            return ValidationError(
+                "No importable candidates found. "
+                    + "Detected candidates are review-only and cannot be imported yet. "
+                    + "Run updatebar scan --category \(categoryFilter) to review them."
+            )
+        }
         return ValidationError(
             "No importable candidates found. "
                 + "Detected candidates are review-only and cannot be imported yet."
