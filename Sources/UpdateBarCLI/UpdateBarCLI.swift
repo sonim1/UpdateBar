@@ -876,9 +876,7 @@ struct ValidateCommand: ParsableCommand {
     }
 
     private func validateRecipeDocument(_ data: Data) throws -> ValidationResult {
-        if let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-            object["schema_version"] != nil || object["items"] != nil || object["provenance"] != nil
-        {
+        if try isManifestDocument(data) {
             return try ManifestValidator.validate(data: data)
         }
         let recipe = try JSONDecoder.updateBar.decode(Recipe.self, from: data)
@@ -889,6 +887,13 @@ struct ValidateCommand: ParsableCommand {
         )
         return try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
     }
+}
+
+private func isManifestDocument(_ data: Data) throws -> Bool {
+    guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        return false
+    }
+    return object["schema_version"] != nil || object["items"] != nil || object["provenance"] != nil
 }
 
 private struct ValidationPayload: Encodable {
@@ -2290,11 +2295,12 @@ struct AddCommand: ParsableCommand {
     }
 
     private func loadRecipe(data: Data) throws -> Recipe {
-        if let manifest = try? JSONDecoder.updateBar.decode(Manifest.self, from: data) {
+        if try isManifestDocument(data) {
             let validation = try ManifestValidator.validate(data: data)
             guard validation.isValid else {
                 throw ValidationError(validation.errors.joined(separator: "\n"))
             }
+            let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
             guard manifest.items.count == 1, let recipe = manifest.items.first else {
                 throw ValidationError("add requires exactly one recipe")
             }

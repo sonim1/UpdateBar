@@ -36,6 +36,29 @@ final class AddCommandTests: XCTestCase {
         XCTAssertEqual(stored.item(id: "manual")?.trust.approvedCommands, [:])
     }
 
+    func testManualAddRejectsMalformedManifestWithValidationErrors() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+        let file = home.appendingPathComponent("broken-manifest.json")
+        try Data(
+            """
+            {
+              "schema_version": 1,
+              "provenance": {
+                "created_by": "updatebar",
+                "created_at": "2026-06-09T00:00:00Z",
+                "updated_at": "2026-06-09T00:00:00Z"
+              }
+            }
+            """.utf8
+        ).write(to: file)
+
+        let result = try CLIProcess.run(["add", "--from", file.path, "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stdout.contains("items: required"))
+        XCTAssertFalse(result.stdout.contains("CodingKeys"))
+    }
+
     func testManualAddRejectsDuplicateID() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let paths = AppPaths(homeDirectory: home)
