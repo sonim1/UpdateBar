@@ -68,6 +68,16 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertEqual(results.map(\.outcome), [.updated, .updated])
     }
 
+    func testUpdateHumanEmptyResultExplainsNoUpdatesWereRun() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+
+        let result = try CLIProcess.run(["update", "--yes"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("No approved outdated items to update."))
+    }
+
     func testUpdateBlockedOnApprovalReturnsDistinctExitCode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)

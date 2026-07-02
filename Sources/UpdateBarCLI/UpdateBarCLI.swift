@@ -762,6 +762,13 @@ private func printApprovalAndCheckNextSteps(for ids: [String]) {
     print("updatebar check \(ids.joined(separator: " "))")
 }
 
+private func printEmptyRegistryNextStep() {
+    print("No items registered.")
+    print("")
+    print("Next")
+    print("updatebar init")
+}
+
 private func normalizedCategory(for value: String) throws -> String {
     let normalized = value
         .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1645,6 +1652,11 @@ struct CheckCommand: ParsableCommand {
     }
 
     private func printHuman(_ results: [CheckResult]) throws {
+        if results.isEmpty {
+            printEmptyRegistryNextStep()
+            return
+        }
+
         for result in results {
             print("\(result.id)\t\(result.status.rawValue)")
         }
@@ -1788,6 +1800,11 @@ struct StatusCommand: ParsableCommand {
     }
 
     private func printHuman(_ snapshot: StatusSnapshot) {
+        if snapshot.items.isEmpty {
+            printEmptyRegistryNextStep()
+            return
+        }
+
         for item in snapshot.items {
             print("\(item.id)\t\(item.status.rawValue)")
         }
@@ -1897,6 +1914,11 @@ struct UpdateCommand: ParsableCommand {
     }
 
     private func printHuman(_ results: [UpdateResult]) {
+        if results.isEmpty {
+            print("No approved outdated items to update.")
+            return
+        }
+
         for result in results {
             print("\(result.id)\t\(result.outcome.rawValue)")
         }

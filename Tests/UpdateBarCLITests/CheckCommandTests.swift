@@ -102,6 +102,18 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("\"id\""))
     }
 
+    func testCheckHumanEmptyRegistryPrintsInitNextStep() throws {
+        let home = try temporaryDirectory()
+
+        let result = try CLIProcess.run(["check"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("No items registered."))
+        XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar init"))
+    }
+
     func testCheckHumanUntrustedPrintsApprovalNextSteps() throws {
         let home = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: home)

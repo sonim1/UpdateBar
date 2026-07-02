@@ -90,6 +90,18 @@ final class StatusCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("updatebar approve tool"))
     }
 
+    func testStatusHumanEmptyRegistryPrintsInitNextStep() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
+
+        let result = try CLIProcess.run(["status"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("No items registered."))
+        XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar init"))
+    }
+
     private func saveManifest(home: URL, items: [Recipe]) throws {
         let manifest = Manifest(
             schemaVersion: 1,
