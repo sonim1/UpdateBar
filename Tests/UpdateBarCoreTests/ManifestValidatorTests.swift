@@ -219,6 +219,24 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].sync: unsupported in schema_version 1"))
     }
 
+    func testRejectsMalformedGitHubReleaseSourceRefs() throws {
+        let ownerOnly = try validateFirstRawItem {
+            $0["source"] = ["kind": "github_release", "ref": "owner"]
+            $0["latest"] = ["strategy": "github_release"]
+        }
+        let incompleteURL = try validateFirstRawItem {
+            $0["source"] = ["kind": "github_release", "ref": "https://github.com/owner"]
+            $0["latest"] = ["strategy": "github_release"]
+        }
+
+        XCTAssertTrue(
+            ownerOnly.errors.contains("items[0].source.ref: invalid GitHub repository ref")
+        )
+        XCTAssertTrue(
+            incompleteURL.errors.contains("items[0].source.ref: invalid GitHub repository ref")
+        )
+    }
+
     func testRejectsHttpRegexWithoutPattern() throws {
         var manifest = try loadValid()
         manifest.items[0].latest.strategy = .httpRegex
