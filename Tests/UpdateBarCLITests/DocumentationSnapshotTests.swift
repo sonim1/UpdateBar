@@ -429,15 +429,27 @@ final class DocumentationSnapshotTests: XCTestCase {
     func testBackgroundDocsDocumentHumanStatusColumns() throws {
         let backgroundDocs = try String(contentsOfFile: "docs/background.md", encoding: .utf8)
         let cliDocs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let backgroundInstallSection = try readmeSection(
+            "### `updatebar background install",
+            before: "### `updatebar background status",
+            in: cliDocs
+        )
         let backgroundStatusSection = try readmeSection(
             "### `updatebar background status",
             before: "### `updatebar background uninstall",
             in: cliDocs
         )
+        let backgroundUninstallSection = try readmeSection(
+            "### `updatebar background uninstall",
+            before: "### `updatebar config",
+            in: cliDocs
+        )
 
         for column in ["`STATUS`", "`LABEL`", "`PATH`"] {
             XCTAssertTrue(backgroundDocs.contains(column), "background docs missing \(column)")
+            XCTAssertTrue(backgroundInstallSection.contains(column), "cli docs missing background install \(column)")
             XCTAssertTrue(backgroundStatusSection.contains(column), "cli docs missing background status \(column)")
+            XCTAssertTrue(backgroundUninstallSection.contains(column), "cli docs missing background uninstall \(column)")
         }
     }
 

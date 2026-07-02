@@ -93,6 +93,29 @@ final class BackgroundCommandTests: XCTestCase {
         XCTAssertTrue(installed.stdout.contains("installed\tcom.updatebar.check\t\(plistPath)"))
     }
 
+    func testBackgroundInstallAndUninstallHumanOutputShowsLabelAndPath() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-background-tests")
+        let plistPath = plistURL(home: home).path
+
+        let install = try CLIProcess.run(["background", "install", "--yes"], home: home, environment: ["HOME": home.path])
+        XCTAssertEqual(install.exitCode, 0)
+        XCTAssertEqual(install.stderr, "")
+        XCTAssertTrue(install.stdout.contains("STATUS\tLABEL\tPATH"))
+        XCTAssertTrue(install.stdout.contains("installed\tcom.updatebar.check\t\(plistPath)"))
+
+        let uninstall = try CLIProcess.run(["background", "uninstall"], home: home, environment: ["HOME": home.path])
+        XCTAssertEqual(uninstall.exitCode, 0)
+        XCTAssertEqual(uninstall.stderr, "")
+        XCTAssertTrue(uninstall.stdout.contains("STATUS\tLABEL\tPATH"))
+        XCTAssertTrue(uninstall.stdout.contains("removed\tcom.updatebar.check\t\(plistPath)"))
+
+        let missing = try CLIProcess.run(["background", "uninstall"], home: home, environment: ["HOME": home.path])
+        XCTAssertEqual(missing.exitCode, 0)
+        XCTAssertEqual(missing.stderr, "")
+        XCTAssertTrue(missing.stdout.contains("STATUS\tLABEL\tPATH"))
+        XCTAssertTrue(missing.stdout.contains("not_installed\tcom.updatebar.check\t\(plistPath)"))
+    }
+
     private func plistURL(home: URL) -> URL {
         home
             .appendingPathComponent("Library")

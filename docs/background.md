@@ -5,7 +5,7 @@ UpdateBar can install an opt-in macOS per-user LaunchAgent for background checks
 Install:
 
 ```bash
-updatebar background install --yes --json
+updatebar background install --yes
 ```
 
 Status:
@@ -15,12 +15,12 @@ updatebar background status
 ```
 
 Plain status output is tab-separated with `STATUS`, `LABEL`, and `PATH` columns.
-Use `--json` for machine-readable automation.
+Install and uninstall use the same columns. Use `--json` for machine-readable automation.
 
 Uninstall:
 
 ```bash
-updatebar background uninstall --json
+updatebar background uninstall
 ```
 
 Behavior:

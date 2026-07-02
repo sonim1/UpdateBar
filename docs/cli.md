@@ -79,6 +79,7 @@ See [completions.md](completions.md).
 Writes the opt-in macOS per-user LaunchAgent plist for background checks.
 The plist invokes only `updatebar check --exit-zero-on-outdated` and uses
 `refresh.interval` from `updatebar config`.
+Human output is tab-separated with `STATUS`, `LABEL`, and `PATH` columns.
 
 ### `updatebar background status [--json]`
 
@@ -88,6 +89,7 @@ Human output is tab-separated with `STATUS`, `LABEL`, and `PATH` columns.
 ### `updatebar background uninstall [--json]`
 
 Removes the LaunchAgent plist.
+Human output is tab-separated with `STATUS`, `LABEL`, and `PATH` columns.
 
 ### `updatebar config get [key] [--json]`
 

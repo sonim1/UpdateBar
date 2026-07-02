@@ -34,7 +34,7 @@ struct BackgroundCommand: ParsableCommand {
             if json {
                 try printJSON(payload)
             } else {
-                print("installed \(url.path)")
+                printBackgroundHuman(status: "installed", path: url.path)
             }
 #else
             throw ValidationError("background helper is only supported on macOS")
@@ -63,8 +63,7 @@ struct BackgroundCommand: ParsableCommand {
             if json {
                 try printJSON(payload)
             } else {
-                print("STATUS\tLABEL\tPATH")
-                print("\(payload.installed ? "installed" : "not_installed")\t\(payload.label)\t\(payload.path)")
+                printBackgroundHuman(status: payload.installed ? "installed" : "not_installed", path: payload.path)
             }
 #else
             throw ValidationError("background helper is only supported on macOS")
@@ -89,7 +88,7 @@ struct BackgroundCommand: ParsableCommand {
             if json {
                 try printJSON(payload)
             } else {
-                print(removed ? "uninstalled" : "not installed")
+                printBackgroundHuman(status: removed ? "removed" : "not_installed", path: manager.plistURL.path)
             }
 #else
             throw ValidationError("background helper is only supported on macOS")
@@ -97,3 +96,10 @@ struct BackgroundCommand: ParsableCommand {
         }
     }
 }
+
+#if os(macOS)
+private func printBackgroundHuman(status: String, path: String) {
+    print("STATUS\tLABEL\tPATH")
+    print("\(status)\t\(BackgroundLaunchAgentManager.label)\t\(path)")
+}
+#endif
