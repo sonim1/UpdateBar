@@ -459,6 +459,7 @@ final class InitCommandTests: XCTestCase {
             ErrorPayload.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
         XCTAssertTrue(payload.errors.contains { $0.contains("No importable candidates found") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("review-only") })
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
     }
 

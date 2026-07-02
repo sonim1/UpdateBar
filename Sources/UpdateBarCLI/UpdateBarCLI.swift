@@ -534,9 +534,7 @@ struct InitCommand: ParsableCommand {
             let importable = importableCandidates(from: report)
             if values.count == 1, values[0] == "all" {
                 guard !importable.isEmpty else {
-                    throw ValidationError("No importable candidates found. "
-                        + "Use --detectors to choose a different scan source "
-                        + "and ensure any category filter is not too strict.")
+                    throw noImportableCandidatesError(for: report)
                 }
                 return importable.map(\.id)
             }
@@ -549,11 +547,7 @@ struct InitCommand: ParsableCommand {
 
         let importable = importableCandidates(from: report)
         guard !importable.isEmpty else {
-            throw ValidationError(
-                "No importable candidates found. "
-                    + "Use --detectors to choose a different scan source "
-                    + "and ensure any category filter is not too strict."
-            )
+            throw noImportableCandidatesError(for: report)
         }
         printImportable(importable)
         let prompt = "Select items to add (numbers, ids, or all): "
@@ -570,6 +564,21 @@ struct InitCommand: ParsableCommand {
         report.candidates.filter {
             $0.capability == .full && $0.recipe != nil
         }
+    }
+
+    private func noImportableCandidatesError(for report: ScanReport) -> ValidationError {
+        if report.candidates.isEmpty {
+            return ValidationError(
+                "No importable candidates found. "
+                    + "Use --detectors to choose a different scan source "
+                    + "and ensure any category filter is not too strict."
+            )
+        }
+
+        return ValidationError(
+            "No importable candidates found. "
+                + "Detected candidates are review-only and cannot be imported yet."
+        )
     }
 
     private func parseInteractiveSelection(
