@@ -788,7 +788,27 @@ private func parseCategoryFilter(_ value: String?) throws -> String? {
     guard let value else {
         return nil
     }
-    return try normalizedCategory(for: value)
+    let category = try normalizedCategory(for: value)
+    guard supportedScanCategories.contains(category) else {
+        throw ValidationError(
+            "\(category): unknown category; expected \(scanCategoryDescription())")
+    }
+    return category
+}
+
+private let supportedScanCategories = [
+    "ai-agent",
+    "package-manager",
+    "runtime-sdk",
+    "shell-utility",
+    "cloud-devops",
+    "library",
+    "codex-skill",
+    "mcp-server",
+]
+
+private func scanCategoryDescription() -> String {
+    supportedScanCategories.joined(separator: ", ")
 }
 
 private struct InitPayload: Encodable {

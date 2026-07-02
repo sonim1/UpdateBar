@@ -107,8 +107,11 @@ Scans installed local tools and prints recipe candidates without changing `manif
 Detectors are `brew`, `npm_global`, `known`, `codex_skill`, and `mcp_config`.
 `--detectors` accepts a comma-separated list. Whitespace is ignored around
 each token, duplicate values are deduplicated, and unknown ids are rejected.
+Supported categories are `ai-agent`, `package-manager`, `runtime-sdk`,
+`shell-utility`, `cloud-devops`, `library`, `codex-skill`, and `mcp-server`.
 `--category` is normalized (`CLOUD-DEVOPS`, `CLOUD DEVOPS`, `cloud_devops`, etc.
-all map to `cloud-devops`) and filters the displayed candidates after scanning.
+all map to `cloud-devops`), rejects unknown values, and filters the displayed
+candidates after scanning.
 For categories that map to a single metadata detector, such as `codex-skill` or
 `mcp-server`, the default scan only runs that relevant detector.
 
