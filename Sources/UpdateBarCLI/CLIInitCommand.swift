@@ -128,24 +128,29 @@ struct InitCommand: ParsableCommand {
     }
 
     private func noImportableCandidatesError(for report: ScanReport, categoryFilter: String?) -> ValidationError {
+        let message: String
         if report.candidates.isEmpty {
-            return ValidationError(
-                "No importable candidates found. "
-                    + "Check that the tool is installed and ensure any category filter is not too strict."
-            )
-        }
-
-        if let categoryFilter {
-            return ValidationError(
-                "No importable candidates found. "
-                    + "Detected candidates are review-only and cannot be imported yet. "
-                    + "Run updatebar scan --category \(categoryFilter) to review them."
-            )
-        }
-        return ValidationError(
-            "No importable candidates found. "
+            message = "No importable candidates found. "
+                + "Check that the tool is installed and ensure any category filter is not too strict."
+        } else if let categoryFilter {
+            message = "No importable candidates found. "
+                + "Detected candidates are review-only and cannot be imported yet. "
+                + "Run updatebar scan --category \(categoryFilter) to review them."
+        } else {
+            message = "No importable candidates found. "
                 + "Detected candidates are review-only and cannot be imported yet."
-        )
+        }
+        return ValidationError(message + scanErrorSuffix(for: report.errors))
+    }
+
+    private func scanErrorSuffix(for errors: [ScanError]) -> String {
+        guard !errors.isEmpty else {
+            return ""
+        }
+        let details = errors
+            .map { "\($0.detector.rawValue): \(SecretRedactor.redact($0.message))" }
+            .joined(separator: "; ")
+        return " Scan errors: \(details)"
     }
 
     private func parseInteractiveSelection(

@@ -541,6 +541,31 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("No importable candidates found"))
     }
 
+    func testInitWithoutSelectReportsScanErrorsWhenNoCandidatesAreImportable() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            printf 'brew exploded\\n' >&2
+            exit 42
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["init"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("No importable candidates found"))
+        XCTAssertTrue(result.stderr.contains("brew"))
+        XCTAssertTrue(result.stderr.contains("brew exploded"))
+    }
+
     func testInitAllRequiresImportableCandidatesInJSONMode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = home.appendingPathComponent("bin")
@@ -568,6 +593,33 @@ final class InitCommandTests: XCTestCase {
             ErrorPayload.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
         XCTAssertTrue(payload.errors.contains { $0.contains("No importable candidates found") })
+    }
+
+    func testInitAllReportsScanErrorsInJSONModeWhenNoCandidatesAreImportable() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            printf 'brew exploded\\n' >&2
+            exit 42
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["init", "--json", "--select", "ALL"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertTrue(payload.errors.contains { $0.contains("No importable candidates found") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("brew") && $0.contains("brew exploded") })
     }
 
     private func fakeManagers(home: URL, includeNPM: Bool = false) throws -> URL {

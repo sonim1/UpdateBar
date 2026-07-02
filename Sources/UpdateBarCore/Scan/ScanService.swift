@@ -4,7 +4,17 @@ public struct ScanService {
     public static let brewListCommand =
         [
             "if command -v brew >/dev/null 2>&1; then",
-            "leaves=$(brew leaves --installed-on-request 2>/dev/null || brew leaves 2>/dev/null || true);",
+            "leaves=$(brew leaves --installed-on-request 2>&1);",
+            "status=$?;",
+            "if [ $status -ne 0 ]; then",
+            "fallback=$(brew leaves 2>&1);",
+            "fallback_status=$?;",
+            "if [ $fallback_status -ne 0 ]; then",
+            "printf \"%s\\n%s\\n\" \"$leaves\" \"$fallback\" >&2;",
+            "exit $fallback_status;",
+            "fi;",
+            "leaves=$fallback;",
+            "fi;",
             "if [ -n \"$leaves\" ]; then brew list --formula --versions $leaves; fi;",
             "fi",
         ].joined(separator: " ")
