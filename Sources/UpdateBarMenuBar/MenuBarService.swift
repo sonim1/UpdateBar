@@ -113,7 +113,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         RegistryService(
             manifestStore: manifestStore,
             stateStore: stateStore,
-            config: try configStore.load(),
+            config: try configStore.loadExistingOrDefault(),
             httpClient: httpClient,
             commandRunner: commandRunner(for: cancellationToken),
             now: now,
@@ -125,7 +125,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         UpdateRunner(
             manifestStore: manifestStore,
             stateStore: stateStore,
-            config: try configStore.load(),
+            config: try configStore.loadExistingOrDefault(),
             httpClient: httpClient,
             commandRunner: commandRunner(for: cancellationToken),
             now: now,

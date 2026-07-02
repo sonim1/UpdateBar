@@ -31,6 +31,7 @@ final class CoreMenuBarServiceTests: XCTestCase {
 
         let status = try service.status(refresh: false)
         let approvals = try service.approvals(id: "tool")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
         try service.update(id: "tool")
         let state = try StateStore(paths: paths).load()
 
@@ -39,6 +40,7 @@ final class CoreMenuBarServiceTests: XCTestCase {
         XCTAssertTrue(approvals.allSatisfy(\.approved))
         XCTAssertEqual(commands.commands.map(\.command), ["tool update", "tool current", "tool latest"])
         XCTAssertEqual(state.items["tool"]?.status, .ok)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
     }
 
     func testCoreServiceCancelsLongRunningUpdateCommand() throws {
