@@ -98,3 +98,11 @@ func readInputData(_ path: String) throws -> Data {
         throw ValidationError("\(path): input file could not be read (\(error.localizedDescription))")
     }
 }
+
+func writeOutputData(_ data: Data, to path: String) throws {
+    do {
+        try data.write(to: URL(fileURLWithPath: path))
+    } catch {
+        throw ValidationError("\(path): output file could not be written (\(error.localizedDescription))")
+    }
+}

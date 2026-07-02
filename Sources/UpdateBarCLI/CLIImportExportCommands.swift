@@ -27,7 +27,7 @@ struct ExportCommand: ParsableCommand {
         guard let file else {
             throw ValidationError("provide an export file or --json")
         }
-        try JSONEncoder.updateBar.encode(manifest).write(to: URL(fileURLWithPath: file))
+        try writeOutputData(JSONEncoder.updateBar.encode(manifest), to: file)
         print("exported \(file)")
     }
 }
