@@ -2251,10 +2251,10 @@ struct AddCommand: ParsableCommand {
     @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Flag(name: .long, help: "Approve all command fields while adding the recipe.")
+    @Flag(name: .long, help: .hidden)
     var trust = false
 
-    @Flag(name: .long, help: "Skip confirmation when used with --trust.")
+    @Flag(name: .long, help: .hidden)
     var yes = false
 
     @Flag(name: .long, help: "Overwrite an existing item with the same id.")

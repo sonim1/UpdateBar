@@ -51,7 +51,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         let expectedOptionsByCommand: [String: [String]] = [
             "scan": ["--json", "--detectors", "--category"],
             "init": ["--json", "--replace", "--select", "--detectors", "--category"],
-            "add": ["--from", "--manual", "--dry-run", "--json", "--trust", "--yes", "--replace"],
+            "add": ["--from", "--manual", "--dry-run", "--json", "--replace"],
             "import": ["--replace", "--json"],
             "export": ["--json"],
             "status": ["--json", "--refresh", "--exit-zero-on-outdated"],
@@ -74,6 +74,18 @@ final class DocumentationSnapshotTests: XCTestCase {
                 )
             }
         }
+    }
+
+    func testAddHelpHidesTrustShortcut() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        let result = try CLIProcess.run(["add", "--help"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        let helpLines = result.stdout.split(separator: "\n").map(String.init)
+        XCTAssertFalse(optionHasDescription("--trust", in: helpLines))
+        XCTAssertFalse(optionHasDescription("--yes", in: helpLines))
     }
 
     func testPrimaryCommandArgumentsHaveHelpDescriptions() throws {
