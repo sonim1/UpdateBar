@@ -165,6 +165,27 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertFalse(error.contains("missingMatch"))
     }
 
+    func testCheckKeepsObservedCurrentVersionWhenLatestFails() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let stores = Stores(paths: paths)
+        try stores.manifest.save(manifest(items: [
+            recipe(id: "partial-tool", currentCommand: "partial-tool current", latestCommand: "partial-tool latest")
+        ]))
+        let commands = MockCommandExecutor(results: [
+            "partial-tool current": CommandResult(exitCode: 0, stdout: "partial-tool 1.0.0", stderr: ""),
+            "partial-tool latest": CommandResult(exitCode: 1, stdout: "", stderr: "latest unavailable")
+        ])
+        let service = registryService(paths: paths, commands: commands)
+
+        let results = try service.check()
+        let state = try stores.state.load()
+
+        XCTAssertEqual(results.first?.status, .error)
+        XCTAssertEqual(results.first?.current, "1.0.0")
+        XCTAssertEqual(state.items["partial-tool"]?.current, "1.0.0")
+    }
+
     func testCheckHonorsTTLUnlessForced() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)

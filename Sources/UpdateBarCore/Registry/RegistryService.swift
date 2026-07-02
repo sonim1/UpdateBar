@@ -107,9 +107,13 @@ public struct RegistryService {
                     continue
                 }
 
+                var observedCurrent = existing?.current
+                var observedLatest = existing?.latest
                 do {
                     let current = try currentVersion(for: recipe)
+                    observedCurrent = current
                     let latest = try latestVersion(for: recipe)
+                    observedLatest = latest
                     let status = try VersionComparator.status(
                         current: current,
                         latest: latest,
@@ -129,8 +133,8 @@ public struct RegistryService {
                     throw error
                 } catch {
                     let itemState = ItemState(
-                        current: existing?.current,
-                        latest: existing?.latest,
+                        current: observedCurrent,
+                        latest: observedLatest,
                         status: .error,
                         lastChecked: checkDate,
                         error: SecretRedactor.redact(String(describing: error)),
