@@ -11,7 +11,7 @@ public enum MenuBarMenuAction: Equatable, Sendable {
         case .checkNow:
             return "Check Now"
         case .updateAllApprovedOutdated:
-            return "Update All Approved Outdated"
+            return "Run Updates"
         case .openTUI:
             return "Open TUI"
         case .openConfig:
