@@ -1613,6 +1613,7 @@ struct CheckCommand: ParsableCommand {
             timestamp: Date()
         ))
 
+        var streamedResults: [CheckResult] = []
         let results: [CheckResult]
         do {
             results = try service.check(ids: ids, force: force) { event in
@@ -1626,6 +1627,9 @@ struct CheckCommand: ParsableCommand {
                         message: event.name
                     ))
                 case .itemFinished:
+                    if let result = event.result {
+                        streamedResults.append(result)
+                    }
                     try writer.write(MachineEvent(
                         event: .itemFinished,
                         operation: .check,
@@ -1636,11 +1640,20 @@ struct CheckCommand: ParsableCommand {
                 }
             }
         } catch let error as ExecutionError where error.isCancellation {
+            let report = CheckReport(results: streamedResults)
             try writer.write(MachineEvent(
                 event: .cancelled,
                 operation: .check,
                 timestamp: Date(),
+                checkSummary: report.summary,
                 error: sanitizedErrorMessage(for: error)
+            ))
+            try writer.write(MachineEvent(
+                event: .finished,
+                operation: .check,
+                timestamp: Date(),
+                checkResults: report.results,
+                checkSummary: report.summary
             ))
             throw ExitCode(2)
         } catch {

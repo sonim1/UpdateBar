@@ -66,6 +66,30 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertEqual(events.last?.checkSummary?.outdated, 1)
     }
 
+    func testCheckJSONStreamReportsCancellationWithFinishedSummary() throws {
+        let home = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: home)
+        var recipe = fixtureRecipe()
+        recipe.check = .command("sleep 5")
+        TrustPolicy.approveAllCommands(in: &recipe)
+        try ManifestStore(paths: paths).save(manifest(items: [recipe]))
+
+        let result = try CLIProcess.runAndInterrupt(
+            ["check", "fixture-tool", "--json-stream"],
+            home: home,
+            after: 0.5
+        )
+        let events = try decodeEvents(result.stdout)
+
+        XCTAssertEqual(result.exitCode, 2)
+        XCTAssertTrue(result.stderr.isEmpty)
+        XCTAssertEqual(events.map(\.event), [.started, .itemStarted, .cancelled, .finished])
+        XCTAssertEqual(events.count, 4)
+        guard events.count == 4 else { return }
+        XCTAssertEqual(events[2].checkSummary?.total, 0)
+        XCTAssertEqual(events[3].checkSummary?.total, 0)
+    }
+
     func testCheckWithJSONSpaceSeparatedFalseFallsBackToHumanMode() throws {
         let home = try temporaryDirectory()
         try saveManifest(home: home)
