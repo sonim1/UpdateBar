@@ -879,13 +879,7 @@ struct ValidateCommand: ParsableCommand {
         if try isManifestDocument(data) {
             return try ManifestValidator.validate(data: data)
         }
-        let recipe = try JSONDecoder.updateBar.decode(Recipe.self, from: data)
-        let manifest = Manifest(
-            schemaVersion: 1,
-            items: [recipe],
-            provenance: Provenance(createdBy: "updatebar", createdAt: Date(), updatedAt: Date())
-        )
-        return try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
+        return try RecipeValidator.validate(data: data)
     }
 }
 
@@ -2307,6 +2301,10 @@ struct AddCommand: ParsableCommand {
             return recipe
         }
 
+        let validation = try RecipeValidator.validate(data: data)
+        guard validation.isValid else {
+            throw ValidationError(validation.errors.joined(separator: "\n"))
+        }
         let recipe = try JSONDecoder.updateBar.decode(Recipe.self, from: data)
         return try validatedRecipe(recipe)
     }

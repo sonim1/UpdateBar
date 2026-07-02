@@ -55,6 +55,25 @@ final class ValidateCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("CodingKeys"))
     }
 
+    func testValidateRejectsMalformedRecipeWithValidationErrors() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-validate-tests")
+        let file = home.appendingPathComponent("broken-recipe.json")
+        try Data(
+            """
+            {
+              "id": "tool"
+            }
+            """.utf8
+        ).write(to: file)
+
+        let result = try CLIProcess.run(["validate", file.path, "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stdout.contains("$.name: required"))
+        XCTAssertTrue(result.stdout.contains("$.source: required"))
+        XCTAssertFalse(result.stdout.contains("CodingKeys"))
+    }
+
     private func recipe() -> Recipe {
         Recipe(
             id: "tool",

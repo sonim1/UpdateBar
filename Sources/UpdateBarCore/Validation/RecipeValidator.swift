@@ -1,12 +1,29 @@
 import Foundation
 
-enum RecipeValidator {
+public enum RecipeValidator {
     private static let sourceKinds = Set(["git", "npm", "github_release", "brew", "http", "custom"])
     private static let versionSchemes = Set(["semver", "commit", "calver", "opaque"])
     private static let latestStrategies = Set([
         "git_tags", "git_head", "npm_registry", "github_release", "brew", "http_regex", "cmd"
     ])
     private static let trustLevels = Set(["trusted", "untrusted", "elevated"])
+
+    public static func validate(data: Data) throws -> ValidationResult {
+        let object = try JSONSerialization.jsonObject(with: data)
+        guard let item = object as? [String: Any] else {
+            return ValidationResult(errors: ["$: must be an object"])
+        }
+
+        var errors = validateRaw(item, path: "$")
+        if errors.isEmpty {
+            do {
+                _ = try JSONDecoder.updateBar.decode(Recipe.self, from: data)
+            } catch {
+                errors.append("recipe: \(error)")
+            }
+        }
+        return ValidationResult(errors: Array(Set(errors)).sorted())
+    }
 
     static func validateRaw(_ item: [String: Any], path: String) -> [String] {
         var errors: [String] = []

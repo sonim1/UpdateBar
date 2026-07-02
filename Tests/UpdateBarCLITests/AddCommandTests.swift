@@ -59,6 +59,25 @@ final class AddCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("CodingKeys"))
     }
 
+    func testManualAddRejectsMalformedRecipeWithValidationErrors() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+        let file = home.appendingPathComponent("broken-recipe.json")
+        try Data(
+            """
+            {
+              "id": "tool"
+            }
+            """.utf8
+        ).write(to: file)
+
+        let result = try CLIProcess.run(["add", "--from", file.path, "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stdout.contains("$.name: required"))
+        XCTAssertTrue(result.stdout.contains("$.source: required"))
+        XCTAssertFalse(result.stdout.contains("CodingKeys"))
+    }
+
     func testManualAddRejectsDuplicateID() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let paths = AppPaths(homeDirectory: home)
