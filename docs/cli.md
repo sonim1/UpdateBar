@@ -181,6 +181,8 @@ Reads manifest and state without shell or network calls. When no files exist,
 plain `status` does not create the home directory, `manifest.json`, or `state.json`.
 Human output is tab-separated: `ID`, `STATUS`, `CURRENT`, `LATEST`, `NAME`, and
 `DETAIL`. `DETAIL` is currently used for item errors.
+If an item id is not found in another command, run `updatebar status` to list
+registered item ids.
 
 ### `updatebar update [id...] [--yes] [--json|--json-stream]`
 

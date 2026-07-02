@@ -82,7 +82,8 @@ struct UpdateCommand: ParsableCommand {
         let blocked = results.filter { $0.outcome == .skippedUntrusted }
         let cancelled = results.filter { $0.outcome == .cancelled }
         let notOutdated = results.filter { $0.outcome == .skippedNotOutdated }
-        guard !blocked.isEmpty || !cancelled.isEmpty || !notOutdated.isEmpty else {
+        let missing = results.filter { $0.outcome == .missing }
+        guard !blocked.isEmpty || !cancelled.isEmpty || !notOutdated.isEmpty || !missing.isEmpty else {
             return
         }
         var commands = approvalCommands(for: blocked.map(\.id))
@@ -91,6 +92,9 @@ struct UpdateCommand: ParsableCommand {
         }
         if let check = batchCheckCommand(for: notOutdated.map(\.id)) {
             commands.append(check)
+        }
+        if !missing.isEmpty {
+            commands.append("updatebar status")
         }
         printNextCommands(commands)
     }

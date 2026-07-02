@@ -184,6 +184,13 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(normalizedUpdateHelp.contains("Updates every outdated item when omitted."))
     }
 
+    func testCliDocsExplainUnknownItemIDRecovery() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+
+        XCTAssertTrue(docs.contains("If an item id is not found"))
+        XCTAssertTrue(docs.contains("`updatebar status`"))
+    }
+
     func testApprovalsHelpAndDocsExplainReviewWorkflow() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let rootResult = try CLIProcess.run(["--help"], home: home)

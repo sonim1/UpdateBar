@@ -114,6 +114,16 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("updatebar init"))
     }
 
+    func testCheckMissingItemSuggestsStatus() throws {
+        let home = try temporaryDirectory()
+
+        let result = try CLIProcess.run(["check", "missing"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("missing: item not found"))
+        XCTAssertTrue(result.stderr.contains("updatebar status"))
+    }
+
     func testCheckHumanUntrustedPrintsApprovalNextSteps() throws {
         let home = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: home)

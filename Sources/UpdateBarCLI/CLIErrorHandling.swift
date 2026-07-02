@@ -15,8 +15,7 @@ func handleCLIError(_ error: Error, arguments: [String]) -> Never {
 
     let exitCode = UpdateBar.exitCode(for: error)
     if exitCode == .success {
-        let message = sanitizedErrorMessage(for: error)
-        if !message.isEmpty {
+        for message in sanitizedErrorMessages(for: error) where !message.isEmpty {
             writeStdout(message)
         }
         terminate(0)
@@ -29,8 +28,7 @@ func handleCLIError(_ error: Error, arguments: [String]) -> Never {
         terminate(processExitCode(for: exitCode))
     }
 
-    let message = sanitizedErrorMessage(for: error)
-    if !message.isEmpty {
+    for message in sanitizedErrorMessages(for: error) where !message.isEmpty {
         writeStderr(message)
     }
     terminate(processExitCode(for: exitCode))
@@ -42,11 +40,10 @@ private func requestedJSONOutput(_ arguments: [String]) -> Bool {
 }
 
 private func writeJSONError(_ error: Error, code exitCode: ExitCode) {
-    let message = sanitizedErrorMessage(for: error)
     let payload = ErrorEnvelope(
         ok: false,
         code: errorCode(for: error, exitCode: exitCode),
-        errors: [message]
+        errors: sanitizedErrorMessages(for: error)
     )
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
@@ -73,6 +70,22 @@ private func errorCode(for error: Error, exitCode: ExitCode) -> String {
         return "decode_error"
     }
     return "runtime_error"
+}
+
+private func sanitizedErrorMessages(for error: Error) -> [String] {
+    let message = sanitizedErrorMessage(for: error)
+    let messages = message.isEmpty ? [] : [message]
+    guard let recoveryHint = recoveryHint(for: error) else {
+        return messages
+    }
+    return messages + [recoveryHint]
+}
+
+private func recoveryHint(for error: Error) -> String? {
+    guard case RegistryError.itemNotFound = error else {
+        return nil
+    }
+    return "Run updatebar status to list registered item ids."
 }
 
 private func processExitCode(for exitCode: ExitCode) -> Int32 {

@@ -97,6 +97,19 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("updatebar init"))
     }
 
+    func testUpdateHumanMissingItemPrintsStatusNextStep() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+
+        let result = try CLIProcess.run(["update", "missing", "--yes"], home: home)
+
+        XCTAssertEqual(result.exitCode, 2)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("ID\tOUTCOME\tCURRENT\tLATEST\tDETAIL"))
+        XCTAssertTrue(result.stdout.contains("missing\tmissing\t-\t-\t"))
+        XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar status"))
+    }
+
     func testUpdateHumanSkippedNotOutdatedPrintsCheckNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
