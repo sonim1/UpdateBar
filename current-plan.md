@@ -279,7 +279,6 @@ Example template strategy:
   },
   "pin": null,
   "enabled": true,
-  "notify": true,
   "trust": {
     "level": "untrusted",
     "approved_commands": {}
