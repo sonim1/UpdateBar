@@ -162,9 +162,9 @@ struct ApprovalCommand: ParsableCommand {
 
     private func printApprovalNextStep(for recipe: Recipe) {
         if recipe.commandFingerprints().keys.allSatisfy({ TrustPolicy.isApproved(recipe, field: $0) }) {
-            printNextCommands(["updatebar check \(recipe.id)"])
+            printNextCommands([checkCommand(for: recipe.id)])
         } else {
-            printNextCommands(["updatebar approvals \(recipe.id)"])
+            printNextCommands([approvalCommand(for: recipe.id)])
         }
     }
 }
@@ -192,12 +192,12 @@ struct ApprovalsCommand: ParsableCommand {
             let unapprovedRows = rows.filter { !$0.approved }
             if !unapprovedRows.isEmpty {
                 printNextCommands(unapprovedRows.map {
-                    "updatebar approve \(id) --field \($0.field)"
+                    approveFieldCommand(for: id, field: $0.field)
                 })
             } else {
                 print("")
                 print("All command fields approved.")
-                printNextCommands(["updatebar check \(id)"])
+                printNextCommands([checkCommand(for: id)])
             }
         }
     }
@@ -241,7 +241,7 @@ struct RevokeCommand: ParsableCommand {
             try printJSON(ApprovalMutationPayload(ok: true, id: recipe.id, field: field, item: recipe))
         } else {
             print("revoked \(recipe.id) \(field)")
-            printNextCommands(["updatebar approvals \(recipe.id)"])
+            printNextCommands([approvalCommand(for: recipe.id)])
         }
     }
 }

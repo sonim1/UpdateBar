@@ -100,6 +100,10 @@ func approvalCommands(for ids: [String]) -> [String] {
     ids.map(approvalCommand)
 }
 
+func approveFieldCommand(for id: String, field: String) -> String {
+    "updatebar approve \(id) --field \(field)"
+}
+
 func checkCommand(for id: String) -> String {
     "updatebar check \(id)"
 }
