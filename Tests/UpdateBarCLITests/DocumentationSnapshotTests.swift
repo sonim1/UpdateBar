@@ -738,6 +738,31 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(docs.contains("version_parse.jq"))
     }
 
+    func testCurrentArchitectureMatchesReducedCLISurfaceAndMenuBarAdapter() throws {
+        let architecture = try String(contentsOfFile: "current-architecture.md", encoding: .utf8)
+        let cliSurface = try readmeSection(
+            "## 4. Current CLI Surface",
+            before: "## 5. Recipe Lifecycle",
+            in: architecture
+        )
+        let activeSurface = try readmeSection(
+            "Default root-help surface:",
+            before: "Removed:",
+            in: cliSurface
+        )
+
+        XCTAssertFalse(activeSurface.contains("updatebar list"))
+        XCTAssertFalse(activeSurface.contains("updatebar version"))
+        XCTAssertFalse(architecture.contains("updatebar update <id|--all>"))
+        XCTAssertFalse(architecture.contains("thin local wrapper around CLI status/actions"))
+        XCTAssertFalse(architecture.contains("never reads/writes manifest/state/config files directly"))
+        XCTAssertTrue(architecture.contains("updatebar update [ids]"))
+        XCTAssertTrue(architecture.contains("direct UpdateBarCore adapter by default"))
+        XCTAssertTrue(architecture.contains("UPDATEBAR_MENUBAR_ADAPTER=cli"))
+        XCTAssertTrue(architecture.contains("updatebar list"))
+        XCTAssertTrue(architecture.contains("updatebar version"))
+    }
+
     private func readmeSection(_ heading: String, before nextHeading: String, in readme: String) throws -> String {
         guard
             let start = readme.range(of: heading)?.upperBound,
