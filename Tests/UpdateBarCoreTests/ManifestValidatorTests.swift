@@ -208,6 +208,23 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].version_parse: exactly one of regex or jq is required"))
     }
 
+    func testRejectsVersionRegexRuntimeCannotExecute() throws {
+        let invalidSyntax = try validateFirstRawItem {
+            $0["version_parse"] = ["regex": "([0-9]+"]
+        }
+        let noCapture = try validateFirstRawItem {
+            $0["version_parse"] = ["regex": "[0-9]+\\.[0-9]+\\.[0-9]+"]
+        }
+        let tooManyCaptures = try validateFirstRawItem {
+            $0["version_parse"] = ["regex": "([0-9]+)\\.([0-9]+)"]
+        }
+
+        let expected = "items[0].version_parse.regex: invalid; expected exactly one capture group"
+        XCTAssertTrue(invalidSyntax.errors.contains(expected))
+        XCTAssertTrue(noCapture.errors.contains(expected))
+        XCTAssertTrue(tooManyCaptures.errors.contains(expected))
+    }
+
     func testRejectsVersionRegexWithBlankJQField() throws {
         let result = try validateFirstRawItem {
             $0["version_parse"] = [

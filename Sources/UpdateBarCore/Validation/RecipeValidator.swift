@@ -136,10 +136,25 @@ public enum RecipeValidator {
         } else if !hasRegex && !hasJQ {
             errors.append("\(path): exactly one of regex or jq is required")
         }
+        if hasRegex, let pattern = versionParse["regex"] as? String {
+            errors += validateRegex(pattern, path: "\(path).regex")
+        }
         if hasJQField {
             errors.append("\(path).jq: unsupported until runtime support is implemented")
         }
         return errors
+    }
+
+    private static func validateRegex(_ pattern: String, path: String) -> [String] {
+        do {
+            let regex = try NSRegularExpression(pattern: pattern)
+            guard regex.numberOfCaptureGroups == 1 else {
+                return ["\(path): invalid; expected exactly one capture group"]
+            }
+            return []
+        } catch {
+            return ["\(path): invalid; expected exactly one capture group"]
+        }
     }
 
     private static func validateTrust(_ trust: [String: Any], path: String) -> [String] {
