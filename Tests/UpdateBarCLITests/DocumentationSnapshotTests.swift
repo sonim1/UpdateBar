@@ -134,6 +134,21 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testUpdateHelpDocumentsDefaultOutdatedScope() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        let rootResult = try CLIProcess.run(["--help"], home: home)
+        let updateResult = try CLIProcess.run(["update", "--help"], home: home)
+
+        XCTAssertEqual(rootResult.exitCode, 0)
+        XCTAssertEqual(rootResult.stderr, "")
+        XCTAssertTrue(rootResult.stdout.contains("Run approved update commands for outdated items."))
+        XCTAssertEqual(updateResult.exitCode, 0)
+        XCTAssertEqual(updateResult.stderr, "")
+        let normalizedUpdateHelp = updateResult.stdout.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        XCTAssertTrue(normalizedUpdateHelp.contains("Updates every outdated item when omitted."))
+    }
+
     func testInitHelpDocumentsSelectNumbersAndAll() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 

@@ -1856,10 +1856,10 @@ struct ListCommand: ParsableCommand {
 struct UpdateCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "update",
-        abstract: "Run approved update commands for selected items."
+        abstract: "Run approved update commands for outdated items."
     )
 
-    @Argument(help: "Item ids to update.")
+    @Argument(help: "Item ids to update. Updates every outdated item when omitted.")
     var ids: [String] = []
 
     @Flag(name: .long, help: .hidden)
