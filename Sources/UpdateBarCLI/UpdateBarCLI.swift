@@ -1299,6 +1299,7 @@ struct SchemaCommand: ParsableCommand {
               "required": ["cmd"],
               "properties": {
                 "cmd": { "type": "string", "minLength": 1 },
+                "requires_write": { "type": "boolean", "default": true },
                 "cwd": { "type": ["string", "null"] }
               }
             },

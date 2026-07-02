@@ -252,6 +252,24 @@ public struct UpdateSpec: Codable, Equatable {
         case requiresWrite = "requires_write"
         case cwd
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        cmd = try container.decode(String.self, forKey: .cmd)
+        if container.contains(.requiresWrite) {
+            requiresWrite = try container.decode(Bool.self, forKey: .requiresWrite)
+        } else {
+            requiresWrite = true
+        }
+        cwd = try container.decodeIfPresent(String.self, forKey: .cwd)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(cmd, forKey: .cmd)
+        try container.encode(requiresWrite, forKey: .requiresWrite)
+        try container.encodeIfPresent(cwd, forKey: .cwd)
+    }
 }
 
 public struct Trust: Codable, Equatable {

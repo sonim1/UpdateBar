@@ -150,6 +150,21 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].version_parse: exactly one of regex or jq is required"))
     }
 
+    func testDefaultsMissingUpdateRequiresWriteToTrue() throws {
+        let data = try validDataUpdatingFirstRawItem {
+            var update = try XCTUnwrap($0["update"] as? [String: Any])
+            update.removeValue(forKey: "requires_write")
+            $0["update"] = update
+        }
+
+        let result = try ManifestValidator.validate(data: data)
+
+        XCTAssertTrue(result.isValid, result.errors.joined(separator: "\n"))
+
+        let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        XCTAssertTrue(manifest.items[0].update.requiresWrite)
+    }
+
     func testRejectsJQVersionParseUntilRuntimeSupportExists() throws {
         var manifest = try loadValid()
         manifest.items[0].versionParse = .jq(".version")
@@ -169,14 +184,18 @@ final class ManifestValidatorTests: XCTestCase {
     }
 
     private func validateFirstRawItem(_ update: (inout [String: Any]) -> Void) throws -> ValidationResult {
+        try ManifestValidator.validate(data: validDataUpdatingFirstRawItem(update))
+    }
+
+    private func validDataUpdatingFirstRawItem(_ update: (inout [String: Any]) throws -> Void) throws -> Data {
         var manifest = try loadValidJSONObject()
         var items = try XCTUnwrap(manifest["items"] as? [[String: Any]])
         var item = try XCTUnwrap(items.first)
-        update(&item)
+        try update(&item)
         items[0] = item
         manifest["items"] = items
 
-        return try ManifestValidator.validate(data: JSONSerialization.data(withJSONObject: manifest))
+        return try JSONSerialization.data(withJSONObject: manifest)
     }
 
     private func loadValidJSONObject() throws -> [String: Any] {

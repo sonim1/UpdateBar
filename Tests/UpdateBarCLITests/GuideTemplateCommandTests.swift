@@ -50,6 +50,8 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertEqual(object?["$schema"] as? String, "https://json-schema.org/draft/2020-12/schema")
         XCTAssertTrue(result.stdout.contains(#""schema_version""#))
         XCTAssertTrue(result.stdout.contains(#""latest""#))
+        XCTAssertTrue(result.stdout.contains(#""requires_write""#))
+        XCTAssertTrue(result.stdout.contains(#""default": true"#))
         XCTAssertFalse(result.stdout.contains(#""jq""#))
     }
 
