@@ -390,6 +390,39 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("category must not be empty") })
     }
 
+    func testInitRejectsBlankCategoryBeforeRunningDetectors() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = home.appendingPathComponent("bin")
+        let marker = home.appendingPathComponent("detector-ran")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            printf 'ran' > \(marker.path)
+            printf 'detector should not run\\n' >&2
+            exit 42
+            """
+        )
+
+        let result = try CLIProcess.run(
+            [
+                "init", "--json", "--detectors", "brew", "--category", "___",
+                "--select", "brew.gh",
+            ],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertTrue(payload.errors.contains { $0.contains("category must not be empty") })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+        XCTAssertFalse(result.stderr.contains("detector should not run"))
+    }
+
     func testInitWithoutSelectRequiresImportableCandidates() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = home.appendingPathComponent("bin")

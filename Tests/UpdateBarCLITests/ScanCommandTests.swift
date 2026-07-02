@@ -312,6 +312,33 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("category must not be empty"))
     }
 
+    func testScanRejectsBlankCategoryBeforeRunningDetectors() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        let marker = home.appendingPathComponent("detector-ran")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("brew"),
+            """
+            #!/bin/sh
+            printf 'ran' > \(marker.path)
+            printf 'detector should not run\\n' >&2
+            exit 42
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--detectors", "brew", "--category", "   "],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("category must not be empty"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+        XCTAssertFalse(result.stderr.contains("detector should not run"))
+    }
+
     private func writeExecutable(_ url: URL, _ body: String) throws {
         try body.write(to: url, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)

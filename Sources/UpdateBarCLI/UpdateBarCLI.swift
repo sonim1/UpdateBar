@@ -365,9 +365,10 @@ struct ScanCommand: ParsableCommand {
 
     func run() throws {
         let selectedDetectors = try parseDetectors()
+        let categoryFilter = try parseCategoryFilter(category)
         let service = ScanService()
         var report = try service.scan(detectors: selectedDetectors)
-        if let category = try parseCategoryFilter(category) {
+        if let category = categoryFilter {
             report.candidates = report.candidates.filter { $0.category == category }
         }
 
@@ -481,8 +482,9 @@ struct InitCommand: ParsableCommand {
     }
 
     private func filteredReport(detectors: [ScanDetector]) throws -> ScanReport {
+        let categoryFilter = try parseCategoryFilter(category)
         var report = try ScanService().scan(detectors: detectors)
-        if let category = try parseCategoryFilter(category) {
+        if let category = categoryFilter {
             report.candidates = report.candidates.filter { $0.category == category }
         }
         return report
