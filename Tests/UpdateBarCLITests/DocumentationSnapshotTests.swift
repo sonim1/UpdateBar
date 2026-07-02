@@ -477,6 +477,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(quickStart.contains("cat > recipe.json"), "README Quick Start should not inline a full recipe")
         XCTAssertFalse(quickStart.contains("updatebar approve <id-from-init>"), "README Quick Start should not lead with advanced approval commands")
         XCTAssertFalse(quickStart.contains("--exit-zero-on-outdated"), "README Quick Start should not lead with hidden automation flags")
+        XCTAssertFalse(quickStart.contains("updatebar list"), "README Quick Start should prefer status over hidden list")
         XCTAssertLessThanOrEqual(quickStart.split(separator: "\n").count, 35, "README Quick Start should stay short enough to scan")
     }
 
@@ -526,7 +527,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         )
         let statusSection = try readmeSection(
             "### `updatebar status",
-            before: "### `updatebar list",
+            before: "### `updatebar update",
             in: docs
         )
 
@@ -537,7 +538,9 @@ final class DocumentationSnapshotTests: XCTestCase {
     func testCliDocsExplainHiddenWorkflowExtensionCommands() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
 
-        XCTAssertTrue(docs.contains("Recipe authoring, import/export, list"))
+        XCTAssertTrue(docs.contains("Recipe authoring and import/export"))
+        XCTAssertFalse(docs.contains("Recipe authoring, import/export, list"))
+        XCTAssertFalse(docs.contains("### `updatebar list"))
         XCTAssertTrue(docs.contains("hidden from default root help and shell completions"))
     }
 

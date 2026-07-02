@@ -64,7 +64,7 @@ observed, then exits with `2`.
 when any checked item is outdated unless `--exit-zero-on-outdated` is set.
 
 Root help groups the primary workflow commands by setup, check/update, and
-management tasks. Recipe authoring, import/export, list, advanced
+management tasks. Recipe authoring and import/export, advanced
 item-management, background, configuration, and support commands remain callable
 directly, but are hidden from default root help and shell completions to keep the
 day-to-day surface small.
@@ -152,10 +152,6 @@ Runs approved check/latest commands and updates `state.json`. Returns `10` when 
 ### `updatebar status [--json]`
 
 Reads manifest and state without shell or network calls.
-
-### `updatebar list [--json]`
-
-Lists manifest items without mutating state.
 
 ### `updatebar update [id...] [--yes] [--json|--json-stream]`
 

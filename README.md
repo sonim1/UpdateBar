@@ -121,7 +121,6 @@ Manual JSON import is also supported:
 
 ```bash
 updatebar import Fixtures/manifests/untrusted-import.json --json
-updatebar list --json
 ```
 
 ## Scope
