@@ -2203,7 +2203,7 @@ struct ApprovalsCommand: ParsableCommand {
             try printJSON(rows)
         } else {
             for row in rows {
-                print("\(row.field)\t\(row.approved ? "approved" : "unapproved")\t\(oneLine(row.command))")
+                print(humanRow(row))
             }
             let unapprovedRows = rows.filter { !$0.approved }
             if !unapprovedRows.isEmpty {
@@ -2214,6 +2214,18 @@ struct ApprovalsCommand: ParsableCommand {
                 }
             }
         }
+    }
+
+    private func humanRow(_ row: ApprovalStatus) -> String {
+        var parts = [
+            row.field,
+            row.approved ? "approved" : "unapproved",
+            oneLine(row.command)
+        ]
+        if let cwd = row.cwd, !cwd.isEmpty {
+            parts.append("cwd=\(oneLine(cwd))")
+        }
+        return parts.joined(separator: "\t")
     }
 
     private func oneLine(_ value: String) -> String {

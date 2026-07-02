@@ -87,6 +87,7 @@ final class ManageItemCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
         var item = recipe()
+        item.update.cwd = "/tmp/tool"
         item.trust.level = .untrusted
         item.trust.approvedCommands = [:]
         try ManifestStore(paths: paths).save(Manifest(
@@ -106,7 +107,7 @@ final class ManageItemCommandTests: XCTestCase {
 
         let list = try CLIProcess.run(["approvals", "tool"], home: home)
         XCTAssertEqual(list.exitCode, 0)
-        XCTAssertTrue(list.stdout.contains("update.cmd\tapproved\tprintf updated"))
+        XCTAssertTrue(list.stdout.contains("update.cmd\tapproved\tprintf updated\tcwd=/tmp/tool"))
         XCTAssertTrue(list.stdout.contains("check.cmd\tunapproved\tprintf 'tool 1.0.0'"))
         XCTAssertTrue(list.stdout.contains("latest.cmd\tunapproved\tprintf 'tool 1.1.0'"))
         XCTAssertTrue(list.stdout.contains("Next"))
