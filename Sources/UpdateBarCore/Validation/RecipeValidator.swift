@@ -33,6 +33,7 @@ public enum RecipeValidator {
         errors += requireString(item, "version_scheme", path: path)
         errors += requireOptionalStringIfPresent(item, "path", path: path)
         errors += requireOptionalStringIfPresent(item, "pin", path: path)
+        errors += rejectLiteralSecret(item["path"], path: "\(path).path")
 
         if let id = item["id"] as? String, !matchesID(id) {
             errors.append("\(path).id: must match ^[a-z0-9][a-z0-9._-]*$")
@@ -115,6 +116,7 @@ public enum RecipeValidator {
         errors += requireString(source, "kind", path: path)
         errors += requireString(source, "ref", path: path)
         errors += requireOptionalStringIfPresent(source, "branch", path: path)
+        errors += rejectLiteralSecret(source["ref"], path: "\(path).ref")
         if let kind = source["kind"] as? String, !sourceKinds.contains(kind) {
             errors.append("\(path).kind: unsupported value \(kind)")
         }
@@ -153,6 +155,7 @@ public enum RecipeValidator {
         let hasCmd = nonEmptyString(check["cmd"])
         let hasFile = nonEmptyString(check["file"])
         errors += rejectLiteralSecret(check["cmd"], path: "\(path).cmd")
+        errors += rejectLiteralSecret(check["file"], path: "\(path).file")
         if hasQueryField {
             errors.append("\(path).query: unsupported until runtime support is implemented")
             if !(check["query"] is String || check["query"] is NSNull) {

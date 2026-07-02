@@ -362,6 +362,26 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].update.cmd: must not contain literal secrets"))
     }
 
+    func testRejectsLiteralSecretsInStoredMetadataFields() throws {
+        let result = try validateFirstRawItem {
+            $0["path"] = "/tmp/sk-or-v1-secret-value"
+            $0["source"] = [
+                "kind": "git",
+                "ref": "https://ghp_1234567890abcdefghijklmnopqrstu@github.com/owner/repo.git",
+            ] as [String: Any]
+            $0["check"] = [
+                "file": "/tmp/NPM_TOKEN=npm-secret",
+            ] as [String: Any]
+            $0["latest"] = [
+                "strategy": "git_tags",
+            ] as [String: Any]
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].path: must not contain literal secrets"))
+        XCTAssertTrue(result.errors.contains("items[0].source.ref: must not contain literal secrets"))
+        XCTAssertTrue(result.errors.contains("items[0].check.file: must not contain literal secrets"))
+    }
+
     func testDefaultsMissingEnabledAndAcceptsMissingLegacyNotify() throws {
         let data = try validDataUpdatingFirstRawItem {
             $0.removeValue(forKey: "enabled")

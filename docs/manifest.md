@@ -46,5 +46,6 @@ Rules:
 - `latest.strategy`: `git_tags`, `git_head`, `npm_registry`, `github_release`, `brew`, `http_regex`, or `cmd`.
 - `version_parse.regex` is required and must contain exactly one capture group.
 - `check.file` reads local file content and parses it with `version_parse.regex`.
+- API keys and token literals are rejected in command fields and stored path/source fields.
 - `sync` is not part of v1.
 - Command approvals are SHA-256 fingerprints of command fields and relevant cwd values.
