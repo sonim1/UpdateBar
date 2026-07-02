@@ -12,10 +12,22 @@ public struct StateStore {
     public func load(now: Date = Date()) throws -> State {
         try ensureHome()
         if !fileManager.fileExists(atPath: paths.stateFile.path) {
-            let state = State(schemaVersion: 1, generatedAt: now, items: [:])
+            let state = emptyState(now: now)
             try save(state)
             return state
         }
+        return try readExistingState()
+    }
+
+    public func loadExistingOrEmpty(now: Date = Date()) throws -> State {
+        try ensureHome()
+        if !fileManager.fileExists(atPath: paths.stateFile.path) {
+            return emptyState(now: now)
+        }
+        return try readExistingState()
+    }
+
+    private func readExistingState() throws -> State {
         do {
             let data = try Data(contentsOf: paths.stateFile)
             return try JSONDecoder.updateBar.decode(State.self, from: data)
@@ -45,5 +57,9 @@ public struct StateStore {
 
     private func ensureHome() throws {
         try fileManager.createDirectory(at: paths.homeDirectory, withIntermediateDirectories: true)
+    }
+
+    private func emptyState(now: Date) -> State {
+        State(schemaVersion: 1, generatedAt: now, items: [:])
     }
 }

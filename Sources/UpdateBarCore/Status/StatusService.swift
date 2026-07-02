@@ -20,7 +20,9 @@ public struct StatusService {
 
     public func snapshot(refresh: Bool = false) throws -> StatusSnapshot {
         let now = now()
-        let manifest = try manifestStore.load()
+        let manifest = refresh
+            ? try manifestStore.load()
+            : try manifestStore.loadExistingOrEmpty(now: now)
         let state: State
 
         if refresh {
@@ -37,7 +39,7 @@ public struct StatusService {
                 return refreshed
             }
         } else {
-            state = try stateStore.load(now: now)
+            state = try stateStore.loadExistingOrEmpty(now: now)
         }
 
         return StatusSnapshot.from(manifest: manifest, state: state, now: now)

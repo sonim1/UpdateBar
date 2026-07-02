@@ -13,6 +13,19 @@ final class StateStoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("state.json").path))
     }
 
+    func testLoadExistingOrEmptyDoesNotCreateMissingStateFile() throws {
+        let root = try temporaryDirectory()
+        let store = StateStore(paths: AppPaths(homeDirectory: root))
+        let now = Date(timeIntervalSince1970: 1_812_499_200)
+
+        let state = try store.loadExistingOrEmpty(now: now)
+
+        XCTAssertEqual(state.schemaVersion, 1)
+        XCTAssertEqual(state.generatedAt, now)
+        XCTAssertTrue(state.items.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("state.json").path))
+    }
+
     func testStateStoreWritesAndReadsPrivateFile() throws {
         let root = try temporaryDirectory()
         let store = StateStore(paths: AppPaths(homeDirectory: root))

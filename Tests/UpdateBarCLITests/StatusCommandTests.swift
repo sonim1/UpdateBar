@@ -74,6 +74,19 @@ final class StatusCommandTests: XCTestCase {
         XCTAssertEqual(state.items["tool"]?.status, .checking)
     }
 
+    func testStatusWithoutRefreshDoesNotCreateStateFile() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(home: home, items: [recipe(id: "tool", name: "Tool")])
+
+        let result = try CLIProcess.run(["status", "--json", "--exit-zero-on-outdated"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        let snapshot = try JSONDecoder.updateBar.decode(StatusSnapshot.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(snapshot.items.first?.status, .checking)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+    }
+
     func testStatusHumanUntrustedPrintsReviewNextSteps() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
         var item = recipe(id: "tool", name: "Tool")
@@ -92,6 +105,7 @@ final class StatusCommandTests: XCTestCase {
 
     func testStatusHumanEmptyRegistryPrintsInitNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
+        let paths = AppPaths(homeDirectory: home)
 
         let result = try CLIProcess.run(["status"], home: home)
 
@@ -100,6 +114,8 @@ final class StatusCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("No items registered."))
         XCTAssertTrue(result.stdout.contains("Next"))
         XCTAssertTrue(result.stdout.contains("updatebar init"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
     }
 
     private func saveManifest(home: URL, items: [Recipe]) throws {

@@ -33,6 +33,30 @@ final class StatusServiceTests: XCTestCase {
         XCTAssertEqual(snapshot.items.first?.status, .outdated)
     }
 
+    func testSnapshotWithoutRefreshDoesNotCreateMissingStateFile() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        try ManifestStore(paths: paths).save(manifest(items: [try recipe(id: "tool")]))
+
+        let snapshot = try statusService(paths: paths).snapshot()
+
+        XCTAssertEqual(snapshot.summary.total, 1)
+        XCTAssertEqual(snapshot.items.first?.status, .checking)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+    }
+
+    func testSnapshotWithoutRefreshDoesNotCreateMissingManifestOrStateFiles() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+
+        let snapshot = try statusService(paths: paths).snapshot()
+
+        XCTAssertEqual(snapshot.summary.total, 0)
+        XCTAssertTrue(snapshot.items.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+    }
+
     func testRefreshMarksOnlyStaleTrustedEnabledUnpinnedItemsChecking() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)

@@ -535,6 +535,19 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(statusSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false)
     }
 
+    func testCliDocsStatusDocumentsReadOnlyBehavior() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let statusSection = try readmeSection(
+            "### `updatebar status",
+            before: "### `updatebar update",
+            in: docs
+        )
+
+        XCTAssertTrue(statusSection.contains("does not create"))
+        XCTAssertTrue(statusSection.contains("manifest.json"))
+        XCTAssertTrue(statusSection.contains("state.json"))
+    }
+
     func testCliDocsExplainHiddenWorkflowExtensionCommands() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
 

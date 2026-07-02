@@ -124,6 +124,18 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("manifest.json").path))
     }
 
+    func testLoadExistingOrEmptyDoesNotCreateMissingManifestFile() throws {
+        let root = try temporaryDirectory()
+        let store = ManifestStore(paths: AppPaths(homeDirectory: root))
+
+        let manifest = try store.loadExistingOrEmpty(now: Date(timeIntervalSince1970: 1_812_499_200))
+
+        XCTAssertEqual(manifest.schemaVersion, 1)
+        XCTAssertTrue(manifest.items.isEmpty)
+        XCTAssertEqual(manifest.provenance.createdBy, "updatebar")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("manifest.json").path))
+    }
+
     func testManifestStoreWritesAndReadsAtomicallyWithPrivatePermissions() throws {
         let root = try temporaryDirectory()
         let store = ManifestStore(paths: AppPaths(homeDirectory: root))

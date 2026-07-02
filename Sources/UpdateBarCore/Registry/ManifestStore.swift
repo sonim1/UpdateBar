@@ -16,6 +16,18 @@ public struct ManifestStore {
             try save(manifest)
             return manifest
         }
+        return try readExistingManifest()
+    }
+
+    public func loadExistingOrEmpty(now: Date = Date()) throws -> Manifest {
+        try ensureHome()
+        if !fileManager.fileExists(atPath: paths.manifestFile.path) {
+            return emptyManifest(now: now)
+        }
+        return try readExistingManifest()
+    }
+
+    private func readExistingManifest() throws -> Manifest {
         do {
             let data = try Data(contentsOf: paths.manifestFile)
             return try JSONDecoder.updateBar.decode(Manifest.self, from: data)
