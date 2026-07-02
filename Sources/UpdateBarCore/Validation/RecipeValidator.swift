@@ -66,9 +66,9 @@ enum RecipeValidator {
     }
 
     private static func validateCheck(_ check: [String: Any], path: String) -> [String] {
-        let hasCmd = check["cmd"] is String
-        let hasFile = check["file"] is String
-        let hasQuery = check["query"] is String
+        let hasCmd = nonEmptyString(check["cmd"])
+        let hasFile = nonEmptyString(check["file"])
+        let hasQuery = nonEmptyString(check["query"])
         if hasCmd && !hasFile && !hasQuery { return [] }
         if !hasCmd && hasFile && hasQuery { return [] }
         return ["\(path): exactly one of cmd or file/query is required"]
@@ -93,8 +93,8 @@ enum RecipeValidator {
 
     private static func validateVersionParse(_ versionParse: [String: Any], path: String) -> [String] {
         var errors: [String] = []
-        let hasRegex = versionParse["regex"] is String
-        let hasJQ = versionParse["jq"] is String
+        let hasRegex = nonEmptyString(versionParse["regex"])
+        let hasJQ = nonEmptyString(versionParse["jq"])
         if hasRegex == hasJQ {
             errors.append("\(path): exactly one of regex or jq is required")
         }

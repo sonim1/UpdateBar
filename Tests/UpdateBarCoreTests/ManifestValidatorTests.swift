@@ -24,6 +24,30 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].name: required"))
     }
 
+    func testRejectsWhitespaceOnlyCheckCommand() throws {
+        var manifest = try loadValid()
+        manifest.items[0].check = .command(" \t\n")
+
+        let result = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
+
+        XCTAssertTrue(result.errors.contains("items[0].check: exactly one of cmd or file/query is required"))
+    }
+
+    func testRejectsWhitespaceOnlyCheckFileQuery() throws {
+        var manifest = try loadValid()
+        manifest.items[0].check = .file(path: " \t\n", query: "$.version")
+
+        let blankPath = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
+
+        XCTAssertTrue(blankPath.errors.contains("items[0].check: exactly one of cmd or file/query is required"))
+
+        manifest.items[0].check = .file(path: "/tmp/version.json", query: " \t\n")
+
+        let blankQuery = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
+
+        XCTAssertTrue(blankQuery.errors.contains("items[0].check: exactly one of cmd or file/query is required"))
+    }
+
     func testRejectsDuplicateIds() throws {
         var manifest = try loadValid()
         manifest.items.append(manifest.items[0])
@@ -92,6 +116,15 @@ final class ManifestValidatorTests: XCTestCase {
 
         XCTAssertFalse(result.isValid)
         XCTAssertTrue(result.errors.contains("items[0].latest.pattern: required when latest.strategy is http_regex"))
+    }
+
+    func testRejectsWhitespaceOnlyVersionRegex() throws {
+        var manifest = try loadValid()
+        manifest.items[0].versionParse = .regex(" \t\n")
+
+        let result = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
+
+        XCTAssertTrue(result.errors.contains("items[0].version_parse: exactly one of regex or jq is required"))
     }
 
     func testRejectsJQVersionParseUntilRuntimeSupportExists() throws {
