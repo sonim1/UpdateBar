@@ -32,6 +32,24 @@ final class ValidateCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("unsupported until runtime support is implemented"))
     }
 
+    func testValidateExplainGuidesInvalidVersionRegex() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-validate-tests")
+        var item = recipe()
+        item.versionParse = .regex("[0-9]+\\.[0-9]+\\.[0-9]+")
+        let file = home.appendingPathComponent("regex-recipe.json")
+        try JSONEncoder.updateBar.encode(item).write(to: file)
+
+        let result = try CLIProcess.run(["validate", file.path, "--json", "--explain"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder().decode(ValidationPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertTrue(payload.errors.contains("$.version_parse.regex: invalid; expected exactly one capture group"))
+        XCTAssertEqual(
+            payload.explanations.first?.hint,
+            "Use version_parse.regex with exactly one capture group around the version."
+        )
+    }
+
     func testValidateTreatsProvenanceOnlyObjectAsManifest() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-validate-tests")
         let file = home.appendingPathComponent("broken-manifest.json")
@@ -96,5 +114,23 @@ final class ValidateCommandTests: XCTestCase {
     private struct ValidationPayload: Decodable {
         var valid: Bool
         var errors: [String]
+        var explanations: [ValidationExplanation]
+
+        private enum CodingKeys: String, CodingKey {
+            case valid
+            case errors
+            case explanations
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            valid = try container.decode(Bool.self, forKey: .valid)
+            errors = try container.decode([String].self, forKey: .errors)
+            explanations = try container.decodeIfPresent([ValidationExplanation].self, forKey: .explanations) ?? []
+        }
+    }
+
+    private struct ValidationExplanation: Decodable {
+        var hint: String
     }
 }

@@ -914,6 +914,10 @@ private struct ValidationExplanation: Encodable {
         self.error = error
         if error.contains("version_parse.jq") {
             hint = "Use version_parse.regex. jq is decoded by the schema but not executable yet."
+        } else if error.contains("version_parse.regex")
+            && error.contains("expected exactly one capture group")
+        {
+            hint = "Use version_parse.regex with exactly one capture group around the version."
         } else {
             hint = "Fix the field shown in the error path and run validate again."
         }
