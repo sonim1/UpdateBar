@@ -129,6 +129,10 @@ final class ManageItemCommandTests: XCTestCase {
 
         XCTAssertEqual(revoke.exitCode, 0)
         XCTAssertNil(stored.trust.approvedCommands["update.cmd"])
+        XCTAssertTrue(revoke.stdout.contains("revoked tool update.cmd"))
+        XCTAssertTrue(revoke.stdout.contains("Next"))
+        XCTAssertTrue(revoke.stdout.contains("updatebar approvals tool"))
+        XCTAssertFalse(revoke.stdout.contains("updatebar check tool"))
     }
 
     func testApprovalsHumanAllApprovedPrintsCheckNextStep() throws {

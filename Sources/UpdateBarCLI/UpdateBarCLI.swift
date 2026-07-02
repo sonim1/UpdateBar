@@ -2281,6 +2281,9 @@ struct RevokeCommand: ParsableCommand {
             try printJSON(ApprovalMutationPayload(ok: true, id: recipe.id, field: field, item: recipe))
         } else {
             print("revoked \(recipe.id) \(field)")
+            print("")
+            print("Next")
+            print("updatebar approvals \(recipe.id)")
         }
     }
 }
