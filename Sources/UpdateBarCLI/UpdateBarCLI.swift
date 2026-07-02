@@ -2307,11 +2307,7 @@ struct AddCommand: ParsableCommand {
 
         do {
             let outcome = try RegistryService().addRecipe(prepared, replace: replace)
-            try output(
-                AddPayload(valid: true, recipe: prepared, errors: [], outcome: outcome),
-                saved: true,
-                outcome: outcome
-            )
+            try output(AddPayload(valid: true, recipe: prepared, errors: [], outcome: outcome), saved: true)
         } catch {
             if json {
                 try output(AddPayload(
@@ -2371,12 +2367,12 @@ struct AddCommand: ParsableCommand {
         return recipe
     }
 
-    private func output(_ payload: AddPayload, saved: Bool, outcome: AddRecipeOutcome? = nil) throws {
+    private func output(_ payload: AddPayload, saved: Bool) throws {
         if json {
             try printJSON(payload)
         } else if payload.valid, let recipe = payload.recipe {
             if saved {
-                let verb = outcome == .replaced ? "replaced" : "added"
+                let verb = payload.outcome == .replaced ? "replaced" : "added"
                 print("\(verb) \(recipe.id)")
                 printApprovalAndCheckNextSteps(for: [recipe.id])
             } else {
