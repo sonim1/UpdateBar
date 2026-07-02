@@ -728,6 +728,7 @@ describe('App', () => {
     view.stdin.write('\r');
     await waitForFrame(view, 'Run approved updates now?');
 
+    expect(view.lastFrame()).toContain('esc cancel');
     expect(updateCalls).toBe(0);
 
     view.stdin.write('\r');

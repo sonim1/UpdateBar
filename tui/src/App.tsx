@@ -470,7 +470,7 @@ function helpText(screen: Screen, canCancel: boolean) {
   if (screen === 'scan') {
     return '↑/↓ navigate · a all · A clear · space select · enter add · m menu · q quit';
   }
-  if (screen === 'confirm-update') return 'enter run · m menu · q quit';
+  if (screen === 'confirm-update') return 'enter run · esc cancel · m menu · q quit';
   if (screen !== 'menu') return 'm menu · q quit';
   return '↑/↓ navigate · enter select · q quit';
 }
