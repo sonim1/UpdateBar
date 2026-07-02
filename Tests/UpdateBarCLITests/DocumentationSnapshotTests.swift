@@ -46,7 +46,7 @@ final class DocumentationSnapshotTests: XCTestCase {
             "add": ["--from", "--manual", "--dry-run", "--json", "--replace"],
             "import": ["--replace", "--json"],
             "export": ["--json"],
-            "status": ["--json", "--refresh", "--exit-zero-on-outdated"],
+            "status": ["--json", "--exit-zero-on-outdated"],
             "check": ["--json", "--json-stream", "--force", "--exit-zero-on-outdated"],
             "update": ["--all", "--yes", "--json", "--json-stream"],
             "list": ["--json"],
@@ -63,6 +63,12 @@ final class DocumentationSnapshotTests: XCTestCase {
                 XCTAssertTrue(
                     optionHasDescription(option, in: helpLines),
                     "\(command) \(option) should have a help description"
+                )
+            }
+            if command == "status" {
+                XCTAssertFalse(
+                    optionHasDescription("--refresh", in: helpLines),
+                    "status --refresh is an internal state hint and should stay out of primary help"
                 )
             }
         }

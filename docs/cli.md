@@ -152,9 +152,9 @@ Exports the manifest to a file or stdout JSON.
 
 Runs approved check/latest commands and updates `state.json`. Returns `10` when any checked item is outdated unless `--exit-zero-on-outdated` is set.
 
-### `updatebar status [--json] [--refresh] [--exit-zero-on-outdated]`
+### `updatebar status [--json] [--exit-zero-on-outdated]`
 
-Reads manifest and state without shell or network calls. `--refresh` marks stale items as `checking`.
+Reads manifest and state without shell or network calls.
 
 ### `updatebar list [--json]`
 

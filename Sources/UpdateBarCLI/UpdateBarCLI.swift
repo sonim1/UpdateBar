@@ -1788,7 +1788,7 @@ struct StatusCommand: ParsableCommand {
     @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Flag(name: .long, help: "Mark stale trusted items as checking before reading status.")
+    @Flag(name: .long, help: .hidden)
     var refresh = false
 
     @Flag(name: .long, help: "Return exit code 0 even when outdated items exist.")
