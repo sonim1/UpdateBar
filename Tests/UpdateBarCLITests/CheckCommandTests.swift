@@ -115,9 +115,7 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stdout.contains("fixture-tool\tuntrusted"))
         XCTAssertTrue(result.stdout.contains("updatebar approvals fixture-tool"))
-        XCTAssertTrue(result.stdout.contains("updatebar approve fixture-tool --field check.cmd"))
-        XCTAssertTrue(result.stdout.contains("updatebar approve fixture-tool --field latest.cmd"))
-        XCTAssertFalse(result.stdout.contains("updatebar approve fixture-tool --field update.cmd"))
+        XCTAssertFalse(result.stdout.contains("updatebar approve fixture-tool"))
     }
 
     func testCheckHumanOutdatedWithUnapprovedUpdatePrintsUpdateApprovalNextStep() throws {
@@ -133,7 +131,19 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 10)
         XCTAssertTrue(result.stdout.contains("fixture-tool\toutdated"))
         XCTAssertTrue(result.stdout.contains("updatebar approvals fixture-tool"))
-        XCTAssertTrue(result.stdout.contains("updatebar approve fixture-tool --field update.cmd"))
+        XCTAssertFalse(result.stdout.contains("updatebar approve fixture-tool"))
+    }
+
+    func testCheckHumanApprovedOutdatedDoesNotPrintApprovalNextStep() throws {
+        let home = try temporaryDirectory()
+        try saveManifest(home: home)
+
+        let result = try CLIProcess.run(["check", "fixture-tool"], home: home)
+
+        XCTAssertEqual(result.exitCode, 10)
+        XCTAssertTrue(result.stdout.contains("fixture-tool\toutdated"))
+        XCTAssertFalse(result.stdout.contains("updatebar approvals fixture-tool"))
+        XCTAssertFalse(result.stdout.contains("Next"))
     }
 
     func testCheckRejectsJSONAndJSONStreamTogether() throws {

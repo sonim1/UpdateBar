@@ -1643,13 +1643,20 @@ struct CheckCommand: ParsableCommand {
             print("\(result.id)\t\(result.status.rawValue)")
         }
 
+        let manifest = try ManifestStore().load()
         let blocked = results.filter { $0.status == .untrusted }
-        let updateApprovalNeeded = results.filter { $0.status == .outdated }
+        let updateApprovalNeeded = results.filter { result in
+            guard result.status == .outdated,
+                  let recipe = manifest.item(id: result.id)
+            else {
+                return false
+            }
+            return !TrustPolicy.isApproved(recipe, field: "update.cmd")
+        }
         guard !blocked.isEmpty || !updateApprovalNeeded.isEmpty else {
             return
         }
 
-        let manifest = try ManifestStore().load()
         var printedHeader = false
         func printHeaderIfNeeded() {
             if !printedHeader {
@@ -1660,46 +1667,14 @@ struct CheckCommand: ParsableCommand {
         }
 
         for result in blocked {
-            guard let recipe = manifest.item(id: result.id) else {
-                continue
-            }
-            let fields = approvalFieldsNeededForCheck(recipe)
-            guard !fields.isEmpty else {
-                continue
-            }
             printHeaderIfNeeded()
             print("updatebar approvals \(result.id)")
-            for field in fields {
-                print("updatebar approve \(result.id) --field \(field)")
-            }
         }
 
         for result in updateApprovalNeeded {
-            guard let recipe = manifest.item(id: result.id),
-                  !TrustPolicy.isApproved(recipe, field: "update.cmd")
-            else {
-                continue
-            }
             printHeaderIfNeeded()
             print("updatebar approvals \(result.id)")
-            print("updatebar approve \(result.id) --field update.cmd")
         }
-    }
-
-    private func approvalFieldsNeededForCheck(_ recipe: Recipe) -> [String] {
-        var fields: [String] = []
-        if case .command = recipe.check, !TrustPolicy.isApproved(recipe, field: "check.cmd") {
-            fields.append("check.cmd")
-        }
-        if recipe.latest.strategy == .cmd, !TrustPolicy.isApproved(recipe, field: "latest.cmd") {
-            fields.append("latest.cmd")
-        }
-        if recipe.trust.level != .trusted, fields.isEmpty {
-            fields = recipe.commandFingerprints().keys
-                .filter { !TrustPolicy.isApproved(recipe, field: $0) }
-                .sorted()
-        }
-        return fields
     }
 
     private func runJSONStream(service: RegistryService, ids: [String]) throws {
@@ -1928,7 +1903,6 @@ struct UpdateCommand: ParsableCommand {
         print("Next")
         for result in blocked {
             print("updatebar approvals \(result.id)")
-            print("updatebar approve \(result.id) --field update.cmd")
         }
     }
 

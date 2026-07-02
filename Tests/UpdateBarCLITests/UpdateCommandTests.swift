@@ -102,7 +102,7 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 3)
         XCTAssertTrue(result.stdout.contains("tool\tskipped_untrusted"))
         XCTAssertTrue(result.stdout.contains("updatebar approvals tool"))
-        XCTAssertTrue(result.stdout.contains("updatebar approve tool --field update.cmd"))
+        XCTAssertFalse(result.stdout.contains("updatebar approve tool"))
     }
 
     func testUpdateJSONStreamEmitsLineDelimitedEvents() throws {
