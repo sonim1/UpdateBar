@@ -296,9 +296,12 @@ public struct RegistryService {
         }
 
         try stateStore.withExclusiveLock {
-            var state = try stateStore.load(now: now())
-            state.items.removeValue(forKey: id)
-            state.generatedAt = now()
+            let removalDate = now()
+            var state = try stateStore.loadExistingOrEmpty(now: removalDate)
+            guard state.items.removeValue(forKey: id) != nil else {
+                return
+            }
+            state.generatedAt = removalDate
             try stateStore.save(state)
         }
     }

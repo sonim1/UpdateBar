@@ -67,6 +67,19 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertNil(state.items["tool"])
     }
 
+    func testRemoveWithoutStateDoesNotCreateState() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifestOnly(paths: paths)
+
+        let result = try CLIProcess.run(["remove", "tool", "--yes"], home: home)
+        let manifest = try ManifestStore(paths: paths).load()
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertNil(manifest.item(id: "tool"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+    }
+
     func testRemoveWithoutYesRequiresPromptConfirmation() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
