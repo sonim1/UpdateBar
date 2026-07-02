@@ -69,12 +69,16 @@ public struct MenuBarMenuModelBuilder: Sendable {
         appendSeparator(to: &entries)
         appendAction(MenuBarMenuAction.checkNow.title, action: .menu(.checkNow), to: &entries)
         let updateAllAction = MenuBarMenuAction.updateAllApprovedOutdated
-        appendAction(
-            updateAllAction.title,
-            action: .menu(updateAllAction),
-            toolTip: MenuBarActionConfirmation.confirmation(for: updateAllAction)?.toolTip,
-            to: &entries
-        )
+        if state.outdatedItems.isEmpty {
+            appendDisabled(updateAllAction.title, toolTip: "No updates available.", to: &entries)
+        } else {
+            appendAction(
+                updateAllAction.title,
+                action: .menu(updateAllAction),
+                toolTip: MenuBarActionConfirmation.confirmation(for: updateAllAction)?.toolTip,
+                to: &entries
+            )
+        }
         appendSeparator(to: &entries)
 
         appendUpdates(state.outdatedItems, to: &entries)
@@ -225,8 +229,12 @@ public struct MenuBarMenuModelBuilder: Sendable {
         appendSeparator(to: &entries)
     }
 
-    private func appendDisabled(_ title: String, to entries: inout [MenuBarMenuEntry]) {
-        entries.append(.item(MenuBarMenuItem(title: title)))
+    private func appendDisabled(
+        _ title: String,
+        toolTip: String? = nil,
+        to entries: inout [MenuBarMenuEntry]
+    ) {
+        entries.append(.item(MenuBarMenuItem(title: title, toolTip: toolTip)))
     }
 
     private func appendAction(

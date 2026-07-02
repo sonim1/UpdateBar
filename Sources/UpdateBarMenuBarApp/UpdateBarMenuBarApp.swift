@@ -269,7 +269,7 @@
 
         private func menuItem(from item: MenuBarMenuItem) -> NSMenuItem {
             guard let action = item.action else {
-                return disabledItem(item.title)
+                return disabledItem(item.title, toolTip: item.toolTip)
             }
             let menuItem = actionItem(item.title, action: selector(for: action))
             menuItem.toolTip = item.toolTip
@@ -416,10 +416,10 @@
             }
         }
 
-        private func disabledItem(_ title: String) -> NSMenuItem {
+        private func disabledItem(_ title: String, toolTip: String? = nil) -> NSMenuItem {
             let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
             item.isEnabled = false
-            item.toolTip = title
+            item.toolTip = toolTip ?? title
             return item
         }
 

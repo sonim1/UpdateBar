@@ -130,7 +130,15 @@ final class MenuBarMenuModelTests: XCTestCase {
         let state = MenuBarState(
             title: "1 update",
             badgeValue: "1",
-            outdatedItems: [],
+            outdatedItems: [
+                statusItem(
+                    id: "old",
+                    name: "Old Tool",
+                    current: "1.0.0",
+                    latest: "1.1.0",
+                    status: .outdated
+                )
+            ],
             approvalItems: [],
             errorItems: [],
             okItems: []
@@ -144,6 +152,27 @@ final class MenuBarMenuModelTests: XCTestCase {
         let runUpdatesItem = model.entries.item(titled: "Run Updates")
 
         XCTAssertEqual(runUpdatesItem?.toolTip, "Runs approved outdated items after confirmation.")
+    }
+
+    func testRunUpdatesIsDisabledWhenNothingIsOutdated() {
+        let state = MenuBarState(
+            title: "Up to date",
+            badgeValue: nil,
+            outdatedItems: [],
+            approvalItems: [],
+            errorItems: [],
+            okItems: []
+        )
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:]
+        )
+
+        let runUpdatesItem = model.entries.item(titled: "Run Updates")
+
+        XCTAssertNil(runUpdatesItem?.action)
+        XCTAssertEqual(runUpdatesItem?.toolTip, "No updates available.")
     }
 
     func testSingleUpdateActionExplainsConfirmation() {
