@@ -60,11 +60,11 @@ public struct InitService {
                     skipped.append(recipe.id)
                     continue
                 }
-                try registryService.addRecipe(recipe, replace: true)
+                _ = try registryService.addRecipe(recipe, replace: true)
                 manifest = manifest.replacing(item: recipe)
                 replaced.append(recipe.id)
             } else {
-                try registryService.addRecipe(recipe, replace: false)
+                _ = try registryService.addRecipe(recipe, replace: false)
                 manifest = manifest.replacing(item: recipe)
                 added.append(recipe.id)
             }

@@ -136,6 +136,20 @@ final class AddCommandTests: XCTestCase {
         XCTAssertEqual(stored.item(id: "tool")?.trust.level, .untrusted)
     }
 
+    func testManualAddReplaceHumanModeSaysReplaced() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "tool", name: "Original")]))
+        let file = try writeRecipe(home: home, recipe: recipe(id: "tool", name: "Replacement"))
+
+        let result = try CLIProcess.run(["add", "--from", file.path, "--replace"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("replaced tool"))
+        XCTAssertFalse(result.stdout.contains("added tool"))
+        XCTAssertTrue(result.stdout.contains("updatebar approvals tool"))
+    }
+
     func testAIAddFlagsAreRemovedFromCLI() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let result = try CLIProcess.run(["add", "--ai", "--from", "anything"], home: home)

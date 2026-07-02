@@ -1,5 +1,10 @@
 import Foundation
 
+public enum AddRecipeOutcome: String, Codable, Equatable {
+    case added
+    case replaced
+}
+
 public struct RegistryService {
     private let manifestStore: ManifestStore
     private let stateStore: StateStore
@@ -290,21 +295,23 @@ public struct RegistryService {
         try manifestStore.load()
     }
 
-    public func addRecipe(_ recipe: Recipe, replace: Bool) throws {
+    public func addRecipe(_ recipe: Recipe, replace: Bool) throws -> AddRecipeOutcome {
         let incoming = Manifest(
             schemaVersion: 1,
             items: [recipe],
             provenance: Provenance(createdBy: "updatebar", createdAt: now(), updatedAt: now())
         )
         try validate(incoming)
-        try manifestStore.withExclusiveLock {
+        return try manifestStore.withExclusiveLock {
             var manifest = try manifestStore.load()
-            if manifest.item(id: recipe.id) != nil, !replace {
+            let outcome: AddRecipeOutcome = manifest.item(id: recipe.id) == nil ? .added : .replaced
+            if outcome == .replaced, !replace {
                 throw RegistryError.duplicateItem(recipe.id)
             }
             manifest = manifest.replacing(item: recipe)
             manifest.provenance.updatedAt = now()
             try manifestStore.save(manifest)
+            return outcome
         }
     }
 
