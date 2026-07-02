@@ -53,10 +53,11 @@ Fields:
 - `known`: checks a curated list of common developer tools on `PATH`.
 - `codex_skill`: scans `~/.codex/skills` and `~/.agents/skills` for skill
   directories that contain `SKILL.md`.
+- `mcp_config`: scans Claude/Codex/Cursor MCP config names and command paths,
+  never env values.
 
 ### Later
 
-- `mcp_config`: scans Claude/Codex/Cursor MCP config names and command paths, never env values.
 - `git_checkout`: scans explicitly configured local git checkouts.
 
 ## Categories
@@ -115,7 +116,7 @@ are listed for review but not importable until manual-update recipes exist.
 ```bash
 updatebar scan
 updatebar scan --json
-updatebar scan --detectors brew,npm_global,known,codex_skill
+updatebar scan --detectors brew,npm_global,known,codex_skill,mcp_config
 updatebar scan --detectors " brew , npm_global "
 updatebar scan --category ai-agent
 updatebar scan --category " cloud devops "

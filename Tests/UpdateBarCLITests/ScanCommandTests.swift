@@ -122,6 +122,41 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertNil(report.candidates.first?.recipe)
     }
 
+    func testScanJSONCanScanMCPConfigs() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let config = home.appendingPathComponent(".cursor/mcp.json")
+        try FileManager.default.createDirectory(
+            at: config.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try """
+            {
+              "mcpServers": {
+                "filesystem": {
+                  "command": "npx",
+                  "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+                  "env": { "TOKEN": "secret-token" }
+                }
+              }
+            }
+            """.write(to: config, atomically: true, encoding: .utf8)
+
+        let result = try CLIProcess.run(
+            ["scan", "--json", "--detectors", "mcp_config"],
+            home: home,
+            environment: ["HOME": home.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        let report = try JSONDecoder.updateBar.decode(
+            ScanReport.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(report.candidates.map(\.id), ["mcp_config.filesystem"])
+        XCTAssertEqual(report.candidates.first?.category, "mcp-server")
+        XCTAssertEqual(report.candidates.first?.capability, .metadataOnly)
+        XCTAssertEqual(report.candidates.first?.sourceRef, "npx")
+        XCTAssertFalse(result.stdout.contains("secret-token"))
+    }
+
     func testScanHumanOutputShowsCandidateIDsAndNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
         let bin = home.appendingPathComponent("bin")
@@ -156,7 +191,8 @@ final class ScanCommandTests: XCTestCase {
         let result = try CLIProcess.run(["scan", "--detectors", ","], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.contains("expected brew, npm_global, known, or codex_skill"))
+        XCTAssertTrue(
+            result.stderr.contains("expected brew, npm_global, known, codex_skill, or mcp_config"))
     }
 
     func testScanAcceptsCaseInsensitiveAndDuplicateDetectors() throws {

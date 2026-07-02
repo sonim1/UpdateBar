@@ -50,6 +50,8 @@ public struct ScanService {
             return try knownCandidates()
         case .codexSkill:
             return try codexSkillCandidates()
+        case .mcpConfig:
+            return try mcpConfigCandidates()
         }
     }
 
@@ -194,6 +196,102 @@ public struct ScanService {
         }
     }
 
+    private func mcpConfigCandidates() throws -> [ScanCandidate] {
+        try Self.mcpConfigSources.flatMap { source in
+            let url = homeRelativeURL(source.path)
+            switch source.kind {
+            case .json:
+                return try mcpConfigCandidatesFromJSON(url: url, displayPath: source.path)
+            case .codexTOML:
+                return try mcpConfigCandidatesFromCodexTOML(url: url, displayPath: source.path)
+            }
+        }
+    }
+
+    private func mcpConfigCandidatesFromJSON(
+        url: URL,
+        displayPath: String
+    ) throws -> [ScanCandidate] {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return []
+        }
+        let data = try Data(contentsOf: url)
+        guard !data.isEmpty,
+            let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let servers = object["mcpServers"] as? [String: Any]
+                ?? object["mcp_servers"] as? [String: Any]
+        else {
+            return []
+        }
+
+        return servers.compactMap { name, value in
+            let server = value as? [String: Any]
+            return mcpConfigCandidate(
+                name: name,
+                command: server?["command"] as? String,
+                displayPath: displayPath
+            )
+        }
+    }
+
+    private func mcpConfigCandidatesFromCodexTOML(
+        url: URL,
+        displayPath: String
+    ) throws -> [ScanCandidate] {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return []
+        }
+        let text = try String(contentsOf: url, encoding: .utf8)
+        var names = Set<String>()
+        var commands: [String: String] = [:]
+        var currentName: String?
+
+        for rawLine in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            if line.isEmpty || line.hasPrefix("#") { continue }
+            if line.hasPrefix("[") && line.hasSuffix("]") {
+                currentName = mcpServerName(fromTOMLSection: String(line.dropFirst().dropLast()))
+                if let currentName {
+                    names.insert(currentName)
+                }
+                continue
+            }
+            guard let currentName else { continue }
+            let parts = line.split(separator: "=", maxSplits: 1).map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }
+            guard parts.count == 2, parts[0] == "command" else { continue }
+            commands[currentName] = unquoteTOMLValue(parts[1])
+        }
+
+        return names.compactMap { name in
+            mcpConfigCandidate(name: name, command: commands[name], displayPath: displayPath)
+        }
+    }
+
+    private func mcpConfigCandidate(
+        name: String,
+        command: String?,
+        displayPath: String
+    ) -> ScanCandidate? {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            return nil
+        }
+        let command = command?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return ScanCandidate(
+            id: "mcp_config.\(idComponent(name))",
+            name: name,
+            detector: .mcpConfig,
+            category: "mcp-server",
+            capability: .metadataOnly,
+            confidence: .medium,
+            installedVersion: nil,
+            sourceRef: command?.isEmpty == false ? command : "~/\(displayPath)#\(name)",
+            recipe: nil
+        )
+    }
+
     private func run(_ command: String) throws -> String {
         let result = try commandRunner.run(
             ShellCommand(command: command, cwd: nil),
@@ -307,11 +405,61 @@ public struct ScanService {
         return String(line[range])
     }
 
+    private func homeRelativeURL(_ relativePath: String) -> URL {
+        relativePath.split(separator: "/").reduce(homeDirectory) { partial, component in
+            partial.appendingPathComponent(String(component))
+        }
+    }
+
+    private func mcpServerName(fromTOMLSection section: String) -> String? {
+        let prefix = "mcp_servers."
+        guard section.hasPrefix(prefix) else {
+            return nil
+        }
+        let rawName = String(section.dropFirst(prefix.count))
+        if rawName.contains(".") && !rawName.hasPrefix("\"") && !rawName.hasPrefix("'") {
+            return nil
+        }
+        let name = unquoteTOMLValue(rawName)
+        return name.isEmpty ? nil : name
+    }
+
+    private func unquoteTOMLValue(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count >= 2,
+            (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\""))
+                || (trimmed.hasPrefix("'") && trimmed.hasSuffix("'"))
+        {
+            return String(trimmed.dropFirst().dropLast())
+        }
+        return trimmed
+    }
+
     private static func defaultHomeDirectory(environment: [String: String]) -> URL {
         if let home = environment["HOME"], !home.isEmpty {
             return URL(fileURLWithPath: home, isDirectory: true).standardizedFileURL
         }
         return FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+    }
+
+    private static let mcpConfigSources: [MCPConfigSource] = [
+        MCPConfigSource(path: ".cursor/mcp.json", kind: .json),
+        MCPConfigSource(path: ".claude.json", kind: .json),
+        MCPConfigSource(
+            path: "Library/Application Support/Claude/claude_desktop_config.json",
+            kind: .json
+        ),
+        MCPConfigSource(path: ".codex/config.toml", kind: .codexTOML),
+    ]
+
+    private struct MCPConfigSource {
+        var path: String
+        var kind: MCPConfigKind
+    }
+
+    private enum MCPConfigKind {
+        case json
+        case codexTOML
     }
 
     private struct NPMGlobalList: Decodable {

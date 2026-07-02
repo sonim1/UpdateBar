@@ -357,7 +357,7 @@ struct ScanCommand: ParsableCommand {
     @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known,codex_skill.")
+    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known,codex_skill,mcp_config.")
     var detectors: String?
 
     @Option(name: .long, help: "Filter by category, such as ai-agent or cloud-devops.")
@@ -450,7 +450,7 @@ struct InitCommand: ParsableCommand {
     @Option(name: .long, help: "Comma-separated candidate ids, numbers, or all.")
     var select: String?
 
-    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known,codex_skill.")
+    @Option(name: .long, help: "Comma-separated detectors: brew,npm_global,known,codex_skill,mcp_config.")
     var detectors: String?
 
     @Option(name: .long, help: "Filter by category, such as ai-agent or cloud-devops.")

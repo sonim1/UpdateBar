@@ -155,6 +155,57 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertNil(skill.recipe)
     }
 
+    func testScanParsesMCPConfigsAsMetadataOnlyCandidatesWithoutEnvValues() throws {
+        let home = try temporaryHome(prefix: "updatebar-core-scan-tests")
+        try writeText(
+            """
+            {
+              "mcpServers": {
+                "filesystem": {
+                  "command": "npx",
+                  "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+                  "env": { "TOKEN": "secret-token" }
+                }
+              }
+            }
+            """,
+            to: ".cursor/mcp.json",
+            home: home
+        )
+        try writeText(
+            """
+            [mcp_servers.github]
+            command = "gh-mcp"
+            args = ["stdio"]
+
+            [mcp_servers.github.env]
+            env_token = "secret-token"
+            """,
+            to: ".codex/config.toml",
+            home: home
+        )
+        let service = ScanService(
+            commandRunner: MockCommandExecutor(results: [:]),
+            homeDirectory: home
+        )
+
+        let report = try service.scan(detectors: [.mcpConfig])
+
+        XCTAssertEqual(report.errors, [])
+        XCTAssertEqual(
+            report.candidates.map(\.id),
+            ["mcp_config.filesystem", "mcp_config.github"]
+        )
+        let filesystem = try XCTUnwrap(
+            report.candidates.first { $0.id == "mcp_config.filesystem" })
+        XCTAssertEqual(filesystem.category, "mcp-server")
+        XCTAssertEqual(filesystem.capability, .metadataOnly)
+        XCTAssertEqual(filesystem.confidence, .medium)
+        XCTAssertEqual(filesystem.sourceRef, "npx")
+        XCTAssertNil(filesystem.recipe)
+        XCTAssertFalse(report.candidates.description.contains("secret-token"))
+    }
+
     private func category(_ id: String, in report: ScanReport) throws -> String {
         try XCTUnwrap(report.candidates.first { $0.id == id }).category
     }
@@ -167,6 +218,17 @@ final class ScanServiceTests: XCTestCase {
             atomically: true,
             encoding: .utf8
         )
+    }
+
+    private func writeText(_ text: String, to relativePath: String, home: URL) throws {
+        let url = relativePath.split(separator: "/").reduce(home) { partial, component in
+            partial.appendingPathComponent(String(component))
+        }
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try text.write(to: url, atomically: true, encoding: .utf8)
     }
 
     private func temporaryHome(prefix: String) throws -> URL {

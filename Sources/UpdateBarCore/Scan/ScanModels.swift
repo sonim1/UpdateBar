@@ -61,6 +61,7 @@ public enum ScanDetector: String, Codable, Equatable, CaseIterable {
     case npmGlobal = "npm_global"
     case known
     case codexSkill = "codex_skill"
+    case mcpConfig = "mcp_config"
 }
 
 public enum ScanCapability: String, Codable, Equatable {
