@@ -777,6 +777,16 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(plan.contains("`add --trust` is removed"))
     }
 
+    func testPrdIsMarkedAsHistoricalSnapshot() throws {
+        let prd = try String(contentsOfFile: "PRD.md", encoding: .utf8)
+
+        XCTAssertTrue(prd.contains("Historical PRD snapshot"))
+        XCTAssertTrue(prd.contains("[`current-plan.md`](current-plan.md)"))
+        XCTAssertTrue(prd.contains("[`current-architecture.md`](current-architecture.md)"))
+        XCTAssertTrue(prd.contains("[`next-plan.md`](next-plan.md)"))
+        XCTAssertTrue(prd.contains("Do not use this file as the source of truth for new implementation work."))
+    }
+
     private func readmeSection(_ heading: String, before nextHeading: String, in readme: String) throws -> String {
         guard
             let start = readme.range(of: heading)?.upperBound,
