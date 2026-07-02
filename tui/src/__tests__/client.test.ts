@@ -58,6 +58,13 @@ describe('CLIUpdateBarClient', () => {
     expect(runner.calls[0]).toEqual(['scan', '--json']);
   });
 
+  it('reports unexpected scan JSON shape with command context', async () => {
+    const runner = new FakeRunner({exitCode: 0, stdout: '{"ok":true}', stderr: ''});
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.scan()).rejects.toThrow('unexpected scan result format from updatebar');
+  });
+
   it('passes cancellation to scan commands', async () => {
     const runner = new FakeRunner({
       exitCode: 0,
@@ -84,6 +91,15 @@ describe('CLIUpdateBarClient', () => {
 
     expect(result.added).toEqual(['brew.gh']);
     expect(runner.calls[0]).toEqual(['init', '--select', 'brew.gh', '--json']);
+  });
+
+  it('reports unexpected init JSON shape with command context', async () => {
+    const runner = new FakeRunner({exitCode: 0, stdout: '{"ok":true}', stderr: ''});
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.initSelected(['brew.gh'])).rejects.toThrow(
+      'unexpected init result format from updatebar'
+    );
   });
 
   it('passes cancellation to check commands', async () => {

@@ -82,13 +82,13 @@ export class CLIUpdateBarClient implements UpdateBarClient {
   async scan(options: RunOptions = {}): Promise<ScanReport> {
     const result = await this.runner.run(['scan', '--json'], options);
     ensureExit(result, [0]);
-    return parseJSON<ScanReport>(result.stdout, 'scan');
+    return parseScanReport(result.stdout);
   }
 
   async initSelected(ids: string[]): Promise<InitResult> {
     const result = await this.runner.run(['init', '--select', ids.join(','), '--json']);
     ensureExit(result, [0]);
-    return parseJSON<InitResult>(result.stdout, 'init');
+    return parseInitResult(result.stdout);
   }
 
   async checkNow(options: RunOptions = {}): Promise<CheckReport> {
@@ -192,6 +192,29 @@ function parseStatusSnapshot(payload: string): StatusSnapshot {
     throw new Error('unexpected status result format from updatebar');
   }
   return snapshot as unknown as StatusSnapshot;
+}
+
+function parseScanReport(payload: string): ScanReport {
+  const report = parseJSON<unknown>(payload, 'scan');
+  if (!isObject(report) || !Array.isArray(report.candidates) || !Array.isArray(report.errors)) {
+    throw new Error('unexpected scan result format from updatebar');
+  }
+  return report as unknown as ScanReport;
+}
+
+function parseInitResult(payload: string): InitResult {
+  const result = parseJSON<unknown>(payload, 'init');
+  if (
+    !isObject(result) ||
+    typeof result.ok !== 'boolean' ||
+    !Array.isArray(result.added) ||
+    !Array.isArray(result.replaced) ||
+    !Array.isArray(result.skipped) ||
+    !Array.isArray(result.errors)
+  ) {
+    throw new Error('unexpected init result format from updatebar');
+  }
+  return result as unknown as InitResult;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
