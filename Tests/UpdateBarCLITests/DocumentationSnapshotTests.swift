@@ -763,6 +763,20 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(architecture.contains("updatebar version"))
     }
 
+    func testCurrentPlanUsesCurrentAgentWorkflowCommands() throws {
+        let plan = try String(contentsOfFile: "current-plan.md", encoding: .utf8)
+
+        XCTAssertFalse(plan.contains("updatebar add --manual"))
+        XCTAssertFalse(plan.contains("updatebar help agent"))
+        XCTAssertFalse(plan.contains("updatebar help recipe"))
+        XCTAssertFalse(plan.contains("updatebar trust/approve"))
+        XCTAssertFalse(plan.contains("Current `--trust`"))
+        XCTAssertTrue(plan.contains("updatebar guide agent"))
+        XCTAssertTrue(plan.contains("updatebar guide recipe"))
+        XCTAssertTrue(plan.contains("updatebar approvals <id>"))
+        XCTAssertTrue(plan.contains("`add --trust` is removed"))
+    }
+
     private func readmeSection(_ heading: String, before nextHeading: String, in readme: String) throws -> String {
         guard
             let start = readme.range(of: heading)?.upperBound,

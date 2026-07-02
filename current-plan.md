@@ -138,12 +138,14 @@ Add or improve:
 
 ```text
 updatebar help
-updatebar help recipe
-updatebar help agent
-updatebar help examples
+updatebar guide recipe
+updatebar guide agent
+updatebar schema
 updatebar validate --explain <file>
 updatebar add --from <recipe.json> --dry-run --json
-updatebar trust/approve commands, or improve existing --trust flow
+updatebar approvals <id>
+updatebar approve <id> [--field <field>]
+updatebar revoke <id> --field <field>
 ```
 
 Possible command shape:
@@ -175,9 +177,10 @@ External AI agents should follow this workflow:
    - latest.cmd, if present
    - update.cmd
 7. Ask the user before approving commands.
-8. Run `updatebar add --from recipe.json` without approval, or with an explicit approval flow only if the user agrees.
-9. Run `updatebar check <id> --json` to verify behavior.
-10. Report status and next steps.
+8. Run `updatebar add --from recipe.json` without approval.
+9. Run `updatebar approvals <id>` and approve exact fields only if the user agrees.
+10. Run `updatebar check <id> --json` to verify behavior.
+11. Report status and next steps.
 ```
 
 Important rule for agents:
@@ -188,7 +191,7 @@ Do not auto-approve command execution just because an AI generated the recipe.
 
 ---
 
-## 6. Suggested `updatebar help agent` content
+## 6. Suggested `updatebar guide agent` content
 
 The CLI should include a concise guide like this:
 
@@ -351,10 +354,12 @@ updatebar validate <file> --json
 Keep:
 
 ```text
-updatebar add --manual
+updatebar add
 updatebar add --from recipe.json
 updatebar add --from recipe.json --dry-run --json
 ```
+
+`updatebar add` without `--from` starts the manual wizard.
 
 Consider allowing `--from -` for stdin:
 
@@ -366,9 +371,7 @@ This is useful for agents.
 
 ### Approval flow
 
-Current `--trust` can approve all commands after printing them.
-
-Consider making approval explicit and separate:
+`add --trust` is removed. Approval is explicit and separate:
 
 ```text
 updatebar approve <id>
@@ -398,7 +401,7 @@ Gate:
 
 ```text
 swift test passes
-updatebar add --manual works
+updatebar add manual wizard works
 updatebar add --from works
 updatebar validate works
 no OpenRouter references remain except maybe migration notes/changelog
