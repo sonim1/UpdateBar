@@ -92,5 +92,9 @@ func readInputData(_ path: String) throws -> Data {
     if path == "-" {
         return FileHandle.standardInput.readDataToEndOfFile()
     }
-    return try Data(contentsOf: URL(fileURLWithPath: path))
+    do {
+        return try Data(contentsOf: URL(fileURLWithPath: path))
+    } catch {
+        throw ValidationError("\(path): input file could not be read (\(error.localizedDescription))")
+    }
 }

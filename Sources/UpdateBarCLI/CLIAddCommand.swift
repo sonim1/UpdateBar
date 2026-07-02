@@ -48,11 +48,7 @@ struct AddCommand: ParsableCommand {
 
     private func loadManualRecipe() throws -> Recipe {
         if let from {
-            if from == "-" {
-                let data = FileHandle.standardInput.readDataToEndOfFile()
-                return try loadRecipe(data: data)
-            }
-            let data = try Data(contentsOf: URL(fileURLWithPath: from))
+            let data = try readInputData(from)
             return try loadRecipe(data: data)
         }
         return try runWizard()

@@ -91,6 +91,19 @@ final class ValidateCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("CodingKeys"))
     }
 
+    func testValidateMissingInputFileJSONReturnsUsageError() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-validate-tests")
+        let file = home.appendingPathComponent("missing-document.json")
+
+        let result = try CLIProcess.run(["validate", file.path, "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorPayload.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("missing-document.json") })
+    }
+
     private func recipe() -> Recipe {
         Recipe(
             id: "tool",
@@ -149,5 +162,10 @@ final class ValidateCommandTests: XCTestCase {
 
     private struct ValidationExplanation: Decodable {
         var hint: String
+    }
+
+    private struct ErrorPayload: Decodable {
+        var code: String
+        var errors: [String]
     }
 }

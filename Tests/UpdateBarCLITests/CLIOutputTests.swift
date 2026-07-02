@@ -246,7 +246,7 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
         let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
-        XCTAssertEqual(payload.code, "runtime_error")
+        XCTAssertEqual(payload.code, "usage_error")
         XCTAssertTrue(payload.errors.contains(where: { $0.contains("[REDACTED]") }))
         XCTAssertFalse(payload.errors.contains(where: { $0.contains(secret) }))
     }

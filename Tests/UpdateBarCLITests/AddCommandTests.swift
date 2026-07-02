@@ -124,6 +124,19 @@ final class AddCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("CodingKeys"))
     }
 
+    func testManualAddMissingInputFileJSONReturnsUsageError() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+        let file = home.appendingPathComponent("missing-recipe.json")
+
+        let result = try CLIProcess.run(["add", "--from", file.path, "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("missing-recipe.json") })
+    }
+
     func testManualAddRejectsDuplicateID() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let paths = AppPaths(homeDirectory: home)

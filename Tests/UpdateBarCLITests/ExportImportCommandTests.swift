@@ -68,6 +68,19 @@ final class ExportImportCommandTests: XCTestCase {
         XCTAssertTrue(stored.items.isEmpty)
     }
 
+    func testImportMissingInputFileJSONReturnsUsageError() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-import-tests")
+        let file = home.appendingPathComponent("missing-manifest.json")
+
+        let result = try CLIProcess.run(["import", file.path, "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorPayload.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("missing-manifest.json") })
+    }
+
     func testImportReadsManifestFromStdin() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-import-tests")
         let paths = AppPaths(homeDirectory: home)
@@ -140,6 +153,11 @@ final class ExportImportCommandTests: XCTestCase {
         var ok: Bool
         var added: [String]
         var replaced: [String]
+        var errors: [String]
+    }
+
+    private struct ErrorPayload: Decodable {
+        var code: String
         var errors: [String]
     }
 
