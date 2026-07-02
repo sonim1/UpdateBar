@@ -416,6 +416,24 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(scanSection.contains("source ref"))
     }
 
+    func testScanInitSpecDocumentsCurrentCategories() throws {
+        let spec = try String(contentsOfFile: "docs/scan-init-spec.md", encoding: .utf8)
+        let categorySection = try readmeSection(
+            "## Categories",
+            before: "## Capabilities",
+            in: spec
+        )
+
+        for category in [
+            "ai-agent", "package-manager", "runtime-sdk", "shell-utility",
+            "cloud-devops", "library", "codex-skill", "mcp-server",
+        ] {
+            XCTAssertTrue(categorySection.contains(category), "spec missing \(category)")
+        }
+        XCTAssertFalse(categorySection.contains("local-service"))
+        XCTAssertTrue(categorySection.contains("Unknown category values are rejected"))
+    }
+
     func testCliDocsDoNotAdvertiseUnsupportedJQVersionParse() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
 

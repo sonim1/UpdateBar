@@ -72,12 +72,12 @@ User-facing categories:
 - `mcp-server`: MCP config entries.
 - `codex-skill`: local skill bundles.
 - `library`: globally installed package without a clear CLI identity.
-- `local-service`: LaunchAgent, daemon, or background service.
 
 Versioned formulae such as `node@22` or `python@3.12` are categorized by their
 base tool name. Scoped npm agent packages such as `@openai/codex` are categorized
 by their package leaf name. Unknown brew formulae default to `shell-utility`.
 Unknown npm globals default to `library`.
+Unknown category values are rejected before detectors run.
 
 ## Capabilities
 
@@ -171,7 +171,8 @@ updatebar init --replace --select npm.typescript
 `init --json` requires `--select` so stdout remains a single JSON payload.
 
 Duplicate ids are skipped by default. `--replace` overwrites existing recipes.
-Unsupported `check-only` candidates are visible in `scan` but rejected by `init`.
+Unsupported `check-only` and `metadata-only` candidates are visible in `scan`
+but rejected by `init`.
 
 Non-goals for v1:
 
