@@ -121,7 +121,7 @@ enum RecipeValidator {
 
     private static func nonEmptyString(_ value: Any?) -> Bool {
         guard let string = value as? String else { return false }
-        return !string.isEmpty
+        return string.contains { !$0.isWhitespace }
     }
 
     private static func matchesID(_ id: String) -> Bool {

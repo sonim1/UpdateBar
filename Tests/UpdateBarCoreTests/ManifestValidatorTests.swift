@@ -15,6 +15,15 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].name: required"))
     }
 
+    func testRejectsWhitespaceOnlyRequiredStrings() throws {
+        var manifest = try loadValid()
+        manifest.items[0].name = " \t\n"
+
+        let result = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
+
+        XCTAssertTrue(result.errors.contains("items[0].name: required"))
+    }
+
     func testRejectsDuplicateIds() throws {
         var manifest = try loadValid()
         manifest.items.append(manifest.items[0])
