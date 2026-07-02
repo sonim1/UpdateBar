@@ -401,6 +401,14 @@ final class DocumentationSnapshotTests: XCTestCase {
             initSection.contains("`--select` accepts comma-separated candidate numbers or ids"),
             "init docs should mention numeric --select values"
         )
+        XCTAssertTrue(
+            initSection.contains("Numbers refer to the current `updatebar init` candidate list"),
+            "init docs should scope numeric --select values"
+        )
+        XCTAssertTrue(
+            initSection.contains("use ids when copying from `updatebar scan`"),
+            "init docs should prefer ids for scan output"
+        )
         XCTAssertTrue(initSection.contains("all"), "init docs should mention all")
     }
 

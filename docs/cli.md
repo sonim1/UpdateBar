@@ -133,7 +133,8 @@ filter.
 `--select` accepts comma-separated candidate numbers or ids such as
 `2,brew.gh,npm.typescript`, optional spaces are ignored, duplicate values are
 ignored, and `ALL` is accepted for `all`. `--json` requires `--select` so stdout
-stays JSON-only.
+stays JSON-only. Numbers refer to the current `updatebar init` candidate list;
+use ids when copying from `updatebar scan`.
 
 Duplicate ids are skipped by default. Pass `--replace` to overwrite existing recipes. `init` never approves commands.
 
