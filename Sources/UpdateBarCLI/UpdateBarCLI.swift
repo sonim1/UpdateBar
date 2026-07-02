@@ -1210,7 +1210,6 @@ struct GuideCommand: ParsableCommand {
 
                 Rules:
                 - use version_parse.regex with exactly one capture group
-                - version_parse.jq is not supported yet
                 - check.file reads local file content and parses it with version_parse.regex
                 - latest.strategy cmd and all update commands require explicit approval
                 - imported recipes should stay untrusted until a user reviews commands

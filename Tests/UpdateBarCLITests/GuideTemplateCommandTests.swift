@@ -96,6 +96,7 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("version_parse.regex"))
         XCTAssertFalse(result.stdout.contains("update, enabled, notify, trust"))
         XCTAssertFalse(result.stdout.contains("notify"))
+        XCTAssertFalse(result.stdout.contains("jq"))
         XCTAssertTrue(result.stdout.contains("Defaults: enabled=true, update.requires_write=true"))
     }
 
