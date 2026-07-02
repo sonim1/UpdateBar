@@ -85,6 +85,31 @@ final class StatusSnapshotTests: XCTestCase {
         XCTAssertFalse(snapshot.items.first?.error?.contains("OPENROUTER_API_KEY=") ?? true)
     }
 
+    func testStatusSnapshotRedactsStoredVersionSecrets() throws {
+        let manifest = try loadManifest()
+        let now = Date(timeIntervalSince1970: 1_812_499_200)
+        let secret = "sk-or-v1-status-secret-value"
+        let state = State(
+            schemaVersion: 1,
+            generatedAt: now,
+            items: [
+                "claude-code": ItemState(
+                    current: secret,
+                    latest: secret,
+                    status: .ok,
+                    lastChecked: now,
+                    error: nil,
+                    backoffUntil: nil
+                )
+            ]
+        )
+
+        let snapshot = StatusSnapshot.from(manifest: manifest, state: state, now: now)
+
+        XCTAssertEqual(snapshot.items.first?.current, "[REDACTED]")
+        XCTAssertEqual(snapshot.items.first?.latest, "[REDACTED]")
+    }
+
     func testStatusSummaryCountsAttentionStates() throws {
         let outdated = try recipe(id: "outdated", name: "Outdated")
 

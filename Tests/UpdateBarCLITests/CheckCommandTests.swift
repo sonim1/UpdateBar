@@ -17,6 +17,32 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertEqual(results[0].status, .outdated)
     }
 
+    func testCheckJSONRedactsVersionSecretsFromEnvironment() throws {
+        let home = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: home)
+        let secret = "sk-or-v1-json-secret-value"
+        var recipe = fixtureRecipe()
+        recipe.versionScheme = .opaque
+        recipe.check = .command("printf \"$HOME\"")
+        recipe.latest = LatestSpec(strategy: .cmd, cmd: "printf \"$HOME\"", pattern: nil)
+        recipe.versionParse = .regex("(sk-or-v1-[A-Za-z0-9._-]+)")
+        TrustPolicy.approveAllCommands(in: &recipe)
+        try ManifestStore(paths: paths).save(manifest(items: [recipe]))
+
+        let result = try CLIProcess.run(
+            ["check", "fixture-tool", "--json"],
+            home: home,
+            environment: ["HOME": secret]
+        )
+        let results = try JSONDecoder.updateBar.decode([CheckResult].self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertFalse(result.stdout.contains(secret))
+        XCTAssertTrue(result.stdout.contains("[REDACTED]"))
+        XCTAssertEqual(results.first?.current, "[REDACTED]")
+        XCTAssertEqual(results.first?.latest, "[REDACTED]")
+    }
+
     func testCheckExitZeroOnOutdatedFlagReturnsSuccess() throws {
         let home = try temporaryDirectory()
         try saveManifest(home: home)

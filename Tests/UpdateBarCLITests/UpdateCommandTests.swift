@@ -244,6 +244,34 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertEqual(results.map(\.outcome), [.cancelled])
     }
 
+    func testUpdateJSONRedactsStoredVersionSecrets() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secret = "sk-or-v1-update-secret-value"
+        try ManifestStore(paths: paths).save(manifest(items: [
+            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
+        ]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "tool": ItemState(
+                current: secret,
+                latest: secret,
+                status: .outdated,
+                lastChecked: now,
+                error: nil,
+                backoffUntil: nil
+            )
+        ]))
+
+        let result = try CLIProcess.run(["update", "tool", "--json"], home: home)
+        let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 2)
+        XCTAssertFalse(result.stdout.contains(secret))
+        XCTAssertTrue(result.stdout.contains("[REDACTED]"))
+        XCTAssertEqual(results.first?.current, "[REDACTED]")
+        XCTAssertEqual(results.first?.latest, "[REDACTED]")
+    }
+
     func testUpdateHumanCancelledWithoutYesPrintsYesNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)

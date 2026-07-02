@@ -172,9 +172,9 @@ public struct UpdateResult: Codable, Equatable {
         self.id = id
         self.name = name
         self.outcome = outcome
-        self.current = current
-        self.latest = latest
-        self.error = error
+        self.current = current.map(SecretRedactor.redact)
+        self.latest = latest.map(SecretRedactor.redact)
+        self.error = error.map(SecretRedactor.redact)
         self.commandFingerprint = commandFingerprint
     }
 
