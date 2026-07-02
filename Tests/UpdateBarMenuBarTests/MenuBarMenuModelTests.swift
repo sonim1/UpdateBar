@@ -304,6 +304,44 @@ final class MenuBarMenuModelTests: XCTestCase {
         )
     }
 
+    func testApprovalMenuRedactsSecretLikeCommandDetails() {
+        let state = MenuBarState(
+            title: "Needs approval",
+            badgeValue: "!",
+            outdatedItems: [],
+            approvalItems: [
+                statusItem(id: "tool", name: "Tool", status: .untrusted)
+            ],
+            errorItems: [],
+            okItems: []
+        )
+        let approvals = [
+            "tool": [
+                CommandApprovalStatus(
+                    field: "update.cmd",
+                    approved: false,
+                    fingerprint: "abc",
+                    command: "OPENROUTER_API_KEY=sk-or-v1-secret-value tool update",
+                    cwd: "/tmp/sk-or-v1-secret-value"
+                )
+            ]
+        ]
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: approvals
+        )
+
+        let approvalItem = model.entries.item(
+            titled: "      Approve update.cmd: [REDACTED] tool update [cwd: /tmp/[REDACTED]]"
+        )
+
+        XCTAssertNotNil(approvalItem)
+        XCTAssertFalse(model.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
+        XCTAssertFalse(approvalItem?.toolTip?.contains("sk-or-v1-secret-value") ?? true)
+        XCTAssertFalse(approvalItem?.confirmation?.message.contains("sk-or-v1-secret-value") ?? true)
+    }
+
     func testBuildsErrorRecoveryMenu() {
         let model = MenuBarMenuModelBuilder().makeErrorMenu(
             errorDescription: "manifest invalid"

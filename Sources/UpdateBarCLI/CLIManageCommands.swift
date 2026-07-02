@@ -186,7 +186,7 @@ struct ApprovalsCommand: ParsableCommand {
     func run() throws {
         let rows = try RegistryService().approvals(id: id)
         if json {
-            try printJSON(rows)
+            try printJSON(rows.map(redactedRow))
         } else {
             print("FIELD\tSTATUS\tCOMMAND\tDETAIL")
             for row in rows {
@@ -205,7 +205,18 @@ struct ApprovalsCommand: ParsableCommand {
         }
     }
 
+    private func redactedRow(_ row: ApprovalStatus) -> ApprovalStatus {
+        ApprovalStatus(
+            field: row.field,
+            approved: row.approved,
+            fingerprint: row.fingerprint,
+            command: SecretRedactor.redact(row.command),
+            cwd: row.cwd.map(SecretRedactor.redact)
+        )
+    }
+
     private func humanRow(_ row: ApprovalStatus) -> String {
+        let row = redactedRow(row)
         var parts = [
             row.field,
             row.approved ? "approved" : "unapproved",

@@ -186,8 +186,10 @@ public struct MenuBarMenuModelBuilder: Sendable {
             let showCount = min(approvals.count, min(Self.maxApprovalRowsPerItem, remaining))
             for approval in approvals.prefix(showCount) {
                 let verb = approval.approved ? "Revoke" : "Approve"
-                let command = collapseWhitespace(in: approval.command)
-                let cwd = approval.cwd.map { " [cwd: \($0)]" } ?? ""
+                let redactedCommand = SecretRedactor.redact(approval.command)
+                let redactedCwd = approval.cwd.map(SecretRedactor.redact)
+                let command = collapseWhitespace(in: redactedCommand)
+                let cwd = redactedCwd.map { " [cwd: \($0)]" } ?? ""
                 let action: MenuBarMenuItemAction =
                     approval.approved
                     ? .revoke(id: item.id, field: approval.field)
@@ -196,8 +198,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
                     id: item.id,
                     field: approval.field,
                     approving: !approval.approved,
-                    command: approval.command,
-                    cwd: approval.cwd
+                    command: redactedCommand,
+                    cwd: redactedCwd
                 )
                 guard showCount > 0 else { break }
                 let label = "      \(verb) \(approval.field): \(command)\(cwd)"
@@ -206,7 +208,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
                         MenuBarMenuItem(
                             title: label,
                             action: action,
-                            toolTip: "\(confirmation.toolTip)\n\(approval.field): \(approval.command)\(cwd)",
+                            toolTip: "\(confirmation.toolTip)\n\(approval.field): \(redactedCommand)\(cwd)",
                             confirmation: confirmation
                         )))
                 addedItems += 1

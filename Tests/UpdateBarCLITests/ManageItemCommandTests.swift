@@ -269,6 +269,32 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertFalse(revoke.stdout.contains("updatebar check tool"))
     }
 
+    func testApprovalsRedactsSecretLikeCommandText() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        var item = recipe()
+        item.update.cmd = "OPENROUTER_API_KEY=sk-or-v1-secret-value tool update"
+        try ManifestStore(paths: paths).save(Manifest(
+            schemaVersion: 1,
+            items: [item],
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        ))
+
+        let human = try CLIProcess.run(["approvals", "tool"], home: home)
+        let json = try CLIProcess.run(["approvals", "tool", "--json"], home: home)
+        let rows = try JSONDecoder.updateBar.decode([ApprovalStatus].self, from: Data(json.stdout.utf8))
+
+        XCTAssertEqual(human.exitCode, 0)
+        XCTAssertTrue(human.stdout.contains("[REDACTED] tool update"))
+        XCTAssertFalse(human.stdout.contains("sk-or-v1-secret-value"))
+        XCTAssertFalse(human.stdout.contains("OPENROUTER_API_KEY="))
+
+        let updateRow = try XCTUnwrap(rows.first { $0.field == "update.cmd" })
+        XCTAssertTrue(updateRow.command.contains("[REDACTED] tool update"))
+        XCTAssertFalse(updateRow.command.contains("sk-or-v1-secret-value"))
+        XCTAssertFalse(json.stdout.contains("OPENROUTER_API_KEY="))
+    }
+
     func testApprovalsHumanAllApprovedPrintsCheckNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
