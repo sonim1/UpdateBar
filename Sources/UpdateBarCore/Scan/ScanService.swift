@@ -43,7 +43,8 @@ public struct ScanService {
             do {
                 candidates.append(contentsOf: try scan(detector: detector))
             } catch {
-                errors.append(ScanError(detector: detector, message: String(describing: error)))
+                let message = SecretRedactor.redact(String(describing: error))
+                errors.append(ScanError(detector: detector, message: message))
             }
         }
 

@@ -255,6 +255,23 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertFalse(report.candidates.description.contains("secret-token"))
     }
 
+    func testScanRedactsThrownDetectorErrors() throws {
+        let service = ScanService(
+            commandRunner: ThrowingCommandRunner(
+                error: ScanTestError(
+                    description: "launch failed with OPENROUTER_API_KEY=sk-or-v1-secret-value")
+            )
+        )
+
+        let report = try service.scan(detectors: [.brew])
+
+        let error = try XCTUnwrap(report.errors.first)
+        XCTAssertEqual(error.detector, .brew)
+        XCTAssertTrue(error.message.contains("[REDACTED]"))
+        XCTAssertFalse(error.message.contains("sk-or-v1-secret-value"))
+        XCTAssertFalse(error.message.contains("OPENROUTER_API_KEY="))
+    }
+
     private func category(_ id: String, in report: ScanReport) throws -> String {
         try XCTUnwrap(report.candidates.first { $0.id == id }).category
     }
@@ -286,4 +303,16 @@ final class ScanServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
+}
+
+private struct ThrowingCommandRunner: CommandRunning {
+    var error: Error
+
+    func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult {
+        throw error
+    }
+}
+
+private struct ScanTestError: Error, CustomStringConvertible {
+    var description: String
 }
