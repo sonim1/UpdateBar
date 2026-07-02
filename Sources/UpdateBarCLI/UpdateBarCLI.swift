@@ -2301,20 +2301,20 @@ struct AddCommand: ParsableCommand {
         let prepared = TrustPolicy.untrustedCopy(validated)
 
         if dryRun {
-            try output(AddPayload(valid: true, recipe: prepared, errors: []))
+            try output(AddPayload(valid: true, recipe: prepared, errors: []), saved: false)
             return
         }
 
         do {
             try RegistryService().addRecipe(prepared, replace: replace)
-            try output(AddPayload(valid: true, recipe: prepared, errors: []))
+            try output(AddPayload(valid: true, recipe: prepared, errors: []), saved: true)
         } catch {
             if json {
                 try output(AddPayload(
                     valid: false,
                     recipe: prepared,
                     errors: [sanitizedErrorMessage(for: error)]
-                ))
+                ), saved: false)
             }
             throw error
         }
@@ -2367,11 +2367,17 @@ struct AddCommand: ParsableCommand {
         return recipe
     }
 
-    private func output(_ payload: AddPayload) throws {
+    private func output(_ payload: AddPayload, saved: Bool) throws {
         if json {
             try printJSON(payload)
         } else if payload.valid, let recipe = payload.recipe {
-            print("added \(recipe.id)")
+            if saved {
+                print("added \(recipe.id)")
+                printApprovalAndCheckNextSteps(for: [recipe.id])
+            } else {
+                print("valid \(recipe.id)")
+                print("dry run: not saved")
+            }
         } else {
             for error in payload.errors {
                 writeStderr(error)

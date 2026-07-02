@@ -22,6 +22,22 @@ final class AddCommandTests: XCTestCase {
         XCTAssertEqual(payload.recipe?.trust.level, .untrusted)
     }
 
+    func testManualAddDryRunHumanModeDoesNotSayAdded() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: []))
+        let file = try writeRecipe(home: home, recipe: recipe(id: "dry-run"))
+
+        let result = try CLIProcess.run(["add", "--from", file.path, "--dry-run"], home: home)
+        let stored = try ManifestStore(paths: paths).load()
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(stored.items.isEmpty)
+        XCTAssertTrue(result.stdout.contains("valid dry-run"))
+        XCTAssertTrue(result.stdout.contains("dry run: not saved"))
+        XCTAssertFalse(result.stdout.contains("added dry-run"))
+    }
+
     func testManualAddFromManifestStoresUntrustedRecipe() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let paths = AppPaths(homeDirectory: home)
@@ -34,6 +50,22 @@ final class AddCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(stored.item(id: "manual")?.trust.level, .untrusted)
         XCTAssertEqual(stored.item(id: "manual")?.trust.approvedCommands, [:])
+    }
+
+    func testManualAddHumanModePrintsApprovalAndCheckNextSteps() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try ManifestStore(paths: paths).save(manifest(items: []))
+        let file = try writeRecipe(home: home, recipe: recipe(id: "manual"))
+
+        let result = try CLIProcess.run(["add", "--from", file.path], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("added manual"))
+        XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar approvals manual"))
+        XCTAssertTrue(result.stdout.contains("updatebar check manual"))
     }
 
     func testManualAddRejectsMalformedManifestWithValidationErrors() throws {
