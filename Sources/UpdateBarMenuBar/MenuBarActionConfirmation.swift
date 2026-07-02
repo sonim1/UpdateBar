@@ -45,13 +45,22 @@ public struct MenuBarActionConfirmation: Equatable, Sendable {
     public static func commandApproval(
         id: String,
         field: String,
-        approving: Bool
+        approving: Bool,
+        command: String? = nil,
+        cwd: String? = nil
     ) -> MenuBarActionConfirmation {
         let verb = approving ? "Approve" : "Revoke"
         let sentenceVerb = approving ? "approves" : "revokes"
+        var message = "This \(sentenceVerb) \(field) for \(id)."
+        if let command, !command.isEmpty {
+            message += "\n\nCommand:\n\(command)"
+        }
+        if let cwd, !cwd.isEmpty {
+            message += "\n\nWorking directory:\n\(cwd)"
+        }
         return MenuBarActionConfirmation(
             title: "\(verb) \(field)?",
-            message: "This \(sentenceVerb) \(field) for \(id).",
+            message: message,
             toolTip: "\(verb)s \(field) for \(id) after confirmation.",
             confirmButton: verb
         )

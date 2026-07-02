@@ -130,10 +130,31 @@ final class MenuBarMenuModelTests: XCTestCase {
             approveItem?.toolTip,
             "Approves update.cmd for fresh after confirmation.\nupdate.cmd: fresh   update [cwd: /tmp/fresh]"
         )
+        XCTAssertEqual(
+            approveItem?.confirmation?.message,
+            """
+            This approves update.cmd for fresh.
+
+            Command:
+            fresh   update
+
+            Working directory:
+            /tmp/fresh
+            """
+        )
         let revokeItem = model.entries.item(titled: "      Revoke check.cmd: fresh check")
         XCTAssertEqual(
             revokeItem?.toolTip,
             "Revokes check.cmd for fresh after confirmation.\ncheck.cmd: fresh check"
+        )
+        XCTAssertEqual(
+            revokeItem?.confirmation?.message,
+            """
+            This revokes check.cmd for fresh.
+
+            Command:
+            fresh check
+            """
         )
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }

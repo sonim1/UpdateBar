@@ -91,7 +91,9 @@
         @objc private func updateSelected(_ sender: NSMenuItem) {
             guard let action = sender.representedObject as? ItemAction else { return }
             let id = action.id
-            guard confirm(MenuBarActionConfirmation.updateItem(id: id)) else { return }
+            guard confirm(action.confirmation ?? MenuBarActionConfirmation.updateItem(id: id)) else {
+                return
+            }
             runAction("Update \(id)") { [service] token in
                 try service?.update(id: id, cancellationToken: token)
             }
@@ -101,12 +103,12 @@
             guard let action = sender.representedObject as? ApprovalAction else { return }
             let id = action.id
             let field = action.field
-            let confirmation = MenuBarActionConfirmation.commandApproval(
+            let fallback = MenuBarActionConfirmation.commandApproval(
                 id: id,
                 field: field,
                 approving: true
             )
-            guard confirm(confirmation) else { return }
+            guard confirm(action.confirmation ?? fallback) else { return }
             runAction("Approve \(id) \(field)") { [service] token in
                 try service?.approve(id: id, field: field, cancellationToken: token)
             }
@@ -116,12 +118,12 @@
             guard let action = sender.representedObject as? ApprovalAction else { return }
             let id = action.id
             let field = action.field
-            let confirmation = MenuBarActionConfirmation.commandApproval(
+            let fallback = MenuBarActionConfirmation.commandApproval(
                 id: id,
                 field: field,
                 approving: false
             )
-            guard confirm(confirmation) else { return }
+            guard confirm(action.confirmation ?? fallback) else { return }
             runAction("Revoke \(id) \(field)") { [service] token in
                 try service?.revoke(id: id, field: field, cancellationToken: token)
             }
@@ -289,9 +291,13 @@
             case .menu, .cancelCurrentAction:
                 break
             case .update(let id):
-                menuItem.representedObject = ItemAction(id: id)
+                menuItem.representedObject = ItemAction(id: id, confirmation: item.confirmation)
             case .approve(let id, let field), .revoke(let id, let field):
-                menuItem.representedObject = ApprovalAction(id: id, field: field)
+                menuItem.representedObject = ApprovalAction(
+                    id: id,
+                    field: field,
+                    confirmation: item.confirmation
+                )
             }
             return menuItem
         }
@@ -470,19 +476,23 @@
 
     private final class ItemAction: NSObject {
         let id: String
+        let confirmation: MenuBarActionConfirmation?
 
-        init(id: String) {
+        init(id: String, confirmation: MenuBarActionConfirmation?) {
             self.id = id
+            self.confirmation = confirmation
         }
     }
 
     private final class ApprovalAction: NSObject {
         let id: String
         let field: String
+        let confirmation: MenuBarActionConfirmation?
 
-        init(id: String, field: String) {
+        init(id: String, field: String, confirmation: MenuBarActionConfirmation?) {
             self.id = id
             self.field = field
+            self.confirmation = confirmation
         }
     }
 

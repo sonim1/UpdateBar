@@ -18,11 +18,18 @@ public struct MenuBarMenuItem: Equatable, Sendable {
     public var title: String
     public var action: MenuBarMenuItemAction?
     public var toolTip: String?
+    public var confirmation: MenuBarActionConfirmation?
 
-    public init(title: String, action: MenuBarMenuItemAction? = nil, toolTip: String? = nil) {
+    public init(
+        title: String,
+        action: MenuBarMenuItemAction? = nil,
+        toolTip: String? = nil,
+        confirmation: MenuBarActionConfirmation? = nil
+    ) {
         self.title = title
         self.action = action
         self.toolTip = toolTip
+        self.confirmation = confirmation
     }
 }
 
@@ -111,10 +118,12 @@ public struct MenuBarMenuModelBuilder: Sendable {
 
     private func appendUpdates(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
         appendSection("Updates (\(items.count))", items: items, to: &entries) { item in
-            MenuBarMenuItem(
+            let confirmation = MenuBarActionConfirmation.updateItem(id: item.id)
+            return MenuBarMenuItem(
                 title: "\(item.name) \(item.current ?? "?") -> \(item.latest ?? "?")",
                 action: .update(id: item.id),
-                toolTip: MenuBarActionConfirmation.updateItem(id: item.id).toolTip
+                toolTip: confirmation.toolTip,
+                confirmation: confirmation
             )
         }
     }
@@ -169,7 +178,9 @@ public struct MenuBarMenuModelBuilder: Sendable {
                 let confirmation = MenuBarActionConfirmation.commandApproval(
                     id: item.id,
                     field: approval.field,
-                    approving: !approval.approved
+                    approving: !approval.approved,
+                    command: approval.command,
+                    cwd: approval.cwd
                 )
                 guard showCount > 0 else { break }
                 let label = "      \(verb) \(approval.field): \(command)\(cwd)"
@@ -178,7 +189,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
                         MenuBarMenuItem(
                             title: label,
                             action: action,
-                            toolTip: "\(confirmation.toolTip)\n\(approval.field): \(approval.command)\(cwd)"
+                            toolTip: "\(confirmation.toolTip)\n\(approval.field): \(approval.command)\(cwd)",
+                            confirmation: confirmation
                         )))
                 addedItems += 1
                 if addedItems >= Self.maxApprovalItems {
