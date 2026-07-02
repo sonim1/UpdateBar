@@ -69,6 +69,20 @@ final class ExportImportCommandTests: XCTestCase {
         XCTAssertEqual(stored.item(id: "stdin")?.trust.level, .untrusted)
     }
 
+    func testImportHumanModePrintsApprovalAndCheckNextSteps() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-import-tests")
+        let importFile = try writeImportManifest(home: home, items: [recipe(id: "imported")])
+
+        let result = try CLIProcess.run(["import", importFile.path], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("imported 1 item(s)"))
+        XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar approvals imported"))
+        XCTAssertTrue(result.stdout.contains("updatebar check imported"))
+    }
+
     func testExportWritesManifestObjectAndPrintsJSON() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-export-tests")
         let paths = AppPaths(homeDirectory: home)

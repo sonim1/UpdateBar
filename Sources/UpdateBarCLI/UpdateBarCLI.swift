@@ -600,22 +600,12 @@ struct InitCommand: ParsableCommand {
                 "skipped \(payload.skipped.count)",
             ].joined(separator: ", ")
             print(message)
-            printNextSteps(for: payload.added + payload.replaced)
+            printApprovalAndCheckNextSteps(for: payload.added + payload.replaced)
         } else {
             for error in payload.errors {
                 writeStderr(error)
             }
         }
-    }
-
-    private func printNextSteps(for ids: [String]) {
-        guard !ids.isEmpty else { return }
-        print("")
-        print("Next")
-        for id in ids {
-            print("updatebar approvals \(id)")
-        }
-        print("updatebar check \(ids.joined(separator: " "))")
     }
 }
 
@@ -688,6 +678,16 @@ private func unique(_ values: [String]) -> [String] {
         results.append(value)
     }
     return results
+}
+
+private func printApprovalAndCheckNextSteps(for ids: [String]) {
+    guard !ids.isEmpty else { return }
+    print("")
+    print("Next")
+    for id in ids {
+        print("updatebar approvals \(id)")
+    }
+    print("updatebar check \(ids.joined(separator: " "))")
 }
 
 private func normalizedCategory(for value: String) throws -> String {
@@ -2234,6 +2234,7 @@ struct ImportCommand: ParsableCommand {
                 try printJSON(ImportPayload(summary: summary, errors: []))
             } else {
                 print("imported \(summary.added.count + summary.replaced.count) item(s)")
+                printApprovalAndCheckNextSteps(for: summary.added + summary.replaced)
             }
         } catch {
             if json {
