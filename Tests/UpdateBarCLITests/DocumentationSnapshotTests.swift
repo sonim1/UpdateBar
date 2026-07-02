@@ -566,6 +566,14 @@ final class DocumentationSnapshotTests: XCTestCase {
             initSection.contains("`updatebar init --select all --json`"),
             "init docs should show the headless add-all form"
         )
+        XCTAssertTrue(
+            initSection.contains("If a selected id is not found"),
+            "init docs should explain invalid selected id recovery"
+        )
+        XCTAssertTrue(
+            initSection.contains("rerun `updatebar scan"),
+            "init docs should point invalid selected ids back to scan"
+        )
         XCTAssertTrue(initSection.contains("all"), "init docs should mention all")
         for column in ["`ITEM`", "`ID`", "`CATEGORY`", "`SOURCE`"] {
             XCTAssertTrue(initSection.contains(column), "init docs missing \(column)")

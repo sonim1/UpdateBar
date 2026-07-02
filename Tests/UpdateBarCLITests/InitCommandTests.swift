@@ -250,6 +250,42 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(try ManifestStore(paths: AppPaths(homeDirectory: home)).load().items.isEmpty)
     }
 
+    func testInitUnknownSelectionSuggestsScanForCandidateIDs() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            ["init", "--json", "--select", "brew.missing"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder.updateBar.decode(
+            InitPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertTrue(payload.errors.contains { $0.contains("brew.missing: not found") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar scan") })
+    }
+
+    func testInitUnknownCategorySelectionSuggestsFilteredScan() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            ["init", "--json", "--category", "cloud-devops", "--select", "brew.missing"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder.updateBar.decode(
+            InitPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertTrue(payload.errors.contains { $0.contains("brew.missing: not found") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar scan --category cloud-devops") })
+    }
+
     func testInitJSONRequiresHeadlessSelection() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = try fakeManagers(home: home)

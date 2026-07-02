@@ -46,7 +46,7 @@ struct InitCommand: ParsableCommand {
                     added: [],
                     replaced: [],
                     skipped: [],
-                    errors: [sanitizedErrorMessage(for: error)]
+                    errors: invalidSelectionMessages(for: error, categoryFilter: categoryFilter)
                 )
             )
             throw ExitCode.failure
@@ -62,6 +62,24 @@ struct InitCommand: ParsableCommand {
             report.candidates = report.candidates.filter { $0.category == category }
         }
         return report
+    }
+
+    private func invalidSelectionMessages(
+        for error: InitServiceError,
+        categoryFilter: String?
+    ) -> [String] {
+        switch error {
+        case .invalidSelection(let errors):
+            return errors.map(SecretRedactor.redact)
+                + [scanCandidateIDHint(categoryFilter: categoryFilter)]
+        }
+    }
+
+    private func scanCandidateIDHint(categoryFilter: String?) -> String {
+        let command = categoryFilter.map {
+            "updatebar scan --category \($0)"
+        } ?? "updatebar scan"
+        return "Run \(command) to review candidate ids."
     }
 
     private func parseSelection(from report: ScanReport, categoryFilter: String?) throws -> [String] {
