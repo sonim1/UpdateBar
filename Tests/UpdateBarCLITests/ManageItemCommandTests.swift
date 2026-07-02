@@ -127,6 +127,23 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertNil(stored.trust.approvedCommands["update.cmd"])
     }
 
+    func testApprovalsHumanAllApprovedPrintsCheckNextStep() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveFixture(paths: paths)
+
+        let result = try CLIProcess.run(["approvals", "tool"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("check.cmd\tapproved"))
+        XCTAssertTrue(result.stdout.contains("latest.cmd\tapproved"))
+        XCTAssertTrue(result.stdout.contains("update.cmd\tapproved"))
+        XCTAssertTrue(result.stdout.contains("All command fields approved."))
+        XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar check tool"))
+        XCTAssertFalse(result.stdout.contains("updatebar approve tool"))
+    }
+
     func testMutatingManageCommandsSupportJSONOutput() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)

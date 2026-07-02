@@ -2219,6 +2219,12 @@ struct ApprovalsCommand: ParsableCommand {
                 for row in unapprovedRows {
                     print("updatebar approve \(id) --field \(row.field)")
                 }
+            } else {
+                print("")
+                print("All command fields approved.")
+                print("")
+                print("Next")
+                print("updatebar check \(id)")
             }
         }
     }
