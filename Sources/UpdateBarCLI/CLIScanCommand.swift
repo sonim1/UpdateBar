@@ -106,9 +106,12 @@ struct ScanCommand: ParsableCommand {
             candidate.recipe == nil ? nil : candidate.id
         }
         guard !ids.isEmpty else { return }
-        print("Next")
-        print("updatebar init")
-        print("updatebar init --select \(ids.joined(separator: ","))")
-        print("")
+        printNextCommands(
+            [
+                "updatebar init",
+                "updatebar init --select \(ids.joined(separator: ","))",
+            ],
+            leadingBlank: false
+        )
     }
 }

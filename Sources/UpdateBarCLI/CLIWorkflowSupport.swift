@@ -81,9 +81,11 @@ func printEmptyRegistryNextStep() {
     printNextCommands(["updatebar init"])
 }
 
-func printNextCommands(_ commands: [String]) {
+func printNextCommands(_ commands: [String], leadingBlank: Bool = true) {
     guard !commands.isEmpty else { return }
-    print("")
+    if leadingBlank {
+        print("")
+    }
     print("Next")
     for command in commands {
         print(command)
