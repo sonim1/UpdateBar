@@ -74,6 +74,33 @@ final class StatusCommandTests: XCTestCase {
         XCTAssertEqual(state.items["tool"]?.status, .checking)
     }
 
+    func testStatusRefreshUsesDefaultConfigWithoutCreatingConfigFile() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(home: home, items: [recipe(id: "tool", name: "Tool")])
+
+        let result = try CLIProcess.run(["status", "--json", "--refresh", "--exit-zero-on-outdated"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
+    }
+
+    func testStatusRefreshWithoutCheckableItemsDoesNotCreateStateFile() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
+        let paths = AppPaths(homeDirectory: home)
+        var item = recipe(id: "tool", name: "Tool")
+        item.trust.level = .untrusted
+        item.trust.approvedCommands = [:]
+        try saveManifest(home: home, items: [item])
+
+        let result = try CLIProcess.run(["status", "--json", "--refresh", "--exit-zero-on-outdated"], home: home)
+        let snapshot = try JSONDecoder.updateBar.decode(StatusSnapshot.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(snapshot.items.first?.status, .untrusted)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+    }
+
     func testStatusWithoutRefreshDoesNotCreateStateFile() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
         let paths = AppPaths(homeDirectory: home)
@@ -161,6 +188,20 @@ final class StatusCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("updatebar init"))
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+    }
+
+    func testStatusRefreshEmptyRegistryDoesNotCreateRegistryFiles() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
+        let paths = AppPaths(homeDirectory: home)
+
+        let result = try CLIProcess.run(["status", "--json", "--refresh", "--exit-zero-on-outdated"], home: home)
+        let snapshot = try JSONDecoder.updateBar.decode(StatusSnapshot.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(snapshot.summary.total, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
     }
 
     func testStatusWithoutRefreshDoesNotCreateMissingHomeDirectory() throws {
