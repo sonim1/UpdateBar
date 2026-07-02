@@ -23,8 +23,8 @@ public enum SecretRedactor {
             #"sk-[A-Za-z0-9._-]{8,}"#,
             #"ghp_[A-Za-z0-9_]{20,}"#,
             #"github_pat_[A-Za-z0-9_]{20,}"#,
-            #"(?i)(\#(sensitiveEnvironmentKeyPattern))=\S+"#,
-            #"(?i)["']?(\#(sensitiveEnvironmentKeyPattern))["']?\s*:\s*["']?[^"',}\]\s]+["']?"#,
+            #"(?i)(\#(sensitiveEnvironmentKeyPattern))=("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)"#,
+            #"(?i)["']?(\#(sensitiveEnvironmentKeyPattern))["']?\s*:\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^"',}\]\s]+)"#,
         ]
         for pattern in patterns {
             output = output.replacingOccurrences(

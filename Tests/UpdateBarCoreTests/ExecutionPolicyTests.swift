@@ -156,6 +156,17 @@ final class ExecutionPolicyTests: XCTestCase {
         XCTAssertTrue(redacted.contains("[REDACTED]"))
     }
 
+    func testSecretRedactorMasksQuotedTokenValuesWithSpaces() {
+        let redacted = SecretRedactor.redact(
+            #"NPM_TOKEN="npm secret" {"env":{"AWS_SESSION_TOKEN":"aws secret"}}"#
+        )
+
+        XCTAssertFalse(redacted.contains("npm secret"))
+        XCTAssertFalse(redacted.contains("aws secret"))
+        XCTAssertFalse(redacted.contains("secret"))
+        XCTAssertEqual(redacted.components(separatedBy: "[REDACTED]").count - 1, 2)
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("updatebar-execution-tests-\(UUID().uuidString)")
