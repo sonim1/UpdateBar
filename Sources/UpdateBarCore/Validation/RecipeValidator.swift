@@ -91,7 +91,7 @@ public enum RecipeValidator {
         if let kind = source["kind"] as? String,
             kind == "github_release",
             let ref = source["ref"] as? String,
-            !isValidGitHubRepositoryRef(ref)
+            GitHubRepositoryRef.parse(ref) == nil
         {
             errors.append("\(path).ref: invalid GitHub repository ref")
         }
@@ -209,30 +209,6 @@ public enum RecipeValidator {
     private static func matchesID(_ id: String) -> Bool {
         guard let first = id.utf8.first, isIDStartByte(first) else { return false }
         return id.utf8.dropFirst().allSatisfy(isIDContinuationByte)
-    }
-
-    private static func isValidGitHubRepositoryRef(_ ref: String) -> Bool {
-        let trimmed = ref.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed == ref, !trimmed.isEmpty else { return false }
-
-        if let url = URL(string: trimmed),
-            let host = url.host?.lowercased(),
-            host == "github.com" || host == "www.github.com"
-        {
-            let parts = url.path.split(separator: "/").map(String.init)
-            guard parts.count >= 2 else { return false }
-            return isValidGitHubRepositoryPart(parts[0])
-                && isValidGitHubRepositoryPart(parts[1])
-        }
-
-        guard !trimmed.contains("github.com") else { return false }
-        let parts = trimmed.split(separator: "/").map(String.init)
-        guard parts.count == 2 else { return false }
-        return parts.allSatisfy(isValidGitHubRepositoryPart)
-    }
-
-    private static func isValidGitHubRepositoryPart(_ value: String) -> Bool {
-        !value.isEmpty && !value.contains(where: \.isWhitespace)
     }
 
     private static func isIDStartByte(_ byte: UInt8) -> Bool {
