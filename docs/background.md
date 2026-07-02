@@ -11,8 +11,11 @@ updatebar background install --yes --json
 Status:
 
 ```bash
-updatebar background status --json
+updatebar background status
 ```
+
+Plain status output is tab-separated with `STATUS`, `LABEL`, and `PATH` columns.
+Use `--json` for machine-readable automation.
 
 Uninstall:
 

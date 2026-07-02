@@ -63,7 +63,8 @@ struct BackgroundCommand: ParsableCommand {
             if json {
                 try printJSON(payload)
             } else {
-                print(payload.installed ? "installed" : "not installed")
+                print("STATUS\tLABEL\tPATH")
+                print("\(payload.installed ? "installed" : "not_installed")\t\(payload.label)\t\(payload.path)")
             }
 #else
             throw ValidationError("background helper is only supported on macOS")

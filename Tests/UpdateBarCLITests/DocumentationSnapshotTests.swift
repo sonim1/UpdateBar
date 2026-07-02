@@ -426,6 +426,21 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("10 outdated items exist for check/status"))
     }
 
+    func testBackgroundDocsDocumentHumanStatusColumns() throws {
+        let backgroundDocs = try String(contentsOfFile: "docs/background.md", encoding: .utf8)
+        let cliDocs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let backgroundStatusSection = try readmeSection(
+            "### `updatebar background status",
+            before: "### `updatebar background uninstall",
+            in: cliDocs
+        )
+
+        for column in ["`STATUS`", "`LABEL`", "`PATH`"] {
+            XCTAssertTrue(backgroundDocs.contains(column), "background docs missing \(column)")
+            XCTAssertTrue(backgroundStatusSection.contains(column), "cli docs missing background status \(column)")
+        }
+    }
+
     func testUpdateHelpDocumentsHeadlessJSONFlags() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 

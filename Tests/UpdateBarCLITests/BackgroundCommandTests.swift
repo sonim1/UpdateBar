@@ -74,6 +74,25 @@ final class BackgroundCommandTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: plistURL(home: home).path))
     }
 
+    func testBackgroundStatusHumanOutputShowsLabelAndPath() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-background-tests")
+        let plistPath = plistURL(home: home).path
+
+        let missing = try CLIProcess.run(["background", "status"], home: home, environment: ["HOME": home.path])
+        XCTAssertEqual(missing.exitCode, 0)
+        XCTAssertEqual(missing.stderr, "")
+        XCTAssertTrue(missing.stdout.contains("STATUS\tLABEL\tPATH"))
+        XCTAssertTrue(missing.stdout.contains("not_installed\tcom.updatebar.check\t\(plistPath)"))
+
+        _ = try CLIProcess.run(["background", "install", "--yes"], home: home, environment: ["HOME": home.path])
+
+        let installed = try CLIProcess.run(["background", "status"], home: home, environment: ["HOME": home.path])
+        XCTAssertEqual(installed.exitCode, 0)
+        XCTAssertEqual(installed.stderr, "")
+        XCTAssertTrue(installed.stdout.contains("STATUS\tLABEL\tPATH"))
+        XCTAssertTrue(installed.stdout.contains("installed\tcom.updatebar.check\t\(plistPath)"))
+    }
+
     private func plistURL(home: URL) -> URL {
         home
             .appendingPathComponent("Library")

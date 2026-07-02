@@ -83,6 +83,7 @@ The plist invokes only `updatebar check --exit-zero-on-outdated` and uses
 ### `updatebar background status [--json]`
 
 Reports whether the LaunchAgent plist is installed.
+Human output is tab-separated with `STATUS`, `LABEL`, and `PATH` columns.
 
 ### `updatebar background uninstall [--json]`
 
