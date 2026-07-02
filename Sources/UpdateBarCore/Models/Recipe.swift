@@ -102,6 +102,24 @@ public struct Recipe: Codable, Equatable {
         case notify
         case trust
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        category = try container.decode(String.self, forKey: .category)
+        path = try container.decodeIfPresent(String.self, forKey: .path)
+        source = try container.decode(Source.self, forKey: .source)
+        versionScheme = try container.decode(VersionScheme.self, forKey: .versionScheme)
+        check = try container.decode(CheckSpec.self, forKey: .check)
+        latest = try container.decode(LatestSpec.self, forKey: .latest)
+        versionParse = try container.decode(VersionParse.self, forKey: .versionParse)
+        update = try container.decode(UpdateSpec.self, forKey: .update)
+        pin = try container.decodeIfPresent(String.self, forKey: .pin)
+        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        notify = try container.decodeIfPresent(Bool.self, forKey: .notify) ?? true
+        trust = try container.decode(Trust.self, forKey: .trust)
+    }
 }
 
 public struct Source: Codable, Equatable {

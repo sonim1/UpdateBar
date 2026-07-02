@@ -165,6 +165,21 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(manifest.items[0].update.requiresWrite)
     }
 
+    func testDefaultsMissingEnabledAndNotifyToTrue() throws {
+        let data = try validDataUpdatingFirstRawItem {
+            $0.removeValue(forKey: "enabled")
+            $0.removeValue(forKey: "notify")
+        }
+
+        let result = try ManifestValidator.validate(data: data)
+
+        XCTAssertTrue(result.isValid, result.errors.joined(separator: "\n"))
+
+        let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        XCTAssertTrue(manifest.items[0].enabled)
+        XCTAssertTrue(manifest.items[0].notify)
+    }
+
     func testRejectsJQVersionParseUntilRuntimeSupportExists() throws {
         var manifest = try loadValid()
         manifest.items[0].versionParse = .jq(".version")

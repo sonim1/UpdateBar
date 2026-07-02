@@ -50,8 +50,14 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertEqual(object?["$schema"] as? String, "https://json-schema.org/draft/2020-12/schema")
         XCTAssertTrue(result.stdout.contains(#""schema_version""#))
         XCTAssertTrue(result.stdout.contains(#""latest""#))
-        XCTAssertTrue(result.stdout.contains(#""requires_write""#))
-        XCTAssertTrue(result.stdout.contains(#""default": true"#))
+        let recipe = try schemaRecipeDefinition(from: object)
+        let required = try XCTUnwrap(recipe["required"] as? [String])
+        XCTAssertFalse(required.contains("enabled"))
+        XCTAssertFalse(required.contains("notify"))
+        let properties = try XCTUnwrap(recipe["properties"] as? [String: Any])
+        XCTAssertEqual(try boolDefault(in: properties, "requires_write", nestedIn: "update"), true)
+        XCTAssertEqual(try boolDefault(in: properties, "enabled"), true)
+        XCTAssertEqual(try boolDefault(in: properties, "notify"), true)
         XCTAssertFalse(result.stdout.contains(#""jq""#))
     }
 
@@ -73,6 +79,8 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stdout.contains("Recipe authoring"))
         XCTAssertTrue(result.stdout.contains("version_parse.regex"))
+        XCTAssertFalse(result.stdout.contains("update, enabled, notify, trust"))
+        XCTAssertTrue(result.stdout.contains("Defaults: enabled=true, notify=true, update.requires_write=true"))
     }
 
     func testTemplateRecipeAcceptsAgentOverrides() throws {
@@ -100,5 +108,22 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertEqual(manifest.schemaVersion, 1)
         XCTAssertEqual(manifest.items.count, 1)
         XCTAssertEqual(manifest.items.first?.trust.level, .untrusted)
+    }
+
+    private func schemaRecipeDefinition(from root: [String: Any]?) throws -> [String: Any] {
+        let defs = try XCTUnwrap(root?["$defs"] as? [String: Any])
+        return try XCTUnwrap(defs["recipe"] as? [String: Any])
+    }
+
+    private func boolDefault(in properties: [String: Any], _ key: String, nestedIn parentKey: String? = nil) throws -> Bool {
+        let targetProperties: [String: Any]
+        if let parentKey {
+            let parent = try XCTUnwrap(properties[parentKey] as? [String: Any])
+            targetProperties = try XCTUnwrap(parent["properties"] as? [String: Any])
+        } else {
+            targetProperties = properties
+        }
+        let property = try XCTUnwrap(targetProperties[key] as? [String: Any])
+        return try XCTUnwrap(property["default"] as? Bool)
     }
 }

@@ -1202,7 +1202,9 @@ struct GuideCommand: ParsableCommand {
 
                 Required fields:
                 id, name, category, source, version_scheme, check, latest,
-                version_parse.regex, update, enabled, notify, trust.
+                version_parse.regex, update, trust.
+
+                Defaults: enabled=true, notify=true, update.requires_write=true
 
                 Rules:
                 - use version_parse.regex with exactly one capture group
@@ -1249,7 +1251,7 @@ struct SchemaCommand: ParsableCommand {
       "$defs": {
         "recipe": {
           "type": "object",
-          "required": ["id", "name", "category", "source", "version_scheme", "check", "latest", "version_parse", "update", "enabled", "notify", "trust"],
+          "required": ["id", "name", "category", "source", "version_scheme", "check", "latest", "version_parse", "update", "trust"],
           "properties": {
             "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
             "name": { "type": "string", "minLength": 1 },
@@ -1304,8 +1306,8 @@ struct SchemaCommand: ParsableCommand {
               }
             },
             "pin": { "type": ["string", "null"] },
-            "enabled": { "type": "boolean" },
-            "notify": { "type": "boolean" },
+            "enabled": { "type": "boolean", "default": true },
+            "notify": { "type": "boolean", "default": true },
             "trust": {
               "type": "object",
               "required": ["level", "approved_commands"],
