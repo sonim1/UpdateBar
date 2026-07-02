@@ -100,6 +100,10 @@ export function App({client: providedClient}: AppProps) {
         return;
       }
       if (screen === 'confirm-update') {
+        if (key.escape) {
+          setScreen('menu');
+          return;
+        }
         if (key.return && client) {
           void runUpdates(client);
         }

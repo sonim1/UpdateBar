@@ -736,6 +736,31 @@ describe('App', () => {
     expect(updateCalls).toBe(1);
   });
 
+  it('cancels update confirmation with escape', async () => {
+    let updateCalls = 0;
+    const client = createClient({
+      async updateAll() {
+        updateCalls += 1;
+        return {exitCode: 0, stdout: '', stderr: ''};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Run Updates');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run approved updates now?');
+    view.stdin.write('\u001B');
+    await waitForFrame(view, 'Refresh Status');
+
+    expect(view.lastFrame()).toContain('Run Updates');
+    expect(view.lastFrame()).not.toContain('Run approved updates now?');
+    expect(updateCalls).toBe(0);
+  });
+
   it('clears stale errors when starting updates', async () => {
     let statusCalls = 0;
     const client = createClient({
