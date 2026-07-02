@@ -1,6 +1,7 @@
 import {spawn} from 'node:child_process';
 import type {Readable} from 'node:stream';
 import {resolveUpdateBarBinary} from './binaryResolver.js';
+import type {BinaryResolverOptions} from './binaryResolver.js';
 import {parseJSONLines} from './jsonl.js';
 import type {CheckReport, CheckSummary, CheckResult, InitResult, MachineEvent, ScanReport, StatusSnapshot} from './types.js';
 
@@ -115,8 +116,10 @@ export class CLIUpdateBarClient implements UpdateBarClient {
   }
 }
 
-export async function createDefaultClient(): Promise<UpdateBarClient> {
-  const resolution = await resolveUpdateBarBinary();
+export async function createDefaultClient(
+  options: BinaryResolverOptions = {}
+): Promise<UpdateBarClient> {
+  const resolution = await resolveUpdateBarBinary(options);
   return new CLIUpdateBarClient(new SubprocessRunner(resolution.path));
 }
 

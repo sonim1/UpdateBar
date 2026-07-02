@@ -10,6 +10,7 @@ const mockedResolve = vi.mocked(resolveUpdateBarBinary);
 
 describe('createDefaultClient', () => {
   afterEach(() => {
+    vi.clearAllMocks();
     vi.restoreAllMocks();
   });
 
@@ -20,5 +21,13 @@ describe('createDefaultClient', () => {
     await createDefaultClient();
 
     expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('passes configured binary paths to the resolver', async () => {
+    mockedResolve.mockResolvedValue({path: '/tmp/updatebar', source: 'configured'});
+
+    await createDefaultClient({configuredPath: '/tmp/updatebar'});
+
+    expect(mockedResolve).toHaveBeenCalledWith({configuredPath: '/tmp/updatebar'});
   });
 });
