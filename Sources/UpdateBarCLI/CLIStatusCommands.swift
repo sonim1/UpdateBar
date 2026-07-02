@@ -36,8 +36,16 @@ struct StatusCommand: ParsableCommand {
             return
         }
 
+        print("ID\tSTATUS\tCURRENT\tLATEST\tNAME\tDETAIL")
         for item in snapshot.items {
-            print("\(item.id)\t\(item.status.rawValue)")
+            print([
+                item.id,
+                item.status.rawValue,
+                item.current ?? "-",
+                item.latest ?? "-",
+                item.name,
+                item.error ?? "",
+            ].joined(separator: "\t"))
         }
 
         let untrusted = snapshot.items.filter { $0.status == .untrusted }

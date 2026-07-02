@@ -115,6 +115,39 @@ final class StatusCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("updatebar check tool"))
     }
 
+    func testStatusHumanOutputShowsUsefulItemDetails() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
+        try saveManifest(home: home, items: [
+            recipe(id: "old", name: "Old Tool"),
+            recipe(id: "broken", name: "Broken Tool")
+        ])
+        try StateStore(paths: AppPaths(homeDirectory: home)).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "old": ItemState(
+                current: "1.0.0",
+                latest: "1.1.0",
+                status: .outdated,
+                lastChecked: now,
+                error: nil,
+                backoffUntil: nil
+            ),
+            "broken": ItemState(
+                current: "2.0.0",
+                latest: nil,
+                status: .error,
+                lastChecked: now,
+                error: "command failed",
+                backoffUntil: nil
+            )
+        ]))
+
+        let result = try CLIProcess.run(["status"], home: home)
+
+        XCTAssertEqual(result.exitCode, 10)
+        XCTAssertTrue(result.stdout.contains("ID\tSTATUS\tCURRENT\tLATEST\tNAME\tDETAIL"))
+        XCTAssertTrue(result.stdout.contains("old\toutdated\t1.0.0\t1.1.0\tOld Tool\t"))
+        XCTAssertTrue(result.stdout.contains("broken\terror\t2.0.0\t-\tBroken Tool\tcommand failed"))
+    }
+
     func testStatusHumanEmptyRegistryPrintsInitNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
         let paths = AppPaths(homeDirectory: home)
