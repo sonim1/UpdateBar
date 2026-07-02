@@ -546,6 +546,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(statusSection.contains("does not create"))
         XCTAssertTrue(statusSection.contains("manifest.json"))
         XCTAssertTrue(statusSection.contains("state.json"))
+        XCTAssertTrue(statusSection.contains("home directory"))
     }
 
     func testCliDocsExplainHiddenWorkflowExtensionCommands() throws {

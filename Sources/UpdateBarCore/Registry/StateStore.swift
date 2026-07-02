@@ -20,7 +20,6 @@ public struct StateStore {
     }
 
     public func loadExistingOrEmpty(now: Date = Date()) throws -> State {
-        try ensureHome()
         if !fileManager.fileExists(atPath: paths.stateFile.path) {
             return emptyState(now: now)
         }

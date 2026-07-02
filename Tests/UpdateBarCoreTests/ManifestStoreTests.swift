@@ -136,6 +136,16 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("manifest.json").path))
     }
 
+    func testLoadExistingOrEmptyDoesNotCreateMissingHomeDirectory() throws {
+        let root = try temporaryDirectory().appendingPathComponent("missing-home")
+        let store = ManifestStore(paths: AppPaths(homeDirectory: root))
+
+        let manifest = try store.loadExistingOrEmpty(now: Date(timeIntervalSince1970: 1_812_499_200))
+
+        XCTAssertTrue(manifest.items.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
+    }
+
     func testManifestStoreWritesAndReadsAtomicallyWithPrivatePermissions() throws {
         let root = try temporaryDirectory()
         let store = ManifestStore(paths: AppPaths(homeDirectory: root))

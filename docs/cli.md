@@ -152,7 +152,7 @@ Runs approved check/latest commands and updates `state.json`. Returns `10` when 
 ### `updatebar status [--json]`
 
 Reads manifest and state without shell or network calls. When no files exist,
-plain `status` does not create `manifest.json` or `state.json`.
+plain `status` does not create the home directory, `manifest.json`, or `state.json`.
 
 ### `updatebar update [id...] [--yes] [--json|--json-stream]`
 

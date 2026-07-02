@@ -118,6 +118,16 @@ final class StatusCommandTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
     }
 
+    func testStatusWithoutRefreshDoesNotCreateMissingHomeDirectory() throws {
+        let parent = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
+        let home = parent.appendingPathComponent("missing-home")
+
+        let result = try CLIProcess.run(["status", "--json", "--exit-zero-on-outdated"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: home.path))
+    }
+
     private func saveManifest(home: URL, items: [Recipe]) throws {
         let manifest = Manifest(
             schemaVersion: 1,
