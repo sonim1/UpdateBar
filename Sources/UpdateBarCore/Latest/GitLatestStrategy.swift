@@ -52,12 +52,15 @@ public struct GitLatestStrategy: LatestStrategy {
                 if tag.hasPrefix("v") { tag.removeFirst() }
                 return tag
             }
-            let latest = tags.max { lhs, rhs in
+            let semverTags = tags.filter { tag in
+                (try? VersionComparator.compareSemVer(tag, tag)) != nil
+            }
+            let latest = semverTags.max { lhs, rhs in
                 let comparison = try? VersionComparator.compareSemVer(lhs, rhs)
                 return comparison == .orderedAscending
             }
             guard let latest else {
-                throw LatestError.parseFailed("no git tags found")
+                throw LatestError.parseFailed("no git semver tags found")
             }
             return latest
         }

@@ -99,6 +99,55 @@ final class LatestStrategyTests: XCTestCase {
         XCTAssertEqual(latest, "1.5.0")
     }
 
+    func testGitTagsIgnoreNonSemverTags() throws {
+        var item = recipe()
+        item.source.kind = .git
+        item.source.ref = "https://github.com/example/tool.git"
+        let command = "git ls-remote --tags -- 'https://github.com/example/tool.git'"
+        let context = LatestContext(
+            httpClient: emptyHTTP(),
+            commandRunner: MockCommandExecutor(results: [
+                command: CommandResult(
+                    exitCode: 0,
+                    stdout:
+                        "aaa\trefs/tags/latest\n"
+                        + "bbb\trefs/tags/v1.4.0\n"
+                        + "ccc\trefs/tags/v1.5.0\n",
+                    stderr: ""
+                )
+            ])
+        )
+
+        let latest = try GitLatestStrategy(mode: .tags).latest(for: item, context: context)
+
+        XCTAssertEqual(latest, "1.5.0")
+    }
+
+    func testGitTagsReportWhenNoSemverTagsExist() throws {
+        var item = recipe()
+        item.source.kind = .git
+        item.source.ref = "https://github.com/example/tool.git"
+        let command = "git ls-remote --tags -- 'https://github.com/example/tool.git'"
+        let context = LatestContext(
+            httpClient: emptyHTTP(),
+            commandRunner: MockCommandExecutor(results: [
+                command: CommandResult(
+                    exitCode: 0,
+                    stdout:
+                        "aaa\trefs/tags/latest\n"
+                        + "bbb\trefs/tags/nightly\n",
+                    stderr: ""
+                )
+            ])
+        )
+
+        XCTAssertThrowsError(
+            try GitLatestStrategy(mode: .tags).latest(for: item, context: context)
+        ) { error in
+            XCTAssertEqual(String(describing: error), "no git semver tags found")
+        }
+    }
+
     func testGitSourceAndBranchAreShellQuoted() throws {
         var item = recipe()
         item.source.kind = .git
