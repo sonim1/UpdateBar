@@ -301,6 +301,38 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('source: npx');
   });
 
+  it('does not repeat source refs for importable scan candidates', async () => {
+    const client = createClient({
+      async scan() {
+        return {
+          candidates: [
+            {
+              id: 'brew.gh',
+              name: 'gh',
+              detector: 'brew',
+              category: 'cloud-devops',
+              capability: 'full',
+              confidence: 'high',
+              installed_version: '2.74.0',
+              source_ref: 'gh',
+              recipe: {}
+            }
+          ],
+          errors: []
+        };
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'brew.gh');
+
+    expect(view.lastFrame()).not.toContain('source: gh');
+  });
+
   it('reports when trying to bulk-select with no importable candidates', async () => {
     const client = createClient({
       async scan() {

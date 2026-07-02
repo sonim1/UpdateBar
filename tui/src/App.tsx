@@ -461,7 +461,7 @@ function scanMarker(candidate: ScanCandidate, selected: boolean) {
 
 function renderScanRow(candidate: ScanCandidate, selected: boolean) {
   const version = candidate.installed_version ? ` ${candidate.installed_version}` : '';
-  const source = candidate.source_ref ? ` · source: ${candidate.source_ref}` : '';
+  const source = !canRegister(candidate) && candidate.source_ref ? ` · source: ${candidate.source_ref}` : '';
   return `${scanMarker(candidate, selected)} ${candidate.id} · ${candidate.name}${version} · ${candidate.category} · ${candidate.detector} · ${candidate.capability}${source}`;
 }
 
