@@ -111,11 +111,11 @@ struct InitCommand: ParsableCommand {
             throw noImportableCandidatesError(for: report, categoryFilter: categoryFilter)
         }
         printImportable(importable)
-        let prompt = "Select items to add (numbers, ids, or all): "
-        writeStderr(prompt, addNewline: false)
-        guard let line = readLine(),
-            !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else {
+        guard let line = readPromptedLine(
+            "Select items to add (numbers, ids, or all):",
+            trailingSpace: true
+        ),
+            !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw selectionRequiredError()
         }
         return try parseInteractiveSelection(line, candidates: importable)

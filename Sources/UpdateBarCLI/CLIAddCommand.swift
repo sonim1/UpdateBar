@@ -156,9 +156,7 @@ struct AddCommand: ParsableCommand {
     }
 
     private func prompt(_ label: String) throws -> String {
-        writePrompt(label)
-        guard let line = readLine() else {
-            writeStderr("")
+        guard let line = readPromptedLine(label) else {
             throw ValidationError("\(label): required")
         }
         guard !line.isEmpty else {
@@ -168,9 +166,7 @@ struct AddCommand: ParsableCommand {
     }
 
     private func optionalPrompt(_ label: String) -> String? {
-        writePrompt(label)
-        guard let line = readLine() else {
-            writeStderr("")
+        guard let line = readPromptedLine(label) else {
             return nil
         }
         guard !line.isEmpty else {

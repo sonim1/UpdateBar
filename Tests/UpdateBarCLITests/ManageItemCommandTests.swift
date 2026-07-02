@@ -64,8 +64,20 @@ final class ManageItemCommandTests: XCTestCase {
         let manifest = try ManifestStore(paths: paths).load()
 
         XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "Remove tool? Type yes to continue: \nremove cancelled\n")
         XCTAssertTrue(result.stderr.contains("remove cancelled"))
         XCTAssertNotNil(manifest.item(id: "tool"))
+    }
+
+    func testRemoveWithBlankConfirmationDoesNotDoubleSpaceError() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveFixture(paths: paths)
+
+        let result = try CLIProcess.run(["remove", "tool"], home: home, stdin: "\n")
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "Remove tool? Type yes to continue: \nremove cancelled\n")
     }
 
     func testRemoveWithoutYesJSONReturnsErrorEnvelope() throws {

@@ -21,9 +21,29 @@ func withCancellationToken<T>(
     return try body(cancellationToken)
 }
 
+func readPromptedLine(_ prompt: String, trailingSpace: Bool = true) -> String? {
+    writePrompt(prompt, trailingSpace: trailingSpace)
+    guard let line = readLine() else {
+        writeStderr("")
+        return nil
+    }
+    if line.isEmpty {
+        closePromptLineForPipedInput()
+    }
+    return line
+}
+
 func readYes(_ prompt: String) -> Bool {
-    writePrompt(prompt)
-    return readLine() == "yes"
+    guard let line = readPromptedLine(prompt) else {
+        return false
+    }
+    guard line == "yes" else {
+        if !line.isEmpty {
+            closePromptLineForPipedInput()
+        }
+        return false
+    }
+    return true
 }
 
 func requireYes(prompt: String, cancelMessage: String, interactive: Bool = true) throws {
@@ -49,6 +69,21 @@ func resolveExecutable(_ value: String, environment: [String: String]) -> String
         }
     }
     return nil
+}
+
+private func closePromptLineForPipedInput() {
+    guard !standardInputIsTTY() else {
+        return
+    }
+    writeStderr("")
+}
+
+private func standardInputIsTTY() -> Bool {
+#if os(Linux)
+    Glibc.isatty(STDIN_FILENO) == 1
+#else
+    Darwin.isatty(STDIN_FILENO) == 1
+#endif
 }
 
 private final class SignalCancellationHandler {

@@ -210,6 +210,8 @@ final class InitCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stdout.contains("[1] gh"))
+        XCTAssertTrue(result.stderr.contains("Select items to add (numbers, ids, or all): \nselection required"))
+        XCTAssertFalse(result.stderr.contains("Select items to add (numbers, ids, or all): selection required"))
         XCTAssertTrue(result.stderr.contains("selection required"))
         XCTAssertTrue(result.stderr.contains("--select"))
         XCTAssertTrue(result.stderr.contains("all"))
