@@ -91,6 +91,7 @@
         @objc private func updateSelected(_ sender: NSMenuItem) {
             guard let action = sender.representedObject as? ItemAction else { return }
             let id = action.id
+            guard confirm(MenuBarActionConfirmation.updateItem(id: id)) else { return }
             runAction("Update \(id)") { [service] token in
                 try service?.update(id: id, cancellationToken: token)
             }

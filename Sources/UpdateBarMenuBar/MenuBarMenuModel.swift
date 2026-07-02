@@ -109,7 +109,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
         appendSection("Updates (\(items.count))", items: items, to: &entries) { item in
             MenuBarMenuItem(
                 title: "\(item.name) \(item.current ?? "?") -> \(item.latest ?? "?")",
-                action: .update(id: item.id)
+                action: .update(id: item.id),
+                toolTip: MenuBarActionConfirmation.updateItem(id: item.id).toolTip
             )
         }
     }

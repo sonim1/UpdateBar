@@ -146,6 +146,34 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertEqual(runUpdatesItem?.toolTip, "Runs approved outdated items after confirmation.")
     }
 
+    func testSingleUpdateActionExplainsConfirmation() {
+        let state = MenuBarState(
+            title: "1 update",
+            badgeValue: "1",
+            outdatedItems: [
+                statusItem(
+                    id: "old",
+                    name: "Old Tool",
+                    current: "1.0.0",
+                    latest: "1.1.0",
+                    status: .outdated
+                )
+            ],
+            approvalItems: [],
+            errorItems: [],
+            okItems: []
+        )
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:]
+        )
+
+        let updateItem = model.entries.item(titled: "Old Tool 1.0.0 -> 1.1.0")
+
+        XCTAssertEqual(updateItem?.toolTip, "Runs old after confirmation.")
+    }
+
     func testBuildsErrorRecoveryMenu() {
         let model = MenuBarMenuModelBuilder().makeErrorMenu(
             errorDescription: "manifest invalid"
