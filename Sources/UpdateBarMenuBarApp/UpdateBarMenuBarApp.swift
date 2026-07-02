@@ -79,8 +79,11 @@
             }
         }
 
-        @objc private func updateAllApproved() {
-            guard confirm(MenuBarActionConfirmation.confirmation(for: .updateAllApprovedOutdated)) else {
+        @objc private func updateAllApproved(_ sender: NSMenuItem) {
+            let fallback = MenuBarActionConfirmation.updateAllApprovedOutdated(
+                itemNames: latestState.outdatedItems.map(\.name)
+            )
+            guard confirm((sender.representedObject as? MenuBarActionConfirmation) ?? fallback) else {
                 return
             }
             runAction("Run Updates") { [service] token in
@@ -289,7 +292,9 @@
             menuItem.toolTip = item.toolTip
             switch action {
             case .menu, .cancelCurrentAction:
-                break
+                if action == .menu(.updateAllApprovedOutdated) {
+                    menuItem.representedObject = item.confirmation
+                }
             case .update(let id):
                 menuItem.representedObject = ItemAction(id: id, confirmation: item.confirmation)
             case .approve(let id, let field), .revoke(let id, let field):
@@ -422,7 +427,7 @@
             case .checkNow:
                 return #selector(checkNow)
             case .updateAllApprovedOutdated:
-                return #selector(updateAllApproved)
+                return #selector(updateAllApproved(_:))
             case .openTUI:
                 return #selector(openTUI)
             case .openConfig:

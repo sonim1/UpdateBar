@@ -159,16 +159,23 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 
-    func testRunUpdatesActionExplainsConfirmation() {
+    func testRunUpdatesActionConfirmationSummarizesScope() {
         let state = MenuBarState(
-            title: "1 update",
-            badgeValue: "1",
+            title: "2 updates",
+            badgeValue: "2",
             outdatedItems: [
                 statusItem(
                     id: "old",
                     name: "Old Tool",
                     current: "1.0.0",
                     latest: "1.1.0",
+                    status: .outdated
+                ),
+                statusItem(
+                    id: "older",
+                    name: "Older Tool",
+                    current: "2.0.0",
+                    latest: "2.1.0",
                     status: .outdated
                 )
             ],
@@ -184,7 +191,18 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let runUpdatesItem = model.entries.item(titled: "Run Updates")
 
-        XCTAssertEqual(runUpdatesItem?.toolTip, "Runs approved outdated items after confirmation.")
+        XCTAssertEqual(runUpdatesItem?.toolTip, "Runs 2 approved outdated items after confirmation.")
+        XCTAssertEqual(runUpdatesItem?.confirmation?.title, "Run 2 Updates?")
+        XCTAssertEqual(
+            runUpdatesItem?.confirmation?.message,
+            """
+            This runs update commands for 2 approved outdated items.
+
+            Items:
+            - Old Tool
+            - Older Tool
+            """
+        )
     }
 
     func testRunUpdatesIsDisabledWhenNothingIsOutdated() {

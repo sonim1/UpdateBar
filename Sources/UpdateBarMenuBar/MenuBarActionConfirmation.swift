@@ -33,6 +33,28 @@ public struct MenuBarActionConfirmation: Equatable, Sendable {
         }
     }
 
+    public static func updateAllApprovedOutdated(itemNames: [String]) -> MenuBarActionConfirmation {
+        let count = itemNames.count
+        let itemNoun = count == 1 ? "item" : "items"
+        let updateNoun = count == 1 ? "Update" : "Updates"
+        var message = "This runs update commands for \(count) approved outdated \(itemNoun)."
+        let visibleNames = itemNames.prefix(6)
+        if !visibleNames.isEmpty {
+            message += "\n\nItems:\n"
+            message += visibleNames.map { "- \($0)" }.joined(separator: "\n")
+            let hidden = itemNames.count - visibleNames.count
+            if hidden > 0 {
+                message += "\n- and \(hidden) more"
+            }
+        }
+        return MenuBarActionConfirmation(
+            title: "Run \(count) \(updateNoun)?",
+            message: message,
+            toolTip: "Runs \(count) approved outdated \(itemNoun) after confirmation.",
+            confirmButton: "Run Updates"
+        )
+    }
+
     public static func updateItem(
         id: String,
         command: String? = nil,

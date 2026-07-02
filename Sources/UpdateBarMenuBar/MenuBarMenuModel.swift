@@ -79,10 +79,14 @@ public struct MenuBarMenuModelBuilder: Sendable {
         if state.outdatedItems.isEmpty {
             appendDisabled(updateAllAction.title, toolTip: "No updates available.", to: &entries)
         } else {
+            let confirmation = MenuBarActionConfirmation.updateAllApprovedOutdated(
+                itemNames: state.outdatedItems.map(\.name)
+            )
             appendAction(
                 updateAllAction.title,
                 action: .menu(updateAllAction),
-                toolTip: MenuBarActionConfirmation.confirmation(for: updateAllAction)?.toolTip,
+                toolTip: confirmation.toolTip,
+                confirmation: confirmation,
                 to: &entries
             )
         }
@@ -271,9 +275,17 @@ public struct MenuBarMenuModelBuilder: Sendable {
         _ title: String,
         action: MenuBarMenuItemAction,
         toolTip: String? = nil,
+        confirmation: MenuBarActionConfirmation? = nil,
         to entries: inout [MenuBarMenuEntry]
     ) {
-        entries.append(.item(MenuBarMenuItem(title: title, action: action, toolTip: toolTip)))
+        entries.append(
+            .item(
+                MenuBarMenuItem(
+                    title: title,
+                    action: action,
+                    toolTip: toolTip,
+                    confirmation: confirmation
+                )))
     }
 
     private func appendSeparator(to entries: inout [MenuBarMenuEntry]) {
