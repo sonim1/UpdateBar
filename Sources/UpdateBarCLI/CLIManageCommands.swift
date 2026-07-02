@@ -186,6 +186,7 @@ struct ApprovalsCommand: ParsableCommand {
         if json {
             try printJSON(rows)
         } else {
+            print("FIELD\tSTATUS\tCOMMAND\tDETAIL")
             for row in rows {
                 print(humanRow(row))
             }
@@ -210,6 +211,8 @@ struct ApprovalsCommand: ParsableCommand {
         ]
         if let cwd = row.cwd, !cwd.isEmpty {
             parts.append("cwd=\(oneLine(cwd))")
+        } else {
+            parts.append("")
         }
         return parts.joined(separator: "\t")
     }

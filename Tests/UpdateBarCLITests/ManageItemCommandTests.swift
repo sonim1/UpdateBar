@@ -111,9 +111,10 @@ final class ManageItemCommandTests: XCTestCase {
 
         let list = try CLIProcess.run(["approvals", "tool"], home: home)
         XCTAssertEqual(list.exitCode, 0)
+        XCTAssertTrue(list.stdout.contains("FIELD\tSTATUS\tCOMMAND\tDETAIL"))
         XCTAssertTrue(list.stdout.contains("update.cmd\tapproved\tprintf updated\tcwd=/tmp/tool"))
-        XCTAssertTrue(list.stdout.contains("check.cmd\tunapproved\tprintf 'tool 1.0.0'"))
-        XCTAssertTrue(list.stdout.contains("latest.cmd\tunapproved\tprintf 'tool 1.1.0'"))
+        XCTAssertTrue(list.stdout.contains("check.cmd\tunapproved\tprintf 'tool 1.0.0'\t"))
+        XCTAssertTrue(list.stdout.contains("latest.cmd\tunapproved\tprintf 'tool 1.1.0'\t"))
         XCTAssertTrue(list.stdout.contains("Next"))
         XCTAssertTrue(list.stdout.contains("updatebar approve tool --field check.cmd"))
         XCTAssertTrue(list.stdout.contains("updatebar approve tool --field latest.cmd"))
@@ -143,6 +144,7 @@ final class ManageItemCommandTests: XCTestCase {
         let result = try CLIProcess.run(["approvals", "tool"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("FIELD\tSTATUS\tCOMMAND\tDETAIL"))
         XCTAssertTrue(result.stdout.contains("check.cmd\tapproved"))
         XCTAssertTrue(result.stdout.contains("latest.cmd\tapproved"))
         XCTAssertTrue(result.stdout.contains("update.cmd\tapproved"))

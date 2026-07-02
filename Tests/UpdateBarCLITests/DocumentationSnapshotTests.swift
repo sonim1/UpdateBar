@@ -198,6 +198,9 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertEqual(rootResult.stderr, "")
         XCTAssertTrue(rootResult.stdout.contains("Review command fields for approval."))
         XCTAssertTrue(approvalsSection.contains("command text"))
+        for column in ["`FIELD`", "`STATUS`", "`COMMAND`", "`DETAIL`"] {
+            XCTAssertTrue(approvalsSection.contains(column), "approvals docs missing \(column)")
+        }
         XCTAssertTrue(approvalsSection.contains("Next"))
     }
 

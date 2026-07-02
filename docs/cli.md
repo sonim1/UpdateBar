@@ -174,8 +174,10 @@ Approves all command fields for an item, or one field such as `check.cmd`, `late
 ### `updatebar approvals <id> [--json]`
 
 Lists each command field, current command text, optional working directory,
-fingerprint, and whether the fingerprint is approved. Human output includes
-`Next` approval commands for unapproved fields.
+fingerprint, and whether the fingerprint is approved. Human output is
+tab-separated with `FIELD`, `STATUS`, `COMMAND`, and `DETAIL` columns; `DETAIL`
+currently shows `cwd=...` when a command has a working directory. Human output
+also includes `Next` approval commands for unapproved fields.
 
 The direct mutation commands below are hidden from default root help, but remain
 stable for scripts and explicit workflows.
