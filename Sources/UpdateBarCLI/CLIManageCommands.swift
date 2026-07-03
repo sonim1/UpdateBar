@@ -125,9 +125,9 @@ struct RemoveCommand: ParsableCommand {
         }
         try service.remove(id: id)
         if json {
-            try printJSON(RemovePayload(ok: true, id: id, removed: true))
+            try printJSON(RemovePayload(ok: true, id: SecretRedactor.redact(id), removed: true))
         } else {
-            print("removed \(id)")
+            print("removed \(SecretRedactor.redact(id))")
         }
     }
 }

@@ -80,6 +80,33 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
     }
 
+    func testRemoveHumanRedactsLegacySecretLikeID() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secretID = "sk-or-v1-secret-value"
+        try saveLegacySecretIDItem(secretID, paths: paths)
+
+        let result = try CLIProcess.run(["remove", secretID, "--yes"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("removed [REDACTED]"))
+        XCTAssertFalse(result.stdout.contains(secretID))
+    }
+
+    func testRemoveJSONRedactsLegacySecretLikeID() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secretID = "sk-or-v1-secret-value"
+        try saveLegacySecretIDItem(secretID, paths: paths)
+
+        let result = try CLIProcess.run(["remove", secretID, "--yes", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(RemovePayload.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(payload.id, "[REDACTED]")
+        XCTAssertFalse(result.stdout.contains(secretID))
+    }
+
     func testRemoveWithoutYesRequiresPromptConfirmation() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
@@ -400,6 +427,16 @@ final class ManageItemCommandTests: XCTestCase {
         ))
     }
 
+    private func saveLegacySecretIDItem(_ id: String, paths: AppPaths) throws {
+        var item = recipe()
+        item.id = id
+        try ManifestStore(paths: paths).save(Manifest(
+            schemaVersion: 1,
+            items: [item],
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        ))
+    }
+
     private func recipe() -> Recipe {
         var item = Recipe(
             id: "tool",
@@ -424,5 +461,9 @@ final class ManageItemCommandTests: XCTestCase {
         var ok: Bool
         var code: String
         var errors: [String]
+    }
+
+    private struct RemovePayload: Decodable {
+        var id: String
     }
 }
