@@ -347,6 +347,30 @@ describe('CLIUpdateBarClient', () => {
     );
   });
 
+  it('redacts structured JSON error payload secrets', async () => {
+    const runner = new FakeRunner({
+      exitCode: 1,
+      stdout: '{"ok":false,"errors":["failed sk-or-v1-secret-value"]}',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.initSelected(['brew.gh'])).rejects.toThrow('[REDACTED]');
+    await expect(client.initSelected(['brew.gh'])).rejects.not.toThrow('sk-or-v1-secret-value');
+  });
+
+  it('redacts stderr fallback secrets', async () => {
+    const runner = new FakeRunner({
+      exitCode: 1,
+      stdout: '',
+      stderr: 'failed sk-or-v1-secret-value'
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.initSelected(['brew.gh'])).rejects.toThrow('[REDACTED]');
+    await expect(client.initSelected(['brew.gh'])).rejects.not.toThrow('sk-or-v1-secret-value');
+  });
+
   it('cancels subprocesses with AbortSignal', async () => {
     const runner = new SubprocessRunner('/bin/sh');
     const controller = new AbortController();
