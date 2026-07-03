@@ -1,3 +1,4 @@
+import {StringDecoder} from 'node:string_decoder';
 import type {
   CheckResult,
   CheckSummary,
@@ -56,9 +57,15 @@ export async function* parseJSONLines(
 ): AsyncGenerator<MachineEvent> {
   let buffer = '';
   let lineNumber = 0;
+  let decoder = new StringDecoder('utf8');
 
   for await (const chunk of chunks) {
-    buffer += chunk.toString();
+    if (typeof chunk === 'string') {
+      buffer += decoder.end() + chunk;
+      decoder = new StringDecoder('utf8');
+    } else {
+      buffer += decoder.write(chunk);
+    }
     let newline = buffer.indexOf('\n');
     while (newline >= 0) {
       const line = buffer.slice(0, newline).trim();
@@ -69,6 +76,7 @@ export async function* parseJSONLines(
     }
   }
 
+  buffer += decoder.end();
   const tail = buffer.trim();
   if (tail.length > 0) {
     lineNumber += 1;
