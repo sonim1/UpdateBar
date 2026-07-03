@@ -54,6 +54,24 @@ final class UpdateBarCLIClientTests: XCTestCase {
         }
     }
 
+    func testPrefersStructuredJSONErrorOverStderrFallback() {
+        let runner = RecordingRunner(
+            result: CommandResult(
+                exitCode: 1,
+                stdout: #"{"ok":false,"code":"usage_error","errors":["structured failure"]}"#,
+                stderr: "human fallback"
+            )
+        )
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        XCTAssertThrowsError(try client.approve(id: "tool", field: "update.cmd")) { error in
+            XCTAssertEqual(
+                String(describing: error),
+                "updatebar exited 1: structured failure"
+            )
+        }
+    }
+
     func testUpdateActionsUseHeadlessJSONFlags() throws {
         let runner = RecordingRunner(result: CommandResult(exitCode: 0, stdout: "[]", stderr: ""))
         let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)

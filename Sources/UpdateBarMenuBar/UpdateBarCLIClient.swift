@@ -128,11 +128,14 @@ public struct UpdateBarCLIClient: Sendable {
     }
 
     private static func errorDetail(from result: CommandResult) -> String {
+        if let detail = jsonErrorDetail(from: result.stdout) {
+            return detail
+        }
         let stderr = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
         if !stderr.isEmpty {
             return stderr
         }
-        return jsonErrorDetail(from: result.stdout) ?? ""
+        return ""
     }
 
     private static func jsonErrorDetail(from stdout: String) -> String? {
