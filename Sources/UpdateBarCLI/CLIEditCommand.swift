@@ -59,7 +59,7 @@ struct EditCommand: ParsableCommand {
         let cleaned = invalidateChangedApprovals(original: original, edited: decoded)
         let cleanedValidation = try RecipeValidator.validate(data: JSONEncoder.updateBar.encode(cleaned))
         guard cleanedValidation.isValid else {
-            throw ValidationError(validation.errors.joined(separator: "\n"))
+            throw ValidationError(cleanedValidation.errors.joined(separator: "\n"))
         }
         return cleaned
     }
