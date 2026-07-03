@@ -159,6 +159,23 @@ final class StatusSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.summary.differs, 1)
     }
 
+    func testStatusSummaryRejectsNegativeDecodedCounts() throws {
+        let payload = Data("""
+        {
+          "total": 1,
+          "outdated": -1,
+          "errors": 0,
+          "untrusted": 0,
+          "pinned": 0,
+          "disabled": 0,
+          "checking": 0,
+          "differs": 0
+        }
+        """.utf8)
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(StatusSummary.self, from: payload))
+    }
+
     func testStatusPriorityUsesOverridesBeforeVersionStatus() throws {
         var manifest = try loadManifest()
         let now = Date(timeIntervalSince1970: 1_812_499_200)
