@@ -272,6 +272,7 @@ export function App({client: providedClient}: AppProps) {
       snapshot = await activeClient.status();
       setStatus(snapshot);
     } catch (caught) {
+      setStatus(undefined);
       setSelectedUpdateIds(new Set());
       setScreen('select-update');
       setError(messageFor(caught));

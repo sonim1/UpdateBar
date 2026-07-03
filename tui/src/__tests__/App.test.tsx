@@ -1175,6 +1175,44 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('brew.gh · gh · 2.74.0 → 2.75.0');
   });
 
+  it('does not show stale update targets when status refresh fails', async () => {
+    let statusCalls = 0;
+    const client = createClient({
+      async status() {
+        statusCalls += 1;
+        if (statusCalls === 1) {
+          return {
+            generated_at: '2026-06-30T00:00:00Z',
+            summary: {total: 1, outdated: 1, errors: 0, untrusted: 0, pinned: 0},
+            items: [
+              {
+                id: 'brew.gh',
+                name: 'gh',
+                category: 'cloud-devops',
+                status: 'outdated',
+                pinned: false,
+                current: '2.74.0',
+                latest: '2.75.0'
+              }
+            ]
+          };
+        }
+        throw new Error('status unavailable');
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, '1 tracked · 1 outdated');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'status unavailable');
+
+    expect(view.lastFrame()).not.toContain('brew.gh · gh · 2.74.0 → 2.75.0');
+  });
+
   it('does not run updates when no outdated items are selectable', async () => {
     let updateCalls = 0;
     const client = createClient({
