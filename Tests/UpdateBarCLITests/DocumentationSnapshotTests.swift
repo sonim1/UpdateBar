@@ -210,6 +210,14 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("document is not valid JSON"))
     }
 
+    func testCliDocsDocumentJSONLContractValidityRules() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+
+        XCTAssertTrue(docs.contains("`event` and `type` must match"))
+        XCTAssertTrue(docs.contains("Check events never include update payload fields"))
+        XCTAssertTrue(docs.contains("update events never include check payload fields"))
+    }
+
     func testApprovalsHelpAndDocsExplainReviewWorkflow() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let rootResult = try CLIProcess.run(["--help"], home: home)

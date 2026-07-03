@@ -57,6 +57,11 @@ Event fields:
 - `check_summary` and `check_results`: present for check `finished`
 - `error`: present for operation-level `failed` or `cancelled`
 
+Validity rules: `event` and `type` must match when both fields are present.
+Check events never include update payload fields (`result`, `results`, or
+`summary`), and update events never include check payload fields
+(`check_result`, `check_results`, or `check_summary`).
+
 `update --json-stream` keeps the same exit-code semantics as `update --json`:
 `2` for failed, missing, or cancelled updates and `3` when an update is blocked
 by command approval. On SIGINT or SIGTERM, the CLI requests cancellation,
