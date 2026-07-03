@@ -150,6 +150,17 @@ final class ExecutionPolicyTests: XCTestCase {
         )
     }
 
+    func testSecretRedactorMasksCloudKeyPatternsWithoutEnvironmentKeyName() {
+        XCTAssertEqual(
+            SecretRedactor.redact("aws AKIAIOSFODNN7EXAMPLE"),
+            "aws [REDACTED]"
+        )
+        XCTAssertEqual(
+            SecretRedactor.redact("google AIzaSyA1234567890abcdefghijklmnopqrstuv"),
+            "google [REDACTED]"
+        )
+    }
+
     func testSecretRedactorMasksPackageManagerAndCloudTokenEnvironmentNames() {
         let redacted = SecretRedactor.redact(
             "NPM_TOKEN=npm_secret HOMEBREW_GITHUB_API_TOKEN=brew-secret AWS_SECRET_ACCESS_KEY=aws-secret"
