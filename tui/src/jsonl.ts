@@ -1,4 +1,14 @@
-import type {MachineEvent} from './types.js';
+import type {MachineEvent, MachineEventType} from './types.js';
+
+const MACHINE_EVENT_TYPES = new Set<MachineEventType>([
+  'started',
+  'item_started',
+  'log',
+  'item_finished',
+  'cancelled',
+  'failed',
+  'finished'
+]);
 
 export async function* parseJSONLines(
   chunks: AsyncIterable<Buffer | string>
@@ -40,6 +50,9 @@ function parseLine(line: string, lineNumber: number): MachineEvent {
     const event = typeof value.event === 'string' ? value.event : value.type;
     if (typeof event !== 'string') {
       throw new Error('missing event');
+    }
+    if (!MACHINE_EVENT_TYPES.has(event as MachineEventType)) {
+      throw new Error(`unknown event ${event}`);
     }
     return {...value, event, type: value.type ?? event} as MachineEvent;
   } catch (error) {
