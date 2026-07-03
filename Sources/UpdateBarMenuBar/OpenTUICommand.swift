@@ -1,4 +1,5 @@
 import Foundation
+import UpdateBarCore
 
 public struct OpenTUICommand: Equatable, Sendable {
     public var executablePath: String
@@ -36,13 +37,16 @@ public struct OpenTUICommand: Equatable, Sendable {
             "Run UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui, or set UPDATEBAR_TUI to a runnable binary."
         )
         let invalidTUIMessage = Self.shellQuote("UPDATEBAR_TUI is set but not executable:")
+        let invalidTUIValue = Self.shellQuote(
+            tuiCommandOverride.map(SecretRedactor.redact) ?? "$UPDATEBAR_TUI"
+        )
 
         let launch = [
             "if [ -n \"$UPDATEBAR_TUI\" ] && [ -x \"$UPDATEBAR_TUI\" ]",
             "then exec \"$UPDATEBAR_TUI\"",
             "elif [ -n \"$UPDATEBAR_TUI\" ]",
             "then printf '%s\\n' \(invalidTUIMessage)",
-            "printf '%s\\n' \"$UPDATEBAR_TUI\"",
+            "printf '%s\\n' \(invalidTUIValue)",
             "exit 1",
             "elif [ -x \"$UPDATEBAR_BIN\" ]",
             "then exec \"$UPDATEBAR_BIN\" tui",
