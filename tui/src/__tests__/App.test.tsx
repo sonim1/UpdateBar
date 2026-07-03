@@ -696,6 +696,25 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('No scan candidates');
   });
 
+  it('does not keep showing check progress after check failure', async () => {
+    const client = createClient({
+      async checkNow() {
+        throw new Error('registry unavailable');
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Check Now');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'registry unavailable');
+
+    expect(view.lastFrame()).toContain('check failed');
+    expect(view.lastFrame()).not.toContain('check started');
+  });
+
   it('shows check summary logs', async () => {
     const client = createClient({
       async checkNow() {
@@ -1449,6 +1468,30 @@ describe('App', () => {
     expect(view.lastFrame()).not.toContain('status unavailable');
 
     view.unmount();
+  });
+
+  it('does not keep showing update progress after update failure', async () => {
+    const client = createClient({
+      async updateSelected() {
+        throw new Error('brew update failed');
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Run Updates');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Select updates to run');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run selected updates now?');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'brew update failed');
+
+    expect(view.lastFrame()).toContain('update failed');
+    expect(view.lastFrame()).not.toContain('update started');
   });
 
   it('renders without raw mode when stdin has no TTY support', async () => {

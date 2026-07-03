@@ -292,7 +292,12 @@ export function App({client: providedClient}: AppProps) {
       setLogs(previous => [...previous, ...checkSummaryLines(report)]);
       await refreshStatus(activeClient, setStatus, setError);
     } catch (caught) {
-      setError(controller.signal.aborted ? 'check cancelled' : messageFor(caught));
+      const cancelled = controller.signal.aborted;
+      setLogs(previous => [
+        ...previous.filter(line => line !== 'check started'),
+        cancelled ? 'check cancelled' : 'check failed'
+      ]);
+      setError(cancelled ? 'check cancelled' : messageFor(caught));
     } finally {
       endAbortableAction(controller);
     }
@@ -364,7 +369,12 @@ export function App({client: providedClient}: AppProps) {
       setSelectedUpdateIds(new Set());
       await refreshStatus(activeClient, setStatus, setError);
     } catch (caught) {
-      setError(controller.signal.aborted ? 'update cancelled' : messageFor(caught));
+      const cancelled = controller.signal.aborted;
+      setLogs(previous => [
+        ...previous.filter(line => line !== 'update started'),
+        cancelled ? 'update cancelled' : 'update failed'
+      ]);
+      setError(cancelled ? 'update cancelled' : messageFor(caught));
     } finally {
       endAbortableAction(controller);
       setScreen('logs');
