@@ -5,7 +5,15 @@ import {createDefaultClient, type UpdateBarClient} from './client.js';
 import {redactSecrets} from './secrets.js';
 import type {CheckReport, MachineEvent, ScanCandidate, ScanReport, StatusItem, StatusSnapshot} from './types.js';
 
-type Screen = 'menu' | 'status' | 'logs' | 'scan' | 'select-update' | 'confirm-update' | 'updating';
+type Screen =
+  | 'menu'
+  | 'status'
+  | 'logs'
+  | 'config-path'
+  | 'scan'
+  | 'select-update'
+  | 'confirm-update'
+  | 'updating';
 type MenuAction =
   | 'refresh-status'
   | 'scan-add'
@@ -247,12 +255,8 @@ export function App({client: providedClient}: AppProps) {
     const selected = MENU_ITEMS[menuIndex]?.action;
     switch (selected) {
       case 'config-path':
-        setScreen('logs');
+        setScreen('config-path');
         setError(undefined);
-        setLogs([
-          `config path: ${getConfigPath()}`,
-          'open this file in your editor to inspect configuration'
-        ]);
         return;
       case 'view-logs':
         setScreen('logs');
@@ -447,6 +451,12 @@ export function App({client: providedClient}: AppProps) {
         <Box flexDirection="column" marginTop={1}>
           <Text color="yellow">Run selected updates now?</Text>
           <Text dimColor>{`${selectedUpdateIds.size} selected outdated item(s) will run.`}</Text>
+        </Box>
+      )}
+      {screen === 'config-path' && (
+        <Box flexDirection="column" marginTop={1}>
+          <Text>{`config path: ${getConfigPath()}`}</Text>
+          <Text>open this file in your editor to inspect configuration</Text>
         </Box>
       )}
       {(screen === 'logs' || screen === 'updating') && (

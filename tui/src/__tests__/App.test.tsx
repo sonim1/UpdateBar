@@ -241,6 +241,40 @@ describe('App', () => {
     expect(view.lastFrame()).not.toContain('status unavailable');
   });
 
+  it('does not keep config path content as action logs', async () => {
+    const previousHome = process.env.UPDATEBAR_HOME;
+    process.env.UPDATEBAR_HOME = '/tmp/updatebar-config-log-home';
+    const client = createClient();
+    const view = render(<App client={client} />);
+
+    try {
+      await waitForFrame(view, 'Config Path');
+      view.stdin.write('\u001B[B');
+      view.stdin.write('\u001B[B');
+      view.stdin.write('\u001B[B');
+      view.stdin.write('\u001B[B');
+      await wait();
+      view.stdin.write('\r');
+      await waitForFrame(view, 'config path: /tmp/updatebar-config-log-home/config.toml');
+      view.stdin.write('m');
+      await waitForFrame(view, 'View Logs');
+      view.stdin.write('\u001B[B');
+      await wait();
+      view.stdin.write('\r');
+      await waitForFrame(view, 'No logs yet');
+
+      expect(view.lastFrame()).toContain('No logs yet');
+      expect(view.lastFrame()).not.toContain('config path: /tmp/updatebar-config-log-home/config.toml');
+    } finally {
+      view.unmount();
+      if (previousHome === undefined) {
+        delete process.env.UPDATEBAR_HOME;
+      } else {
+        process.env.UPDATEBAR_HOME = previousHome;
+      }
+    }
+  });
+
   it('shows an empty state when viewing logs before an action runs', async () => {
     const client = createClient();
     const view = render(<App client={client} />);
