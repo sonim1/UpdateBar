@@ -21,10 +21,10 @@ public struct StatusService {
     public func snapshot(refresh: Bool = false) throws -> StatusSnapshot {
         let now = now()
         let manifest = try manifestStore.loadExistingOrEmpty(now: now)
+        try validate(manifest)
         let state: State
 
         if refresh {
-            try validate(manifest)
             if manifest.items.isEmpty {
                 state = try stateStore.loadExistingOrEmpty(now: now)
                 return StatusSnapshot.from(manifest: manifest, state: state, now: now)

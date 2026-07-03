@@ -105,6 +105,26 @@ final class StatusCommandTests: XCTestCase {
         XCTAssertFalse(combined.contains(secret))
     }
 
+    func testStatusRejectsInvalidManifestWithoutRefreshOrStateWrite() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secret = "sk-or-v1-secret-value"
+        var item = recipe(id: "tool", name: "Tool")
+        item.update.cmd = "tool update --token \(secret)"
+        try saveManifest(home: home, items: [item])
+
+        let result = try CLIProcess.run(["status", "--json", "--exit-zero-on-outdated"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let combined = result.stdout + result.stderr
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "registry_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].update.cmd: must not contain literal secrets") })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+        XCTAssertFalse(combined.contains(secret))
+    }
+
     func testStatusRefreshWithoutCheckableItemsDoesNotCreateStateFile() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-status-tests")
         let paths = AppPaths(homeDirectory: home)
