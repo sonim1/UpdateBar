@@ -67,6 +67,18 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("updatebar status --help"))
     }
 
+    func testRootHelpRejectsTrailingOption() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["--help", "--force"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("--force"))
+        XCTAssertTrue(result.stderr.contains("updatebar --help"))
+        XCTAssertFalse(result.stderr.contains("updatebar help --force"))
+    }
+
     func testRootVersionRejectsTrailingCommandTarget() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 
@@ -86,6 +98,17 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stdout, "")
         XCTAssertTrue(result.stderr.contains("extra"))
+        XCTAssertTrue(result.stderr.contains("updatebar status --version"))
+    }
+
+    func testInlineVersionRejectsTrailingOption() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["status", "--version", "--force"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("--force"))
         XCTAssertTrue(result.stderr.contains("updatebar status --version"))
     }
 

@@ -89,7 +89,7 @@ private extension UpdateBar {
             flagSynopsis: "--help",
             skipHelpCommand: true
         ) { command, trailing in
-            command == "updatebar --help"
+            command == "updatebar --help" && !trailing.hasPrefix("-")
             ? """
             Unexpected argument '\(trailing)' after \(command)
             Usage: updatebar --help
@@ -131,7 +131,7 @@ private extension UpdateBar {
 
         let afterFlagIndex = arguments.index(after: flagIndex)
         guard afterFlagIndex < arguments.endIndex,
-              let trailing = arguments[afterFlagIndex...].first(where: { !$0.hasPrefix("-") })
+              let trailing = arguments[afterFlagIndex...].first
         else {
             return
         }
