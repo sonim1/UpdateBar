@@ -53,6 +53,13 @@ function parseLine(line: string, lineNumber: number): MachineEvent {
     if (typeof event !== 'string') {
       throw new Error('missing event');
     }
+    if (
+      typeof value.event === 'string' &&
+      typeof value.type === 'string' &&
+      value.event !== value.type
+    ) {
+      throw new Error(`event/type mismatch ${value.event}/${value.type}`);
+    }
     if (!MACHINE_EVENT_TYPES.has(event as MachineEventType)) {
       throw new Error(`unknown event ${event}`);
     }

@@ -44,6 +44,14 @@ describe('jsonl parser', () => {
     ).toThrow('line 1');
   });
 
+  it('rejects mismatched event aliases with line numbers', () => {
+    expect(() =>
+      parseJSONLText(
+        '{"event":"started","type":"finished","operation":"update","timestamp":"2026-06-30T00:00:00Z"}'
+      )
+    ).toThrow('line 1');
+  });
+
   it('rejects unknown operation names with line numbers', () => {
     expect(() =>
       parseJSONLText('{"event":"started","operation":"install","timestamp":"2026-06-30T00:00:00Z"}')
