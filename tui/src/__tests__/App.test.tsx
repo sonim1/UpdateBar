@@ -71,6 +71,38 @@ describe('App', () => {
     expect(view.lastFrame()).not.toContain('0 differs');
   });
 
+  it('redacts status row secrets before rendering', async () => {
+    const secret = 'sk-or-v1-status-secret-value';
+    const client = createClient({
+      async status() {
+        return {
+          generated_at: '2026-06-30T00:00:00Z',
+          summary: {total: 1, outdated: 0, errors: 1, untrusted: 0, pinned: 0},
+          items: [
+            {
+              id: `tool-${secret}`,
+              name: 'secret-tool',
+              category: 'cloud-devops',
+              status: 'error',
+              pinned: false,
+              current: secret,
+              latest: secret,
+              error: `failed ${secret}`
+            }
+          ]
+        };
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Refresh Status');
+    view.stdin.write('\r');
+    await waitForFrame(view, '[REDACTED]');
+
+    expect(view.lastFrame()).toContain('[REDACTED]');
+    expect(view.lastFrame()).not.toContain(secret);
+  });
+
   it('opens scan candidates from the menu', async () => {
     const client = createClient();
     const view = render(<App client={client} />);
@@ -84,6 +116,43 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('brew.gh');
     expect(view.lastFrame()).toContain('known.node');
     expect(view.lastFrame()).toContain('check-only');
+  });
+
+  it('redacts scan rows and scan errors before rendering', async () => {
+    const secret = 'sk-or-v1-scan-secret-value';
+    const client = createClient({
+      async scan() {
+        return {
+          candidates: [
+            {
+              id: `known.${secret}`,
+              name: `tool-${secret}`,
+              detector: 'known',
+              category: 'cloud-devops',
+              capability: 'unsupported',
+              confidence: 'medium',
+              source_ref: `/tmp/${secret}`
+            }
+          ],
+          errors: [
+            {
+              detector: 'known',
+              message: `failed ${secret}`
+            }
+          ]
+        };
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, '[REDACTED]');
+
+    expect(view.lastFrame()).toContain('[REDACTED]');
+    expect(view.lastFrame()).not.toContain(secret);
   });
 
   it('returns from status to the menu', async () => {
@@ -829,6 +898,35 @@ describe('App', () => {
     await waitForFrame(view, 'manifest lock timed out');
 
     expect(view.lastFrame()).toContain('manifest lock timed out');
+  });
+
+  it('redacts update event errors before rendering logs', async () => {
+    const secret = 'sk-or-v1-update-secret-value';
+    const client = createClient({
+      async updateAll(options: StreamOptions): Promise<CommandResult> {
+        options.onEvent({
+          event: 'failed',
+          operation: 'update',
+          timestamp: '2026-06-30T00:00:00Z',
+          error: `failed ${secret}`
+        });
+        return {exitCode: 2, stdout: '', stderr: ''};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Run Updates');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run approved updates now?');
+    view.stdin.write('\r');
+    await waitForFrame(view, '[REDACTED]');
+
+    expect(view.lastFrame()).toContain('[REDACTED]');
+    expect(view.lastFrame()).not.toContain(secret);
   });
 
   it('shows failed item result errors in update logs', async () => {

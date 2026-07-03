@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import path from 'node:path';
 import {Box, Text, useApp, useInput, useStdin} from 'ink';
 import {createDefaultClient, type UpdateBarClient} from './client.js';
+import {redactSecrets} from './secrets.js';
 import type {CheckReport, MachineEvent, ScanCandidate, ScanReport, StatusItem, StatusSnapshot} from './types.js';
 
 type Screen = 'menu' | 'status' | 'logs' | 'scan' | 'confirm-update' | 'updating';
@@ -304,7 +305,7 @@ export function App({client: providedClient}: AppProps) {
   return (
     <Box flexDirection="column">
       <Text bold>UpdateBar</Text>
-      {error && <Text color="red">{error}</Text>}
+      {error && <Text color="red">{redactSecrets(error)}</Text>}
       <StatusLine status={status} />
       {screen === 'menu' && (
         <Box flexDirection="column" marginTop={1}>
@@ -333,7 +334,7 @@ export function App({client: providedClient}: AppProps) {
             <Text dimColor>No logs yet</Text>
           ) : (
             logs.slice(-12).map((line, index) => (
-              <Text key={`${index}-${line}`}>{line}</Text>
+              <Text key={`${index}-${line}`}>{redactSecrets(line)}</Text>
             ))
           )}
         </Box>
@@ -396,7 +397,7 @@ function renderStatusRow(item: StatusItem) {
     .map(value => value?.trim())
     .join(' → ');
   const suffix = item.error ? ` · ! ${item.error}` : '';
-  return <Text>{`${item.id} (${item.category}) ${item.status}${version ? ` · ${version}` : ''}${suffix}`}</Text>;
+  return <Text>{redactSecrets(`${item.id} (${item.category}) ${item.status}${version ? ` · ${version}` : ''}${suffix}`)}</Text>;
 }
 
 function statusColor(status: StatusItem['status']) {
@@ -439,7 +440,7 @@ function ScanList({
       ))}
       {report.errors.map(error => (
         <Text key={`${error.detector}-${error.message}`} color="yellow">
-          {error.detector}: {error.message}
+          {redactSecrets(`${error.detector}: ${error.message}`)}
         </Text>
       ))}
     </Box>
@@ -466,7 +467,7 @@ function scanMarker(candidate: ScanCandidate, selected: boolean) {
 function renderScanRow(candidate: ScanCandidate, selected: boolean) {
   const version = candidate.installed_version ? ` ${candidate.installed_version}` : '';
   const source = !canRegister(candidate) && candidate.source_ref ? ` · source: ${candidate.source_ref}` : '';
-  return `${scanMarker(candidate, selected)} ${candidate.id} · ${candidate.name}${version} · ${candidate.category} · ${candidate.detector} · ${candidate.capability}${source}`;
+  return redactSecrets(`${scanMarker(candidate, selected)} ${candidate.id} · ${candidate.name}${version} · ${candidate.category} · ${candidate.detector} · ${candidate.capability}${source}`);
 }
 
 function canRegister(candidate: ScanCandidate) {
