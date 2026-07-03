@@ -34,6 +34,33 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 
+    func testActionNoticesRedactSecretLikeTitles() {
+        let state = MenuBarState(
+            title: "Up to date",
+            badgeValue: nil,
+            outdatedItems: [],
+            approvalItems: [],
+            errorItems: [],
+            okItems: []
+        )
+
+        let activeModel = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:],
+            activeActionTitle: "Update sk-or-v1-secret-value"
+        )
+        let finishedModel = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:],
+            lastActionNotice: "Finished: Update sk-or-v1-secret-value"
+        )
+
+        XCTAssertTrue(activeModel.entries.labels.contains("Running: Update [REDACTED]"))
+        XCTAssertTrue(finishedModel.entries.labels.contains("Finished: Update [REDACTED]"))
+        XCTAssertFalse(activeModel.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
+        XCTAssertFalse(finishedModel.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
+    }
+
     func testBuildsActionableSectionsForUpdatesApprovalsErrorsAndInstalledItems() {
         let state = MenuBarState(
             title: "1 update",

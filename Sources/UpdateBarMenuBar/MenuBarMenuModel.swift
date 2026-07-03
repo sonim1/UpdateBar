@@ -57,7 +57,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
         var entries: [MenuBarMenuEntry] = []
 
         if let activeActionTitle {
-            appendDisabled("Running: \(activeActionTitle)", to: &entries)
+            appendDisabled("Running: \(SecretRedactor.redact(activeActionTitle))", to: &entries)
             appendAction(
                 "Cancel Current Action",
                 action: .cancelCurrentAction,
@@ -65,7 +65,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
             )
             appendSeparator(to: &entries)
         } else if let lastActionNotice {
-            appendDisabled(lastActionNotice, to: &entries)
+            appendDisabled(SecretRedactor.redact(lastActionNotice), to: &entries)
             appendSeparator(to: &entries)
         }
 
