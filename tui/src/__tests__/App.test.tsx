@@ -625,6 +625,7 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('pinned: 1');
     expect(view.lastFrame()).toContain('differs sample: local-tool');
     expect(view.lastFrame()).toContain('error sample: broken-tool');
+    expect(view.lastFrame()).toContain('error sample: broken-tool: failed');
   });
 
   it('hides zero check summary counts', async () => {

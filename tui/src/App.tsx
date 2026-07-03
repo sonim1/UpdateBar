@@ -538,7 +538,7 @@ function checkSummaryLines(report: CheckReport) {
 function appendItemSample(lines: string[], report: CheckReport, status: StatusItem['status']) {
   const names = report.items
     .filter(item => item.status === status)
-    .map(item => item.name)
+    .map(item => status === 'error' && item.error ? `${item.name}: ${item.error}` : item.name)
     .filter(name => Boolean(name));
 
   if (names.length > 0) {
