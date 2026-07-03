@@ -905,8 +905,18 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(architecture.contains("updatebar update [ids]"))
         XCTAssertTrue(architecture.contains("direct UpdateBarCore adapter by default"))
         XCTAssertTrue(architecture.contains("UPDATEBAR_MENUBAR_ADAPTER=cli"))
+        XCTAssertTrue(architecture.contains("HOME/.updatebar"))
+        XCTAssertTrue(architecture.contains("UPDATEBAR_HOME"))
         XCTAssertTrue(architecture.contains("updatebar list"))
         XCTAssertTrue(architecture.contains("updatebar version"))
+    }
+
+    func testMenuBarDocsMatchDataDirectoryPrecedence() throws {
+        let docs = try String(contentsOfFile: "docs/menu-bar.md", encoding: .utf8)
+
+        XCTAssertTrue(docs.contains("HOME/.updatebar"))
+        XCTAssertTrue(docs.contains("UPDATEBAR_HOME"))
+        XCTAssertTrue(docs.contains("Open Config"))
     }
 
     func testPlanningDocsMatchCurrentCoreOwnedMenuBarArchitecture() throws {

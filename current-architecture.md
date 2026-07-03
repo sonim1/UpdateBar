@@ -69,7 +69,7 @@ The menu bar app (`updatebar-menubar`) uses `CoreMenuBarService` and the direct 
 Default home:
 
 ```text
-~/.updatebar
+HOME/.updatebar
 ```
 
 Override:
@@ -77,6 +77,9 @@ Override:
 ```text
 UPDATEBAR_HOME=/path/to/home
 ```
+
+`UPDATEBAR_HOME` takes precedence over `HOME/.updatebar` when set, which keeps
+tests, scripts, and background jobs isolated from the interactive user store.
 
 Files:
 

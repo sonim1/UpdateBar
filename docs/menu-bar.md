@@ -58,8 +58,10 @@ Tip: `Open TUI` now also honors `UPDATEBAR_TUI` when set to a concrete binary, s
 you can point menu-bar launching at a dev-installed TUI without relying on
 `PATH`.
 
-`Open Config` opens `~/.updatebar/config.toml` when it exists; if the file is not
-present, it opens the UpdateBar home directory instead.
+`Open Config` opens the active UpdateBar config file when it exists; by default
+that is `HOME/.updatebar/config.toml`, and `UPDATEBAR_HOME` can point the app at
+an alternate data directory. If the config file is not present, the app opens the
+active UpdateBar home directory instead.
 
 Troubleshooting a missing icon:
 
