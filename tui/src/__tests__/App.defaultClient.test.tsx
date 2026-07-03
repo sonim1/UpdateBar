@@ -29,6 +29,34 @@ describe('App default client setup', () => {
     expect(view.lastFrame()).toContain('Status unavailable');
     expect(view.lastFrame()).not.toContain('Loading status...');
   });
+
+  it('opens config path even when default client setup fails', async () => {
+    const previousHome = process.env.UPDATEBAR_HOME;
+    process.env.UPDATEBAR_HOME = '/tmp/updatebar-tui-home';
+    mockedCreateDefaultClient.mockRejectedValue(new Error('updatebar binary not found'));
+    const view = render(<App />);
+
+    try {
+      await waitForFrame(view, 'updatebar binary not found');
+      view.stdin.write('\u001B[B');
+      view.stdin.write('\u001B[B');
+      view.stdin.write('\u001B[B');
+      view.stdin.write('\u001B[B');
+      await wait();
+      view.stdin.write('\r');
+      await waitForFrame(view, 'config path: /tmp/updatebar-tui-home/config.toml');
+
+      expect(view.lastFrame()).toContain('config path: /tmp/updatebar-tui-home/config.toml');
+      expect(view.lastFrame()).not.toContain('updatebar binary not found');
+    } finally {
+      view.unmount();
+      if (previousHome === undefined) {
+        delete process.env.UPDATEBAR_HOME;
+      } else {
+        process.env.UPDATEBAR_HOME = previousHome;
+      }
+    }
+  });
 });
 
 async function waitForFrame(view: {lastFrame(): string | undefined}, text: string) {
@@ -37,4 +65,8 @@ async function waitForFrame(view: {lastFrame(): string | undefined}, text: strin
     await new Promise(resolve => setTimeout(resolve, 20));
   }
   throw new Error(`Timed out waiting for frame containing: ${text}\n${view.lastFrame()}`);
+}
+
+async function wait() {
+  await new Promise(resolve => setTimeout(resolve, 20));
 }

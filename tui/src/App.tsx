@@ -238,8 +238,24 @@ export function App({client: providedClient}: AppProps) {
   }
 
   async function runMenuAction() {
-    if (!client) return;
     const selected = MENU_ITEMS[menuIndex]?.action;
+    switch (selected) {
+      case 'config-path':
+        setScreen('logs');
+        setError(undefined);
+        setLogs([
+          `config path: ${getConfigPath()}`,
+          'open this file in your editor to inspect configuration'
+        ]);
+        return;
+      case 'view-logs':
+        setScreen('logs');
+        return;
+      case 'quit':
+        exit();
+        return;
+    }
+    if (!client) return;
     switch (selected) {
       case 'refresh-status':
         setScreen('status');
@@ -254,18 +270,6 @@ export function App({client: providedClient}: AppProps) {
       case 'run-updates':
         await openUpdateSelection(client);
         return;
-      case 'config-path':
-        setScreen('logs');
-        setError(undefined);
-        setLogs([
-          `config path: ${getConfigPath()}`,
-          'open this file in your editor to inspect configuration'
-        ]);
-        return;
-      case 'view-logs':
-        setScreen('logs');
-        return;
-      case 'quit':
       default:
         exit();
     }
