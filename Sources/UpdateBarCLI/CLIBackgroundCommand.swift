@@ -119,7 +119,7 @@ private func printBackgroundHuman(status: String, path: String) {
 
 private func printBackgroundInstallNextStep(path: String) {
     printNextCommands([
-        "launchctl bootstrap gui/$(id -u) \(shellQuote(path))"
+        "launchctl bootstrap gui/$(id -u) \(ShellQuote.single(path))"
     ])
 }
 
@@ -129,7 +129,4 @@ private func printBackgroundUninstallNextStep() {
     ])
 }
 
-private func shellQuote(_ value: String) -> String {
-    "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
-}
 #endif

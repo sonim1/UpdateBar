@@ -49,6 +49,27 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
+    func testCLISourcesUseSharedShellQuotingHelper() throws {
+        let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCLI")
+        let sourceFiles = try swiftSourceFiles(under: sourceRoot)
+        var violations: [String] = []
+
+        for file in sourceFiles {
+            let contents = try String(contentsOf: file, encoding: .utf8)
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
+                where line.contains("replacingOccurrences(of: \"'\", with:")
+            {
+                violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+
+        XCTAssertEqual(
+            violations,
+            [],
+            "CLI shell command templates should use UpdateBarCore.ShellQuote instead of local quoting copies:\n\(violations.joined(separator: "\n"))"
+        )
+    }
+
     private func swiftSourceFiles(under root: URL) throws -> [URL] {
         guard let enumerator = FileManager.default.enumerator(
             at: root,

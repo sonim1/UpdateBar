@@ -288,10 +288,6 @@ private func isLowercaseLetterOrDigit(_ scalar: UnicodeScalar) -> Bool {
     }
 }
 
-private func shellSingleQuoted(_ value: String) -> String {
-    "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
-}
-
 enum TemplateKind: String, ExpressibleByArgument {
     case githubRelease = "github_release"
     case npm
@@ -312,7 +308,7 @@ enum TemplateKind: String, ExpressibleByArgument {
                 name: requestedName,
                 source: Source(kind: .githubRelease, ref: requestedSourceRef ?? "owner/repo", branch: nil),
                 latest: LatestSpec(strategy: .githubRelease, cmd: nil, pattern: nil),
-                update: "brew upgrade \(shellSingleQuoted(requestedID ?? "example-github-tool"))"
+                update: "brew upgrade \(ShellQuote.single(requestedID ?? "example-github-tool"))"
             )
         case .npm:
             let package = requestedSourceRef ?? requestedID ?? "example-npm-tool"
@@ -321,7 +317,7 @@ enum TemplateKind: String, ExpressibleByArgument {
                 name: requestedName,
                 source: Source(kind: .npm, ref: package, branch: nil),
                 latest: LatestSpec(strategy: .npmRegistry, cmd: nil, pattern: nil),
-                update: "npm install -g \(shellSingleQuoted(package))@latest"
+                update: "npm install -g \(ShellQuote.single(package))@latest"
             )
         case .brew:
             let formula = requestedSourceRef ?? requestedID ?? "example-brew-tool"
@@ -330,7 +326,7 @@ enum TemplateKind: String, ExpressibleByArgument {
                 name: requestedName,
                 source: Source(kind: .brew, ref: formula, branch: nil),
                 latest: LatestSpec(strategy: .brew, cmd: nil, pattern: nil),
-                update: "brew upgrade \(shellSingleQuoted(formula))"
+                update: "brew upgrade \(ShellQuote.single(formula))"
             )
         case .gitTags:
             return base(
@@ -350,7 +346,7 @@ enum TemplateKind: String, ExpressibleByArgument {
                     cmd: nil,
                     pattern: #"version">([0-9]+\.[0-9]+\.[0-9]+)<"#
                 ),
-                update: "brew upgrade \(shellSingleQuoted(requestedID ?? "example-http-tool"))"
+                update: "brew upgrade \(ShellQuote.single(requestedID ?? "example-http-tool"))"
             )
         case .customCommand:
             return base(
