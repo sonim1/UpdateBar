@@ -5,7 +5,9 @@ public struct NPMRegistryLatestStrategy: LatestStrategy {
 
     public func latest(for recipe: Recipe, context: LatestContext) throws -> String {
         let encoded = percentEncode(recipe.source.ref)
-        let url = URL(string: "https://registry.npmjs.org/\(encoded)")!
+        guard let url = URL(string: "https://registry.npmjs.org/\(encoded)") else {
+            throw LatestError.invalidSource("\(recipe.source.ref): invalid npm package ref")
+        }
         let data = try context.httpClient.get(
             url: url,
             headers: [:],

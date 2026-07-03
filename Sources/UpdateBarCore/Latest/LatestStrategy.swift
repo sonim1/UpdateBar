@@ -62,7 +62,10 @@ public struct URLSessionHTTPClient: HTTPClient {
             semaphore.signal()
         }.resume()
         semaphore.wait()
-        return try box.result!.get()
+        guard let result = box.result else {
+            throw LatestError.parseFailed("http response missing")
+        }
+        return try result.get()
     }
 }
 

@@ -1,0 +1,48 @@
+import Foundation
+import XCTest
+
+final class SourceHygieneTests: XCTestCase {
+    func testCoreSourcesAvoidForceUnwrapSyntax() throws {
+        let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCore")
+        let sourceFiles = try swiftSourceFiles(under: sourceRoot)
+        var violations: [String] = []
+
+        for file in sourceFiles {
+            let contents = try String(contentsOf: file, encoding: .utf8)
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+                if line.contains("!.")
+                    || line.contains(")!")
+                    || line.contains("try!")
+                    || line.contains(" as!")
+                {
+                    violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+                }
+            }
+        }
+
+        XCTAssertEqual(
+            violations,
+            [],
+            "UpdateBarCore should throw typed errors instead of force-unwrapping:\n\(violations.joined(separator: "\n"))"
+        )
+    }
+
+    private func swiftSourceFiles(under root: URL) throws -> [URL] {
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            XCTFail("Could not enumerate \(root.path)")
+            return []
+        }
+
+        return try enumerator.compactMap { entry in
+            guard let url = entry as? URL, url.pathExtension == "swift" else {
+                return nil
+            }
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey])
+            return values.isRegularFile == true ? url : nil
+        }.sorted { $0.path < $1.path }
+    }
+}
