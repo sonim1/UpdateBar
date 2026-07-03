@@ -62,6 +62,22 @@ final class UpdateBarBinaryResolverTests: XCTestCase {
         XCTAssertEqual(resolution.source, .path)
     }
 
+    func testPathResolutionIgnoresRelativeEntries() throws {
+        let root = try temporaryDirectory()
+        _ = try executable(at: root.appendingPathComponent("updatebar"))
+        let originalDirectory = FileManager.default.currentDirectoryPath
+        defer { FileManager.default.changeCurrentDirectoryPath(originalDirectory) }
+        XCTAssertTrue(FileManager.default.changeCurrentDirectoryPath(root.path))
+
+        XCTAssertThrowsError(try UpdateBarBinaryResolver().resolve(
+            environment: ["PATH": "."],
+            developmentRoot: nil,
+            defaultPathEntries: []
+        )) { error in
+            XCTAssertEqual(error as? UpdateBarBinaryResolverError, .notFound)
+        }
+    }
+
     func testDevelopmentFallbackUsesSwiftPMDebugBinary() throws {
         let root = try temporaryDirectory()
         let devBinary = try executable(at: root.appendingPathComponent(".build/debug/updatebar"))

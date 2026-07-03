@@ -83,10 +83,12 @@ public struct UpdateBarBinaryResolver {
         defaultPathEntries: [String]
     ) -> String? {
         let pathEntries = (environment["PATH"] ?? "")
-            .split(separator: ":")
+            .split(separator: ":", omittingEmptySubsequences: false)
             .map(String.init) + defaultPathEntries
         var seen: Set<String> = []
-        for directory in pathEntries where seen.insert(directory).inserted {
+        for directory in pathEntries where isAbsolutePathEntry(directory)
+            && seen.insert(directory).inserted
+        {
             let candidate = URL(fileURLWithPath: directory)
                 .appendingPathComponent("updatebar", isDirectory: false)
                 .path
@@ -95,6 +97,10 @@ public struct UpdateBarBinaryResolver {
             }
         }
         return nil
+    }
+
+    private func isAbsolutePathEntry(_ value: String) -> Bool {
+        value.hasPrefix("/")
     }
 
     private func developmentCandidate(root: URL) -> String? {
