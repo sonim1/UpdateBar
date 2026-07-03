@@ -141,6 +141,25 @@ final class ExportImportCommandTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder.updateBar.decode(Manifest.self, from: Data(jsonResult.stdout.utf8)).items.count, 1)
     }
 
+    func testExportJSONRejectsLegacyManifestWithLiteralSecret() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-export-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secret = "sk-or-v1-secret-value"
+        var item = recipe(id: "tool")
+        item.update.cmd = "tool update --token \(secret)"
+        try ManifestStore(paths: paths).save(manifest(items: [item]))
+
+        let result = try CLIProcess.run(["export", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorPayload.self, from: Data(result.stdout.utf8))
+        let combined = result.stdout + result.stderr
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "registry_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].update.cmd: must not contain literal secrets") })
+        XCTAssertFalse(combined.contains(secret))
+    }
+
     func testExportJSONDoesNotCreateManifestOnFreshHome() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-export-tests")
         let paths = AppPaths(homeDirectory: home)
