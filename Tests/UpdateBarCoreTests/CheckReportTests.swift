@@ -25,6 +25,24 @@ final class CheckReportTests: XCTestCase {
         XCTAssertEqual(summary.differs, 0)
     }
 
+    func testCheckResultRedactsLegacyMetadataSecrets() {
+        let secret = "sk-or-v1-check-secret-value"
+
+        let result = CheckResult(
+            id: secret,
+            name: "Tool \(secret)",
+            current: "1.0.0",
+            latest: "2.0.0",
+            status: .ok,
+            lastChecked: nil,
+            error: nil
+        )
+
+        XCTAssertEqual(result.id, "[REDACTED]")
+        XCTAssertEqual(result.name, "Tool [REDACTED]")
+        XCTAssertFalse(String(describing: result).contains(secret))
+    }
+
     private func checkResult(id: String, status: ItemStatus) -> CheckResult {
         CheckResult(
             id: id,

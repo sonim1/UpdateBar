@@ -15,12 +15,12 @@ public struct StatusSnapshot: Codable, Equatable {
                 id: recipe.id,
                 name: recipe.name,
                 category: recipe.category,
-                current: itemState?.current.map(SecretRedactor.redact),
-                latest: itemState?.latest.map(SecretRedactor.redact),
+                current: itemState?.current,
+                latest: itemState?.latest,
                 status: status,
                 pinned: recipe.pin != nil,
                 lastChecked: itemState?.lastChecked,
-                error: status == .error ? itemState?.error.map(SecretRedactor.redact) : nil
+                error: status == .error ? itemState?.error : nil
             )
         }
 
@@ -143,15 +143,15 @@ public struct StatusItem: Codable, Equatable {
         lastChecked: Date?,
         error: String?
     ) {
-        self.id = id
-        self.name = name
-        self.category = category
-        self.current = current
-        self.latest = latest
+        self.id = SecretRedactor.redact(id)
+        self.name = SecretRedactor.redact(name)
+        self.category = SecretRedactor.redact(category)
+        self.current = current.map(SecretRedactor.redact)
+        self.latest = latest.map(SecretRedactor.redact)
         self.status = status
         self.pinned = pinned
         self.lastChecked = lastChecked
-        self.error = error
+        self.error = error.map(SecretRedactor.redact)
     }
 
     enum CodingKeys: String, CodingKey {

@@ -18,8 +18,8 @@ public struct CheckResult: Codable, Equatable {
         lastChecked: Date?,
         error: String?
     ) {
-        self.id = id
-        self.name = name
+        self.id = SecretRedactor.redact(id)
+        self.name = SecretRedactor.redact(name)
         self.current = current.map(SecretRedactor.redact)
         self.latest = latest.map(SecretRedactor.redact)
         self.status = status

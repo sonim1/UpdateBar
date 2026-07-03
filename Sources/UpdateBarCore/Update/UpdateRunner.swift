@@ -179,8 +179,8 @@ public struct UpdateResult: Codable, Equatable {
         error: String?,
         commandFingerprint: String?
     ) {
-        self.id = id
-        self.name = name
+        self.id = SecretRedactor.redact(id)
+        self.name = SecretRedactor.redact(name)
         self.outcome = outcome
         self.current = current.map(SecretRedactor.redact)
         self.latest = latest.map(SecretRedactor.redact)

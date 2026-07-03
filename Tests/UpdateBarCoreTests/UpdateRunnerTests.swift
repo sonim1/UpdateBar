@@ -200,6 +200,24 @@ final class UpdateRunnerTests: XCTestCase {
         XCTAssertFalse(UpdateOutcome.skippedUntrusted.isHardFailure)
     }
 
+    func testUpdateResultRedactsLegacyMetadataSecrets() {
+        let secret = "sk-or-v1-update-secret-value"
+
+        let result = UpdateResult(
+            id: secret,
+            name: "Tool \(secret)",
+            outcome: .updated,
+            current: "1.0.0",
+            latest: "1.1.0",
+            error: nil,
+            commandFingerprint: nil
+        )
+
+        XCTAssertEqual(result.id, "[REDACTED]")
+        XCTAssertEqual(result.name, "Tool [REDACTED]")
+        XCTAssertFalse(String(describing: result).contains(secret))
+    }
+
     private func updateRunner(
         paths: AppPaths,
         commands: MockCommandExecutor,

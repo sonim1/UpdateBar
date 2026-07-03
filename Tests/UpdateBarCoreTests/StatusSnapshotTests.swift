@@ -110,6 +110,60 @@ final class StatusSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.items.first?.latest, "[REDACTED]")
     }
 
+    func testStatusSnapshotRedactsLegacyMetadataSecrets() throws {
+        var manifest = try loadManifest()
+        let now = Date(timeIntervalSince1970: 1_812_499_200)
+        let secret = "sk-or-v1-status-secret-value"
+        manifest.items[0].id = secret
+        manifest.items[0].name = "Tool \(secret)"
+        manifest.items[0].category = secret
+        let state = State(
+            schemaVersion: 1,
+            generatedAt: now,
+            items: [
+                secret: ItemState(
+                    current: "1.4.2",
+                    latest: "1.5.0",
+                    status: .ok,
+                    lastChecked: now,
+                    error: nil,
+                    backoffUntil: nil
+                )
+            ]
+        )
+
+        let snapshot = StatusSnapshot.from(manifest: manifest, state: state, now: now)
+
+        XCTAssertEqual(snapshot.items.first?.id, "[REDACTED]")
+        XCTAssertEqual(snapshot.items.first?.name, "Tool [REDACTED]")
+        XCTAssertEqual(snapshot.items.first?.category, "[REDACTED]")
+        XCTAssertFalse(String(describing: snapshot).contains(secret))
+    }
+
+    func testStatusItemRedactsSecretsAtInitializationBoundary() {
+        let secret = "sk-or-v1-status-secret-value"
+
+        let item = StatusItem(
+            id: secret,
+            name: "Tool \(secret)",
+            category: secret,
+            current: secret,
+            latest: secret,
+            status: .error,
+            pinned: false,
+            lastChecked: nil,
+            error: "failed \(secret)"
+        )
+
+        XCTAssertEqual(item.id, "[REDACTED]")
+        XCTAssertEqual(item.name, "Tool [REDACTED]")
+        XCTAssertEqual(item.category, "[REDACTED]")
+        XCTAssertEqual(item.current, "[REDACTED]")
+        XCTAssertEqual(item.latest, "[REDACTED]")
+        XCTAssertEqual(item.error, "failed [REDACTED]")
+        XCTAssertFalse(String(describing: item).contains(secret))
+    }
+
     func testStatusSummaryCountsAttentionStates() throws {
         let outdated = try recipe(id: "outdated", name: "Outdated")
 
