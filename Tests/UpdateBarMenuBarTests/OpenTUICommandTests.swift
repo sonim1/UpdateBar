@@ -45,4 +45,21 @@ final class OpenTUICommandTests: XCTestCase {
         XCTAssertTrue(joined.contains("UPDATEBAR_TUI"))
         XCTAssertTrue(joined.contains("/opt/homebrew/bin/updatebar-tui"))
     }
+
+    func testInvalidUPDATEBARTUIOverrideIsReportedBeforeFallbacks() throws {
+        let command = OpenTUICommand(
+            cliPath: "/Applications/UpdateBar.app/Contents/Resources/updatebar",
+            tuiCommand: "updatebar-tui",
+            updateBarHome: nil,
+            tuiCommandOverride: "/tmp/missing-updatebar-tui"
+        )
+
+        let joined = command.arguments.joined(separator: " ")
+        let invalidOverride = try XCTUnwrap(
+            joined.range(of: "UPDATEBAR_TUI is set but not executable")
+        )
+        let cliFallback = try XCTUnwrap(joined.range(of: "$UPDATEBAR_BIN"))
+
+        XCTAssertLessThan(invalidOverride.lowerBound, cliFallback.lowerBound)
+    }
 }
