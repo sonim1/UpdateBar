@@ -35,7 +35,9 @@ public struct CommandLatestStrategy: LatestStrategy {
             policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)
         )
         guard result.exitCode == 0 else {
-            throw LatestError.commandFailed("latest.cmd exited \(result.exitCode): \(result.stderr)")
+            throw LatestError.commandFailed(
+                "latest.cmd exited \(result.exitCode): \(SecretRedactor.redact(result.stderr))"
+            )
         }
         return try VersionParser.extract(
             from: "\(result.stdout)\n\(result.stderr)",

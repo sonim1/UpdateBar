@@ -35,23 +35,25 @@ final class LatestStrategyTests: XCTestCase {
         XCTAssertEqual(latest, "abc123")
     }
 
-    func testGitHeadFailureReportsCommandAndExitCode() throws {
+    func testGitHeadFailureReportsCommandAndExitCodeWithRedactedStderr() throws {
         var item = try recipe()
         item.source.kind = .git
         item.source.ref = "https://github.com/example/missing.git"
         item.source.branch = "main"
+        let secret = "sk-or-v1-git-secret-value"
         let command = "git ls-remote -- 'https://github.com/example/missing.git' 'refs/heads/main'"
         let context = LatestContext(
             httpClient: emptyHTTP(),
             commandRunner: MockCommandExecutor(results: [
-                command: CommandResult(exitCode: 128, stdout: "", stderr: "fatal: repository not found")
+                command: CommandResult(exitCode: 128, stdout: "", stderr: "fatal: repository not found \(secret)")
             ])
         )
 
         XCTAssertThrowsError(
             try GitLatestStrategy(mode: .head).latest(for: item, context: context)
         ) { error in
-            XCTAssertEqual(String(describing: error), "git ls-remote exited 128: fatal: repository not found")
+            XCTAssertEqual(String(describing: error), "git ls-remote exited 128: fatal: repository not found [REDACTED]")
+            XCTAssertFalse(String(describing: error).contains(secret))
         }
     }
 
@@ -241,22 +243,24 @@ final class LatestStrategyTests: XCTestCase {
         XCTAssertEqual(latest, "14.1.0")
     }
 
-    func testBrewFailureReportsCommandAndExitCode() throws {
+    func testBrewFailureReportsCommandAndExitCodeWithRedactedStderr() throws {
         var item = try recipe()
         item.source.kind = .brew
         item.source.ref = "missing-formula"
+        let secret = "sk-or-v1-brew-secret-value"
         let command = "brew info --json=v2 -- 'missing-formula'"
         let context = LatestContext(
             httpClient: emptyHTTP(),
             commandRunner: MockCommandExecutor(results: [
-                command: CommandResult(exitCode: 2, stdout: "", stderr: "No available formula")
+                command: CommandResult(exitCode: 2, stdout: "", stderr: "No available formula \(secret)")
             ])
         )
 
         XCTAssertThrowsError(
             try BrewLatestStrategy().latest(for: item, context: context)
         ) { error in
-            XCTAssertEqual(String(describing: error), "brew info exited 2: No available formula")
+            XCTAssertEqual(String(describing: error), "brew info exited 2: No available formula [REDACTED]")
+            XCTAssertFalse(String(describing: error).contains(secret))
         }
     }
 
@@ -393,6 +397,26 @@ final class LatestStrategyTests: XCTestCase {
         let latest = try CommandLatestStrategy().latest(for: item, context: context)
 
         XCTAssertEqual(latest, "9.8.7")
+    }
+
+    func testCmdStrategyFailureReportsCommandAndExitCodeWithRedactedStderr() throws {
+        var item = try recipe()
+        item.latest.strategy = .cmd
+        item.latest.cmd = "tool latest"
+        let secret = "sk-or-v1-latest-secret-value"
+        let context = LatestContext(
+            httpClient: emptyHTTP(),
+            commandRunner: MockCommandExecutor(results: [
+                "tool latest": CommandResult(exitCode: 3, stdout: "", stderr: "failed \(secret)")
+            ])
+        )
+
+        XCTAssertThrowsError(
+            try CommandLatestStrategy().latest(for: item, context: context)
+        ) { error in
+            XCTAssertEqual(String(describing: error), "latest.cmd exited 3: failed [REDACTED]")
+            XCTAssertFalse(String(describing: error).contains(secret))
+        }
     }
 
     private func recipe() throws -> Recipe {

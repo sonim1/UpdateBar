@@ -28,7 +28,9 @@ public struct GitLatestStrategy: LatestStrategy {
                 policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)
             )
             guard result.exitCode == 0 else {
-                throw LatestError.commandFailed("git ls-remote exited \(result.exitCode): \(result.stderr)")
+                throw LatestError.commandFailed(
+                    "git ls-remote exited \(result.exitCode): \(SecretRedactor.redact(result.stderr))"
+                )
             }
             let fields = result.stdout.split { $0 == "\t" || $0 == " " || $0 == "\n" }
             guard let head = fields.first.map(String.init) else {
@@ -43,7 +45,9 @@ public struct GitLatestStrategy: LatestStrategy {
                 policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)
             )
             guard result.exitCode == 0 else {
-                throw LatestError.commandFailed("git ls-remote exited \(result.exitCode): \(result.stderr)")
+                throw LatestError.commandFailed(
+                    "git ls-remote exited \(result.exitCode): \(SecretRedactor.redact(result.stderr))"
+                )
             }
             let tags = result.stdout.split(separator: "\n").compactMap { line -> String? in
                 guard let tagPart = line.split(separator: "\t").last else { return nil }
