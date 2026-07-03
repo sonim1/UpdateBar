@@ -54,17 +54,18 @@ struct EditCommand: ParsableCommand {
         let editor = nonEmptyEnvironmentValue("VISUAL", in: environment)
             ?? nonEmptyEnvironmentValue("EDITOR", in: environment)
             ?? "vi"
-        let editorParts = try parseCommand(editor)
+        var editorParts = try parseCommand(editor)
         guard let executable = editorParts.first, !executable.isEmpty else {
             throw ValidationError("EDITOR command is empty")
         }
-        if let command = resolveCommandToken(executable, afterAssignmentsIn: editorParts) {
-            guard resolveExecutable(command, environment: environment) != nil else {
-                throw ValidationError("EDITOR/VISUAL command not found in PATH: \(command)")
-            }
+        let commandIndex = commandTokenIndex(afterAssignmentsIn: editorParts) ?? 0
+        let command = editorParts[commandIndex]
+        guard let resolvedCommand = resolveExecutable(command, environment: environment) else {
+            throw ValidationError("EDITOR/VISUAL command not found in PATH: \(command)")
         }
+        editorParts[commandIndex] = resolvedCommand
 
-        // `env` keeps PATH lookup behavior while avoiding shell interpolation.
+        // `env` applies leading assignments while avoiding shell interpolation.
         let envPath = FileManager.default.isExecutableFile(atPath: "/usr/bin/env")
             ? "/usr/bin/env"
             : "/bin/env"
@@ -94,12 +95,9 @@ struct EditCommand: ParsableCommand {
         return value
     }
 
-    private func resolveCommandToken(_ command: String, afterAssignmentsIn parts: [String]) -> String? {
+    private func commandTokenIndex(afterAssignmentsIn parts: [String]) -> Int? {
         let trimmed = parts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        if let index = trimmed.firstIndex(where: { !$0.isEmpty && !isEnvironmentAssignment($0) }) {
-            return parts[index]
-        }
-        return command
+        return trimmed.firstIndex(where: { !$0.isEmpty && !isEnvironmentAssignment($0) })
     }
 
     private func isEnvironmentAssignment(_ token: String) -> Bool {

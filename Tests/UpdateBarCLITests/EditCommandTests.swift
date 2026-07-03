@@ -60,6 +60,35 @@ final class EditCommandTests: XCTestCase {
         XCTAssertEqual(manifest.item(id: "tool")?.name, "Path Tool")
     }
 
+    func testEditRunsTheValidatedPathExecutable() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let binDir = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
+
+        let safeEditor = try editorScript(home: binDir, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Safe Tool"/' "$1""#)
+        let safeEditorPath = binDir.appendingPathComponent("updatebar-editor")
+        try FileManager.default.moveItem(at: safeEditor, to: safeEditorPath)
+        let relativeEditor = try editorScript(home: home, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Relative Tool"/' "$1""#)
+        try FileManager.default.moveItem(at: relativeEditor, to: home.appendingPathComponent("updatebar-editor"))
+
+        let systemPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
+        let result = try CLIProcess.run(
+            ["edit", "tool"],
+            home: home,
+            currentDirectory: home,
+            environment: [
+                "EDITOR": "updatebar-editor",
+                "PATH": ".:\(binDir.path):\(systemPath)"
+            ]
+        )
+        let manifest = try ManifestStore(paths: paths).load()
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(manifest.item(id: "tool")?.name, "Safe Tool")
+    }
+
     func testEditSupportsQuotedEditorPathWithSpaces() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
         let paths = AppPaths(homeDirectory: home)
