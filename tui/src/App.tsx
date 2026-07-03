@@ -260,6 +260,9 @@ export function App({client: providedClient}: AppProps) {
         return;
       case 'view-logs':
         setScreen('logs');
+        if (logs.length === 0) {
+          setError(undefined);
+        }
         return;
       case 'quit':
         exit();

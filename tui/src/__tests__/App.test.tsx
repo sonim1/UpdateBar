@@ -292,6 +292,29 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('No logs yet');
   });
 
+  it('clears stale status errors when viewing empty logs', async () => {
+    const client = createClient({
+      async status() {
+        throw new Error('status unavailable');
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'status unavailable');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'No logs yet');
+
+    expect(view.lastFrame()).toContain('No logs yet');
+    expect(view.lastFrame()).not.toContain('status unavailable');
+    expect(view.lastFrame()).toContain('Status unavailable');
+  });
+
   it('ignores scan selection input while scan is running', async () => {
     let registrations = 0;
     const client = createClient({
