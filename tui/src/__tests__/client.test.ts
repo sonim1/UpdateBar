@@ -213,6 +213,18 @@ describe('CLIUpdateBarClient', () => {
     await expect(client.status()).rejects.toThrow('unexpected status result format from updatebar');
   });
 
+  it('reports unexpected status optional field JSON shape with command context', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout:
+        '{"generated_at":"2026-06-30T00:00:00Z","summary":{"total":1,"outdated":0,"errors":0},"items":[{"id":"brew.gh","name":"gh","category":"cloud-devops","status":"ok","pinned":false,"current":123}]}',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.status()).rejects.toThrow('unexpected status result format from updatebar');
+  });
+
   it('reports unexpected status summary JSON shape with command context', async () => {
     const runner = new FakeRunner({
       exitCode: 0,
@@ -245,6 +257,17 @@ describe('CLIUpdateBarClient', () => {
     const runner = new FakeRunner({
       exitCode: 0,
       stdout: '[{"id":"brew.gh","name":"gh","status":"mystery"}]',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.checkNow()).rejects.toThrow('unexpected check result format from updatebar');
+  });
+
+  it('reports unexpected check optional field JSON shape with command context', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout: '[{"id":"brew.gh","name":"gh","status":"ok","latest":123}]',
       stderr: ''
     });
     const client = new CLIUpdateBarClient(runner);

@@ -335,7 +335,11 @@ function isStatusItem(value: unknown): value is StatusItem {
     typeof value.category === 'string' &&
     typeof value.status === 'string' &&
     typeof value.pinned === 'boolean' &&
-    ITEM_STATUSES.has(value.status as ItemStatus)
+    ITEM_STATUSES.has(value.status as ItemStatus) &&
+    isOptionalString(value.current) &&
+    isOptionalString(value.latest) &&
+    isOptionalString(value.last_checked) &&
+    isOptionalString(value.error)
   );
 }
 
@@ -369,7 +373,11 @@ function isCheckResult(value: unknown): value is CheckResult {
     typeof value.id === 'string' &&
     typeof value.name === 'string' &&
     typeof value.status === 'string' &&
-    ITEM_STATUSES.has(value.status as ItemStatus)
+    ITEM_STATUSES.has(value.status as ItemStatus) &&
+    isOptionalString(value.current) &&
+    isOptionalString(value.latest) &&
+    isOptionalString(value.last_checked) &&
+    isOptionalString(value.error)
   );
 }
 
@@ -379,6 +387,10 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(item => typeof item === 'string');
+}
+
+function isOptionalString(value: unknown) {
+  return value === undefined || typeof value === 'string';
 }
 
 function isOptionalNumber(value: unknown) {
