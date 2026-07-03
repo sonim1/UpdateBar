@@ -9,7 +9,7 @@ struct AddCommand: ParsableCommand {
         shouldDisplay: false
     )
 
-    @Option(name: .long, help: "Recipe JSON file to add, or '-' for stdin.")
+    @Option(name: .long, help: "Recipe or single-item manifest JSON file to add, or '-' for stdin.")
     var from: String?
 
     @Flag(name: .long, help: "Validate and print the recipe without saving it.")

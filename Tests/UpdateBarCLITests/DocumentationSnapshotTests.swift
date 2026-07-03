@@ -100,6 +100,17 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(optionHasDescription("--yes", in: helpLines))
     }
 
+    func testAddHelpDocumentsSingleItemManifestAndStdinInput() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        let result = try CLIProcess.run(["add", "--help"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("single-item manifest"))
+        XCTAssertTrue(result.stdout.contains("'-' for stdin"))
+    }
+
     func testEditHelpDocumentsVisualAndEditorLookup() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 
