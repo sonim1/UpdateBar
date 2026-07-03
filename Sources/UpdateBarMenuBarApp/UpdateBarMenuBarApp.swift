@@ -8,8 +8,8 @@
     @MainActor
     final class UpdateBarMenuBarApp: NSObject, NSApplicationDelegate {
         private static var bootstrapDelegate: UpdateBarMenuBarApp?
-        private var statusItem: NSStatusItem!
-        private var service: (any MenuBarServicing)!
+        private var statusItem: NSStatusItem?
+        private var service: (any MenuBarServicing)?
         private var cliPath = ""
         private let formatter = MenuBarStatusFormatter()
         private let menuBuilder = MenuBarMenuModelBuilder()
@@ -43,10 +43,11 @@
                 }
             }
             service = Self.makeService(cliPath: useCLIAdapter ? cliPath : nil)
-            statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-            statusItem.autosaveName = "UpdateBarStatusItem"
-            statusItem.isVisible = true
-            guard let statusButton = statusItem.button else {
+            let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+            statusItem = item
+            item.autosaveName = "UpdateBarStatusItem"
+            item.isVisible = true
+            guard let statusButton = item.button else {
                 showError(MenuBarStartupError.missingStatusBarButton)
                 return
             }
@@ -252,6 +253,10 @@
         }
 
         private func rebuildMenu() {
+            guard let statusItem else {
+                Self.debugLog("cannot rebuild menu before status item exists")
+                return
+            }
             let activeAction = actionCoordinator.activeAction
             let lastActionNotice = actionCoordinator.lastActionNotice
             if let activeAction {
@@ -311,6 +316,9 @@
             let errorDescription = SecretRedactor.redact(String(describing: error))
             Self.debugLog("showing error: \(errorDescription)")
             setTitle("!", accessibilityLabel: "UpdateBar error")
+            guard let statusItem else {
+                return
+            }
             let model = menuBuilder.makeErrorMenu(
                 errorDescription: errorDescription
             )
@@ -318,8 +326,8 @@
         }
 
         private func setTitle(_ title: String, accessibilityLabel: String? = nil) {
-            statusItem.button?.title = title
-            statusItem.button?.setAccessibilityLabel(accessibilityLabel ?? "UpdateBar \(title)")
+            statusItem?.button?.title = title
+            statusItem?.button?.setAccessibilityLabel(accessibilityLabel ?? "UpdateBar \(title)")
         }
 
         private func accessibilityLabel(for state: MenuBarState) -> String {
