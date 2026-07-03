@@ -52,4 +52,40 @@ final class MachineEventTests: XCTestCase {
 
         XCTAssertThrowsError(try JSONDecoder.updateBar.decode(MachineEvent.self, from: data))
     }
+
+    func testMachineEventRejectsUpdatePayloadForCheckOperation() throws {
+        let data = Data("""
+        {
+          "event": "item_finished",
+          "type": "item_finished",
+          "operation": "check",
+          "timestamp": "2026-06-30T00:00:00Z",
+          "result": {
+            "id": "tool",
+            "name": "Tool",
+            "outcome": "updated"
+          }
+        }
+        """.utf8)
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(MachineEvent.self, from: data))
+    }
+
+    func testMachineEventRejectsCheckPayloadForUpdateOperation() throws {
+        let data = Data("""
+        {
+          "event": "item_finished",
+          "type": "item_finished",
+          "operation": "update",
+          "timestamp": "2026-06-30T00:00:00Z",
+          "check_result": {
+            "id": "tool",
+            "name": "Tool",
+            "status": "ok"
+          }
+        }
+        """.utf8)
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(MachineEvent.self, from: data))
+    }
 }

@@ -91,6 +91,24 @@ public struct MachineEvent: Codable, Equatable {
         checkResults = try container.decodeIfPresent([CheckResult].self, forKey: .checkResults)
         checkSummary = try container.decodeIfPresent(CheckSummary.self, forKey: .checkSummary)
         error = try container.decodeIfPresent(String.self, forKey: .error)
+        if operation == .check,
+           result != nil || results != nil || summary != nil
+        {
+            throw DecodingError.dataCorruptedError(
+                forKey: .operation,
+                in: container,
+                debugDescription: "check operation cannot include update payload"
+            )
+        }
+        if operation == .update,
+           checkResult != nil || checkResults != nil || checkSummary != nil
+        {
+            throw DecodingError.dataCorruptedError(
+                forKey: .operation,
+                in: container,
+                debugDescription: "update operation cannot include check payload"
+            )
+        }
     }
 
     public func encode(to encoder: Encoder) throws {
