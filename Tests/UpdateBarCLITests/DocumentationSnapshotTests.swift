@@ -921,6 +921,8 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         for section in [recipeTemplateSection, manifestTemplateSection] {
             XCTAssertTrue(section.contains("literal secrets"))
+            XCTAssertTrue(section.contains("must match"))
+            XCTAssertTrue(section.contains("^[a-z0-9][a-z0-9._-]*$"))
             XCTAssertTrue(section.contains("--id"))
             XCTAssertTrue(section.contains("--name"))
             XCTAssertTrue(section.contains("--source"))

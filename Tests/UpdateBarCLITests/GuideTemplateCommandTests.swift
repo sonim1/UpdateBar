@@ -138,6 +138,34 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertFalse(result.stderr.contains(secret))
     }
 
+    func testTemplateRecipeRejectsInvalidIDOverride() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-template-tests")
+
+        let result = try CLIProcess.run(
+            ["template", "recipe", "--kind", "npm", "--id", "Bad Tool"],
+            home: home
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("template --id must match"))
+    }
+
+    func testTemplateRecipeShellQuotesSourceOverridesInGeneratedCommands() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-template-tests")
+        let source = "pkg'; touch /tmp/pwn #"
+
+        let result = try CLIProcess.run(
+            ["template", "recipe", "--kind", "npm", "--id", "tool", "--source", source],
+            home: home
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        let recipe = try JSONDecoder.updateBar.decode(Recipe.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(recipe.source.ref, source)
+        XCTAssertEqual(recipe.update.cmd, "npm install -g 'pkg'\\''; touch /tmp/pwn #'@latest")
+    }
+
     func testTemplateManifestPrintsSingleItemManifest() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-template-tests")
 

@@ -292,8 +292,10 @@ Prints compact recipe authoring rules.
 
 Prints a valid untrusted recipe template. Kinds: `github_release`, `npm`, `brew`, `git_tags`, `http_regex`, `custom_command`.
 Template overrides in `--id`, `--name`, or `--source` reject literal secrets before JSON is printed.
+`--id` must match `^[a-z0-9][a-z0-9._-]*$`.
 
 ### `updatebar template manifest --kind <kind> [--id <id>] [--name <name>] [--source <ref>]`
 
 Prints a schema_version 1 manifest containing one untrusted recipe template.
 Template overrides in `--id`, `--name`, or `--source` reject literal secrets before JSON is printed.
+`--id` must match `^[a-z0-9][a-z0-9._-]*$`.

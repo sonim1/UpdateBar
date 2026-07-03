@@ -263,6 +263,33 @@ private func validateTemplateOverrides(id: String?, name: String?, source: Strin
     guard values.allSatisfy({ SecretRedactor.redact($0) == $0 }) else {
         throw ValidationError("template override must not contain literal secrets")
     }
+    if let id, !isValidTemplateID(id) {
+        throw ValidationError("template --id must match ^[a-z0-9][a-z0-9._-]*$")
+    }
+}
+
+private func isValidTemplateID(_ id: String) -> Bool {
+    guard let first = id.unicodeScalars.first,
+          isLowercaseLetterOrDigit(first)
+    else {
+        return false
+    }
+    return id.unicodeScalars.allSatisfy { scalar in
+        isLowercaseLetterOrDigit(scalar) || scalar == "." || scalar == "_" || scalar == "-"
+    }
+}
+
+private func isLowercaseLetterOrDigit(_ scalar: UnicodeScalar) -> Bool {
+    switch scalar.value {
+    case 48...57, 97...122:
+        return true
+    default:
+        return false
+    }
+}
+
+private func shellSingleQuoted(_ value: String) -> String {
+    "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
 }
 
 enum TemplateKind: String, ExpressibleByArgument {
@@ -285,23 +312,25 @@ enum TemplateKind: String, ExpressibleByArgument {
                 name: requestedName,
                 source: Source(kind: .githubRelease, ref: requestedSourceRef ?? "owner/repo", branch: nil),
                 latest: LatestSpec(strategy: .githubRelease, cmd: nil, pattern: nil),
-                update: "brew upgrade \(requestedID ?? "example-github-tool")"
+                update: "brew upgrade \(shellSingleQuoted(requestedID ?? "example-github-tool"))"
             )
         case .npm:
+            let package = requestedSourceRef ?? requestedID ?? "example-npm-tool"
             return base(
                 id: requestedID ?? "example-npm-tool",
                 name: requestedName,
-                source: Source(kind: .npm, ref: requestedSourceRef ?? requestedID ?? "example-npm-tool", branch: nil),
+                source: Source(kind: .npm, ref: package, branch: nil),
                 latest: LatestSpec(strategy: .npmRegistry, cmd: nil, pattern: nil),
-                update: "npm install -g \(requestedSourceRef ?? requestedID ?? "example-npm-tool")@latest"
+                update: "npm install -g \(shellSingleQuoted(package))@latest"
             )
         case .brew:
+            let formula = requestedSourceRef ?? requestedID ?? "example-brew-tool"
             return base(
                 id: requestedID ?? "example-brew-tool",
                 name: requestedName,
-                source: Source(kind: .brew, ref: requestedSourceRef ?? requestedID ?? "example-brew-tool", branch: nil),
+                source: Source(kind: .brew, ref: formula, branch: nil),
                 latest: LatestSpec(strategy: .brew, cmd: nil, pattern: nil),
-                update: "brew upgrade \(requestedSourceRef ?? requestedID ?? "example-brew-tool")"
+                update: "brew upgrade \(shellSingleQuoted(formula))"
             )
         case .gitTags:
             return base(
@@ -321,7 +350,7 @@ enum TemplateKind: String, ExpressibleByArgument {
                     cmd: nil,
                     pattern: #"version">([0-9]+\.[0-9]+\.[0-9]+)<"#
                 ),
-                update: "brew upgrade \(requestedID ?? "example-http-tool")"
+                update: "brew upgrade \(shellSingleQuoted(requestedID ?? "example-http-tool"))"
             )
         case .customCommand:
             return base(
