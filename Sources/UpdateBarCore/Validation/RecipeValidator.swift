@@ -237,7 +237,7 @@ public enum RecipeValidator {
         }
         if let approvedCommands = trust["approved_commands"] as? [String: Any] {
             for (field, fingerprint) in approvedCommands where !(fingerprint is String) {
-                errors.append("\(path).approved_commands[\(field)]: must be a string")
+                errors.append("\(path).approved_commands[\(redactedValue(field))]: must be a string")
             }
         } else {
             errors.append("\(path).approved_commands: required")

@@ -519,6 +519,20 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].trust.approved_commands[update.cmd]: must be a string"))
     }
 
+    func testRedactsSecretLikeApprovedCommandFieldNames() throws {
+        let secret = "sk-or-v1-secret-value"
+        let result = try validateFirstRawItem {
+            var trust = try XCTUnwrap($0["trust"] as? [String: Any])
+            trust["approved_commands"] = [
+                secret: true,
+            ] as [String: Any]
+            $0["trust"] = trust
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].trust.approved_commands[[REDACTED]]: must be a string"))
+        XCTAssertFalse(result.errors.joined(separator: "\n").contains(secret))
+    }
+
     func testRejectsJQVersionParseUntilRuntimeSupportExists() throws {
         let result = try validateFirstRawItem {
             $0["version_parse"] = ["jq": ".version"]
