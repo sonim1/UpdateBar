@@ -864,6 +864,37 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('brew.gh failed · brew upgrade gh failed');
   });
 
+  it('uses update result ids when item ids are absent from update logs', async () => {
+    const client = createClient({
+      async updateAll(options: StreamOptions): Promise<CommandResult> {
+        options.onEvent({
+          event: 'item_finished',
+          operation: 'update',
+          timestamp: '2026-06-30T00:00:00Z',
+          result: {
+            id: 'brew.gh',
+            name: 'gh',
+            outcome: 'updated'
+          }
+        });
+        return {exitCode: 0, stdout: '', stderr: ''};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Run Updates');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run approved updates now?');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'brew.gh updated');
+
+    expect(view.lastFrame()).toContain('brew.gh updated');
+  });
+
   it('shows failed and approval-blocked counts in finished update logs', async () => {
     const client = createClient({
       async updateAll(options: StreamOptions): Promise<CommandResult> {

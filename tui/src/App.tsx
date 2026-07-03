@@ -499,7 +499,8 @@ async function refreshStatus(
 function describeEvent(event: MachineEvent) {
   if (event.event === 'item_started') return `starting ${event.item_id ?? 'item'}`;
   if (event.event === 'item_finished') {
-    const summary = `${event.item_id ?? 'item'} ${event.result?.outcome ?? 'done'}`;
+    const item = event.item_id ?? event.result?.id ?? event.result?.name ?? 'item';
+    const summary = `${item} ${event.result?.outcome ?? 'done'}`;
     return event.result?.error ? `${summary} · ${event.result.error}` : summary;
   }
   if (event.event === 'finished') {
