@@ -166,6 +166,7 @@ public struct RegistryService {
     public func pin(id: String, version: String? = nil) throws -> Recipe {
         try manifestStore.withExclusiveLock {
             var manifest = try manifestStore.loadExistingOrEmpty(now: now())
+            try validate(manifest)
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }

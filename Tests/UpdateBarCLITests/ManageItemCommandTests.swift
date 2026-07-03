@@ -35,6 +35,31 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
     }
 
+    func testPinRejectsInvalidManifestBeforeStateLookup() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secret = "sk-or-v1-secret-value"
+        var item = recipe()
+        item.update.cmd = "OPENROUTER_API_KEY=\(secret) tool update"
+        try ManifestStore(paths: paths).save(Manifest(
+            schemaVersion: 1,
+            items: [item],
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        ))
+
+        let result = try CLIProcess.run(["pin", "tool", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let combined = result.stdout + result.stderr
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "registry_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].update.cmd: must not contain literal secrets") })
+        XCTAssertFalse(payload.errors.contains { $0.contains("current version is unavailable") })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+        XCTAssertFalse(combined.contains(secret))
+    }
+
     func testEnableAndDisableToggleItem() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
