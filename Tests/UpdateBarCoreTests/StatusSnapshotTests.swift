@@ -171,6 +171,7 @@ final class StatusSnapshotTests: XCTestCase {
         untrusted.id = "untrusted"
         untrusted.name = "Untrusted"
         untrusted.trust.level = .untrusted
+        untrusted.trust.approvedCommands = [:]
 
         var pinned = try recipe(id: "pinned", name: "Pinned")
         pinned.pin = "1.4.2"
@@ -232,6 +233,7 @@ final class StatusSnapshotTests: XCTestCase {
 
     func testStatusPriorityUsesOverridesBeforeVersionStatus() throws {
         var manifest = try loadManifest()
+        let approvedCommands = manifest.items[0].trust.approvedCommands
         let now = Date(timeIntervalSince1970: 1_812_499_200)
         let base = ItemState(
             current: "1.4.2",
@@ -251,9 +253,11 @@ final class StatusSnapshotTests: XCTestCase {
 
         manifest.items[0].pin = nil
         manifest.items[0].trust.level = .untrusted
+        manifest.items[0].trust.approvedCommands = [:]
         XCTAssertEqual(status(for: manifest, itemState: base), .untrusted)
 
         manifest.items[0].trust.level = .trusted
+        manifest.items[0].trust.approvedCommands = approvedCommands
         var errored = base
         errored.status = .error
         errored.error = "command failed"

@@ -51,3 +51,4 @@ Rules:
 - Command approvals are `sha256:<64 lowercase hex>` fingerprints keyed by
   command fields present in the recipe: `check.cmd`, `latest.cmd`, and
   `update.cmd`.
+- Untrusted recipes must keep `trust.approved_commands` empty.

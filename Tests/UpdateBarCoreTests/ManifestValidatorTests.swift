@@ -579,6 +579,21 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertFalse(result.errors.contains { $0.contains("approved_commands[update.cmd]") })
     }
 
+    func testRejectsApprovedCommandsOnUntrustedRecipes() throws {
+        let result = try validateFirstRawItem {
+            var trust = try XCTUnwrap($0["trust"] as? [String: Any])
+            trust["level"] = "untrusted"
+            trust["approved_commands"] = [
+                "update.cmd": "sha256:\(String(repeating: "a", count: 64))",
+            ] as [String: Any]
+            $0["trust"] = trust
+        }
+
+        XCTAssertTrue(
+            result.errors.contains("items[0].trust.approved_commands: must be empty when trust.level is untrusted")
+        )
+    }
+
     func testRejectsUnknownApprovedCommandFields() throws {
         let result = try validateFirstRawItem {
             var trust = try XCTUnwrap($0["trust"] as? [String: Any])

@@ -68,6 +68,7 @@ final class StatusServiceTests: XCTestCase {
         disabled.enabled = false
         var untrusted = try recipe(id: "untrusted")
         untrusted.trust.level = .untrusted
+        untrusted.trust.approvedCommands = [:]
         try ManifestStore(paths: paths).save(manifest(items: [
             stale,
             fresh,

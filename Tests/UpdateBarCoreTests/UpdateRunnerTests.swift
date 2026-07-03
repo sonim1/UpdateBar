@@ -13,6 +13,7 @@ final class UpdateRunnerTests: XCTestCase {
         disabled.enabled = false
         var untrusted = recipe(id: "untrusted")
         untrusted.trust.level = .untrusted
+        untrusted.trust.approvedCommands = [:]
 
         let planner = UpdatePlanner(
             manifest: manifest(items: [ready, pinned, disabled, untrusted, recipe(id: "ok")]),
@@ -142,6 +143,7 @@ final class UpdateRunnerTests: XCTestCase {
         disabled.enabled = false
         var untrusted = recipe(id: "untrusted")
         untrusted.trust.level = .untrusted
+        untrusted.trust.approvedCommands = [:]
         try ManifestStore(paths: paths).save(manifest(items: [pinned, disabled, untrusted, recipe(id: "ok")]))
         try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
             "pinned": itemState(status: .outdated),
