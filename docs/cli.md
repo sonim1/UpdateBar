@@ -139,6 +139,9 @@ Category-filtered scans preserve the same `--category` filter in those Next
 commands. `metadata-only` rows include a source ref so local skill and MCP
 config entries can be traced without printing env values. JSON output returns
 the same ids in `candidates[].id`.
+If a filtered category only has review-only candidates, human output says they
+are not importable yet and suggests running `updatebar scan` without
+`--category` to look for importable candidates.
 When no candidates are found, human output says `No candidates found`; with a
 category filter, it suggests retrying `updatebar scan` without `--category`.
 

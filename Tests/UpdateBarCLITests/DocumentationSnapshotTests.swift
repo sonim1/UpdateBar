@@ -693,6 +693,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(scanSection.contains("--detectors"))
         XCTAssertTrue(scanSection.contains("metadata-only"))
         XCTAssertTrue(scanSection.contains("source ref"))
+        XCTAssertTrue(scanSection.contains("review-only"))
+        XCTAssertTrue(scanSection.contains("look for importable candidates"))
         XCTAssertTrue(scanSection.contains("`updatebar init --select all`"))
         XCTAssertTrue(scanSection.contains("preserve the same `--category` filter"))
         for column in ["`ITEM`", "`ID`", "`CATEGORY`", "`SOURCE`", "`CAPABILITY`"] {
