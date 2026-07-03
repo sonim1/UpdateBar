@@ -156,6 +156,44 @@ final class ConfigStoreTests: XCTestCase {
         }
     }
 
+    func testInvalidConfigLineRedactsSecretLikeContent() throws {
+        let root = try temporaryDirectory()
+        let configFile = root.appendingPathComponent("config.toml")
+        let secret = "sk-or-v1-secret-value"
+        try Data(
+            """
+            [refresh]
+            \(secret)
+            """.utf8
+        ).write(to: configFile)
+
+        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) { error in
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("line 2"))
+            XCTAssertTrue(message.contains("invalid line [REDACTED]"))
+            XCTAssertFalse(message.contains(secret))
+        }
+    }
+
+    func testInvalidConfigValueRedactsSecretLikeContent() throws {
+        let root = try temporaryDirectory()
+        let configFile = root.appendingPathComponent("config.toml")
+        let secret = "sk-or-v1-secret-value"
+        try Data(
+            """
+            [security]
+            require_https_source = \(secret)
+            """.utf8
+        ).write(to: configFile)
+
+        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) { error in
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("line 2"))
+            XCTAssertTrue(message.contains("security.require_https_source: invalid value [REDACTED]"))
+            XCTAssertFalse(message.contains(secret))
+        }
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("updatebar-tests-\(UUID().uuidString)")

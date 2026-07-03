@@ -53,11 +53,15 @@ public enum ConfigError: Error, CustomStringConvertible, Equatable, Sendable {
     public var description: String {
         switch self {
         case let .unknownKey(key):
-            return "\(key): unknown config key"
+            return "\(redacted(key)): unknown config key"
         case let .invalidValue(key, value):
-            return "\(key): invalid value \(value)"
+            return "\(redacted(key)): invalid value \(redacted(value))"
         case let .corruptConfig(message):
-            return "config.toml: \(message)"
+            return "config.toml: \(redacted(message))"
         }
+    }
+
+    private func redacted(_ text: String) -> String {
+        SecretRedactor.redact(text)
     }
 }
