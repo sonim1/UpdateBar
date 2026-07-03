@@ -244,6 +244,7 @@ public enum RecipeValidator {
                     continue
                 }
                 errors += rejectLiteralSecret(fingerprint, path: fieldPath)
+                errors += validateApprovedCommandFingerprint(fingerprint, path: fieldPath)
             }
         } else {
             errors.append("\(path).approved_commands: required")
@@ -273,6 +274,22 @@ public enum RecipeValidator {
 
     private static func redactedValue(_ value: String) -> String {
         SecretRedactor.redact(value)
+    }
+
+    private static func validateApprovedCommandFingerprint(_ fingerprint: String, path: String) -> [String] {
+        isSHA256Fingerprint(fingerprint) ? [] : ["\(path): must be a SHA-256 fingerprint"]
+    }
+
+    private static func isSHA256Fingerprint(_ value: String) -> Bool {
+        let prefix = "sha256:"
+        guard value.hasPrefix(prefix), value.utf8.count == prefix.utf8.count + 64 else {
+            return false
+        }
+        return value.utf8.dropFirst(prefix.utf8.count).allSatisfy(isLowercaseHexByte)
+    }
+
+    private static func isLowercaseHexByte(_ byte: UInt8) -> Bool {
+        isASCIIDigit(byte) || (byte >= UInt8(ascii: "a") && byte <= UInt8(ascii: "f"))
     }
 
     private static func nonEmptyString(_ value: Any?) -> Bool {

@@ -220,10 +220,11 @@ Approves all command fields for an item, or one field such as `check.cmd`, `late
 ### `updatebar approvals <id> [--json]`
 
 Lists each command field, current command text, optional working directory,
-fingerprint, and whether the fingerprint is approved. Human output is
-tab-separated with `FIELD`, `STATUS`, `COMMAND`, and `DETAIL` columns; `DETAIL`
-currently shows `cwd=...` when a command has a working directory. Human output
-also includes `Next` approval commands for unapproved fields.
+`sha256:<64 lowercase hex>` fingerprint, and whether the fingerprint is
+approved. Human output is tab-separated with `FIELD`, `STATUS`, `COMMAND`, and
+`DETAIL` columns; `DETAIL` currently shows `cwd=...` when a command has a
+working directory. Human output also includes `Next` approval commands for
+unapproved fields.
 If a command field is not found while approving or revoking, run
 `updatebar approvals <id>` to review the valid command fields.
 

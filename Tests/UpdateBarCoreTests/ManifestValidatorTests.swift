@@ -549,6 +549,36 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertFalse(result.errors.joined(separator: "\n").contains(secret))
     }
 
+    func testRejectsMalformedApprovedCommandFingerprints() throws {
+        let result = try validateFirstRawItem {
+            var trust = try XCTUnwrap($0["trust"] as? [String: Any])
+            trust["approved_commands"] = [
+                "check.cmd": "abc123",
+                "update.cmd": "sha256:\(String(repeating: "g", count: 64))",
+            ] as [String: Any]
+            $0["trust"] = trust
+        }
+
+        XCTAssertTrue(
+            result.errors.contains("items[0].trust.approved_commands[check.cmd]: must be a SHA-256 fingerprint")
+        )
+        XCTAssertTrue(
+            result.errors.contains("items[0].trust.approved_commands[update.cmd]: must be a SHA-256 fingerprint")
+        )
+    }
+
+    func testAcceptsSHA256ApprovedCommandFingerprints() throws {
+        let result = try validateFirstRawItem {
+            var trust = try XCTUnwrap($0["trust"] as? [String: Any])
+            trust["approved_commands"] = [
+                "update.cmd": "sha256:\(String(repeating: "a", count: 64))",
+            ] as [String: Any]
+            $0["trust"] = trust
+        }
+
+        XCTAssertFalse(result.errors.contains { $0.contains("approved_commands[update.cmd]") })
+    }
+
     func testRejectsSecretLikeApprovedCommandFieldNames() throws {
         let secret = "sk-or-v1-secret-value"
         let result = try validateFirstRawItem {

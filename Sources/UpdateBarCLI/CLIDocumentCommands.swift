@@ -185,7 +185,15 @@ struct SchemaCommand: ParsableCommand {
               "required": ["level", "approved_commands"],
               "properties": {
                 "level": { "enum": ["trusted", "untrusted"] },
-                "approved_commands": { "type": "object", "additionalProperties": { "type": "string" } }
+                "approved_commands": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string",
+                    "minLength": 71,
+                    "maxLength": 71,
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                  }
+                }
               }
             }
           }

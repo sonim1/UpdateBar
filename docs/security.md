@@ -12,7 +12,8 @@ Imported recipes are saved with:
 
 `check` refuses unapproved `check.cmd` and `latest.cmd`. `update` refuses unapproved `update.cmd`.
 
-Changing a command string or `update.cwd` changes its fingerprint and invalidates the affected approval.
+Changing a command string or `update.cwd` changes its `sha256:<64 lowercase hex>`
+fingerprint and invalidates the affected approval.
 
 ## Secrets
 
