@@ -140,10 +140,12 @@ final class ExecutionPolicyTests: XCTestCase {
     }
 
     func testSecretRedactorMasksGitHubTokenPatternsWithoutEnvironmentKeyName() {
-        XCTAssertEqual(
-            SecretRedactor.redact("Authorization: Bearer ghp_1234567890abcdefghijklmnopqrstuvwxyz"),
-            "Authorization: Bearer [REDACTED]"
-        )
+        for prefix in ["ghp", "gho", "ghu", "ghs", "ghr"] {
+            XCTAssertEqual(
+                SecretRedactor.redact("Authorization: Bearer \(prefix)_1234567890abcdefghijklmnopqrstuvwxyz"),
+                "Authorization: Bearer [REDACTED]"
+            )
+        }
         XCTAssertEqual(
             SecretRedactor.redact("token github_pat_11ABCDEF_abcdefghijklmnopqrstuvwxyz0123456789"),
             "token [REDACTED]"

@@ -21,7 +21,7 @@ public enum SecretRedactor {
         let patterns = [
             #"sk-or-v1-[A-Za-z0-9._-]+"#,
             #"sk-[A-Za-z0-9._-]{8,}"#,
-            #"ghp_[A-Za-z0-9_]{20,}"#,
+            #"gh[opsur]_[A-Za-z0-9_]{20,}"#,
             #"github_pat_[A-Za-z0-9_]{20,}"#,
             #"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b"#,
             #"AIza[0-9A-Za-z_-]{35}"#,

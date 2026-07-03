@@ -16,7 +16,7 @@ const SENSITIVE_ENV_KEYS = [
 const SECRET_PATTERNS = [
   /sk-or-v1-[A-Za-z0-9._-]+/g,
   /sk-[A-Za-z0-9._-]{8,}/g,
-  /ghp_[A-Za-z0-9_]{20,}/g,
+  /gh[opsur]_[A-Za-z0-9_]{20,}/g,
   /github_pat_[A-Za-z0-9_]{20,}/g,
   /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g,
   /AIza[0-9A-Za-z_-]{35}/g,
