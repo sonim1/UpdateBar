@@ -5,7 +5,7 @@ import {createDefaultClient, type UpdateBarClient} from './client.js';
 import {redactSecrets} from './secrets.js';
 import type {CheckReport, MachineEvent, ScanCandidate, ScanReport, StatusItem, StatusSnapshot} from './types.js';
 
-type Screen = 'menu' | 'status' | 'logs' | 'scan' | 'confirm-update' | 'updating';
+type Screen = 'menu' | 'status' | 'logs' | 'scan' | 'select-update' | 'confirm-update' | 'updating';
 type MenuAction =
   | 'refresh-status'
   | 'scan-add'
@@ -62,6 +62,8 @@ export function App({client: providedClient}: AppProps) {
   const [scanReport, setScanReport] = useState<ScanReport | undefined>();
   const [scanIndex, setScanIndex] = useState(0);
   const [selectedScanIds, setSelectedScanIds] = useState<Set<string>>(() => new Set());
+  const [updateIndex, setUpdateIndex] = useState(0);
+  const [selectedUpdateIds, setSelectedUpdateIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | undefined>();
   const [abortController, setAbortController] = useState<AbortController | undefined>();
   const abortControllerRef = useRef<AbortController | undefined>(undefined);
@@ -98,6 +100,10 @@ export function App({client: providedClient}: AppProps) {
       }
       if (screen === 'scan') {
         handleScanInput(_input, key);
+        return;
+      }
+      if (screen === 'select-update') {
+        handleUpdateSelectionInput(_input, key);
         return;
       }
       if (screen === 'confirm-update') {
@@ -176,6 +182,55 @@ export function App({client: providedClient}: AppProps) {
     }
   }
 
+  function handleUpdateSelectionInput(input: string, key: {upArrow: boolean; downArrow: boolean; return: boolean}) {
+    const candidates = updateCandidates(status);
+    if (key.upArrow) {
+      setUpdateIndex(index => Math.max(0, index - 1));
+      return;
+    }
+    if (key.downArrow) {
+      setUpdateIndex(index => Math.min(Math.max(0, candidates.length - 1), index + 1));
+      return;
+    }
+    if (input === 'a') {
+      setSelectedUpdateIds(new Set(candidates.map(item => item.id)));
+      setError(undefined);
+      return;
+    }
+    if (input === 'A') {
+      setSelectedUpdateIds(new Set());
+      setError(undefined);
+      return;
+    }
+    if (input === ' ') {
+      const item = candidates[updateIndex];
+      if (!item) return;
+      setError(undefined);
+      setSelectedUpdateIds(previous => {
+        const next = new Set(previous);
+        if (next.has(item.id)) {
+          next.delete(item.id);
+        } else {
+          next.add(item.id);
+        }
+        return next;
+      });
+      return;
+    }
+    if (key.return) {
+      if (candidates.length === 0) {
+        setError('No outdated items to update');
+        return;
+      }
+      if (selectedUpdateIds.size === 0) {
+        setError('Select at least one outdated item');
+        return;
+      }
+      setError(undefined);
+      setScreen('confirm-update');
+    }
+  }
+
   async function runMenuAction() {
     if (!client) return;
     const selected = MENU_ITEMS[menuIndex]?.action;
@@ -191,8 +246,7 @@ export function App({client: providedClient}: AppProps) {
         await runCheck(client);
         return;
       case 'run-updates':
-        setScreen('confirm-update');
-        setError(undefined);
+        await openUpdateSelection(client);
         return;
       case 'config-path':
         setScreen('logs');
@@ -208,6 +262,25 @@ export function App({client: providedClient}: AppProps) {
       default:
         exit();
     }
+  }
+
+  async function openUpdateSelection(activeClient: UpdateBarClient) {
+    setUpdateIndex(0);
+    setError(undefined);
+    let snapshot = status;
+    if (!snapshot) {
+      try {
+        snapshot = await activeClient.status();
+        setStatus(snapshot);
+      } catch (caught) {
+        setSelectedUpdateIds(new Set());
+        setScreen('select-update');
+        setError(messageFor(caught));
+        return;
+      }
+    }
+    setSelectedUpdateIds(new Set(updateCandidates(snapshot).map(item => item.id)));
+    setScreen('select-update');
   }
 
   async function runCheck(activeClient: UpdateBarClient) {
@@ -271,15 +344,22 @@ export function App({client: providedClient}: AppProps) {
   }
 
   async function runUpdates(activeClient: UpdateBarClient) {
+    const ids = [...selectedUpdateIds];
+    if (ids.length === 0) {
+      setError('Select at least one outdated item');
+      setScreen('select-update');
+      return;
+    }
     const controller = beginAbortableAction();
     setScreen('updating');
     setLogs(['update started']);
     setError(undefined);
     try {
-      await activeClient.updateAll({
+      await activeClient.updateSelected(ids, {
         signal: controller.signal,
         onEvent: event => setLogs(previous => [...previous, describeEvent(event)])
       });
+      setSelectedUpdateIds(new Set());
       await refreshStatus(activeClient, setStatus, setError);
     } catch (caught) {
       setError(controller.signal.aborted ? 'update cancelled' : messageFor(caught));
@@ -321,10 +401,17 @@ export function App({client: providedClient}: AppProps) {
       {screen === 'scan' && (
         <ScanList report={scanReport} selectedIds={selectedScanIds} cursorIndex={scanIndex} />
       )}
+      {screen === 'select-update' && (
+        <UpdateTargetList
+          items={updateCandidates(status)}
+          selectedIds={selectedUpdateIds}
+          cursorIndex={updateIndex}
+        />
+      )}
       {screen === 'confirm-update' && (
         <Box flexDirection="column" marginTop={1}>
-          <Text color="yellow">Run approved updates now?</Text>
-          <Text dimColor>Only tracked items approved for update will run.</Text>
+          <Text color="yellow">Run selected updates now?</Text>
+          <Text dimColor>{`${selectedUpdateIds.size} selected outdated item(s) will run.`}</Text>
         </Box>
       )}
       {(screen === 'logs' || screen === 'updating') && (
@@ -433,7 +520,7 @@ function ScanList({
       }-${
         typeof lastVisibleRow === 'number' ? lastVisibleRow + 1 : 0
       } of ${report.candidates.length}`}</Text>
-      {visibleRows.map(({row, candidate}) => (
+      {visibleRows.map(({row, item: candidate}) => (
         <Text key={candidate.id} color={row === cursorIndex ? 'cyan' : undefined}>
           {renderScanRow(candidate, selectedIds.has(candidate.id))}
         </Text>
@@ -447,16 +534,54 @@ function ScanList({
   );
 }
 
-function getVisibleRows(candidates: ScanCandidate[], cursorIndex: number, maxLines: number) {
-  if (candidates.length <= maxLines) {
-    return candidates.map((candidate, row) => ({row, candidate}));
+function UpdateTargetList({
+  items,
+  selectedIds,
+  cursorIndex
+}: {
+  items: StatusItem[];
+  selectedIds: Set<string>;
+  cursorIndex: number;
+}) {
+  if (items.length === 0) {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text dimColor>No outdated items in stored status.</Text>
+        <Text dimColor>Run Check Now to refresh versions first.</Text>
+      </Box>
+    );
+  }
+  const visibleRows = getVisibleRows(items, cursorIndex, 8);
+  const firstVisibleRow = visibleRows[0]?.row;
+  const lastVisibleRow = visibleRows.at(-1)?.row;
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text color="yellow">Select updates to run</Text>
+      <Text dimColor>{`selected: ${selectedIds.size}/${items.length}`}</Text>
+      <Text dimColor>{`showing ${
+        typeof firstVisibleRow === 'number' ? firstVisibleRow + 1 : 0
+      }-${
+        typeof lastVisibleRow === 'number' ? lastVisibleRow + 1 : 0
+      } of ${items.length}`}</Text>
+      {visibleRows.map(({row, item}) => (
+        <Text key={item.id} color={row === cursorIndex ? 'cyan' : undefined}>
+          {renderUpdateTargetRow(item, selectedIds.has(item.id))}
+        </Text>
+      ))}
+    </Box>
+  );
+}
+
+function getVisibleRows<T>(items: T[], cursorIndex: number, maxLines: number) {
+  if (items.length <= maxLines) {
+    return items.map((item, row) => ({row, item}));
   }
   const halfWindow = Math.floor(maxLines / 2);
-  const start = Math.max(0, Math.min(cursorIndex - halfWindow, candidates.length - maxLines));
-  const end = Math.min(start + maxLines, candidates.length);
-  return candidates
+  const start = Math.max(0, Math.min(cursorIndex - halfWindow, items.length - maxLines));
+  const end = Math.min(start + maxLines, items.length);
+  return items
     .slice(start, end)
-    .map((candidate, index) => ({row: index + start, candidate}));
+    .map((item, index) => ({row: index + start, item}));
 }
 
 function scanMarker(candidate: ScanCandidate, selected: boolean) {
@@ -470,6 +595,19 @@ function renderScanRow(candidate: ScanCandidate, selected: boolean) {
   return redactSecrets(`${scanMarker(candidate, selected)} ${candidate.id} · ${candidate.name}${version} · ${candidate.category} · ${candidate.detector} · ${candidate.capability}${source}`);
 }
 
+function renderUpdateTargetRow(item: StatusItem, selected: boolean) {
+  const marker = selected ? '[x]' : '[ ]';
+  const version = [item.current, item.latest]
+    .filter(value => Boolean(value))
+    .map(value => value?.trim())
+    .join(' → ');
+  return redactSecrets(`${marker} ${item.id} · ${item.name}${version ? ` · ${version}` : ''}`);
+}
+
+function updateCandidates(status: StatusSnapshot | undefined) {
+  return status?.items.filter(item => item.status === 'outdated') ?? [];
+}
+
 function canRegister(candidate: ScanCandidate) {
   return candidate.capability === 'full' && candidate.recipe !== undefined;
 }
@@ -478,6 +616,9 @@ function helpText(screen: Screen, canCancel: boolean) {
   if (canCancel) return 'c/q cancel';
   if (screen === 'scan') {
     return '↑/↓ navigate · a all · A clear · space select · enter add · m menu · q quit';
+  }
+  if (screen === 'select-update') {
+    return '↑/↓ navigate · a all · A clear · space select · enter confirm · m menu · q quit';
   }
   if (screen === 'confirm-update') return 'enter run · esc cancel · m menu · q quit';
   if (screen !== 'menu') return 'm menu · q quit';

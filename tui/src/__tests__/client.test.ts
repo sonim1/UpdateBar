@@ -46,6 +46,34 @@ describe('CLIUpdateBarClient', () => {
     expect(runner.calls[0]).toEqual(['update', '--yes', '--json-stream']);
   });
 
+  it('streams selected update events through the Swift CLI contract', async () => {
+    const runner = new FakeRunner({exitCode: 0, stdout: '', stderr: ''});
+    runner.events = [
+      {event: 'started', operation: 'update', timestamp: '2026-06-30T00:00:00Z'},
+      {
+        event: 'item_finished',
+        operation: 'update',
+        timestamp: '2026-06-30T00:00:01Z',
+        result: {id: 'brew.gh', name: 'gh', outcome: 'updated'}
+      }
+    ];
+    const client = new CLIUpdateBarClient(runner);
+    const events: string[] = [];
+
+    await client.updateSelected(['brew.gh', 'npm.typescript'], {
+      onEvent: event => events.push(event.event)
+    });
+
+    expect(events).toEqual(['started', 'item_finished']);
+    expect(runner.calls[0]).toEqual([
+      'update',
+      'brew.gh',
+      'npm.typescript',
+      '--yes',
+      '--json-stream'
+    ]);
+  });
+
   it('uses streamed failure event errors when update exits hard', async () => {
     const runner = new FakeRunner({exitCode: 1, stdout: '', stderr: ''});
     runner.events = [

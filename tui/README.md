@@ -41,3 +41,7 @@ Scan screen keys:
 - `A` clear all selected candidates
 - `enter` register selected
 - `m` return to menu
+
+`Run Updates` opens a target-selection screen before confirmation. Outdated
+items are selected by default, and the same `↑`/`↓`, `space`, `a`, `A`, and
+`enter` keys let you choose exactly which approved outdated items to update.

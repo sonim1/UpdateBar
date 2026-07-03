@@ -866,6 +866,8 @@ describe('App', () => {
     await new Promise(resolve => setTimeout(resolve, 20));
     view.stdin.write('\r');
     await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\r');
+    await new Promise(resolve => setTimeout(resolve, 20));
     view.stdin.write('c');
     await new Promise(resolve => setTimeout(resolve, 20));
 
@@ -893,7 +895,9 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await wait();
     view.stdin.write('\r');
-    await waitForFrame(view, 'Run approved updates now?');
+    await waitForFrame(view, 'Select updates to run');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run selected updates now?');
     view.stdin.write('\r');
     await waitForFrame(view, 'manifest lock timed out');
 
@@ -921,7 +925,9 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await wait();
     view.stdin.write('\r');
-    await waitForFrame(view, 'Run approved updates now?');
+    await waitForFrame(view, 'Select updates to run');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run selected updates now?');
     view.stdin.write('\r');
     await waitForFrame(view, '[REDACTED]');
 
@@ -955,7 +961,9 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await wait();
     view.stdin.write('\r');
-    await waitForFrame(view, 'Run approved updates now?');
+    await waitForFrame(view, 'Select updates to run');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run selected updates now?');
     view.stdin.write('\r');
     await waitForFrame(view, 'brew.gh failed · brew upgrade gh failed');
 
@@ -986,7 +994,9 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await wait();
     view.stdin.write('\r');
-    await waitForFrame(view, 'Run approved updates now?');
+    await waitForFrame(view, 'Select updates to run');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run selected updates now?');
     view.stdin.write('\r');
     await waitForFrame(view, 'brew.gh updated');
 
@@ -1022,17 +1032,107 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await wait();
     view.stdin.write('\r');
-    await waitForFrame(view, 'Run approved updates now?');
+    await waitForFrame(view, 'Select updates to run');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run selected updates now?');
     view.stdin.write('\r');
     await waitForFrame(view, 'finished · updated 1/3 · failed 1 · approval 1');
 
     expect(view.lastFrame()).toContain('finished · updated 1/3 · failed 1 · approval 1');
   });
 
-  it('asks for confirmation before running updates', async () => {
+  it('runs only selected outdated items from the update target screen', async () => {
+    const updated: string[][] = [];
+    const client = createClient({
+      async status() {
+        return {
+          generated_at: '2026-06-30T00:00:00Z',
+          summary: {total: 3, outdated: 2, errors: 0, untrusted: 0, pinned: 0},
+          items: [
+            {
+              id: 'brew.gh',
+              name: 'gh',
+              category: 'cloud-devops',
+              status: 'outdated',
+              pinned: false,
+              current: '2.74.0',
+              latest: '2.75.0'
+            },
+            {
+              id: 'npm.typescript',
+              name: 'typescript',
+              category: 'runtime-sdk',
+              status: 'outdated',
+              pinned: false,
+              current: '5.8.0',
+              latest: '5.9.0'
+            },
+            {
+              id: 'known.node',
+              name: 'node',
+              category: 'runtime-sdk',
+              status: 'ok',
+              pinned: false,
+              current: '24.0.0',
+              latest: '24.0.0'
+            }
+          ]
+        };
+      },
+      async updateSelected(ids, options) {
+        updated.push(ids);
+        options.onEvent({
+          event: 'finished',
+          operation: 'update',
+          timestamp: '2026-06-30T00:00:00Z',
+          summary: {
+            total: ids.length,
+            updated: ids.length,
+            failed: 0,
+            skipped: 0,
+            skipped_untrusted: 0,
+            missing: 0,
+            cancelled: 0,
+            hard_failures: 0
+          }
+        });
+        return {exitCode: 0, stdout: '', stderr: ''};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Run Updates');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Select updates to run');
+    expect(view.lastFrame()).toContain('selected: 2/2');
+
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write(' ');
+    await waitForFrame(view, 'selected: 1/2');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run selected updates now?');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'finished · updated 1/1');
+
+    expect(updated).toEqual([['brew.gh']]);
+  });
+
+  it('does not run updates when no outdated items are selectable', async () => {
     let updateCalls = 0;
     const client = createClient({
-      async updateAll() {
+      async status() {
+        return {
+          generated_at: '2026-06-30T00:00:00Z',
+          summary: {total: 0, outdated: 0, errors: 0, untrusted: 0, pinned: 0},
+          items: []
+        };
+      },
+      async updateSelected() {
         updateCalls += 1;
         return {exitCode: 0, stdout: '', stderr: ''};
       }
@@ -1045,7 +1145,32 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await wait();
     view.stdin.write('\r');
-    await waitForFrame(view, 'Run approved updates now?');
+    await waitForFrame(view, 'No outdated items in stored status');
+    view.stdin.write('\r');
+    await wait();
+
+    expect(updateCalls).toBe(0);
+  });
+
+  it('asks for confirmation before running updates', async () => {
+    let updateCalls = 0;
+    const client = createClient({
+      async updateSelected() {
+        updateCalls += 1;
+        return {exitCode: 0, stdout: '', stderr: ''};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Run Updates');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Select updates to run');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run selected updates now?');
 
     expect(view.lastFrame()).toContain('esc cancel');
     expect(updateCalls).toBe(0);
@@ -1059,7 +1184,7 @@ describe('App', () => {
   it('cancels update confirmation with escape', async () => {
     let updateCalls = 0;
     const client = createClient({
-      async updateAll() {
+      async updateSelected() {
         updateCalls += 1;
         return {exitCode: 0, stdout: '', stderr: ''};
       }
@@ -1072,7 +1197,9 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await wait();
     view.stdin.write('\r');
-    await waitForFrame(view, 'Run approved updates now?');
+    await waitForFrame(view, 'Select updates to run');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run selected updates now?');
     view.stdin.write('\u001B');
     await waitForFrame(view, 'Refresh Status');
 
@@ -1091,11 +1218,19 @@ describe('App', () => {
         }
         return {
           generated_at: '2026-06-30T00:00:00Z',
-          summary: {total: 0, outdated: 0, errors: 0, untrusted: 0, pinned: 0},
-          items: []
+          summary: {total: 1, outdated: 1, errors: 0, untrusted: 0, pinned: 0},
+          items: [
+            {
+              id: 'brew.gh',
+              name: 'gh',
+              category: 'cloud-devops',
+              status: 'outdated',
+              pinned: false
+            }
+          ]
         };
       },
-      async updateAll() {
+      async updateSelected() {
         return new Promise(() => {});
       }
     });
@@ -1109,6 +1244,8 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await new Promise(resolve => setTimeout(resolve, 20));
     view.stdin.write('\u001B[B');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    view.stdin.write('\r');
     await new Promise(resolve => setTimeout(resolve, 20));
     view.stdin.write('\r');
     await new Promise(resolve => setTimeout(resolve, 20));
@@ -1151,8 +1288,18 @@ function createClient(overrides: Partial<UpdateBarClient> = {}): UpdateBarClient
     async status() {
       return {
         generated_at: '2026-06-30T00:00:00Z',
-        summary: {total: 0, outdated: 0, errors: 0, untrusted: 0, pinned: 0},
-        items: []
+        summary: {total: 1, outdated: 1, errors: 0, untrusted: 0, pinned: 0},
+        items: [
+          {
+            id: 'brew.gh',
+            name: 'gh',
+            category: 'cloud-devops',
+            status: 'outdated',
+            pinned: false,
+            current: '2.74.0',
+            latest: '2.75.0'
+          }
+        ]
       };
     },
     async scan() {
@@ -1193,6 +1340,15 @@ function createClient(overrides: Partial<UpdateBarClient> = {}): UpdateBarClient
       };
     },
     async updateAll() {
+      return {exitCode: 0, stdout: '', stderr: ''};
+    },
+    async updateSelected(_ids, options) {
+      if (overrides.updateSelected) {
+        return overrides.updateSelected(_ids, options);
+      }
+      if (overrides.updateAll) {
+        return overrides.updateAll(options);
+      }
       return {exitCode: 0, stdout: '', stderr: ''};
     },
     ...overrides

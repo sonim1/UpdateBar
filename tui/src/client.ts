@@ -119,6 +119,7 @@ export interface UpdateBarClient {
   initSelected(ids: string[], options?: RunOptions): Promise<InitResult>;
   checkNow(options?: RunOptions): Promise<CheckReport>;
   updateAll(options: StreamOptions): Promise<CommandResult>;
+  updateSelected(ids: string[], options: StreamOptions): Promise<CommandResult>;
 }
 
 export class CLIUpdateBarClient implements UpdateBarClient {
@@ -163,8 +164,12 @@ export class CLIUpdateBarClient implements UpdateBarClient {
   }
 
   async updateAll(options: StreamOptions): Promise<CommandResult> {
+    return this.updateSelected([], options);
+  }
+
+  async updateSelected(ids: string[], options: StreamOptions): Promise<CommandResult> {
     let streamError: string | undefined;
-    const result = await this.runner.stream(['update', '--yes', '--json-stream'], {
+    const result = await this.runner.stream(['update', ...ids, '--yes', '--json-stream'], {
       ...options,
       onEvent: event => {
         if (event.error?.trim()) {

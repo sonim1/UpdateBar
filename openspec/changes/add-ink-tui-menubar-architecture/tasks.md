@@ -30,7 +30,7 @@
 - [x] 4.3 Implement a subprocess adapter that runs `updatebar status --json`, parses JSON, and maps known exit codes to typed TUI states.
 - [x] 4.4 Implement a JSONL stream reader that consumes CLI progress/log/result events without parsing human text.
 - [x] 4.5 Implement TUI screens for main menu, status, scan/select registration, operation progress, logs, config entry points, and exit.
-- [ ] 4.6 Add an optional selectable update-target screen if product direction still wants item-by-item TUI updates; the current TUI runs approved outdated updates after confirmation.
+- [x] 4.6 Add an optional selectable update-target screen if product direction still wants item-by-item TUI updates; the current TUI runs selected approved outdated updates after confirmation.
 - [x] 4.7 Implement keyboard navigation and cancellation that sends SIGINT to the active Swift CLI child process, then SIGTERM after a grace period.
 - [x] 4.8 Add Node/Ink tests for rendering states, subprocess adapter parsing, JSONL stream parsing, missing binary errors, invalid JSON errors, and cancellation behavior.
 - [x] 4.9 Verify TUI work with the selected package manager commands such as `npm test`, `npm run typecheck`, and `npm run lint` after the package manager is chosen.
