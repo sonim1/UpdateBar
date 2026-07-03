@@ -62,6 +62,22 @@ describe('jsonl parser', () => {
     expect(() => parseJSONLText('{"event":"started","operation":"update"}')).toThrow('line 1');
   });
 
+  it('rejects unknown log levels with line numbers', () => {
+    expect(() =>
+      parseJSONLText(
+        '{"event":"log","operation":"update","timestamp":"2026-06-30T00:00:00Z","level":"fatal","message":"boom"}'
+      )
+    ).toThrow('line 1');
+  });
+
+  it('rejects non-string event text fields with line numbers', () => {
+    expect(() =>
+      parseJSONLText(
+        '{"event":"failed","operation":"update","timestamp":"2026-06-30T00:00:00Z","error":42}'
+      )
+    ).toThrow('line 1');
+  });
+
   it('rejects unknown update result outcomes with line numbers', () => {
     expect(() =>
       parseJSONLText(

@@ -21,6 +21,13 @@ const MACHINE_EVENT_TYPES = new Set<MachineEventType>([
 
 const MACHINE_OPERATIONS = new Set<MachineEvent['operation']>(['update', 'check']);
 
+const MACHINE_LOG_LEVELS = new Set<NonNullable<MachineEvent['level']>>([
+  'debug',
+  'info',
+  'warning',
+  'error'
+]);
+
 const ITEM_STATUSES = new Set<ItemStatus>([
   'ok',
   'outdated',
@@ -103,6 +110,25 @@ function parseLine(line: string, lineNumber: number): MachineEvent {
     const operation = value.operation as MachineEvent['operation'];
     if (typeof value.timestamp !== 'string') {
       throw new Error('missing timestamp');
+    }
+    if (!isOptionalString(value.run_id)) {
+      throw new Error('invalid run_id');
+    }
+    if (!isOptionalString(value.item_id)) {
+      throw new Error('invalid item_id');
+    }
+    if (!isOptionalString(value.message)) {
+      throw new Error('invalid message');
+    }
+    if (!isOptionalString(value.error)) {
+      throw new Error('invalid error');
+    }
+    if (
+      value.level !== undefined &&
+      (typeof value.level !== 'string' ||
+        !MACHINE_LOG_LEVELS.has(value.level as NonNullable<MachineEvent['level']>))
+    ) {
+      throw new Error('invalid level');
     }
     if (operation === 'check' && hasUpdatePayload(value)) {
       throw new Error('unexpected update payload for check operation');
@@ -192,6 +218,10 @@ function isCheckSummary(value: unknown): value is CheckSummary {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function isOptionalString(value: unknown) {
+  return value === undefined || typeof value === 'string';
 }
 
 function hasUpdatePayload(value: Partial<MachineEvent>) {
