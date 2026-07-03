@@ -1,4 +1,7 @@
 import type {
+  CheckResult,
+  CheckSummary,
+  ItemStatus,
   MachineEvent,
   MachineEventType,
   UpdateOutcome,
@@ -17,6 +20,17 @@ const MACHINE_EVENT_TYPES = new Set<MachineEventType>([
 ]);
 
 const MACHINE_OPERATIONS = new Set<MachineEvent['operation']>(['update', 'check']);
+
+const ITEM_STATUSES = new Set<ItemStatus>([
+  'ok',
+  'outdated',
+  'differs',
+  'error',
+  'pinned',
+  'disabled',
+  'checking',
+  'untrusted'
+]);
 
 const UPDATE_OUTCOMES = new Set<UpdateOutcome>([
   'updated',
@@ -95,6 +109,12 @@ function parseLine(line: string, lineNumber: number): MachineEvent {
     if (value.summary !== undefined && !isUpdateSummary(value.summary)) {
       throw new Error('invalid summary');
     }
+    if (value.check_result !== undefined && !isCheckResult(value.check_result)) {
+      throw new Error('invalid check_result');
+    }
+    if (value.check_summary !== undefined && !isCheckSummary(value.check_summary)) {
+      throw new Error('invalid check_summary');
+    }
     return {...value, event, type: value.type ?? event} as MachineEvent;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -123,6 +143,29 @@ function isUpdateSummary(value: unknown): value is UpdateSummary {
     typeof value.missing === 'number' &&
     typeof value.cancelled === 'number' &&
     typeof value.hard_failures === 'number'
+  );
+}
+
+function isCheckResult(value: unknown): value is CheckResult {
+  if (!isObject(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.status === 'string' &&
+    ITEM_STATUSES.has(value.status as ItemStatus)
+  );
+}
+
+function isCheckSummary(value: unknown): value is CheckSummary {
+  if (!isObject(value)) return false;
+  return (
+    typeof value.total === 'number' &&
+    typeof value.outdated === 'number' &&
+    typeof value.errors === 'number' &&
+    typeof value.untrusted === 'number' &&
+    typeof value.disabled === 'number' &&
+    typeof value.pinned === 'number' &&
+    typeof value.differs === 'number'
   );
 }
 
