@@ -5,11 +5,13 @@ struct CLIProcess {
         _ arguments: [String],
         home: URL,
         stdin input: String? = nil,
+        currentDirectory: URL? = nil,
         environment overrides: [String: String?] = [:]
     ) throws -> Result {
         let process = Process()
         process.executableURL = try updatebarBinary()
         process.arguments = arguments
+        process.currentDirectoryURL = currentDirectory
         var environment = ProcessInfo.processInfo.environment
         environment["UPDATEBAR_HOME"] = home.path
         for (key, value) in overrides {

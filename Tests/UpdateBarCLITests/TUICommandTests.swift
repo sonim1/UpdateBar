@@ -106,6 +106,28 @@ echo "path:$UPDATEBAR_BIN"
         XCTAssertTrue(result.stderr.contains("tui"))
     }
 
+    func testTUICommandIgnoresRelativePathEntries() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-tui-tests")
+        try writeExecutable(
+            home.appendingPathComponent("updatebar-tui"),
+            """
+#!/bin/sh
+echo "relative-path"
+"""
+        )
+
+        let result = try CLIProcess.run(
+            ["tui"],
+            home: home,
+            currentDirectory: home,
+            environment: ["PATH": "."]
+        )
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertFalse(result.stdout.contains("relative-path"))
+        XCTAssertTrue(result.stderr.contains("Could not locate updatebar-tui on PATH."))
+    }
+
     private func writeExecutable(_ url: URL, _ body: String) throws {
         try body.write(to: url, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)

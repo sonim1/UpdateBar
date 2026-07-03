@@ -14,6 +14,6 @@ the `updatebar` binary in this order:
 Explicit override paths must be executable. Bundled, `PATH`, and development
 fallback candidates are used only when executable.
 
-The Swift Menu Bar layer uses `UpdateBarBinaryResolver`. The future Ink TUI
-package should implement the same order and prefer `UPDATEBAR_BIN` when it
-spawns the Swift CLI.
+The Swift Menu Bar layer uses `UpdateBarBinaryResolver`. The Ink TUI package
+uses its Node `resolveUpdateBarBinary` implementation with the same order and
+prefers `UPDATEBAR_BIN` when it spawns the Swift CLI.
