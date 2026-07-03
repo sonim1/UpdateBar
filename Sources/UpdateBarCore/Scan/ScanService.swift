@@ -394,14 +394,22 @@ public struct ScanService {
             .replacingOccurrences(of: "/", with: ".")
             .unicodeScalars
             .map { scalar in
-                CharacterSet.alphanumerics.contains(scalar) || scalar == "." || scalar == "_"
-                    || scalar == "-"
+                isASCIIIDComponentScalar(scalar)
                     ? String(scalar)
                     : "-"
             }
             .joined()
             .trimmingCharacters(in: CharacterSet(charactersIn: ".-_"))
         return cleaned.isEmpty ? "tool" : cleaned
+    }
+
+    private func isASCIIIDComponentScalar(_ scalar: UnicodeScalar) -> Bool {
+        switch scalar.value {
+        case 48...57, 97...122:
+            return true
+        default:
+            return scalar == "." || scalar == "_" || scalar == "-"
+        }
     }
 
     private func category(for name: String, detector: ScanDetector) -> String {

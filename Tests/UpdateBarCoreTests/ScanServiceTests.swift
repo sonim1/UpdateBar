@@ -141,6 +141,34 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertEqual(report.candidates.map(\.id), ["brew.gh"])
     }
 
+    func testScanCandidateIDsStayASCIIAndValidatorCompatible() throws {
+        let commands = MockCommandExecutor(results: [
+            ScanService.brewListCommand: CommandResult(
+                exitCode: 0,
+                stdout: "café 1.0.0\n",
+                stderr: ""
+            ),
+        ])
+        let service = ScanService(commandRunner: commands)
+
+        let report = try service.scan(detectors: [.brew])
+
+        let candidate = try XCTUnwrap(report.candidates.first)
+        XCTAssertEqual(candidate.id, "brew.caf")
+        let recipe = try XCTUnwrap(candidate.recipe)
+        let manifest = Manifest(
+            schemaVersion: 1,
+            items: [recipe],
+            provenance: Provenance(
+                createdBy: "test",
+                createdAt: Date(timeIntervalSince1970: 1_800),
+                updatedAt: Date(timeIntervalSince1970: 1_800)
+            )
+        )
+        let validation = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
+        XCTAssertTrue(validation.isValid, validation.errors.joined(separator: "\n"))
+    }
+
     func testScanCategoriesCommonVersionedAndScopedTools() throws {
         let commands = MockCommandExecutor(results: [
             ScanService.brewListCommand: CommandResult(
