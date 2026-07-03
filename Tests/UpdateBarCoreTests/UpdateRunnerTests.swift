@@ -57,6 +57,30 @@ final class UpdateRunnerTests: XCTestCase {
         XCTAssertEqual(state.items["tool"]?.current, "1.1.0")
     }
 
+    func testRunnerExpandsTildeInUpdateWorkingDirectoryUsingHomeEnvironment() throws {
+        let userHome = try temporaryDirectory()
+
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        var item = recipe(id: "tool")
+        item.update.cwd = "~/workspace"
+        TrustPolicy.approveAllCommands(in: &item)
+        try ManifestStore(paths: paths).save(manifest(items: [item]))
+        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
+            "tool": itemState(status: .outdated)
+        ]))
+        let commands = MockCommandExecutor(results: [
+            "tool update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
+            "tool current": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
+            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: "")
+        ])
+        let runner = updateRunner(paths: paths, commands: commands, environment: ["HOME": userHome.path])
+
+        _ = try runner.update(ids: ["tool"], all: false, assumeYes: true)
+
+        XCTAssertEqual(commands.commands.first?.cwd, userHome.appendingPathComponent("workspace").path)
+    }
+
     func testRunnerReturnsPartialFailureAndRedactsErrors() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
@@ -176,7 +200,11 @@ final class UpdateRunnerTests: XCTestCase {
         XCTAssertFalse(UpdateOutcome.skippedUntrusted.isHardFailure)
     }
 
-    private func updateRunner(paths: AppPaths, commands: MockCommandExecutor) -> UpdateRunner {
+    private func updateRunner(
+        paths: AppPaths,
+        commands: MockCommandExecutor,
+        environment: [String: String] = [:]
+    ) -> UpdateRunner {
         UpdateRunner(
             manifestStore: ManifestStore(paths: paths),
             stateStore: StateStore(paths: paths),
@@ -184,6 +212,7 @@ final class UpdateRunnerTests: XCTestCase {
             httpClient: MockHTTPClient(responses: [:]),
             commandRunner: commands,
             now: { self.now },
+            environment: environment,
             confirm: { _ in true }
         )
     }

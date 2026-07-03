@@ -8,6 +8,8 @@ public struct UpdateRunner {
     private let commandRunner: CommandRunning
     private let now: () -> Date
     private let githubToken: String?
+    private let environment: [String: String]
+    private let userHomeDirectory: URL
     private let confirm: (UpdatePlanItem) -> Bool
 
     public init(
@@ -18,6 +20,7 @@ public struct UpdateRunner {
         commandRunner: CommandRunning = CommandExecutor(),
         now: @escaping () -> Date = { Date() },
         githubToken: String? = nil,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
         confirm: @escaping (UpdatePlanItem) -> Bool = { _ in false }
     ) {
         self.manifestStore = manifestStore
@@ -27,6 +30,8 @@ public struct UpdateRunner {
         self.commandRunner = commandRunner
         self.now = now
         self.githubToken = githubToken
+        self.environment = environment
+        self.userHomeDirectory = UserPathExpander.homeDirectory(environment: environment)
         self.confirm = confirm
     }
 
@@ -86,7 +91,7 @@ public struct UpdateRunner {
     private func runUpdate(recipe: Recipe, planItem: UpdatePlanItem) throws -> UpdateResult {
         do {
             let commandResult = try commandRunner.run(
-                ShellCommand(command: recipe.update.cmd, cwd: recipe.update.cwd),
+                ShellCommand(command: recipe.update.cmd, cwd: expandedPath(recipe.update.cwd)),
                 policy: ExecutionPolicy(timeout: 30 * 60, maxOutputBytes: 256 * 1024)
             )
             guard commandResult.exitCode == 0 else {
@@ -106,7 +111,8 @@ public struct UpdateRunner {
                 httpClient: httpClient,
                 commandRunner: commandRunner,
                 now: now,
-                githubToken: githubToken
+                githubToken: githubToken,
+                environment: environment
             ).check(ids: [recipe.id], force: true)
             let check = checks.first
             return UpdateResult(
@@ -148,6 +154,10 @@ public struct UpdateRunner {
             state.generatedAt = timestamp
             try stateStore.save(state)
         }
+    }
+
+    private func expandedPath(_ path: String?) -> String? {
+        path.map { UserPathExpander.expandTilde(in: $0, homeDirectory: userHomeDirectory) }
     }
 }
 

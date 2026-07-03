@@ -32,7 +32,7 @@ public struct RegistryService {
         self.commandRunner = commandRunner
         self.now = now
         self.githubToken = githubToken
-        self.userHomeDirectory = Self.defaultHomeDirectory(environment: environment)
+        self.userHomeDirectory = UserPathExpander.homeDirectory(environment: environment)
     }
 
     public func check(
@@ -464,19 +464,7 @@ public struct RegistryService {
     }
 
     private func expandedPath(_ path: String) -> String {
-        guard path == "~" || path.hasPrefix("~/") else {
-            return path
-        }
-        let home = userHomeDirectory.path
-        if path == "~" { return home }
-        return home + String(path.dropFirst())
-    }
-
-    private static func defaultHomeDirectory(environment: [String: String]) -> URL {
-        if let home = environment["HOME"], !home.isEmpty {
-            return URL(fileURLWithPath: home, isDirectory: true).standardizedFileURL
-        }
-        return FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        UserPathExpander.expandTilde(in: path, homeDirectory: userHomeDirectory)
     }
 }
 
