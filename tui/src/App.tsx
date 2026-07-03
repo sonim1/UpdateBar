@@ -504,6 +504,7 @@ function describeEvent(event: MachineEvent) {
     return `finished ${event.summary?.updated ?? 0} updated`;
   }
   if (event.event === 'cancelled') return 'cancelled';
+  if (event.event === 'failed' && event.error) return event.error;
   if (event.message) return event.message;
   return event.event;
 }
