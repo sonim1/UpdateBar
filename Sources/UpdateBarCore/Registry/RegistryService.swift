@@ -13,6 +13,7 @@ public struct RegistryService {
     private let commandRunner: CommandRunning
     private let now: () -> Date
     private let githubToken: String?
+    private let userHomeDirectory: URL
 
     public init(
         manifestStore: ManifestStore = ManifestStore(),
@@ -21,7 +22,8 @@ public struct RegistryService {
         httpClient: HTTPClient = URLSessionHTTPClient(),
         commandRunner: CommandRunning = CommandExecutor(),
         now: @escaping () -> Date = { Date() },
-        githubToken: String? = nil
+        githubToken: String? = nil,
+        environment: [String: String] = ProcessInfo.processInfo.environment
     ) {
         self.manifestStore = manifestStore
         self.stateStore = stateStore
@@ -30,6 +32,7 @@ public struct RegistryService {
         self.commandRunner = commandRunner
         self.now = now
         self.githubToken = githubToken
+        self.userHomeDirectory = Self.defaultHomeDirectory(environment: environment)
     }
 
     public func check(
@@ -464,9 +467,16 @@ public struct RegistryService {
         guard path == "~" || path.hasPrefix("~/") else {
             return path
         }
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let home = userHomeDirectory.path
         if path == "~" { return home }
         return home + String(path.dropFirst())
+    }
+
+    private static func defaultHomeDirectory(environment: [String: String]) -> URL {
+        if let home = environment["HOME"], !home.isEmpty {
+            return URL(fileURLWithPath: home, isDirectory: true).standardizedFileURL
+        }
+        return FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
     }
 }
 

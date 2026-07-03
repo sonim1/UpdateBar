@@ -145,6 +145,29 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertFalse(error.contains("NSCocoaErrorDomain"))
     }
 
+    func testFileCheckExpandsTildeUsingHomeEnvironment() throws {
+        let userHome = try temporaryDirectory()
+
+        let versionFile = userHome.appendingPathComponent(".tool-version")
+        try "tool 1.2.3\n".write(to: versionFile, atomically: true, encoding: .utf8)
+
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let stores = Stores(paths: paths)
+        var item = recipe(id: "tool", currentCommand: "unused current", latestCommand: "tool latest")
+        item.check = .file(path: "~/.tool-version")
+        try stores.manifest.save(manifest(items: [item]))
+        let commands = MockCommandExecutor(results: [
+            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.2.3", stderr: "")
+        ])
+        let service = registryService(paths: paths, commands: commands, environment: ["HOME": userHome.path])
+
+        let results = try service.check()
+
+        XCTAssertEqual(results.first?.current, "1.2.3")
+        XCTAssertEqual(results.first?.status, .ok)
+    }
+
     func testCheckReportsVersionParseFailureWithReadableError() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
@@ -338,14 +361,19 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertEqual(stored.items.map(\.id), ["tool"])
     }
 
-    private func registryService(paths: AppPaths, commands: MockCommandExecutor) -> RegistryService {
+    private func registryService(
+        paths: AppPaths,
+        commands: MockCommandExecutor,
+        environment: [String: String] = [:]
+    ) -> RegistryService {
         RegistryService(
             manifestStore: ManifestStore(paths: paths),
             stateStore: StateStore(paths: paths),
             config: Config.default,
             httpClient: MockHTTPClient(responses: [:]),
             commandRunner: commands,
-            now: { self.now }
+            now: { self.now },
+            environment: environment
         )
     }
 
