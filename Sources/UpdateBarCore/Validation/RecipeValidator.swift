@@ -37,6 +37,7 @@ public enum RecipeValidator {
         errors += rejectLiteralSecret(item["name"], path: "\(path).name")
         errors += rejectLiteralSecret(item["category"], path: "\(path).category")
         errors += rejectLiteralSecret(item["path"], path: "\(path).path")
+        errors += rejectLiteralSecret(item["pin"], path: "\(path).pin")
 
         if let id = item["id"] as? String, !matchesID(id) {
             errors.append("\(path).id: must match ^[a-z0-9][a-z0-9._-]*$")
@@ -120,6 +121,7 @@ public enum RecipeValidator {
         errors += requireString(source, "ref", path: path)
         errors += requireOptionalStringIfPresent(source, "branch", path: path)
         errors += rejectLiteralSecret(source["ref"], path: "\(path).ref")
+        errors += rejectLiteralSecret(source["branch"], path: "\(path).branch")
         if let kind = source["kind"] as? String, !sourceKinds.contains(kind) {
             errors.append("\(path).kind: unsupported value \(kind)")
         }
@@ -179,6 +181,7 @@ public enum RecipeValidator {
         errors += requireOptionalStringIfPresent(latest, "cmd", path: path)
         errors += requireOptionalStringIfPresent(latest, "pattern", path: path)
         errors += rejectLiteralSecret(latest["cmd"], path: "\(path).cmd")
+        errors += rejectLiteralSecret(latest["pattern"], path: "\(path).pattern")
         guard let strategy = latest["strategy"] as? String else {
             return errors
         }
@@ -206,6 +209,7 @@ public enum RecipeValidator {
             errors.append("\(path): exactly one of regex or jq is required")
         }
         if hasRegex, let pattern = versionParse["regex"] as? String {
+            errors += rejectLiteralSecret(pattern, path: "\(path).regex")
             errors += validateRegex(pattern, path: "\(path).regex")
         }
         if hasJQField {

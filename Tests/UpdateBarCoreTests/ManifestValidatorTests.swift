@@ -402,6 +402,29 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].check.file: must not contain literal secrets"))
     }
 
+    func testRejectsLiteralSecretsInRemainingStoredRecipeFields() throws {
+        let result = try validateFirstRawItem {
+            $0["pin"] = "sk-or-v1-secret-value"
+            $0["source"] = [
+                "kind": "npm",
+                "ref": "@anthropic-ai/claude-code",
+                "branch": "sk-or-v1-secret-value",
+            ] as [String: Any]
+            $0["latest"] = [
+                "strategy": "npm_registry",
+                "cmd": NSNull(),
+                "pattern": "sk-or-v1-secret-value",
+            ] as [String: Any]
+            $0["version_parse"] = ["regex": "(sk-or-v1-secret-value)"]
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].pin: must not contain literal secrets"))
+        XCTAssertTrue(result.errors.contains("items[0].source.branch: must not contain literal secrets"))
+        XCTAssertTrue(result.errors.contains("items[0].latest.pattern: must not contain literal secrets"))
+        XCTAssertTrue(result.errors.contains("items[0].version_parse.regex: must not contain literal secrets"))
+        XCTAssertFalse(result.errors.joined(separator: "\n").contains("sk-or-v1-secret-value"))
+    }
+
     func testDefaultsMissingEnabledAndAcceptsMissingLegacyNotify() throws {
         let data = try validDataUpdatingFirstRawItem {
             $0.removeValue(forKey: "enabled")
