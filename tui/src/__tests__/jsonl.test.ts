@@ -62,6 +62,12 @@ describe('jsonl parser', () => {
     expect(() => parseJSONLText('{"event":"started","operation":"update"}')).toThrow('line 1');
   });
 
+  it('rejects invalid timestamp values with line numbers', () => {
+    expect(() =>
+      parseJSONLText('{"event":"started","operation":"update","timestamp":"soon"}')
+    ).toThrow('line 1');
+  });
+
   it('rejects unknown log levels with line numbers', () => {
     expect(() =>
       parseJSONLText(

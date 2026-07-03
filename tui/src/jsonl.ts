@@ -111,6 +111,9 @@ function parseLine(line: string, lineNumber: number): MachineEvent {
     if (typeof value.timestamp !== 'string') {
       throw new Error('missing timestamp');
     }
+    if (!isValidTimestamp(value.timestamp)) {
+      throw new Error('invalid timestamp');
+    }
     if (!isOptionalString(value.run_id)) {
       throw new Error('invalid run_id');
     }
@@ -222,6 +225,10 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function isOptionalString(value: unknown) {
   return value === undefined || typeof value === 'string';
+}
+
+function isValidTimestamp(value: string) {
+  return !Number.isNaN(Date.parse(value));
 }
 
 function hasUpdatePayload(value: Partial<MachineEvent>) {
