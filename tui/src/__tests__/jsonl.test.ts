@@ -131,6 +131,14 @@ describe('jsonl parser', () => {
     ).toThrow('line 1');
   });
 
+  it('rejects negative update summary counts with line numbers', () => {
+    expect(() =>
+      parseJSONLText(
+        '{"event":"finished","operation":"update","timestamp":"2026-06-30T00:00:00Z","summary":{"total":1,"updated":-1,"failed":0,"skipped":0,"skipped_untrusted":0,"missing":0,"cancelled":0,"hard_failures":0}}'
+      )
+    ).toThrow('line 1');
+  });
+
   it('rejects invalid update result arrays with line numbers', () => {
     expect(() =>
       parseJSONLText(
@@ -159,6 +167,14 @@ describe('jsonl parser', () => {
     expect(() =>
       parseJSONLText(
         '{"event":"finished","operation":"check","timestamp":"2026-06-30T00:00:00Z","check_summary":{"total":1,"outdated":"1","errors":0,"untrusted":0,"disabled":0,"pinned":0,"differs":0}}'
+      )
+    ).toThrow('line 1');
+  });
+
+  it('rejects negative check summary counts with line numbers', () => {
+    expect(() =>
+      parseJSONLText(
+        '{"event":"finished","operation":"check","timestamp":"2026-06-30T00:00:00Z","check_summary":{"total":1,"outdated":-1,"errors":0,"untrusted":0,"disabled":0,"pinned":0,"differs":0}}'
       )
     ).toThrow('line 1');
   });

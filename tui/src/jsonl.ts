@@ -190,14 +190,14 @@ function isUpdateResults(value: unknown): value is UpdateResult[] {
 function isUpdateSummary(value: unknown): value is UpdateSummary {
   if (!isObject(value)) return false;
   return (
-    typeof value.total === 'number' &&
-    typeof value.updated === 'number' &&
-    typeof value.failed === 'number' &&
-    typeof value.skipped === 'number' &&
-    typeof value.skipped_untrusted === 'number' &&
-    typeof value.missing === 'number' &&
-    typeof value.cancelled === 'number' &&
-    typeof value.hard_failures === 'number'
+    isNonNegativeInteger(value.total) &&
+    isNonNegativeInteger(value.updated) &&
+    isNonNegativeInteger(value.failed) &&
+    isNonNegativeInteger(value.skipped) &&
+    isNonNegativeInteger(value.skipped_untrusted) &&
+    isNonNegativeInteger(value.missing) &&
+    isNonNegativeInteger(value.cancelled) &&
+    isNonNegativeInteger(value.hard_failures)
   );
 }
 
@@ -218,13 +218,13 @@ function isCheckResults(value: unknown): value is CheckResult[] {
 function isCheckSummary(value: unknown): value is CheckSummary {
   if (!isObject(value)) return false;
   return (
-    typeof value.total === 'number' &&
-    typeof value.outdated === 'number' &&
-    typeof value.errors === 'number' &&
-    typeof value.untrusted === 'number' &&
-    typeof value.disabled === 'number' &&
-    typeof value.pinned === 'number' &&
-    typeof value.differs === 'number'
+    isNonNegativeInteger(value.total) &&
+    isNonNegativeInteger(value.outdated) &&
+    isNonNegativeInteger(value.errors) &&
+    isNonNegativeInteger(value.untrusted) &&
+    isNonNegativeInteger(value.disabled) &&
+    isNonNegativeInteger(value.pinned) &&
+    isNonNegativeInteger(value.differs)
   );
 }
 
@@ -234,6 +234,10 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function isOptionalString(value: unknown) {
   return value === undefined || typeof value === 'string';
+}
+
+function isNonNegativeInteger(value: unknown) {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
 export function isValidMachineTimestamp(value: string) {
