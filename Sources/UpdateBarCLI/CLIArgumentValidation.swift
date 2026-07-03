@@ -10,6 +10,7 @@ extension UpdateBar {
     static func validatePreflightArguments(_ arguments: [String]) throws {
         try validateHelpTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
         try validateVersionTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
+        try validateMachineOutputTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
         try validateHelpCommandPath(arguments)
         try validateTrailingInlineHelpArguments(arguments)
         try validateTrailingInlineVersionArguments(arguments)
@@ -22,6 +23,27 @@ extension UpdateBar {
         guard arguments.contains(where: isInlineVersionFlag),
               let first = arguments.first,
               !isInlineVersionFlag(first),
+              !first.hasPrefix("-")
+        else {
+            return
+        }
+
+        guard knownTopLevelHelpTargets.contains(first) else {
+            throw ValidationError("""
+            Unexpected argument '\(first)'
+            Usage: updatebar <subcommand>
+              See 'updatebar --help' for more information.
+            """)
+        }
+    }
+
+    private static func validateMachineOutputTarget(
+        _ arguments: [String],
+        knownTopLevelHelpTargets: Set<String>
+    ) throws {
+        guard arguments.contains(where: isMachineOutputFlag),
+              let first = arguments.first,
+              !isMachineOutputFlag(first),
               !first.hasPrefix("-")
         else {
             return
@@ -143,5 +165,9 @@ extension UpdateBar {
 
     private static func isInlineVersionFlag(_ argument: String) -> Bool {
         argument == "--version"
+    }
+
+    private static func isMachineOutputFlag(_ argument: String) -> Bool {
+        argument == "--json" || argument == "--json-stream"
     }
 }

@@ -250,7 +250,8 @@ final class CLIOutputTests: XCTestCase {
         let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
         XCTAssertEqual(payload.code, "usage_error")
-        XCTAssertFalse(payload.errors.isEmpty)
+        XCTAssertTrue(payload.errors.contains(where: { $0.contains("not-a-command") }))
+        XCTAssertFalse(payload.errors.contains(where: { $0.contains("Unknown option '--json'") }))
     }
 
     func testUnknownCommandWithJSONEqualsReturnsErrorEnvelope() throws {
@@ -262,7 +263,8 @@ final class CLIOutputTests: XCTestCase {
         let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
         XCTAssertEqual(payload.code, "usage_error")
-        XCTAssertFalse(payload.errors.isEmpty)
+        XCTAssertTrue(payload.errors.contains(where: { $0.contains("not-a-command") }))
+        XCTAssertFalse(payload.errors.contains(where: { $0.contains("Unknown option '--json'") }))
     }
 
     func testUnknownCommandWithJSONStreamEqualsReturnsErrorEnvelope() throws {
@@ -274,7 +276,8 @@ final class CLIOutputTests: XCTestCase {
         let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
         XCTAssertEqual(payload.code, "usage_error")
-        XCTAssertFalse(payload.errors.isEmpty)
+        XCTAssertTrue(payload.errors.contains(where: { $0.contains("not-a-command") }))
+        XCTAssertFalse(payload.errors.contains(where: { $0.contains("Unknown option '--json-stream'") }))
     }
 
     func testStatusWithJSONEqualsParsesAsJSONMode() throws {
