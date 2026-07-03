@@ -106,11 +106,17 @@ function parseLine(line: string, lineNumber: number): MachineEvent {
     if (value.result !== undefined && !isUpdateResult(value.result)) {
       throw new Error('invalid result');
     }
+    if (value.results !== undefined && !isUpdateResults(value.results)) {
+      throw new Error('invalid results');
+    }
     if (value.summary !== undefined && !isUpdateSummary(value.summary)) {
       throw new Error('invalid summary');
     }
     if (value.check_result !== undefined && !isCheckResult(value.check_result)) {
       throw new Error('invalid check_result');
+    }
+    if (value.check_results !== undefined && !isCheckResults(value.check_results)) {
+      throw new Error('invalid check_results');
     }
     if (value.check_summary !== undefined && !isCheckSummary(value.check_summary)) {
       throw new Error('invalid check_summary');
@@ -130,6 +136,10 @@ function isUpdateResult(value: unknown): value is UpdateResult {
     typeof value.outcome === 'string' &&
     UPDATE_OUTCOMES.has(value.outcome as UpdateOutcome)
   );
+}
+
+function isUpdateResults(value: unknown): value is UpdateResult[] {
+  return Array.isArray(value) && value.every(isUpdateResult);
 }
 
 function isUpdateSummary(value: unknown): value is UpdateSummary {
@@ -154,6 +164,10 @@ function isCheckResult(value: unknown): value is CheckResult {
     typeof value.status === 'string' &&
     ITEM_STATUSES.has(value.status as ItemStatus)
   );
+}
+
+function isCheckResults(value: unknown): value is CheckResult[] {
+  return Array.isArray(value) && value.every(isCheckResult);
 }
 
 function isCheckSummary(value: unknown): value is CheckSummary {
