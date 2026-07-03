@@ -17,7 +17,16 @@ Changing a command string or `update.cwd` changes its fingerprint and invalidate
 ## Secrets
 
 Recipe commands run with an allowlisted environment. Common provider and GitHub token values are removed from child process environments and redacted from captured errors.
-Manifest validation rejects literal API keys and token values in executable fields such as `check.cmd`, `latest.cmd`, `update.cmd`, and `update.cwd`, and in stored metadata paths or source references such as `path`, `source.ref`, and `check.file`. Recipes should reference environment variables instead of storing secret values.
+Manifest validation rejects literal API keys and token values in recipe fields that are stored, exported, or used by execution:
+
+- `id`, `name`, `category`, `path`, `pin`
+- `source.ref`, `source.branch`
+- `check.cmd`, `check.file`
+- `latest.cmd`, `latest.pattern`
+- `version_parse.regex`
+- `update.cmd`, `update.cwd`
+
+Recipes should reference environment variables instead of storing secret values.
 
 ## Command Boundaries
 

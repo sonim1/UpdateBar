@@ -46,6 +46,29 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("explicit test or alternate data directory"))
     }
 
+    func testSecurityDocsListAllSecretRejectedRecipeFields() throws {
+        let docs = try String(contentsOfFile: "docs/security.md", encoding: .utf8)
+
+        for field in [
+            "id",
+            "name",
+            "category",
+            "path",
+            "pin",
+            "source.ref",
+            "source.branch",
+            "check.cmd",
+            "check.file",
+            "latest.cmd",
+            "latest.pattern",
+            "version_parse.regex",
+            "update.cmd",
+            "update.cwd",
+        ] {
+            XCTAssertTrue(docs.contains("`\(field)`"), "security docs missing \(field)")
+        }
+    }
+
     func testPrimaryCommandOptionsHaveHelpDescriptions() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let expectedOptionsByCommand: [String: [String]] = [
