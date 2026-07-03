@@ -137,6 +137,10 @@ struct EditCommand: ParsableCommand {
     private func invalidateChangedApprovals(original: Recipe, edited: Recipe) -> Recipe {
         let newFingerprints = edited.commandFingerprints()
         var copy = edited
+        if copy.trust.level == .untrusted {
+            copy.trust.approvedCommands = [:]
+            return copy
+        }
         copy.trust.approvedCommands = edited.trust.approvedCommands.filter { field, approved in
             original.trust.approvedCommands[field] == approved && newFingerprints[field] == approved
         }
