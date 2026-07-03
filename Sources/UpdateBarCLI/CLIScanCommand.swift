@@ -30,8 +30,8 @@ struct ScanCommand: ParsableCommand {
     }
 
     private func printHuman(_ report: ScanReport, categoryFilter: String?) {
-        print("Found \(report.candidates.count) candidate(s)")
-        print("")
+        writeStdout("Found \(report.candidates.count) candidate(s)")
+        writeStdout("")
         printEmptyResultHintIfNeeded(report, categoryFilter: categoryFilter)
         let recommended = report.candidates.filter { $0.capability == .full }
         let needsReview = report.candidates.filter { $0.capability != .full }
@@ -51,12 +51,12 @@ struct ScanCommand: ParsableCommand {
     private func printEmptyResultHintIfNeeded(_ report: ScanReport, categoryFilter: String?) {
         guard report.candidates.isEmpty else { return }
         if let categoryFilter {
-            print("No candidates found for category \(categoryFilter).")
-            print("Try updatebar scan without --category.")
+            writeStdout("No candidates found for category \(categoryFilter).")
+            writeStdout("Try updatebar scan without --category.")
         } else {
-            print("No candidates found. Check that supported tools are installed.")
+            writeStdout("No candidates found. Check that supported tools are installed.")
         }
-        print("")
+        writeStdout("")
     }
 
     private func printSection(
@@ -65,8 +65,8 @@ struct ScanCommand: ParsableCommand {
         startIndex: Int
     ) -> Int {
         guard !candidates.isEmpty else { return startIndex }
-        print(title)
-        print(sectionHeader(for: candidates).joined(separator: "\t"))
+        writeStdout(title)
+        writeStdout(sectionHeader(for: candidates).joined(separator: "\t"))
         for (index, candidate) in candidates.enumerated() {
             let version = candidate.installedVersion.map { " \($0)" } ?? ""
             let name = "[\(startIndex + index)] \(candidate.name)\(version)"
@@ -80,9 +80,9 @@ struct ScanCommand: ParsableCommand {
             let visibleFields = metadataSourceRef(for: candidate).map {
                 fields + [$0]
             } ?? fields
-            print(visibleFields.joined(separator: "\t"))
+            writeStdout(visibleFields.joined(separator: "\t"))
         }
-        print("")
+        writeStdout("")
         return startIndex + candidates.count
     }
 
@@ -102,11 +102,11 @@ struct ScanCommand: ParsableCommand {
         guard recommended.isEmpty, !needsReview.isEmpty else {
             return
         }
-        print("Review-only candidates are not importable yet.")
+        writeStdout("Review-only candidates are not importable yet.")
         if categoryFilter != nil {
-            print("Run updatebar scan without --category to look for importable candidates.")
+            writeStdout("Run updatebar scan without --category to look for importable candidates.")
         }
-        print("")
+        writeStdout("")
     }
 
     private func metadataSourceRef(for candidate: ScanCandidate) -> String? {

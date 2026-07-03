@@ -17,7 +17,7 @@ struct GuideCommand: ParsableCommand {
         )
 
         func run() throws {
-            print(
+            writeStdout(
                 """
                 UpdateBar agent guide
                 =====================
@@ -61,7 +61,7 @@ struct GuideCommand: ParsableCommand {
         )
 
         func run() throws {
-            print(
+            writeStdout(
                 """
                 Recipe authoring
                 ================
@@ -97,7 +97,7 @@ struct SchemaCommand: ParsableCommand {
     )
 
     func run() throws {
-        print(Self.recipeSchema)
+        writeStdout(Self.recipeSchema)
     }
 
     private static let recipeSchema = """

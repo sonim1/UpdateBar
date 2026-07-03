@@ -46,7 +46,7 @@ struct EditCommand: ParsableCommand {
             latest.provenance.updatedAt = Date()
             try store.save(latest)
         }
-        print("edited \(id)")
+        writeStdout("edited \(id)")
     }
 
     private func runEditor(file: URL) throws {

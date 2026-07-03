@@ -207,10 +207,10 @@ struct InitCommand: ParsableCommand {
     }
 
     private func printImportable(_ candidates: [ScanCandidate]) {
-        print("Found \(candidates.count) importable candidate(s)")
-        print("")
-        print("Recommended")
-        print("ITEM\tID\tCATEGORY\tSOURCE")
+        writeStdout("Found \(candidates.count) importable candidate(s)")
+        writeStdout("")
+        writeStdout("Recommended")
+        writeStdout("ITEM\tID\tCATEGORY\tSOURCE")
         for (index, candidate) in candidates.enumerated() {
             let version = candidate.installedVersion.map { " \($0)" } ?? ""
             let name = "[\(index + 1)] \(candidate.name)\(version)"
@@ -220,9 +220,9 @@ struct InitCommand: ParsableCommand {
                 candidate.category,
                 candidate.detector.rawValue,
             ]
-            print(fields.joined(separator: "\t"))
+            writeStdout(fields.joined(separator: "\t"))
         }
-        print("")
+        writeStdout("")
     }
 
     private func output(_ payload: InitPayload) throws {
@@ -234,10 +234,10 @@ struct InitCommand: ParsableCommand {
                 "replaced \(payload.replaced.count)",
                 "skipped \(payload.skipped.count)",
             ].joined(separator: ", ")
-            print(message)
+            writeStdout(message)
             if !payload.skipped.isEmpty {
-                print("Skipped: \(payload.skipped.joined(separator: ", "))")
-                print("Pass --replace to overwrite skipped item(s).")
+                writeStdout("Skipped: \(payload.skipped.joined(separator: ", "))")
+                writeStdout("Pass --replace to overwrite skipped item(s).")
             }
             printApprovalAndCheckNextSteps(for: payload.added + payload.replaced)
         } else {

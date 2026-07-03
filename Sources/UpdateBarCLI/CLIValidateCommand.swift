@@ -29,7 +29,7 @@ struct ValidateCommand: ParsableCommand {
                 explanations: explain ? result.errors.map(ValidationExplanation.init(error:)) : nil
             ))
         } else if result.isValid {
-            print("valid")
+            writeStdout("valid")
         } else {
             for error in result.errors {
                 writeStderr(error)

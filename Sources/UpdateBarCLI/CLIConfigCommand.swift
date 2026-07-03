@@ -30,12 +30,12 @@ struct ConfigCommand: ParsableCommand {
                 if json {
                     try printJSON(ConfigValuePayload(key: key, value: value))
                 } else {
-                    print(value)
+                    writeStdout(value)
                 }
             } else if json {
                 try printJSON(ConfigDumpPayload(config: config))
             } else {
-                print(ConfigStore().renderForDisplay(config))
+                writeStdout(ConfigStore().renderForDisplay(config))
             }
         }
     }
@@ -63,7 +63,7 @@ struct ConfigCommand: ParsableCommand {
             if json {
                 try printJSON(ConfigSetPayload(ok: true, key: key, value: value))
             } else {
-                print("updated \(key)")
+                writeStdout("updated \(key)")
             }
         }
     }

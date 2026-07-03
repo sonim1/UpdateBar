@@ -36,9 +36,9 @@ struct StatusCommand: ParsableCommand {
             return
         }
 
-        print("ID\tSTATUS\tCURRENT\tLATEST\tNAME\tDETAIL")
+        writeStdout("ID\tSTATUS\tCURRENT\tLATEST\tNAME\tDETAIL")
         for item in snapshot.items {
-            print([
+            writeStdout([
                 item.id,
                 item.status.rawValue,
                 item.current ?? "-",

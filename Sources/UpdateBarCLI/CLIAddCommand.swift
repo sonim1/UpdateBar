@@ -98,11 +98,11 @@ struct AddCommand: ParsableCommand {
         } else if payload.valid, let recipe = payload.recipe {
             if saved {
                 let verb = payload.outcome == .replaced ? "replaced" : "added"
-                print("\(verb) \(recipe.id)")
+                writeStdout("\(verb) \(recipe.id)")
                 printApprovalAndCheckNextSteps(for: [recipe.id])
             } else {
-                print("valid \(recipe.id)")
-                print("dry run: not saved")
+                writeStdout("valid \(recipe.id)")
+                writeStdout("dry run: not saved")
             }
         } else {
             for error in payload.errors {

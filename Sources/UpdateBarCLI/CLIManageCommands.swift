@@ -23,7 +23,7 @@ struct PinCommand: ParsableCommand {
         if json {
             try printJSON(ItemMutationPayload(ok: true, id: recipe.id, item: recipe))
         } else {
-            print("pinned \(recipe.id) \(recipe.pin ?? "")")
+            writeStdout("pinned \(recipe.id) \(recipe.pin ?? "")")
         }
     }
 }
@@ -46,7 +46,7 @@ struct UnpinCommand: ParsableCommand {
         if json {
             try printJSON(ItemMutationPayload(ok: true, id: recipe.id, item: recipe))
         } else {
-            print("unpinned \(recipe.id)")
+            writeStdout("unpinned \(recipe.id)")
         }
     }
 }
@@ -69,7 +69,7 @@ struct EnableCommand: ParsableCommand {
         if json {
             try printJSON(ItemMutationPayload(ok: true, id: recipe.id, item: recipe))
         } else {
-            print("enabled \(recipe.id)")
+            writeStdout("enabled \(recipe.id)")
         }
     }
 }
@@ -92,7 +92,7 @@ struct DisableCommand: ParsableCommand {
         if json {
             try printJSON(ItemMutationPayload(ok: true, id: recipe.id, item: recipe))
         } else {
-            print("disabled \(recipe.id)")
+            writeStdout("disabled \(recipe.id)")
         }
     }
 }
@@ -127,7 +127,7 @@ struct RemoveCommand: ParsableCommand {
         if json {
             try printJSON(RemovePayload(ok: true, id: SecretRedactor.redact(id), removed: true))
         } else {
-            print("removed \(SecretRedactor.redact(id))")
+            writeStdout("removed \(SecretRedactor.redact(id))")
         }
     }
 }
@@ -154,9 +154,9 @@ struct ApprovalCommand: ParsableCommand {
             try printJSON(ApprovalMutationPayload(ok: true, id: recipe.id, field: field, item: recipe))
         } else {
             if let field {
-                print("approved \(recipe.id) \(field)")
+                writeStdout("approved \(recipe.id) \(field)")
             } else {
-                print("approved \(recipe.id) all")
+                writeStdout("approved \(recipe.id) all")
             }
             printApprovalNextStep(for: recipe)
         }
@@ -188,9 +188,9 @@ struct ApprovalsCommand: ParsableCommand {
         if json {
             try printJSON(rows.map(redactedRow))
         } else {
-            print("FIELD\tSTATUS\tCOMMAND\tDETAIL")
+            writeStdout("FIELD\tSTATUS\tCOMMAND\tDETAIL")
             for row in rows {
-                print(humanRow(row))
+                writeStdout(humanRow(row))
             }
             let unapprovedRows = rows.filter { !$0.approved }
             if !unapprovedRows.isEmpty {
@@ -198,8 +198,8 @@ struct ApprovalsCommand: ParsableCommand {
                     approveFieldCommand(for: id, field: $0.field)
                 })
             } else {
-                print("")
-                print("All command fields approved.")
+                writeStdout("")
+                writeStdout("All command fields approved.")
                 printNextCommands([checkCommand(for: id)])
             }
         }
@@ -256,7 +256,7 @@ struct RevokeCommand: ParsableCommand {
         if json {
             try printJSON(ApprovalMutationPayload(ok: true, id: recipe.id, field: field, item: recipe))
         } else {
-            print("revoked \(recipe.id) \(field)")
+            writeStdout("revoked \(recipe.id) \(field)")
             printNextCommands([approvalCommand(for: recipe.id)])
         }
     }

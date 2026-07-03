@@ -27,6 +27,28 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
+    func testCLISourcesRouteHumanStdoutThroughOutputHelpers() throws {
+        let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCLI")
+        let sourceFiles = try swiftSourceFiles(under: sourceRoot)
+            .filter { $0.lastPathComponent != "CLIOutput.swift" }
+        var violations: [String] = []
+
+        for file in sourceFiles {
+            let contents = try String(contentsOf: file, encoding: .utf8)
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
+                where line.contains("print(")
+            {
+                violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+
+        XCTAssertEqual(
+            violations,
+            [],
+            "Human CLI stdout should use writeStdout so redaction stays centralized:\n\(violations.joined(separator: "\n"))"
+        )
+    }
+
     private func swiftSourceFiles(under root: URL) throws -> [URL] {
         guard let enumerator = FileManager.default.enumerator(
             at: root,

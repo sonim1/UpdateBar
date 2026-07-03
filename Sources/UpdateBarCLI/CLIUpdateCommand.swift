@@ -63,11 +63,11 @@ struct UpdateCommand: ParsableCommand {
                 printEmptyRegistryNextStep()
                 return
             }
-            print("No approved outdated items to update.")
+            writeStdout("No approved outdated items to update.")
             return
         }
 
-        print("ID\tOUTCOME\tCURRENT\tLATEST\tDETAIL")
+        writeStdout("ID\tOUTCOME\tCURRENT\tLATEST\tDETAIL")
         for result in results {
             let fields = [
                 result.id,
@@ -76,7 +76,7 @@ struct UpdateCommand: ParsableCommand {
                 result.latest ?? "-",
                 result.error ?? "",
             ]
-            print(fields.joined(separator: "\t"))
+            writeStdout(fields.joined(separator: "\t"))
         }
 
         let blocked = results.filter { $0.outcome == .skippedUntrusted }
