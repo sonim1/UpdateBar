@@ -71,6 +71,20 @@ describe('App', () => {
     expect(view.lastFrame()).not.toContain('0 differs');
   });
 
+  it('does not describe failed status loads as still loading', async () => {
+    const client = createClient({
+      async status() {
+        throw new Error('status unavailable');
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'status unavailable');
+
+    expect(view.lastFrame()).toContain('Status unavailable');
+    expect(view.lastFrame()).not.toContain('Loading status...');
+  });
+
   it('redacts status row secrets before rendering', async () => {
     const secret = 'sk-or-v1-status-secret-value';
     const client = createClient({
@@ -1210,7 +1224,8 @@ describe('App', () => {
     await waitForFrame(view, 'status unavailable after update');
 
     expect(view.lastFrame()).toContain('finished · updated 1/1');
-    expect(view.lastFrame()).toContain('Loading status...');
+    expect(view.lastFrame()).toContain('Status unavailable');
+    expect(view.lastFrame()).not.toContain('Loading status...');
     expect(view.lastFrame()).not.toContain('1 tracked · 1 outdated');
   });
 

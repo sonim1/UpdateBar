@@ -58,6 +58,7 @@ export function App({client: providedClient}: AppProps) {
   const [screen, setScreen] = useState<Screen>('menu');
   const [menuIndex, setMenuIndex] = useState(0);
   const [status, setStatus] = useState<StatusSnapshot | undefined>();
+  const [statusUnavailable, setStatusUnavailable] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [scanReport, setScanReport] = useState<ScanReport | undefined>();
   const [scanIndex, setScanIndex] = useState(0);
@@ -75,7 +76,7 @@ export function App({client: providedClient}: AppProps) {
 
   useEffect(() => {
     if (!client) return;
-    refreshStatus(client, setStatus, setError);
+    refreshStatus(client, setStatus, setError, setStatusUnavailable);
   }, [client]);
 
   useEffect(() => {
@@ -239,7 +240,7 @@ export function App({client: providedClient}: AppProps) {
     switch (selected) {
       case 'refresh-status':
         setScreen('status');
-        await refreshStatus(client, setStatus, setError);
+        await refreshStatus(client, setStatus, setError, setStatusUnavailable);
         return;
       case 'scan-add':
         await runScan(client);
@@ -274,8 +275,10 @@ export function App({client: providedClient}: AppProps) {
     try {
       snapshot = await activeClient.status();
       setStatus(snapshot);
+      setStatusUnavailable(false);
     } catch (caught) {
       setStatus(undefined);
+      setStatusUnavailable(true);
       setSelectedUpdateIds(new Set());
       setScreen('select-update');
       setError(messageFor(caught));
@@ -293,7 +296,7 @@ export function App({client: providedClient}: AppProps) {
     try {
       const report = await activeClient.checkNow({signal: controller.signal});
       setLogs(previous => [...previous, ...checkSummaryLines(report)]);
-      await refreshStatus(activeClient, setStatus, setError);
+      await refreshStatus(activeClient, setStatus, setError, setStatusUnavailable);
     } catch (caught) {
       const cancelled = controller.signal.aborted;
       setLogs(previous => [
@@ -343,7 +346,7 @@ export function App({client: providedClient}: AppProps) {
         ...result.errors
       ]);
       setSelectedScanIds(new Set());
-      await refreshStatus(client, setStatus, setError);
+      await refreshStatus(client, setStatus, setError, setStatusUnavailable);
     } catch (caught) {
       const cancelled = controller.signal.aborted;
       setLogs([cancelled ? 'registration cancelled' : 'registration failed']);
@@ -370,7 +373,7 @@ export function App({client: providedClient}: AppProps) {
         onEvent: event => setLogs(previous => [...previous, describeEvent(event)])
       });
       setSelectedUpdateIds(new Set());
-      await refreshStatus(activeClient, setStatus, setError);
+      await refreshStatus(activeClient, setStatus, setError, setStatusUnavailable);
     } catch (caught) {
       const cancelled = controller.signal.aborted;
       setLogs(previous => [
@@ -401,7 +404,7 @@ export function App({client: providedClient}: AppProps) {
     <Box flexDirection="column">
       <Text bold>UpdateBar</Text>
       {error && <Text color="red">{redactSecrets(error)}</Text>}
-      <StatusLine status={status} />
+      <StatusLine status={status} unavailable={statusUnavailable} />
       {screen === 'menu' && (
         <Box flexDirection="column" marginTop={1}>
           {MENU_ITEMS.map((item, index) => (
@@ -448,7 +451,8 @@ export function App({client: providedClient}: AppProps) {
   );
 }
 
-function StatusLine({status}: {status: StatusSnapshot | undefined}) {
+function StatusLine({status, unavailable}: {status: StatusSnapshot | undefined; unavailable: boolean}) {
+  if (unavailable) return <Text dimColor>Status unavailable</Text>;
   if (!status) return <Text dimColor>Loading status...</Text>;
   return <Text>{formatStatusSummary(status)}</Text>;
 }
@@ -643,13 +647,16 @@ function helpText(screen: Screen, canCancel: boolean) {
 async function refreshStatus(
   client: UpdateBarClient,
   setStatus: (status: StatusSnapshot | undefined) => void,
-  setError: (message: string | undefined) => void
+  setError: (message: string | undefined) => void,
+  setStatusUnavailable: (unavailable: boolean) => void
 ) {
   try {
+    setStatusUnavailable(false);
     setStatus(await client.status());
     setError(undefined);
   } catch (caught) {
     setStatus(undefined);
+    setStatusUnavailable(true);
     setError(messageFor(caught));
   }
 }
