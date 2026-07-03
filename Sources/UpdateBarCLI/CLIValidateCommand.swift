@@ -9,7 +9,7 @@ struct ValidateCommand: ParsableCommand {
         shouldDisplay: false
     )
 
-    @Argument(help: "Manifest file to validate.")
+    @Argument(help: "Recipe or manifest file to validate, or '-' for stdin.")
     var file: String
 
     @Flag(name: .long, help: "Print machine-readable JSON.")

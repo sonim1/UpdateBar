@@ -419,6 +419,17 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testValidateHelpDocumentsRecipeManifestAndStdinInputs() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        let result = try CLIProcess.run(["validate", "--help"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("recipe or manifest"))
+        XCTAssertTrue(result.stdout.contains("'-' for stdin"))
+    }
+
     private func helpShowsCommand(_ command: String, in lines: [String]) -> Bool {
         lines.contains { line in
             line == "  \(command)" || line.hasPrefix("  \(command) ")
