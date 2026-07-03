@@ -30,7 +30,7 @@ struct ExportCommand: ParsableCommand {
         }
         guard let file else { return }
         try writeOutputData(JSONEncoder.updateBar.encode(manifest), to: file)
-        print("exported \(file)")
+        writeStdout("exported \(file)")
     }
 }
 

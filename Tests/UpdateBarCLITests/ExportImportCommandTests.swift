@@ -141,6 +141,22 @@ final class ExportImportCommandTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder.updateBar.decode(Manifest.self, from: Data(jsonResult.stdout.utf8)).items.count, 1)
     }
 
+    func testExportHumanOutputRedactsSecretLikeOutputPath() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-export-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secret = "sk-or-v1-secret-value"
+        try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "tool")]))
+        let output = home.appendingPathComponent("\(secret)-exported.json")
+
+        let result = try CLIProcess.run(["export", output.path], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: output.path))
+        XCTAssertTrue(result.stdout.contains("exported "))
+        XCTAssertTrue(result.stdout.contains("[REDACTED]"))
+        XCTAssertFalse(result.stdout.contains(secret))
+    }
+
     func testExportJSONRejectsLegacyManifestWithLiteralSecret() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-export-tests")
         let paths = AppPaths(homeDirectory: home)
