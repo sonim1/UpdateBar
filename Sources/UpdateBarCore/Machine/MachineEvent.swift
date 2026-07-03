@@ -68,8 +68,16 @@ public struct MachineEvent: Codable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        event = try container.decodeIfPresent(MachineEventType.self, forKey: .event)
-            ?? container.decode(MachineEventType.self, forKey: .type)
+        let eventAlias = try container.decodeIfPresent(MachineEventType.self, forKey: .event)
+        let typeAlias = try container.decodeIfPresent(MachineEventType.self, forKey: .type)
+        if let eventAlias, let typeAlias, eventAlias != typeAlias {
+            throw DecodingError.dataCorruptedError(
+                forKey: .type,
+                in: container,
+                debugDescription: "event/type mismatch"
+            )
+        }
+        event = try eventAlias ?? container.decode(MachineEventType.self, forKey: .type)
         operation = try container.decode(MachineOperation.self, forKey: .operation)
         runId = try container.decodeIfPresent(String.self, forKey: .runId)
         timestamp = try container.decode(Date.self, forKey: .timestamp)

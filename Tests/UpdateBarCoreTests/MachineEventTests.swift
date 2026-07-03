@@ -39,4 +39,17 @@ final class MachineEventTests: XCTestCase {
         XCTAssertEqual(event.event, .finished)
         XCTAssertEqual(event.operation, .check)
     }
+
+    func testMachineEventRejectsMismatchedEventAndTypeAliases() throws {
+        let data = Data("""
+        {
+          "event": "started",
+          "type": "finished",
+          "operation": "check",
+          "timestamp": "2026-06-30T00:00:00Z"
+        }
+        """.utf8)
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(MachineEvent.self, from: data))
+    }
 }
