@@ -295,7 +295,7 @@ public struct RegistryService {
             }
             manifest = manifest.removing(id: id)
             manifest.provenance.updatedAt = now()
-            try manifestStore.save(manifest)
+            try saveValid(manifest)
         }
 
         try stateStore.withExclusiveLock {

@@ -107,6 +107,34 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains(secretID))
     }
 
+    func testRemoveRejectsInvalidRemainingManifestWithoutSaving() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secret = "sk-or-v1-secret-value"
+        var invalid = recipe()
+        invalid.id = "bad"
+        invalid.name = "Bad"
+        invalid.update.cmd = "tool update --token \(secret)"
+        try ManifestStore(paths: paths).save(Manifest(
+            schemaVersion: 1,
+            items: [recipe(), invalid],
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        ))
+
+        let result = try CLIProcess.run(["remove", "tool", "--yes", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let stored = try ManifestStore(paths: paths).load()
+        let combined = result.stdout + result.stderr
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "registry_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("update.cmd: must not contain literal secrets") })
+        XCTAssertNotNil(stored.item(id: "tool"))
+        XCTAssertNotNil(stored.item(id: "bad"))
+        XCTAssertFalse(combined.contains(secret))
+    }
+
     func testRemoveWithoutYesRequiresPromptConfirmation() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
