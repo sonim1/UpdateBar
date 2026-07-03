@@ -302,6 +302,42 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertEqual(events[1].result?.status, .outdated)
     }
 
+    func testAddRecipeCreatesFreshManifestWithInjectedClock() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let service = registryService(paths: paths, commands: MockCommandExecutor(results: [:]))
+
+        let outcome = try service.addRecipe(
+            recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest"),
+            replace: false
+        )
+        let stored = try ManifestStore(paths: paths).load()
+
+        XCTAssertEqual(outcome, .added)
+        XCTAssertEqual(stored.provenance.createdAt, now)
+        XCTAssertEqual(stored.provenance.updatedAt, now)
+        XCTAssertEqual(stored.items.map(\.id), ["tool"])
+    }
+
+    func testImportManifestCreatesFreshManifestWithInjectedClock() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let service = registryService(paths: paths, commands: MockCommandExecutor(results: [:]))
+
+        let summary = try service.importManifest(
+            manifest(items: [
+                recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
+            ]),
+            replace: false
+        )
+        let stored = try ManifestStore(paths: paths).load()
+
+        XCTAssertEqual(summary.added, ["tool"])
+        XCTAssertEqual(stored.provenance.createdAt, now)
+        XCTAssertEqual(stored.provenance.updatedAt, now)
+        XCTAssertEqual(stored.items.map(\.id), ["tool"])
+    }
+
     private func registryService(paths: AppPaths, commands: MockCommandExecutor) -> RegistryService {
         RegistryService(
             manifestStore: ManifestStore(paths: paths),

@@ -311,20 +311,22 @@ public struct RegistryService {
     }
 
     public func addRecipe(_ recipe: Recipe, replace: Bool) throws -> AddRecipeOutcome {
+        let validationDate = now()
         let incoming = Manifest(
             schemaVersion: 1,
             items: [recipe],
-            provenance: Provenance(createdBy: "updatebar", createdAt: now(), updatedAt: now())
+            provenance: Provenance(createdBy: "updatebar", createdAt: validationDate, updatedAt: validationDate)
         )
         try validate(incoming)
         return try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.load()
+            let mutationDate = now()
+            var manifest = try manifestStore.loadExistingOrEmpty(now: mutationDate)
             let outcome: AddRecipeOutcome = manifest.item(id: recipe.id) == nil ? .added : .replaced
             if outcome == .replaced, !replace {
                 throw RegistryError.duplicateItem(recipe.id)
             }
             manifest = manifest.replacing(item: recipe)
-            manifest.provenance.updatedAt = now()
+            manifest.provenance.updatedAt = mutationDate
             try saveValid(manifest)
             return outcome
         }
@@ -333,7 +335,8 @@ public struct RegistryService {
     public func importManifest(_ incoming: Manifest, replace: Bool) throws -> ImportSummary {
         try validate(incoming)
         return try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.load()
+            let mutationDate = now()
+            var manifest = try manifestStore.loadExistingOrEmpty(now: mutationDate)
             var added: [String] = []
             var replaced: [String] = []
 
@@ -351,7 +354,7 @@ public struct RegistryService {
                 }
             }
 
-            manifest.provenance.updatedAt = now()
+            manifest.provenance.updatedAt = mutationDate
             try saveValid(manifest)
             return ImportSummary(added: added, replaced: replaced)
         }
