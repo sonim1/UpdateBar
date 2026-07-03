@@ -43,18 +43,18 @@ func printApprovalAndCheckNextSteps(for ids: [String]) {
 }
 
 func printEmptyRegistryNextStep() {
-    print("No items registered.")
+    writeStdout("No items registered.")
     printNextCommands(["updatebar init"])
 }
 
 func printNextCommands(_ commands: [String], leadingBlank: Bool = true) {
     guard !commands.isEmpty else { return }
     if leadingBlank {
-        print("")
+        writeStdout("")
     }
-    print("Next")
+    writeStdout("Next")
     for command in commands {
-        print(command)
+        writeStdout(command)
     }
 }
 

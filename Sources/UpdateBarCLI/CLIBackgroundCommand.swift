@@ -113,8 +113,8 @@ struct BackgroundCommand: ParsableCommand {
 
 #if os(macOS)
 private func printBackgroundHuman(status: String, path: String) {
-    print("STATUS\tLABEL\tPATH")
-    print("\(status)\t\(BackgroundLaunchAgentManager.label)\t\(path)")
+    writeStdout("STATUS\tLABEL\tPATH")
+    writeStdout("\(status)\t\(BackgroundLaunchAgentManager.label)\t\(path)")
 }
 
 private func printBackgroundInstallNextStep(path: String) {

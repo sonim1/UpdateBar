@@ -164,6 +164,23 @@ final class BackgroundCommandTests: XCTestCase {
         XCTAssertTrue(uninstall.stdout.contains("launchctl bootout gui/$(id -u)/com.updatebar.check"))
     }
 
+    func testBackgroundHumanOutputRedactsSecretLikeHomePath() throws {
+        let base = try makeTemporaryHome(prefix: "updatebar-cli-background-tests")
+        let secret = "sk-or-v1-secret-value"
+        let home = base.appendingPathComponent(secret)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+
+        let install = try CLIProcess.run(["background", "install", "--yes"], home: home, environment: ["HOME": home.path])
+        let status = try CLIProcess.run(["background", "status"], home: home, environment: ["HOME": home.path])
+
+        XCTAssertEqual(install.exitCode, 0)
+        XCTAssertEqual(status.exitCode, 0)
+        XCTAssertTrue(install.stdout.contains("[REDACTED]"))
+        XCTAssertTrue(status.stdout.contains("[REDACTED]"))
+        XCTAssertFalse(install.stdout.contains(secret))
+        XCTAssertFalse(status.stdout.contains(secret))
+    }
+
     private func plistURL(home: URL) -> URL {
         home
             .appendingPathComponent("Library")
