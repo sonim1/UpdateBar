@@ -76,9 +76,10 @@ The terminal UI lives in `tui/` and consumes the Swift CLI JSON/JSONL contracts.
 It supports status, checks, updates, and scan/select registration.
 
 ```bash
+swift build --product updatebar
 npm --prefix tui install
 npm --prefix tui run build
-UPDATEBAR_BIN=$PWD/.build/debug/updatebar UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui
+UPDATEBAR_BIN=$PWD/.build/debug/updatebar UPDATEBAR_TUI=$PWD/tui/dist/index.js .build/debug/updatebar tui
 ```
 
 ## Quick Start

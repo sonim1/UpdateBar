@@ -670,6 +670,27 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(combined.contains("npm link"))
     }
 
+    func testTUISourceDocsRunTheLocalBuiltCLI() throws {
+        let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
+        let tuiReadme = try String(contentsOfFile: "tui/README.md", encoding: .utf8)
+        let readmeTUISection = try readmeSection("### Ink TUI", before: "## Quick Start", in: readme)
+        let tuiSourceSection = try readmeSection(
+            "## Run From Source",
+            before: "## Install Locally",
+            in: tuiReadme
+        )
+
+        for section in [readmeTUISection, tuiSourceSection] {
+            XCTAssertTrue(section.contains("swift build --product updatebar"))
+            XCTAssertTrue(
+                section.contains(
+                    "UPDATEBAR_BIN=$PWD/.build/debug/updatebar UPDATEBAR_TUI=$PWD/tui/dist/index.js .build/debug/updatebar tui"
+                )
+            )
+            XCTAssertFalse(section.contains("UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui"))
+        }
+    }
+
     func testCliDocsHideAutomationExitFlagFromPrimarySignatures() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
         let checkSection = try readmeSection(

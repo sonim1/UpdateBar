@@ -7,9 +7,10 @@ Ink terminal UI for UpdateBar.
 From the repository root:
 
 ```bash
+swift build --product updatebar
 npm --prefix tui install
 npm --prefix tui run build
-UPDATEBAR_BIN=$PWD/.build/debug/updatebar UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui
+UPDATEBAR_BIN=$PWD/.build/debug/updatebar UPDATEBAR_TUI=$PWD/tui/dist/index.js .build/debug/updatebar tui
 ```
 
 ## Install Locally
