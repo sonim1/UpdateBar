@@ -83,37 +83,67 @@ private extension UpdateBar {
     }
 
     static func validateTrailingInlineHelpArguments(_ arguments: [String]) throws {
-        guard arguments.first != "help",
-              let helpIndex = arguments.firstIndex(where: isInlineHelpFlag)
-        else {
-            return
-        }
-
-        let afterHelpIndex = arguments.index(after: helpIndex)
-        guard afterHelpIndex < arguments.endIndex,
-              let trailing = arguments[afterHelpIndex...].first(where: { !$0.hasPrefix("-") })
-        else {
-            return
-        }
-
-        let helpCommand = inlineHelpCommand(argumentsBeforeHelp: arguments[..<helpIndex])
-        let message = helpCommand == "updatebar --help"
+        try validateTrailingInlineArguments(
+            arguments,
+            matching: isInlineHelpFlag,
+            flagSynopsis: "--help",
+            skipHelpCommand: true
+        ) { command, trailing in
+            command == "updatebar --help"
             ? """
-            Unexpected argument '\(trailing)' after \(helpCommand)
+            Unexpected argument '\(trailing)' after \(command)
             Usage: updatebar --help
               Use 'updatebar help \(trailing)' for subcommand help.
             """
             : """
-            Unexpected argument '\(trailing)' after \(helpCommand)
-            Usage: \(helpCommand)
+            Unexpected argument '\(trailing)' after \(command)
+            Usage: \(command)
             """
-        throw ValidationError(message)
+        }
     }
 
-    private static func inlineHelpCommand(argumentsBeforeHelp: ArraySlice<String>) -> String {
+    static func validateTrailingInlineVersionArguments(_ arguments: [String]) throws {
+        try validateTrailingInlineArguments(
+            arguments,
+            matching: isInlineVersionFlag,
+            flagSynopsis: "--version",
+            skipHelpCommand: false
+        ) { command, trailing in
+            """
+            Unexpected argument '\(trailing)' after \(command)
+            Usage: \(command)
+            """
+        }
+    }
+
+    private static func validateTrailingInlineArguments(
+        _ arguments: [String],
+        matching isFlag: (String) -> Bool,
+        flagSynopsis: String,
+        skipHelpCommand: Bool,
+        message: (String, String) -> String
+    ) throws {
+        guard (!skipHelpCommand || arguments.first != "help"),
+              let flagIndex = arguments.firstIndex(where: isFlag)
+        else {
+            return
+        }
+
+        let afterFlagIndex = arguments.index(after: flagIndex)
+        guard afterFlagIndex < arguments.endIndex,
+              let trailing = arguments[afterFlagIndex...].first(where: { !$0.hasPrefix("-") })
+        else {
+            return
+        }
+
+        let command = inlineCommand(argumentsBeforeFlag: arguments[..<flagIndex], flagSynopsis: flagSynopsis)
+        throw ValidationError(message(command, trailing))
+    }
+
+    private static func inlineCommand(argumentsBeforeFlag: ArraySlice<String>, flagSynopsis: String) -> String {
         var command: ParsableCommand.Type = Self.self
         var path: [String] = []
-        for target in argumentsBeforeHelp {
+        for target in argumentsBeforeFlag {
             guard !target.hasPrefix("-"),
                   let next = command.configuration.subcommands.first(where: { subcommand in
                       subcommand._commandName == target || subcommand.configuration.aliases.contains(target)
@@ -124,11 +154,15 @@ private extension UpdateBar {
             path.append(target)
             command = next
         }
-        return path.isEmpty ? "updatebar --help" : "updatebar \(path.joined(separator: " ")) --help"
+        return path.isEmpty ? "updatebar \(flagSynopsis)" : "updatebar \(path.joined(separator: " ")) \(flagSynopsis)"
     }
 
     private static func isInlineHelpFlag(_ argument: String) -> Bool {
         argument == "--help" || argument == "-h"
+    }
+
+    private static func isInlineVersionFlag(_ argument: String) -> Bool {
+        argument == "--version"
     }
 }
 
@@ -140,6 +174,7 @@ enum UpdateBarMain {
             try validateHelpTarget(arguments, knownTopLevelHelpTargets: UpdateBar.topLevelHelpTargets)
             try UpdateBar.validateHelpCommandPath(arguments)
             try UpdateBar.validateTrailingInlineHelpArguments(arguments)
+            try UpdateBar.validateTrailingInlineVersionArguments(arguments)
             var command = try UpdateBar.parseAsRoot(arguments)
             try command.run()
         } catch {
