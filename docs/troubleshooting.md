@@ -40,6 +40,20 @@ sleep 2
 tail -n 80 /tmp/updatebar-menubar.log
 ```
 
+For an installed app outside a source checkout, point `APP` at the bundle you
+opened. For example, use `APP=~/UpdateBar.app` if you copied it to your home
+directory:
+
+```bash
+APP=${APP:-/Applications/UpdateBar.app}
+pkill -f "$APP/Contents/MacOS/UpdateBar" 2>/dev/null || true
+UPDATEBAR_BIN="$APP/Contents/Resources/updatebar" \
+  "$APP/Contents/MacOS/UpdateBar" >/tmp/updatebar-menubar.log 2>&1 &
+sleep 2
+pgrep -ax UpdateBar
+tail -n 80 /tmp/updatebar-menubar.log
+```
+
 If Open TUI is available but not launching, check `UPDATEBAR_BIN` and that a TUI
 binary is reachable by one of:
 
