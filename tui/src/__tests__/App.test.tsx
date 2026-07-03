@@ -656,6 +656,24 @@ describe('App', () => {
     expect(view.lastFrame()).not.toContain('exit 1');
   });
 
+  it('does not keep showing scan progress after scan failure', async () => {
+    const client = createClient({
+      async scan() {
+        throw new Error('scan source unavailable');
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'scan source unavailable');
+
+    expect(view.lastFrame()).not.toContain('Scanning...');
+    expect(view.lastFrame()).toContain('No scan candidates');
+  });
+
   it('shows check summary logs', async () => {
     const client = createClient({
       async checkNow() {

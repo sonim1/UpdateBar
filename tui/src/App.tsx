@@ -308,6 +308,7 @@ export function App({client: providedClient}: AppProps) {
     try {
       setScanReport(await activeClient.scan({signal: controller.signal}));
     } catch (caught) {
+      setScanReport({candidates: [], errors: []});
       setError(controller.signal.aborted ? 'scan cancelled' : messageFor(caught));
     } finally {
       endAbortableAction(controller);
