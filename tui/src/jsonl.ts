@@ -100,8 +100,15 @@ function parseLine(line: string, lineNumber: number): MachineEvent {
     if (!MACHINE_OPERATIONS.has(value.operation as MachineEvent['operation'])) {
       throw new Error(`unknown operation ${value.operation}`);
     }
+    const operation = value.operation as MachineEvent['operation'];
     if (typeof value.timestamp !== 'string') {
       throw new Error('missing timestamp');
+    }
+    if (operation === 'check' && hasUpdatePayload(value)) {
+      throw new Error('unexpected update payload for check operation');
+    }
+    if (operation === 'update' && hasCheckPayload(value)) {
+      throw new Error('unexpected check payload for update operation');
     }
     if (value.result !== undefined && !isUpdateResult(value.result)) {
       throw new Error('invalid result');
@@ -185,4 +192,16 @@ function isCheckSummary(value: unknown): value is CheckSummary {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function hasUpdatePayload(value: Partial<MachineEvent>) {
+  return value.result !== undefined || value.results !== undefined || value.summary !== undefined;
+}
+
+function hasCheckPayload(value: Partial<MachineEvent>) {
+  return (
+    value.check_result !== undefined ||
+    value.check_results !== undefined ||
+    value.check_summary !== undefined
+  );
 }

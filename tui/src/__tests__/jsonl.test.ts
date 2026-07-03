@@ -86,6 +86,14 @@ describe('jsonl parser', () => {
     ).toThrow('line 1');
   });
 
+  it('rejects update payloads on check operations with line numbers', () => {
+    expect(() =>
+      parseJSONLText(
+        '{"event":"item_finished","operation":"check","timestamp":"2026-06-30T00:00:00Z","result":{"id":"brew.gh","name":"gh","outcome":"updated"}}'
+      )
+    ).toThrow('line 1');
+  });
+
   it('rejects unknown check result statuses with line numbers', () => {
     expect(() =>
       parseJSONLText(
@@ -106,6 +114,14 @@ describe('jsonl parser', () => {
     expect(() =>
       parseJSONLText(
         '{"event":"finished","operation":"check","timestamp":"2026-06-30T00:00:00Z","check_results":[{"id":"brew.gh","name":"gh","status":"mystery"}]}'
+      )
+    ).toThrow('line 1');
+  });
+
+  it('rejects check payloads on update operations with line numbers', () => {
+    expect(() =>
+      parseJSONLText(
+        '{"event":"item_finished","operation":"update","timestamp":"2026-06-30T00:00:00Z","check_result":{"id":"brew.gh","name":"gh","status":"ok"}}'
       )
     ).toThrow('line 1');
   });
