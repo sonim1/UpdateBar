@@ -197,7 +197,22 @@ struct SchemaCommand: ParsableCommand {
                     "pattern": "^sha256:[a-f0-9]{64}$"
                   }
                 }
-              }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "required": ["level"],
+                    "properties": {
+                      "level": { "const": "untrusted" }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "approved_commands": { "maxProperties": 0 }
+                    }
+                  }
+                }
+              ]
             }
           }
         }
