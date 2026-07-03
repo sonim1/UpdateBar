@@ -174,6 +174,18 @@ final class ExecutionPolicyTests: XCTestCase {
         XCTAssertEqual(redacted, "[REDACTED] [REDACTED] [REDACTED]")
     }
 
+    func testSecretRedactorMasksDeploymentTokenEnvironmentNames() {
+        let redacted = SecretRedactor.redact(
+            #"CLOUDFLARE_API_TOKEN=cf-secret CF_API_TOKEN=cf-short VERCEL_TOKEN=vercel-secret {"env":{"SUPABASE_ACCESS_TOKEN":"supabase secret"}}"#
+        )
+
+        XCTAssertFalse(redacted.contains("cf-secret"))
+        XCTAssertFalse(redacted.contains("cf-short"))
+        XCTAssertFalse(redacted.contains("vercel-secret"))
+        XCTAssertFalse(redacted.contains("supabase secret"))
+        XCTAssertEqual(redacted.components(separatedBy: "[REDACTED]").count - 1, 4)
+    }
+
     func testSecretRedactorMasksJSONStyleTokenValues() {
         let redacted = SecretRedactor.redact(
             #"{"env":{"NPM_TOKEN":"npm-secret","AWS_SESSION_TOKEN":"aws-secret"}}"#
