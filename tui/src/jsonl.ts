@@ -10,6 +10,8 @@ const MACHINE_EVENT_TYPES = new Set<MachineEventType>([
   'finished'
 ]);
 
+const MACHINE_OPERATIONS = new Set<MachineEvent['operation']>(['update', 'check']);
+
 export async function* parseJSONLines(
   chunks: AsyncIterable<Buffer | string>
 ): AsyncGenerator<MachineEvent> {
@@ -53,6 +55,12 @@ function parseLine(line: string, lineNumber: number): MachineEvent {
     }
     if (!MACHINE_EVENT_TYPES.has(event as MachineEventType)) {
       throw new Error(`unknown event ${event}`);
+    }
+    if (typeof value.operation !== 'string') {
+      throw new Error('missing operation');
+    }
+    if (!MACHINE_OPERATIONS.has(value.operation as MachineEvent['operation'])) {
+      throw new Error(`unknown operation ${value.operation}`);
     }
     return {...value, event, type: value.type ?? event} as MachineEvent;
   } catch (error) {

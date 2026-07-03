@@ -44,6 +44,12 @@ describe('jsonl parser', () => {
     ).toThrow('line 1');
   });
 
+  it('rejects unknown operation names with line numbers', () => {
+    expect(() =>
+      parseJSONLText('{"event":"started","operation":"install","timestamp":"2026-06-30T00:00:00Z"}')
+    ).toThrow('line 1');
+  });
+
   it('counts blank lines when reporting text parse failures', () => {
     expect(() => parseJSONLText('\n\n{')).toThrow('line 3');
   });
