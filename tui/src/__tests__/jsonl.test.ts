@@ -93,6 +93,12 @@ describe('jsonl parser', () => {
     ).toThrow('line 1');
   });
 
+  it('rejects impossible ISO timestamp dates with line numbers', () => {
+    expect(() =>
+      parseJSONLText('{"event":"started","operation":"update","timestamp":"2026-02-30T00:00:00Z"}')
+    ).toThrow('line 1');
+  });
+
   it('rejects unknown log levels with line numbers', () => {
     expect(() =>
       parseJSONLText(
