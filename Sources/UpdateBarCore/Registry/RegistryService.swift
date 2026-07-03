@@ -262,6 +262,7 @@ public struct RegistryService {
 
     public func recipe(id: String) throws -> Recipe {
         let manifest = try manifestStore.loadExistingOrEmpty(now: now())
+        try validate(manifest)
         guard let recipe = manifest.item(id: id) else {
             throw RegistryError.itemNotFound(id)
         }
