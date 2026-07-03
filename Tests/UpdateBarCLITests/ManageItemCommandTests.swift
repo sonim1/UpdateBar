@@ -365,30 +365,28 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertFalse(revoke.stdout.contains("updatebar check tool"))
     }
 
-    func testApprovalsRedactsSecretLikeCommandText() throws {
+    func testApprovalsRejectsInvalidManifestWithoutLeakingSecret() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
+        let secret = "sk-or-v1-secret-value"
         var item = recipe()
-        item.update.cmd = "OPENROUTER_API_KEY=sk-or-v1-secret-value tool update"
+        item.update.cmd = "OPENROUTER_API_KEY=\(secret) tool update"
         try ManifestStore(paths: paths).save(Manifest(
             schemaVersion: 1,
             items: [item],
             provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
         ))
 
-        let human = try CLIProcess.run(["approvals", "tool"], home: home)
         let json = try CLIProcess.run(["approvals", "tool", "--json"], home: home)
-        let rows = try JSONDecoder.updateBar.decode([ApprovalStatus].self, from: Data(json.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(json.stdout.utf8))
+        let combined = json.stdout + json.stderr
 
-        XCTAssertEqual(human.exitCode, 0)
-        XCTAssertTrue(human.stdout.contains("[REDACTED] tool update"))
-        XCTAssertFalse(human.stdout.contains("sk-or-v1-secret-value"))
-        XCTAssertFalse(human.stdout.contains("OPENROUTER_API_KEY="))
-
-        let updateRow = try XCTUnwrap(rows.first { $0.field == "update.cmd" })
-        XCTAssertTrue(updateRow.command.contains("[REDACTED] tool update"))
-        XCTAssertFalse(updateRow.command.contains("sk-or-v1-secret-value"))
-        XCTAssertFalse(json.stdout.contains("OPENROUTER_API_KEY="))
+        XCTAssertEqual(json.exitCode, 1)
+        XCTAssertEqual(json.stderr, "")
+        XCTAssertEqual(payload.code, "registry_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].update.cmd: must not contain literal secrets") })
+        XCTAssertFalse(combined.contains(secret))
+        XCTAssertFalse(combined.contains("OPENROUTER_API_KEY="))
     }
 
     func testApprovalsHumanAllApprovedPrintsCheckNextStep() throws {
@@ -409,7 +407,7 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("updatebar approve tool"))
     }
 
-    func testApprovalsHumanRedactsLegacySecretLikeIDInNextStep() throws {
+    func testApprovalsHumanRedactsLegacySecretLikeIDValidationError() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
         let secretID = "sk-or-v1-secret-value"
@@ -425,8 +423,9 @@ final class ManageItemCommandTests: XCTestCase {
         let result = try CLIProcess.run(["approvals", secretID], home: home)
         let combined = result.stdout + result.stderr
 
-        XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stdout.contains("updatebar check [REDACTED]"))
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("items[0].id: must not contain literal secrets"))
+        XCTAssertFalse(result.stdout.contains("updatebar check"))
         XCTAssertFalse(combined.contains(secretID))
     }
 
