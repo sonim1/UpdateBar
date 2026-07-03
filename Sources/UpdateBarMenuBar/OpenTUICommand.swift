@@ -29,9 +29,11 @@ public struct OpenTUICommand: Equatable, Sendable {
 
         let quotedCommand = Self.shellQuote(tuiCommand)
         let fallbackPrompt = Self.shellQuote("\(tuiCommand) is not available")
-        let fallbackSetup = Self.shellQuote("Build the TUI in the UpdateBar tui directory, then run npm link.")
+        let fallbackSetup = Self.shellQuote(
+            "Build it with npm --prefix tui install && npm --prefix tui run build."
+        )
         let fallbackHowToMessage = Self.shellQuote(
-            "Run 'updatebar tui' to start the terminal UI (or set UPDATEBAR_TUI to a runnable binary)."
+            "Run UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui, or set UPDATEBAR_TUI to a runnable binary."
         )
         let invalidTUIMessage = Self.shellQuote("UPDATEBAR_TUI is set but not executable:")
 

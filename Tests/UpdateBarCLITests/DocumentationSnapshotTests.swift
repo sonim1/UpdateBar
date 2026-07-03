@@ -658,6 +658,18 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(scanSpec.contains("No candidates found"))
     }
 
+    func testTUIDocsUseDirectBuildAndOverrideSetup() throws {
+        let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
+        let troubleshooting = try String(contentsOfFile: "docs/troubleshooting.md", encoding: .utf8)
+        let tuiReadme = try String(contentsOfFile: "tui/README.md", encoding: .utf8)
+        let combined = [readme, troubleshooting, tuiReadme].joined(separator: "\n")
+
+        XCTAssertTrue(combined.contains("npm --prefix tui install"))
+        XCTAssertTrue(combined.contains("npm --prefix tui run build"))
+        XCTAssertTrue(combined.contains("UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui"))
+        XCTAssertFalse(combined.contains("npm link"))
+    }
+
     func testCliDocsHideAutomationExitFlagFromPrimarySignatures() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
         let checkSection = try readmeSection(

@@ -51,14 +51,13 @@ binary is reachable by one of:
 
 The Menu Bar app opens Terminal and runs `UPDATEBAR_TUI` if set. If not set, it
 falls back to `UPDATEBAR_BIN tui`, then `updatebar-tui` on `PATH` with a setup
-message. Build and link the TUI so it is available on `PATH`:
-`PATH`:
+message. From the repository root, build the TUI and point `UPDATEBAR_TUI` at
+the generated executable:
 
 ```bash
-cd tui
-npm install
-npm run build
-npm link
+npm --prefix tui install
+npm --prefix tui run build
+UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui
 ```
 
 Then choose `Open TUI` from the Menu Bar menu.

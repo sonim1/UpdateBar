@@ -28,7 +28,9 @@ final class OpenTUICommandTests: XCTestCase {
         let joined = command.arguments.joined(separator: " ")
         XCTAssertTrue(joined.contains("command -v"))
         XCTAssertTrue(joined.contains("updatebar-tui is not available"))
-        XCTAssertTrue(joined.contains("npm link"))
+        XCTAssertTrue(joined.contains("npm --prefix tui install"))
+        XCTAssertTrue(joined.contains("npm --prefix tui run build"))
+        XCTAssertTrue(joined.contains("tui/dist/index.js"))
         XCTAssertTrue(joined.contains("Run "))
         XCTAssertTrue(joined.contains("updatebar tui"))
     }

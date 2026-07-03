@@ -4,19 +4,22 @@ Ink terminal UI for UpdateBar.
 
 ## Run From Source
 
+From the repository root:
+
 ```bash
-npm install
-npm run build
-UPDATEBAR_BIN=../.build/debug/updatebar npm start
+npm --prefix tui install
+npm --prefix tui run build
+UPDATEBAR_BIN=$PWD/.build/debug/updatebar UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui
 ```
 
 ## Install Locally
 
+From the repository root:
+
 ```bash
-npm install
-npm run build
-npm link
-UPDATEBAR_BIN=/full/path/to/updatebar updatebar tui
+npm --prefix tui install
+npm --prefix tui run build
+UPDATEBAR_BIN=/full/path/to/updatebar UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui
 ```
 
 `updatebar-tui` continues to be supported for environments where only the
