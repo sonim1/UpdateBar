@@ -86,8 +86,11 @@ fi
 
 if command -v shasum >/dev/null 2>&1; then
   ACTUAL_SHA="$(shasum -a 256 "$ARCHIVE_PATH" | awk '{print $1}')"
-else
+elif command -v sha256sum >/dev/null 2>&1; then
   ACTUAL_SHA="$(sha256sum "$ARCHIVE_PATH" | awk '{print $1}')"
+else
+  echo "shasum or sha256sum is required to verify release archive checksums" >&2
+  exit 1
 fi
 
 if [[ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]]; then

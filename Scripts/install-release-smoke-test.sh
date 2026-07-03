@@ -182,9 +182,42 @@ run_piped_install() {
   assert_installed "$prefix" "$output"
 }
 
+run_missing_checksum_tool_fails_clearly() {
+  local limited_bin="$TMP_DIR/no-checksum-bin"
+  local output="$TMP_DIR/install-no-checksum.out"
+  mkdir -p "$limited_bin"
+  for tool in awk bash cat cp head mktemp rm uname; do
+    ln -sf "$(command -v "$tool")" "$limited_bin/$tool"
+  done
+  cp "$FAKE_BIN/curl" "$limited_bin/curl"
+  chmod 755 "$limited_bin/curl"
+
+  set +e
+  env \
+    PATH="$limited_bin" \
+    UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+    UPDATEBAR_INSTALL_PREFIX="$TMP_DIR/install-no-checksum" \
+    UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+    /bin/bash Scripts/install-release.sh > "$output" 2>&1
+  local rc=$?
+  set -e
+
+  if [[ "$rc" -eq 0 ]]; then
+    echo "install-release succeeded without shasum or sha256sum" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "shasum or sha256sum is required" "$output"; then
+    echo "install-release missing checksum-tool error was not clear" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
 run_install "" "$TMP_DIR/install-latest"
 run_install "v9.9.9" "$TMP_DIR/install-tag"
 run_piped_install "" "$TMP_DIR/install-piped-latest"
 run_piped_install "v9.9.9" "$TMP_DIR/install-piped-tag"
+run_missing_checksum_tool_fails_clearly
 
 echo "install release smoke ok"
