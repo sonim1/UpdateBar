@@ -1,4 +1,5 @@
 import Foundation
+import UpdateBarCore
 
 public struct UpdateBarBinaryResolution: Equatable, Sendable {
     public var path: String
@@ -25,7 +26,7 @@ public enum UpdateBarBinaryResolverError: Error, CustomStringConvertible, Equata
     public var description: String {
         switch self {
         case .invalidPath(let source, let path):
-            return "\(source.rawValue) path is not executable: \(path)"
+            return "\(source.rawValue) path is not executable: \(SecretRedactor.redact(path))"
         case .notFound:
             return "updatebar binary not found"
         }

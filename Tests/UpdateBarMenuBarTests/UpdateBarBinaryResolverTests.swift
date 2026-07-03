@@ -107,6 +107,19 @@ final class UpdateBarBinaryResolverTests: XCTestCase {
         }
     }
 
+    func testInvalidExplicitPathDescriptionRedactsSecretLikePath() throws {
+        let invalid = "/tmp/sk-or-v1-secret-value/updatebar"
+
+        XCTAssertThrowsError(try UpdateBarBinaryResolver().resolve(
+            environment: ["UPDATEBAR_BIN": invalid],
+            developmentRoot: nil
+        )) { error in
+            let message = String(describing: error)
+            XCTAssertFalse(message.contains("sk-or-v1-secret-value"))
+            XCTAssertTrue(message.contains("/tmp/[REDACTED]/updatebar"))
+        }
+    }
+
     private func executable(at url: URL) throws -> URL {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
