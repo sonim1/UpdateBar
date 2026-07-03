@@ -12,6 +12,12 @@ public struct AppPaths: Equatable {
             self.homeDirectory = URL(fileURLWithPath: override).standardizedFileURL
             return
         }
+        if let homeOverride = environment["HOME"], !homeOverride.isEmpty {
+            self.homeDirectory = URL(fileURLWithPath: homeOverride)
+                .appendingPathComponent(".updatebar")
+                .standardizedFileURL
+            return
+        }
         let home = FileManager.default.homeDirectoryForCurrentUser
         self.homeDirectory = URL(fileURLWithPath: home.appendingPathComponent(".updatebar").path)
             .standardizedFileURL

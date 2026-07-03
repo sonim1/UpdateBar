@@ -38,6 +38,14 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testCliDocsDocumentDataDirectoryEnvironmentPrecedence() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+
+        XCTAssertTrue(docs.contains("`UPDATEBAR_HOME`"))
+        XCTAssertTrue(docs.contains("`HOME/.updatebar`"))
+        XCTAssertTrue(docs.contains("explicit test or alternate data directory"))
+    }
+
     func testPrimaryCommandOptionsHaveHelpDescriptions() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let expectedOptionsByCommand: [String: [String]] = [

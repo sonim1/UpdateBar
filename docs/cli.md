@@ -37,6 +37,10 @@ Known top-level error codes: `usage_error`, `config_error`, `registry_error`,
 Malformed JSON input returns `decode_error` with `document is not valid JSON`.
 Missing files and unreadable paths return `usage_error` with the path included.
 
+UpdateBar stores its data in `HOME/.updatebar` by default. Set
+`UPDATEBAR_HOME` to an explicit test or alternate data directory when you need
+to isolate a run. `UPDATEBAR_HOME` takes precedence over `HOME/.updatebar`.
+
 JSONL streaming mode is available for `updatebar check --json-stream` and
 `updatebar update --json-stream`. Each
 stdout line is exactly one JSON object. No human log text is written to stdout.

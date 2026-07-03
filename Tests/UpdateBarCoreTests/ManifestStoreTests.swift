@@ -288,6 +288,28 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertEqual(paths.stateFile.deletingLastPathComponent().path, root.path)
     }
 
+    func testAppPathsUsesHomeEnvironmentWhenUpdateBarHomeIsUnset() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(environment: ["HOME": root.path])
+        let expected = root.appendingPathComponent(".updatebar").standardizedFileURL
+
+        XCTAssertEqual(paths.homeDirectory.path, expected.path)
+        XCTAssertEqual(paths.manifestFile.deletingLastPathComponent().path, expected.path)
+    }
+
+    func testAppPathsPrefersUpdateBarHomeOverHomeEnvironment() throws {
+        let home = try temporaryDirectory()
+        let updateBarHome = try temporaryDirectory()
+        let paths = AppPaths(
+            environment: [
+                "HOME": home.path,
+                "UPDATEBAR_HOME": updateBarHome.path,
+            ]
+        )
+
+        XCTAssertEqual(paths.homeDirectory.path, updateBarHome.standardizedFileURL.path)
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("updatebar-tests-\(UUID().uuidString)")
