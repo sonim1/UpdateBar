@@ -9,47 +9,27 @@ extension UpdateBar {
 
     static func validatePreflightArguments(_ arguments: [String]) throws {
         try validateHelpTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
-        try validateVersionTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
-        try validateMachineOutputTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
+        try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isInlineVersionFlag)
+        try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isMachineOutputFlag)
         try validateHelpCommandPath(arguments)
         try validateTrailingInlineHelpArguments(arguments)
         try validateTrailingInlineVersionArguments(arguments)
     }
 
-    private static func validateVersionTarget(
+    private static func validateTopLevelTarget(
         _ arguments: [String],
-        knownTopLevelHelpTargets: Set<String>
+        knownTopLevelTargets: Set<String>,
+        when isFlag: (String) -> Bool
     ) throws {
-        guard arguments.contains(where: isInlineVersionFlag),
+        guard arguments.contains(where: isFlag),
               let first = arguments.first,
-              !isInlineVersionFlag(first),
+              !isFlag(first),
               !first.hasPrefix("-")
         else {
             return
         }
 
-        guard knownTopLevelHelpTargets.contains(first) else {
-            throw ValidationError("""
-            Unexpected argument '\(first)'
-            Usage: updatebar <subcommand>
-              See 'updatebar --help' for more information.
-            """)
-        }
-    }
-
-    private static func validateMachineOutputTarget(
-        _ arguments: [String],
-        knownTopLevelHelpTargets: Set<String>
-    ) throws {
-        guard arguments.contains(where: isMachineOutputFlag),
-              let first = arguments.first,
-              !isMachineOutputFlag(first),
-              !first.hasPrefix("-")
-        else {
-            return
-        }
-
-        guard knownTopLevelHelpTargets.contains(first) else {
+        guard knownTopLevelTargets.contains(first) else {
             throw ValidationError("""
             Unexpected argument '\(first)'
             Usage: updatebar <subcommand>
