@@ -471,7 +471,7 @@ final class ManageItemCommandTests: XCTestCase {
         }
     }
 
-    func testMutationJSONRedactsSecretLikeTrustMetadata() throws {
+    func testMutationJSONRejectsSecretLikeTrustMetadataWithoutLeaking() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
         let secret = "sk-or-v1-secret-value"
@@ -484,9 +484,12 @@ final class ManageItemCommandTests: XCTestCase {
         ))
 
         let result = try CLIProcess.run(["disable", "tool", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
-        XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stdout.contains("[REDACTED]"))
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "registry_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("approved_commands[update.cmd]: must not contain literal secrets") })
         XCTAssertFalse(result.stdout.contains(secret))
     }
 

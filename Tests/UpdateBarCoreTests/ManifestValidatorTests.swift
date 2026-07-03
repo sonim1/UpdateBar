@@ -533,6 +533,38 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertFalse(result.errors.joined(separator: "\n").contains(secret))
     }
 
+    func testRejectsSecretLikeApprovedCommandFingerprints() throws {
+        let secret = "sk-or-v1-secret-value"
+        let result = try validateFirstRawItem {
+            var trust = try XCTUnwrap($0["trust"] as? [String: Any])
+            trust["approved_commands"] = [
+                "update.cmd": secret,
+            ] as [String: Any]
+            $0["trust"] = trust
+        }
+
+        XCTAssertTrue(
+            result.errors.contains("items[0].trust.approved_commands[update.cmd]: must not contain literal secrets")
+        )
+        XCTAssertFalse(result.errors.joined(separator: "\n").contains(secret))
+    }
+
+    func testRejectsSecretLikeApprovedCommandFieldNames() throws {
+        let secret = "sk-or-v1-secret-value"
+        let result = try validateFirstRawItem {
+            var trust = try XCTUnwrap($0["trust"] as? [String: Any])
+            trust["approved_commands"] = [
+                secret: "abc123",
+            ] as [String: Any]
+            $0["trust"] = trust
+        }
+
+        XCTAssertTrue(
+            result.errors.contains("items[0].trust.approved_commands[[REDACTED]]: must not contain literal secrets")
+        )
+        XCTAssertFalse(result.errors.joined(separator: "\n").contains(secret))
+    }
+
     func testRejectsJQVersionParseUntilRuntimeSupportExists() throws {
         let result = try validateFirstRawItem {
             $0["version_parse"] = ["jq": ".version"]

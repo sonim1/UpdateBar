@@ -236,8 +236,14 @@ public enum RecipeValidator {
             errors.append("\(path).level: unsupported value \(redactedValue(level))")
         }
         if let approvedCommands = trust["approved_commands"] as? [String: Any] {
-            for (field, fingerprint) in approvedCommands where !(fingerprint is String) {
-                errors.append("\(path).approved_commands[\(redactedValue(field))]: must be a string")
+            for (field, fingerprint) in approvedCommands {
+                let fieldPath = "\(path).approved_commands[\(redactedValue(field))]"
+                errors += rejectLiteralSecret(field, path: fieldPath)
+                guard let fingerprint = fingerprint as? String else {
+                    errors.append("\(fieldPath): must be a string")
+                    continue
+                }
+                errors += rejectLiteralSecret(fingerprint, path: fieldPath)
             }
         } else {
             errors.append("\(path).approved_commands: required")
