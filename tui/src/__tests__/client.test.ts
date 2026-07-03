@@ -169,6 +169,19 @@ describe('CLIUpdateBarClient', () => {
     await expect(client.initSelected(['brew.gh'])).rejects.toThrow('brew.gh: duplicate item');
   });
 
+  it('prefers structured JSON errors over stderr on failed commands', async () => {
+    const runner = new FakeRunner({
+      exitCode: 1,
+      stdout: '{"ok":false,"errors":["missing.key: unknown config key"]}',
+      stderr: 'raw parser failure'
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.initSelected(['brew.gh'])).rejects.toThrow(
+      'missing.key: unknown config key'
+    );
+  });
+
   it('cancels subprocesses with AbortSignal', async () => {
     const runner = new SubprocessRunner('/bin/sh');
     const controller = new AbortController();

@@ -137,7 +137,7 @@ export async function createDefaultClient(
 
 function ensureExit(result: CommandResult, allowed: number[]) {
   if (!allowed.includes(result.exitCode)) {
-    const detail = result.stderr.trim() || stdoutError(result.stdout) || `exit ${result.exitCode}`;
+    const detail = stdoutError(result.stdout) || result.stderr.trim() || `exit ${result.exitCode}`;
     throw new Error(detail);
   }
 }
