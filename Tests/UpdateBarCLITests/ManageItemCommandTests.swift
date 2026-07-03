@@ -204,6 +204,30 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("updatebar approvals tool") })
     }
 
+    func testApproveInvalidFieldJSONRedactsSecretLikeRecoveryHintID() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secretID = "sk-or-v1-secret-value"
+        var item = recipe()
+        item.id = secretID
+        try ManifestStore(paths: paths).save(Manifest(
+            schemaVersion: 1,
+            items: [item],
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        ))
+
+        let result = try CLIProcess.run(
+            ["approve", secretID, "--field", "install.cmd", "--json"],
+            home: home
+        )
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.isEmpty)
+        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar approvals [REDACTED]") })
+        XCTAssertFalse(result.stdout.contains(secretID))
+    }
+
     func testRevokeInvalidFieldHumanSuggestsApprovals() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)

@@ -78,7 +78,7 @@ private func sanitizedErrorMessages(for error: Error, arguments: [String]) -> [S
     guard let recoveryHint = recoveryHint(for: error, arguments: arguments) else {
         return messages
     }
-    return messages + [recoveryHint]
+    return messages + [SecretRedactor.redact(recoveryHint)]
 }
 
 private func recoveryHint(for error: Error, arguments: [String]) -> String? {
