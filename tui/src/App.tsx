@@ -554,7 +554,18 @@ function ScanList({
   cursorIndex: number;
 }) {
   if (!report) return <Text dimColor>Scanning...</Text>;
-  if (report.candidates.length === 0) return <Text dimColor>No scan candidates</Text>;
+  if (report.candidates.length === 0) {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text dimColor>No scan candidates</Text>
+        {report.errors.map(error => (
+          <Text key={`${error.detector}-${error.message}`} color="yellow">
+            {redactSecrets(`${error.detector}: ${error.message}`)}
+          </Text>
+        ))}
+      </Box>
+    );
+  }
   const importableCount = report.candidates.filter(canRegister).length;
   const reviewCount = report.candidates.length - importableCount;
   const visibleRows = getVisibleRows(report.candidates, cursorIndex, 8);

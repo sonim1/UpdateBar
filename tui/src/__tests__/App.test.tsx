@@ -169,6 +169,32 @@ describe('App', () => {
     expect(view.lastFrame()).not.toContain(secret);
   });
 
+  it('shows scan errors when no candidates are found', async () => {
+    const client = createClient({
+      async scan() {
+        return {
+          candidates: [],
+          errors: [
+            {
+              detector: 'brew',
+              message: 'brew list failed'
+            }
+          ]
+        };
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'No scan candidates');
+
+    expect(view.lastFrame()).toContain('No scan candidates');
+    expect(view.lastFrame()).toContain('brew: brew list failed');
+  });
+
   it('returns from status to the menu', async () => {
     const client = createClient();
     const view = render(<App client={client} />);
