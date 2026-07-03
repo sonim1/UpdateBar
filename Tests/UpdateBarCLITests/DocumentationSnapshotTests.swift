@@ -741,6 +741,14 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(troubleshooting.contains("~/UpdateBar.app"))
     }
 
+    func testTroubleshootingDocumentsHomebrewXcodeLicenseRecovery() throws {
+        let troubleshooting = try String(contentsOfFile: "docs/troubleshooting.md", encoding: .utf8)
+
+        XCTAssertTrue(troubleshooting.contains("Xcode license"))
+        XCTAssertTrue(troubleshooting.contains("sudo xcodebuild -license accept"))
+        XCTAssertTrue(troubleshooting.contains("brew tap sonim1/tap"))
+    }
+
     func testTUISourceDocsRunTheLocalBuiltCLI() throws {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let tuiReadme = try String(contentsOfFile: "tui/README.md", encoding: .utf8)

@@ -10,6 +10,24 @@ an executable Swift CLI path:
 UPDATEBAR_BIN=/full/path/to/updatebar updatebar tui
 ```
 
+## Homebrew Requires The Xcode License
+
+If `brew tap sonim1/tap` or `brew install sonim1/tap/updatebar` stops with an
+Xcode license error, accept the local Xcode license and rerun the Homebrew
+command:
+
+```bash
+sudo xcodebuild -license accept
+brew tap sonim1/tap
+brew install sonim1/tap/updatebar
+```
+
+If `xcodebuild` is not available, install the command line tools first:
+
+```bash
+xcode-select --install
+```
+
 ## Invalid JSON Or JSONL
 
 Machine-readable commands reserve stdout for JSON or JSONL only. Human errors go
