@@ -1,6 +1,7 @@
 import {constants} from 'node:fs';
 import {access, stat} from 'node:fs/promises';
 import path from 'node:path';
+import {redactSecrets} from './secrets.js';
 
 export type BinarySource =
   | 'UPDATEBAR_BIN'
@@ -62,7 +63,7 @@ async function explicitPath(value: string | undefined, source: BinarySource, cwd
   if (!value) return undefined;
   const candidate = path.isAbsolute(value) ? value : path.resolve(cwd, value);
   if (!(await isExecutable(candidate))) {
-    throw new BinaryResolutionError(`${source} path is not executable: ${candidate}`);
+    throw new BinaryResolutionError(`${source} path is not executable: ${redactSecrets(candidate)}`);
   }
   return {path: candidate, source};
 }

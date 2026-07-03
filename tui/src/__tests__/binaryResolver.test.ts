@@ -128,6 +128,25 @@ describe('resolveUpdateBarBinary', () => {
       resolveUpdateBarBinary({env: {}, cwd: root, defaultPathEntries: []})
     ).rejects.toThrow(/updatebar binary not found.*swift build.*set UPDATEBAR_BIN/);
   });
+
+  it('redacts secret-like values in invalid explicit paths', async () => {
+    const root = await tempDir();
+
+    await expect(
+      resolveUpdateBarBinary({
+        env: {UPDATEBAR_BIN: '/tmp/sk-or-v1-secret-value/updatebar'},
+        cwd: root,
+        defaultPathEntries: []
+      })
+    ).rejects.toThrow(/UPDATEBAR_BIN path is not executable: \/tmp\/\[REDACTED\]\/updatebar/);
+    await expect(
+      resolveUpdateBarBinary({
+        env: {UPDATEBAR_BIN: '/tmp/sk-or-v1-secret-value/updatebar'},
+        cwd: root,
+        defaultPathEntries: []
+      })
+    ).rejects.not.toThrow('sk-or-v1-secret-value');
+  });
 });
 
 async function tempDir() {
