@@ -100,6 +100,18 @@ describe('CLIUpdateBarClient', () => {
     await expect(client.scan()).rejects.toThrow('unexpected scan result format from updatebar');
   });
 
+  it('reports unexpected scan optional field JSON shape with command context', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout:
+        '{"candidates":[{"id":"brew.gh","name":"gh","detector":"brew","category":"cloud-devops","capability":"full","confidence":"high","installed_version":123,"recipe":{}}],"errors":[]}',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.scan()).rejects.toThrow('unexpected scan result format from updatebar');
+  });
+
   it('passes cancellation to scan commands', async () => {
     const runner = new FakeRunner({
       exitCode: 0,

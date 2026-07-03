@@ -354,7 +354,9 @@ function isScanCandidate(value: unknown): value is ScanCandidate {
     typeof value.confidence === 'string' &&
     SCAN_DETECTORS.has(value.detector as ScanCandidate['detector']) &&
     SCAN_CAPABILITIES.has(value.capability as ScanCandidate['capability']) &&
-    SCAN_CONFIDENCES.has(value.confidence as ScanCandidate['confidence'])
+    SCAN_CONFIDENCES.has(value.confidence as ScanCandidate['confidence']) &&
+    isOptionalString(value.installed_version) &&
+    isOptionalString(value.source_ref)
   );
 }
 
