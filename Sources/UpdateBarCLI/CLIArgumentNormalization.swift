@@ -34,6 +34,24 @@ func normalizeCLIArguments(_ arguments: [String]) -> [String] {
     return normalized
 }
 
+func validateHelpTarget(_ arguments: [String], knownTopLevelHelpTargets: Set<String>) throws {
+    guard arguments.contains(where: isHelpFlag),
+          let first = arguments.first,
+          !isHelpFlag(first),
+          !first.hasPrefix("-")
+    else {
+        return
+    }
+
+    guard knownTopLevelHelpTargets.contains(first) else {
+        throw ValidationError("""
+        Unexpected argument '\(first)'
+        Usage: updatebar <subcommand>
+          See 'updatebar --help' for more information.
+        """)
+    }
+}
+
 private func normalizeBooleanFlagValuePair(flag: String, value: String) -> [String]? {
     guard isBooleanFlag(flag),
           let boolValue = parseBooleanValue(value)
@@ -73,6 +91,10 @@ private enum NormalizedArgument {
 
 private func isBooleanFlag(_ argument: String) -> Bool {
     jsonBooleanFlags.contains(argument)
+}
+
+private func isHelpFlag(_ argument: String) -> Bool {
+    argument == "--help" || argument == "-h"
 }
 
 private func parseBooleanValue(_ value: String) -> Bool? {

@@ -49,11 +49,20 @@ struct UpdateBar: ParsableCommand {
     }()
 }
 
+private extension UpdateBar {
+    static var topLevelHelpTargets: Set<String> {
+        Set(configuration.subcommands.flatMap { subcommand in
+            [subcommand._commandName] + subcommand.configuration.aliases
+        }).union(["help"])
+    }
+}
+
 @main
 enum UpdateBarMain {
     static func main() {
         let arguments = normalizeCLIArguments(Array(CommandLine.arguments.dropFirst()))
         do {
+            try validateHelpTarget(arguments, knownTopLevelHelpTargets: UpdateBar.topLevelHelpTargets)
             var command = try UpdateBar.parseAsRoot(arguments)
             try command.run()
         } catch {
