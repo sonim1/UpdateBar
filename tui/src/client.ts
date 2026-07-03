@@ -267,7 +267,8 @@ function parseStatusSnapshot(payload: string): StatusSnapshot {
   const snapshot = parseJSON<unknown>(payload, 'status');
   if (
     !isObject(snapshot) ||
-    !isObject(snapshot.summary) ||
+    typeof snapshot.generated_at !== 'string' ||
+    !isStatusSummary(snapshot.summary) ||
     !Array.isArray(snapshot.items) ||
     !snapshot.items.every(isStatusItem)
   ) {
@@ -303,6 +304,20 @@ function parseInitResult(payload: string): InitResult {
     throw new Error('unexpected init result format from updatebar');
   }
   return result as unknown as InitResult;
+}
+
+function isStatusSummary(value: unknown): value is StatusSnapshot['summary'] {
+  if (!isObject(value)) return false;
+  return (
+    typeof value.total === 'number' &&
+    typeof value.outdated === 'number' &&
+    typeof value.errors === 'number' &&
+    isOptionalNumber(value.untrusted) &&
+    isOptionalNumber(value.pinned) &&
+    isOptionalNumber(value.disabled) &&
+    isOptionalNumber(value.checking) &&
+    isOptionalNumber(value.differs)
+  );
 }
 
 function parseCheckResults(results: unknown[]): CheckResult[] {
@@ -364,6 +379,10 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(item => typeof item === 'string');
+}
+
+function isOptionalNumber(value: unknown) {
+  return value === undefined || typeof value === 'number';
 }
 
 function normalizeStatusSnapshot(snapshot: StatusSnapshot): StatusSnapshot {

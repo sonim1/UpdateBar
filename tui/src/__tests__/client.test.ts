@@ -213,6 +213,18 @@ describe('CLIUpdateBarClient', () => {
     await expect(client.status()).rejects.toThrow('unexpected status result format from updatebar');
   });
 
+  it('reports unexpected status summary JSON shape with command context', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout:
+        '{"generated_at":"2026-06-30T00:00:00Z","summary":{"total":"1","outdated":0,"errors":0},"items":[]}',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.status()).rejects.toThrow('unexpected status result format from updatebar');
+  });
+
   it('summarizes differs check results from the Swift CLI contract', async () => {
     const runner = new FakeRunner({
       exitCode: 10,
