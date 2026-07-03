@@ -347,6 +347,25 @@ final class InitCommandTests: XCTestCase {
         XCTAssertEqual(payload.added, ["brew.gh", "brew.jq"])
     }
 
+    func testInitRejectsAllCombinedWithExplicitSelections() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            [
+                "init", "--json", "--select", "all,brew.gh",
+            ],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertTrue(payload.errors.contains { $0.contains("select: all cannot be combined") })
+    }
+
     func testInitDetectorsFlagIsRemovedFromCLI() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = home.appendingPathComponent("bin")

@@ -89,7 +89,10 @@ struct InitCommand: ParsableCommand {
                 throw ValidationError("select: expected at least one candidate id")
             }
             let importable = importableCandidates(from: report)
-            if values.count == 1, values[0] == "all" {
+            if values.contains(where: isAllSelectionToken) {
+                guard values.count == 1 else {
+                    throw ValidationError("select: all cannot be combined with other selections")
+                }
                 guard !importable.isEmpty else {
                     throw noImportableCandidatesError(for: report, categoryFilter: categoryFilter)
                 }
@@ -174,7 +177,10 @@ struct InitCommand: ParsableCommand {
         _ values: [String],
         candidates: [ScanCandidate]
     ) throws -> [String] {
-        if values.count == 1 && values[0].lowercased() == "all" {
+        if values.contains(where: isAllSelectionToken) {
+            guard values.count == 1 else {
+                throw ValidationError("select: all cannot be combined with other selections")
+            }
             return candidates.map(\.id)
         }
         return try unique(values).map { value in
@@ -190,6 +196,10 @@ struct InitCommand: ParsableCommand {
 
     private func parseSelectionTokens(_ value: String) -> [String] {
         parseList(value)
+    }
+
+    private func isAllSelectionToken(_ value: String) -> Bool {
+        value.lowercased() == "all"
     }
 
     private func printImportable(_ candidates: [ScanCandidate]) {
