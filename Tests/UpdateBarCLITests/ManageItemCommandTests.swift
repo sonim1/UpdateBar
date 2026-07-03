@@ -325,7 +325,31 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("updatebar approvals tool") })
     }
 
-    func testApproveInvalidFieldJSONRedactsSecretLikeRecoveryHintID() throws {
+    func testApproveRejectsInvalidManifestBeforeCommandFieldLookup() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secret = "sk-or-v1-secret-value"
+        var item = recipe()
+        item.update.cmd = "OPENROUTER_API_KEY=\(secret) tool update"
+        try ManifestStore(paths: paths).save(Manifest(
+            schemaVersion: 1,
+            items: [item],
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        ))
+
+        let result = try CLIProcess.run(["approve", "tool", "--field", "install.cmd", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let combined = result.stdout + result.stderr
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "registry_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].update.cmd: must not contain literal secrets") })
+        XCTAssertFalse(payload.errors.contains { $0.contains("install.cmd: command field not found") })
+        XCTAssertFalse(combined.contains(secret))
+    }
+
+    func testApproveJSONRedactsSecretLikeIDValidationError() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
         let secretID = "sk-or-v1-secret-value"
@@ -345,7 +369,8 @@ final class ManageItemCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.isEmpty)
-        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar approvals [REDACTED]") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].id: must not contain literal secrets") })
+        XCTAssertFalse(payload.errors.contains { $0.contains("updatebar approvals") })
         XCTAssertFalse(result.stdout.contains(secretID))
     }
 

@@ -219,6 +219,7 @@ public struct RegistryService {
     public func approve(id: String, field: String? = nil) throws -> Recipe {
         try manifestStore.withExclusiveLock {
             var manifest = try manifestStore.loadExistingOrEmpty(now: now())
+            try validate(manifest)
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }
