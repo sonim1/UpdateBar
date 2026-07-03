@@ -71,14 +71,29 @@ public struct Recipe: Codable, Equatable {
         let checkMaterial = check.fingerprintMaterial()
         let latestMaterial = latest.fingerprintMaterial(source: source)
         if case let .command(cmd) = check {
-            commands["check.cmd"] = Fingerprint.sha256("\(id)|check.cmd|\(cmd)|")
+            commands["check.cmd"] = Fingerprint.sha256(canonicalFingerprintMaterial([
+                "recipe", id,
+                "field", "check.cmd",
+                "cmd", cmd,
+            ]))
         }
         if latest.strategy == .cmd, let cmd = latest.cmd {
-            commands["latest.cmd"] = Fingerprint.sha256("\(id)|latest.cmd|\(cmd)|")
+            commands["latest.cmd"] = Fingerprint.sha256(canonicalFingerprintMaterial([
+                "recipe", id,
+                "field", "latest.cmd",
+                "cmd", cmd,
+            ]))
         }
         let cwd = update.cwd ?? ""
         commands["update.cmd"] = Fingerprint.sha256(
-            "\(id)|update.cmd|\(update.cmd)|\(cwd)|\(checkMaterial)|\(latestMaterial)"
+            canonicalFingerprintMaterial([
+                "recipe", id,
+                "field", "update.cmd",
+                "cmd", update.cmd,
+                "cwd", cwd,
+                "check", checkMaterial,
+                "latest", latestMaterial,
+            ])
         )
         return commands
     }
@@ -206,9 +221,9 @@ public enum CheckSpec: Codable, Equatable {
     fileprivate func fingerprintMaterial() -> String {
         switch self {
         case let .command(cmd):
-            return "cmd|\(cmd)"
+            return canonicalFingerprintMaterial(["check", "cmd", cmd])
         case let .file(path):
-            return "file|\(path)"
+            return canonicalFingerprintMaterial(["check", "file", path])
         }
     }
 }
@@ -225,15 +240,19 @@ public struct LatestSpec: Codable, Equatable {
     }
 
     fileprivate func fingerprintMaterial(source: Source) -> String {
-        [
-            "strategy=\(strategy.rawValue)",
-            "source.kind=\(source.kind.rawValue)",
-            "source.ref=\(source.ref)",
-            "source.branch=\(source.branch ?? "")",
-            "cmd=\(cmd ?? "")",
-            "pattern=\(pattern ?? "")",
-        ].joined(separator: "|")
+        canonicalFingerprintMaterial([
+            "latest", "strategy", strategy.rawValue,
+            "source.kind", source.kind.rawValue,
+            "source.ref", source.ref,
+            "source.branch", source.branch ?? "",
+            "cmd", cmd ?? "",
+            "pattern", pattern ?? "",
+        ])
     }
+}
+
+private func canonicalFingerprintMaterial(_ components: [String]) -> String {
+    components.map { "\($0.utf8.count):\($0)" }.joined(separator: "|")
 }
 
 public enum LatestStrategyKind: String, Codable, Equatable {

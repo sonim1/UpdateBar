@@ -113,6 +113,23 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertEqual(original["check.cmd"], changedSource["check.cmd"])
     }
 
+    func testUpdateFingerprintDoesNotCollideWhenCommandAndCWDContainSeparators() throws {
+        let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
+        let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        var first = try XCTUnwrap(manifest.item(id: "claude-code"))
+        var second = first
+
+        first.update.cmd = "tool --flag=a|b"
+        first.update.cwd = "c"
+        second.update.cmd = "tool --flag=a"
+        second.update.cwd = "b|c"
+
+        XCTAssertNotEqual(
+            first.commandFingerprints()["update.cmd"],
+            second.commandFingerprints()["update.cmd"]
+        )
+    }
+
     func testManifestStoreInitializesEmptyManifestInUpdateBarHome() throws {
         let root = try temporaryDirectory()
         let store = ManifestStore(paths: AppPaths(homeDirectory: root))
