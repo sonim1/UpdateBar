@@ -450,6 +450,52 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
     }
 
+    func testMenuItemTitlesRedactSecretLikeStatusFields() {
+        let state = MenuBarState(
+            title: "Sensitive state",
+            badgeValue: "!",
+            outdatedItems: [
+                statusItem(
+                    id: "old",
+                    name: "Old sk-or-v1-secret-value",
+                    current: "1.0.0-sk-or-v1-secret-value",
+                    latest: "1.1.0-sk-or-v1-secret-value",
+                    status: .outdated
+                )
+            ],
+            approvalItems: [],
+            errorItems: [
+                statusItem(
+                    id: "broken",
+                    name: "Broken sk-or-v1-secret-value",
+                    status: .error,
+                    error: "failed with sk-or-v1-secret-value"
+                )
+            ],
+            okItems: [
+                statusItem(
+                    id: "ready",
+                    name: "Ready sk-or-v1-secret-value",
+                    current: "2.0.0-sk-or-v1-secret-value",
+                    status: .ok
+                )
+            ]
+        )
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:]
+        )
+
+        XCTAssertTrue(
+            model.entries.labels.contains(
+                "Old [REDACTED] 1.0.0-[REDACTED] -> 1.1.0-[REDACTED]"
+            ))
+        XCTAssertTrue(model.entries.labels.contains("Broken [REDACTED]: failed with [REDACTED]"))
+        XCTAssertTrue(model.entries.labels.contains("Ready [REDACTED] 2.0.0-[REDACTED]"))
+        XCTAssertFalse(model.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
+    }
+
     func testBuildsCompactMenuWithOverflowSummaries() {
         let outdated = Array(1...8).map {
             statusItem(

@@ -80,7 +80,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
             appendDisabled(updateAllAction.title, toolTip: "No updates available.", to: &entries)
         } else {
             let confirmation = MenuBarActionConfirmation.updateAllApprovedOutdated(
-                itemNames: state.outdatedItems.map(\.name)
+                itemNames: state.outdatedItems.map { SecretRedactor.redact($0.name) }
             )
             appendAction(
                 updateAllAction.title,
@@ -131,13 +131,16 @@ public struct MenuBarMenuModelBuilder: Sendable {
     ) {
         appendSection("Updates (\(items.count))", items: items, to: &entries) { item in
             let updateCommand = approvalStatuses[item.id]?.first { $0.field == "update.cmd" }
+            let name = SecretRedactor.redact(item.name)
+            let current = item.current.map(SecretRedactor.redact) ?? "?"
+            let latest = item.latest.map(SecretRedactor.redact) ?? "?"
             let confirmation = MenuBarActionConfirmation.updateItem(
-                id: item.id,
+                id: SecretRedactor.redact(item.id),
                 command: updateCommand.map { SecretRedactor.redact($0.command) },
                 cwd: updateCommand?.cwd.map(SecretRedactor.redact)
             )
             return MenuBarMenuItem(
-                title: "\(item.name) \(item.current ?? "?") -> \(item.latest ?? "?")",
+                title: "\(name) \(current) -> \(latest)",
                 action: .update(id: item.id),
                 toolTip: confirmation.toolTip,
                 confirmation: confirmation
@@ -169,7 +172,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
                 if addedItems >= Self.maxApprovalItems {
                     break
                 }
-                appendDisabled("  \(item.name): no command fields", to: &entries)
+                appendDisabled("  \(SecretRedactor.redact(item.name)): no command fields", to: &entries)
                 addedItems += 1
                 continue
             }
@@ -179,7 +182,10 @@ public struct MenuBarMenuModelBuilder: Sendable {
             }
 
             let plural = approvals.count == 1 ? "" : "s"
-            appendDisabled("  \(item.name) (\(approvals.count) command\(plural))", to: &entries)
+            appendDisabled(
+                "  \(SecretRedactor.redact(item.name)) (\(approvals.count) command\(plural))",
+                to: &entries
+            )
             addedItems += 1
 
             let remaining = Self.maxApprovalItems - addedItems
@@ -195,7 +201,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
                     ? .revoke(id: item.id, field: approval.field)
                     : .approve(id: item.id, field: approval.field)
                 let confirmation = MenuBarActionConfirmation.commandApproval(
-                    id: item.id,
+                    id: SecretRedactor.redact(item.id),
                     field: approval.field,
                     approving: !approval.approved,
                     command: redactedCommand,
@@ -237,14 +243,17 @@ public struct MenuBarMenuModelBuilder: Sendable {
 
     private func appendErrors(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
         appendSection("Errors (\(items.count))", items: items, to: &entries) { item in
+            let name = SecretRedactor.redact(item.name)
             let error = SecretRedactor.redact(item.error ?? "error")
-            return MenuBarMenuItem(title: "\(item.name): \(error)")
+            return MenuBarMenuItem(title: "\(name): \(error)")
         }
     }
 
     private func appendInstalled(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
         appendSection("Installed (\(items.count))", items: items, to: &entries) { item in
-            MenuBarMenuItem(title: "\(item.name) \(item.current ?? "")")
+            let name = SecretRedactor.redact(item.name)
+            let current = item.current.map { " \(SecretRedactor.redact($0))" } ?? ""
+            return MenuBarMenuItem(title: "\(name)\(current)")
         }
     }
 
