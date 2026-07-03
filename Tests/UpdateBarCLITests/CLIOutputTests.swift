@@ -45,6 +45,28 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("status"))
     }
 
+    func testRootHelpRejectsTrailingCommandTarget() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["--help", "status"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("status"))
+        XCTAssertTrue(result.stderr.contains("updatebar help status"))
+    }
+
+    func testInlineHelpRejectsTrailingArgument() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["status", "--help", "extra"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("extra"))
+        XCTAssertTrue(result.stderr.contains("updatebar status --help"))
+    }
+
     func testUnknownCommandWithJSONDoesNotExposeEnvironmentSecret() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
         let secret = "sk-or-v1-super-secret-value"

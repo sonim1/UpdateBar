@@ -81,6 +81,55 @@ private extension UpdateBar {
             command = next
         }
     }
+
+    static func validateTrailingInlineHelpArguments(_ arguments: [String]) throws {
+        guard arguments.first != "help",
+              let helpIndex = arguments.firstIndex(where: isInlineHelpFlag)
+        else {
+            return
+        }
+
+        let afterHelpIndex = arguments.index(after: helpIndex)
+        guard afterHelpIndex < arguments.endIndex,
+              let trailing = arguments[afterHelpIndex...].first(where: { !$0.hasPrefix("-") })
+        else {
+            return
+        }
+
+        let helpCommand = inlineHelpCommand(argumentsBeforeHelp: arguments[..<helpIndex])
+        let message = helpCommand == "updatebar --help"
+            ? """
+            Unexpected argument '\(trailing)' after \(helpCommand)
+            Usage: updatebar --help
+              Use 'updatebar help \(trailing)' for subcommand help.
+            """
+            : """
+            Unexpected argument '\(trailing)' after \(helpCommand)
+            Usage: \(helpCommand)
+            """
+        throw ValidationError(message)
+    }
+
+    private static func inlineHelpCommand(argumentsBeforeHelp: ArraySlice<String>) -> String {
+        var command: ParsableCommand.Type = Self.self
+        var path: [String] = []
+        for target in argumentsBeforeHelp {
+            guard !target.hasPrefix("-"),
+                  let next = command.configuration.subcommands.first(where: { subcommand in
+                      subcommand._commandName == target || subcommand.configuration.aliases.contains(target)
+                  })
+            else {
+                break
+            }
+            path.append(target)
+            command = next
+        }
+        return path.isEmpty ? "updatebar --help" : "updatebar \(path.joined(separator: " ")) --help"
+    }
+
+    private static func isInlineHelpFlag(_ argument: String) -> Bool {
+        argument == "--help" || argument == "-h"
+    }
 }
 
 @main
@@ -90,6 +139,7 @@ enum UpdateBarMain {
         do {
             try validateHelpTarget(arguments, knownTopLevelHelpTargets: UpdateBar.topLevelHelpTargets)
             try UpdateBar.validateHelpCommandPath(arguments)
+            try UpdateBar.validateTrailingInlineHelpArguments(arguments)
             var command = try UpdateBar.parseAsRoot(arguments)
             try command.run()
         } catch {
