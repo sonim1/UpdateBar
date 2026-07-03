@@ -41,6 +41,9 @@ bash Scripts/e2e-edgecases.sh
 echo "running release tar args check"
 bash Scripts/release-tar-args-test.sh
 
+echo "running archive checksum verification behavior check"
+bash Scripts/verify-archive-checksum-test.sh
+
 echo "running release archive behavior check"
 bash Scripts/build-release-archive-test.sh
 

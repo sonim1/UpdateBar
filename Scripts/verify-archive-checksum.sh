@@ -8,6 +8,10 @@ if [[ -z "$ARCHIVE" ]]; then
   echo "usage: Scripts/verify-archive-checksum.sh <archive> [sha_file]" >&2
   exit 1
 fi
+if [[ ! -f "$ARCHIVE" ]]; then
+  echo "missing archive: $ARCHIVE" >&2
+  exit 1
+fi
 if [[ ! -f "$SHA_FILE" ]]; then
   echo "missing checksum file: $SHA_FILE" >&2
   exit 1
