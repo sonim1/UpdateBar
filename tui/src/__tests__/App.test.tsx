@@ -206,6 +206,27 @@ describe('App', () => {
     }
   });
 
+  it('clears stale status errors when showing the config path', async () => {
+    const client = createClient({
+      async status() {
+        throw new Error('status unavailable');
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'status unavailable');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'config path:');
+
+    expect(view.lastFrame()).toContain('config path:');
+    expect(view.lastFrame()).not.toContain('status unavailable');
+  });
+
   it('shows an empty state when viewing logs before an action runs', async () => {
     const client = createClient();
     const view = render(<App client={client} />);

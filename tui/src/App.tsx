@@ -252,6 +252,7 @@ export function App({client: providedClient}: AppProps) {
         return;
       case 'config-path':
         setScreen('logs');
+        setError(undefined);
         setLogs([
           `config path: ${getConfigPath()}`,
           'open this file in your editor to inspect configuration'
