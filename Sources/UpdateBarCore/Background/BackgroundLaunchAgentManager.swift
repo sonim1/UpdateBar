@@ -79,7 +79,11 @@ public struct BackgroundLaunchAgentManager {
             return relativeExecutable.standardizedFileURL.path
         }
         for directory in (environment["PATH"] ?? "").split(separator: ":") {
-            let candidate = URL(fileURLWithPath: String(directory))
+            let directoryPath = String(directory)
+            guard (directoryPath as NSString).isAbsolutePath else {
+                continue
+            }
+            let candidate = URL(fileURLWithPath: directoryPath)
                 .appendingPathComponent(executableName)
             if fileManager.isExecutableFile(atPath: candidate.path) {
                 return candidate.standardizedFileURL.path

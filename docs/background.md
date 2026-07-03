@@ -41,6 +41,7 @@ Behavior:
 
 - writes `~/Library/LaunchAgents/com.updatebar.check.plist`
 - runs the installed `updatebar` binary by absolute path
+- ignores relative `PATH` entries such as `.` when resolving that binary
 - invokes only `updatebar check --exit-zero-on-outdated`
 - never invokes `update`, `import`, `approve`, or `remove`
 - sets `UPDATEBAR_HOME` to the home used at install time
