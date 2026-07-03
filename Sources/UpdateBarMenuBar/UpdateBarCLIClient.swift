@@ -129,11 +129,11 @@ public struct UpdateBarCLIClient: Sendable {
 
     private static func errorDetail(from result: CommandResult) -> String {
         if let detail = jsonErrorDetail(from: result.stdout) {
-            return detail
+            return SecretRedactor.redact(detail)
         }
         let stderr = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
         if !stderr.isEmpty {
-            return stderr
+            return SecretRedactor.redact(stderr)
         }
         return ""
     }

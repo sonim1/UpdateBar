@@ -72,6 +72,36 @@ final class UpdateBarCLIClientTests: XCTestCase {
         }
     }
 
+    func testRedactsStructuredJSONErrorDetails() {
+        let runner = RecordingRunner(
+            result: CommandResult(
+                exitCode: 1,
+                stdout: #"{"ok":false,"errors":["failed sk-or-v1-secret-value"]}"#,
+                stderr: ""
+            )
+        )
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        XCTAssertThrowsError(try client.status(refresh: false)) { error in
+            let message = String(describing: error)
+            XCTAssertFalse(message.contains("sk-or-v1-secret-value"))
+            XCTAssertTrue(message.contains("[REDACTED]"))
+        }
+    }
+
+    func testRedactsStderrFallbackErrorDetails() {
+        let runner = RecordingRunner(
+            result: CommandResult(exitCode: 1, stdout: "", stderr: "failed sk-or-v1-secret-value")
+        )
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        XCTAssertThrowsError(try client.status(refresh: false)) { error in
+            let message = String(describing: error)
+            XCTAssertFalse(message.contains("sk-or-v1-secret-value"))
+            XCTAssertTrue(message.contains("[REDACTED]"))
+        }
+    }
+
     func testUpdateActionsUseHeadlessJSONFlags() throws {
         let runner = RecordingRunner(result: CommandResult(exitCode: 0, stdout: "[]", stderr: ""))
         let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
