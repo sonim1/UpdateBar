@@ -59,7 +59,7 @@ func printNextCommands(_ commands: [String], leadingBlank: Bool = true) {
 }
 
 func approvalCommand(for id: String) -> String {
-    "updatebar approvals \(id)"
+    "updatebar approvals \(displayID(id))"
 }
 
 func approvalCommands(for ids: [String]) -> [String] {
@@ -67,11 +67,11 @@ func approvalCommands(for ids: [String]) -> [String] {
 }
 
 func approveFieldCommand(for id: String, field: String) -> String {
-    "updatebar approve \(id) --field \(field)"
+    "updatebar approve \(displayID(id)) --field \(field)"
 }
 
 func checkCommand(for id: String) -> String {
-    "updatebar check \(id)"
+    "updatebar check \(displayID(id))"
 }
 
 func checkCommands(for ids: [String]) -> [String] {
@@ -81,13 +81,17 @@ func checkCommands(for ids: [String]) -> [String] {
 func batchCheckCommand(for ids: [String]) -> String? {
     let ids = ids.filter { !$0.isEmpty }
     guard !ids.isEmpty else { return nil }
-    return "updatebar check \(ids.joined(separator: " "))"
+    return "updatebar check \(ids.map(displayID).joined(separator: " "))"
 }
 
 func batchUpdateYesCommand(for ids: [String]) -> String? {
     let ids = ids.filter { !$0.isEmpty }
     guard !ids.isEmpty else { return nil }
-    return "updatebar update \(ids.joined(separator: " ")) --yes"
+    return "updatebar update \(ids.map(displayID).joined(separator: " ")) --yes"
+}
+
+private func displayID(_ id: String) -> String {
+    SecretRedactor.redact(id)
 }
 
 func normalizedCategory(for value: String) throws -> String {

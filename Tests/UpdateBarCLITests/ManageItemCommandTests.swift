@@ -107,6 +107,23 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains(secretID))
     }
 
+    func testRemovePromptRedactsLegacySecretLikeID() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secretID = "sk-or-v1-secret-value"
+        try saveLegacySecretIDItem(secretID, paths: paths)
+
+        let result = try CLIProcess.run(["remove", secretID], home: home)
+        let manifest = try ManifestStore(paths: paths).load()
+        let combined = result.stdout + result.stderr
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("Remove [REDACTED]? Type yes to continue:"))
+        XCTAssertTrue(result.stderr.contains("remove cancelled"))
+        XCTAssertNotNil(manifest.item(id: secretID))
+        XCTAssertFalse(combined.contains(secretID))
+    }
+
     func testRemoveRejectsInvalidRemainingManifestWithoutSaving() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
@@ -390,6 +407,27 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("Next"))
         XCTAssertTrue(result.stdout.contains("updatebar check tool"))
         XCTAssertFalse(result.stdout.contains("updatebar approve tool"))
+    }
+
+    func testApprovalsHumanRedactsLegacySecretLikeIDInNextStep() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secretID = "sk-or-v1-secret-value"
+        var item = recipe()
+        item.id = secretID
+        TrustPolicy.approveAllCommands(in: &item)
+        try ManifestStore(paths: paths).save(Manifest(
+            schemaVersion: 1,
+            items: [item],
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        ))
+
+        let result = try CLIProcess.run(["approvals", secretID], home: home)
+        let combined = result.stdout + result.stderr
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("updatebar check [REDACTED]"))
+        XCTAssertFalse(combined.contains(secretID))
     }
 
     func testApproveAllHumanPrintsCheckNextStep() throws {
