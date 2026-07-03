@@ -52,7 +52,9 @@ These invariants must hold across every future milestone.
 3. **Exact command fingerprints.** `check.cmd`, `latest.cmd`, and `update.cmd` run only when their current fingerprint is approved.
 4. **Separated approval.** Use `approve` / `revoke`; `add --trust` is removed.
 5. **Status never executes recipes.** Plain `status --json` remains the future UI contract and is read-only; `status --refresh` may only mark stale trusted items as `checking`, never run shell or network.
-6. **CLI is the single writer.** Future app/daemon surfaces mutate stores only by invoking the bundled CLI.
+6. **Core is the product boundary.** UpdateBarCore is the source of truth for
+   store access and business behavior; presentation layers must not duplicate
+   check/update/config rules.
 7. **Secrets stay out.** Recipe child processes get allowlisted env only. Captured output/errors are redacted.
 8. **Validate-execute parity.** `validate` must never pass a recipe that `check`/`update` cannot execute (no "valid" recipes using unimplemented strategies).
 9. **Non-interactive by contract.** Every mutating command must be runnable headless (`--yes` or no prompt); no `readLine()` path without an escape hatch.
@@ -318,11 +320,14 @@ App distribution:
 
 Architecture (minimum honest version):
 
-- One app target calling the bundled CLI. No premature `UpdateBarClient`/`UpdateBarUI`
-  library split — extract libraries only when a second consumer exists.
-- App reads `status --json` or pure read helpers only.
-- Mutating/executing actions invoke the bundled CLI subprocess.
-- App process never writes `manifest.json`, `state.json`, or config directly.
+- One native app target using the direct UpdateBarCore adapter by default.
+- Keep `UpdateBarCLIClient` as a subprocess fallback for packaged or diagnostic
+  flows, selected explicitly with `UPDATEBAR_MENUBAR_ADAPTER=cli`.
+- App reads and mutates through shared core stores/services such as
+  `CoreMenuBarService`; it must not duplicate manifest/state/config parsing or
+  check/update rules in UI code.
+- Mutating/executing actions still honor the same trust, approval, locking, and
+  redaction rules as the CLI because those rules live in UpdateBarCore.
 
 MVP UI:
 

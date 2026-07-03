@@ -774,6 +774,18 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(architecture.contains("updatebar version"))
     }
 
+    func testPlanningDocsMatchCurrentCoreOwnedMenuBarArchitecture() throws {
+        let currentPlan = try String(contentsOfFile: "current-plan.md", encoding: .utf8)
+        let nextPlan = try String(contentsOfFile: "next-plan.md", encoding: .utf8)
+
+        for document in [currentPlan, nextPlan] {
+            XCTAssertTrue(document.contains("UpdateBarCore is the source of truth"))
+            XCTAssertTrue(document.contains("direct UpdateBarCore"))
+            XCTAssertFalse(document.contains("CLI is the single writer"))
+            XCTAssertFalse(document.contains("App process never writes `manifest.json`, `state.json`, or config directly"))
+        }
+    }
+
     func testCurrentPlanUsesCurrentAgentWorkflowCommands() throws {
         let plan = try String(contentsOfFile: "current-plan.md", encoding: .utf8)
 

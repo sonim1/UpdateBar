@@ -43,7 +43,8 @@ Do not build these yet:
 What exists now:
 
 - CLI command set (`add`, `check`, `status`, `update`, approvals, import/export, etc.)
-- optional macOS menu bar app target in the same repo/build pipeline
+- optional macOS menu bar app target in the same repo/build pipeline, using the
+  direct UpdateBarCore adapter by default
 - optional LaunchAgent helper (`updatebar background`) for read-only periodic check
 - Homebrew CLI release packaging for macOS
 
@@ -89,6 +90,12 @@ UpdateBar should not care whether the recipe was authored by:
 - a future registry
 
 UpdateBar's job is to provide the safe execution/validation layer, not the AI authoring layer.
+
+UpdateBarCore is the source of truth for manifest/state/config handling,
+validation, trust, check, status, and update behavior. The Swift CLI, Ink TUI,
+and macOS Menu Bar are presentation layers around that core; the native menu bar
+may use direct UpdateBarCore calls instead of shelling out when it can stay on
+the same typed service boundary.
 
 ---
 
