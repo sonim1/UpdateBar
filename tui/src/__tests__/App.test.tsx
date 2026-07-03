@@ -1041,6 +1041,68 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('finished · updated 1/3 · failed 1 · approval 1');
   });
 
+  it('clears stale status when update result refresh fails', async () => {
+    let statusCalls = 0;
+    const client = createClient({
+      async status() {
+        statusCalls += 1;
+        if (statusCalls <= 2) {
+          return {
+            generated_at: '2026-06-30T00:00:00Z',
+            summary: {total: 1, outdated: 1, errors: 0, untrusted: 0, pinned: 0},
+            items: [
+              {
+                id: 'brew.gh',
+                name: 'gh',
+                category: 'cloud-devops',
+                status: 'outdated',
+                pinned: false,
+                current: '2.74.0',
+                latest: '2.75.0'
+              }
+            ]
+          };
+        }
+        throw new Error('status unavailable after update');
+      },
+      async updateSelected(ids, options) {
+        options.onEvent({
+          event: 'finished',
+          operation: 'update',
+          timestamp: '2026-06-30T00:00:00Z',
+          summary: {
+            total: ids.length,
+            updated: ids.length,
+            failed: 0,
+            skipped: 0,
+            skipped_untrusted: 0,
+            missing: 0,
+            cancelled: 0,
+            hard_failures: 0
+          }
+        });
+        return {exitCode: 0, stdout: '', stderr: ''};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Run Updates');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Select updates to run');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run selected updates now?');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'status unavailable after update');
+
+    expect(view.lastFrame()).toContain('finished · updated 1/1');
+    expect(view.lastFrame()).toContain('Loading status...');
+    expect(view.lastFrame()).not.toContain('1 tracked · 1 outdated');
+  });
+
   it('runs only selected outdated items from the update target screen', async () => {
     const updated: string[][] = [];
     const client = createClient({

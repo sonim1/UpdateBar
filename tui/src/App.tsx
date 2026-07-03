@@ -626,13 +626,14 @@ function helpText(screen: Screen, canCancel: boolean) {
 
 async function refreshStatus(
   client: UpdateBarClient,
-  setStatus: (status: StatusSnapshot) => void,
+  setStatus: (status: StatusSnapshot | undefined) => void,
   setError: (message: string | undefined) => void
 ) {
   try {
     setStatus(await client.status());
     setError(undefined);
   } catch (caught) {
+    setStatus(undefined);
     setError(messageFor(caught));
   }
 }
