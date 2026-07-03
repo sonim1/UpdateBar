@@ -98,6 +98,20 @@ describe('resolveUpdateBarBinary', () => {
     }
   });
 
+  it('ignores executable directories on PATH', async () => {
+    const root = await tempDir();
+    await mkdir(path.join(root, 'bin', 'updatebar'), {recursive: true});
+    await chmod(path.join(root, 'bin', 'updatebar'), 0o755);
+
+    await expect(
+      resolveUpdateBarBinary({
+        env: {PATH: path.join(root, 'bin')},
+        cwd: root,
+        defaultPathEntries: []
+      })
+    ).rejects.toThrow(/updatebar binary not found/);
+  });
+
   it('uses development fallback after PATH misses', async () => {
     const root = await tempDir();
     const dev = await executable(path.join(root, '.build', 'debug', 'updatebar'));

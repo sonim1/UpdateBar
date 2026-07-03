@@ -1,5 +1,5 @@
 import {constants} from 'node:fs';
-import {access} from 'node:fs/promises';
+import {access, stat} from 'node:fs/promises';
 import path from 'node:path';
 
 export type BinarySource =
@@ -96,6 +96,8 @@ async function developmentFallback(cwd: string) {
 
 async function isExecutable(candidate: string) {
   try {
+    const file = await stat(candidate);
+    if (!file.isFile()) return false;
     await access(candidate, constants.X_OK);
     return true;
   } catch {
