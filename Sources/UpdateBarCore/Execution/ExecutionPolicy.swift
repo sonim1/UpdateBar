@@ -55,13 +55,17 @@ public enum ExecutionError: Error, CustomStringConvertible, Equatable, Sendable 
     public var description: String {
         switch self {
         case let .invalidWorkingDirectory(path):
-            return "\(path): working directory does not exist"
+            return "\(redacted(path)): working directory does not exist"
         case let .timedOut(command):
-            return "\(command): timed out"
+            return "\(redacted(command)): timed out"
         case let .launchFailed(message):
-            return message
+            return redacted(message)
         case let .cancelled(command):
-            return "\(command): cancelled"
+            return "\(redacted(command)): cancelled"
         }
+    }
+
+    private func redacted(_ text: String) -> String {
+        SecretRedactor.redact(text)
     }
 }

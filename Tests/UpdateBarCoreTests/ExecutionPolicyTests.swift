@@ -71,6 +71,22 @@ final class ExecutionPolicyTests: XCTestCase {
         }
     }
 
+    func testExecutionErrorDescriptionsRedactSecretLikeValues() {
+        let secret = "sk-or-v1-secret-value"
+        let errors: [ExecutionError] = [
+            .invalidWorkingDirectory("/tmp/\(secret)"),
+            .timedOut(command: "printf \(secret)"),
+            .launchFailed("launch \(secret)"),
+            .cancelled(command: "printf \(secret)")
+        ]
+
+        for error in errors {
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("[REDACTED]"), "\(error)")
+            XCTAssertFalse(message.contains(secret), "\(error)")
+        }
+    }
+
     func testCommandExecutorDoesNotWaitForBackgroundChildrenAfterShellExits() throws {
         let executor = CommandExecutor()
         let started = Date()
