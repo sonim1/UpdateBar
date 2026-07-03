@@ -55,6 +55,32 @@ private extension UpdateBar {
             [subcommand._commandName] + subcommand.configuration.aliases
         }).union(["help"])
     }
+
+    static func validateHelpCommandPath(_ arguments: [String]) throws {
+        guard arguments.first == "help", arguments.count > 1 else {
+            return
+        }
+
+        var command: ParsableCommand.Type = Self.self
+        var path: [String] = []
+        for target in arguments.dropFirst() {
+            guard !target.hasPrefix("-") else {
+                return
+            }
+            guard let next = command.configuration.subcommands.first(where: { subcommand in
+                subcommand._commandName == target || subcommand.configuration.aliases.contains(target)
+            }) else {
+                let parent = path.isEmpty ? "updatebar" : "updatebar help \(path.joined(separator: " "))"
+                throw ValidationError("""
+                Unexpected help target '\(target)' after \(parent)
+                Usage: updatebar help <subcommand>
+                  See 'updatebar --help' for more information.
+                """)
+            }
+            path.append(target)
+            command = next
+        }
+    }
 }
 
 @main
@@ -63,6 +89,7 @@ enum UpdateBarMain {
         let arguments = normalizeCLIArguments(Array(CommandLine.arguments.dropFirst()))
         do {
             try validateHelpTarget(arguments, knownTopLevelHelpTargets: UpdateBar.topLevelHelpTargets)
+            try UpdateBar.validateHelpCommandPath(arguments)
             var command = try UpdateBar.parseAsRoot(arguments)
             try command.run()
         } catch {
