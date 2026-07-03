@@ -249,6 +249,14 @@ Opens `$VISUAL`, `$EDITOR`, or `vi` with the recipe JSON. Invalid edits are reje
 Support commands are hidden from default root help, but remain stable direct
 commands for automation, release checks, and recipe authoring.
 
+### `updatebar tui`
+
+Launches the optional Ink terminal UI. This command is hidden from default root help and shell completions to keep the primary CLI surface small, but remains a stable direct command.
+
+`updatebar tui` looks for `UPDATEBAR_TUI` first, then `updatebar-tui` on `PATH`.
+For source checkouts, build the TUI with `npm --prefix tui run build` and run
+`UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui`.
+
 ### `updatebar schema`
 
 Prints the manifest/recipe JSON Schema. The schema documents currently executable fields only.

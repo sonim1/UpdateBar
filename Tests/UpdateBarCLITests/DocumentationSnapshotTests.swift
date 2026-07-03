@@ -691,6 +691,21 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testCliDocsDocumentTUICommandSetup() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let tuiSection = try readmeSection(
+            "### `updatebar tui",
+            before: "### `updatebar schema",
+            in: docs
+        )
+
+        XCTAssertTrue(tuiSection.contains("hidden from default root help"))
+        XCTAssertTrue(tuiSection.contains("updatebar-tui"))
+        XCTAssertTrue(tuiSection.contains("UPDATEBAR_TUI"))
+        XCTAssertTrue(tuiSection.contains("tui/dist/index.js"))
+        XCTAssertTrue(tuiSection.contains("npm --prefix tui run build"))
+    }
+
     func testCliDocsHideAutomationExitFlagFromPrimarySignatures() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
         let checkSection = try readmeSection(
