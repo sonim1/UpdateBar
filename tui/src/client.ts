@@ -164,10 +164,17 @@ export class CLIUpdateBarClient implements UpdateBarClient {
   }
 
   async updateAll(options: StreamOptions): Promise<CommandResult> {
-    return this.updateSelected([], options);
+    return this.streamUpdate([], options);
   }
 
   async updateSelected(ids: string[], options: StreamOptions): Promise<CommandResult> {
+    if (ids.length === 0) {
+      throw new Error('select at least one update target');
+    }
+    return this.streamUpdate(ids, options);
+  }
+
+  private async streamUpdate(ids: string[], options: StreamOptions): Promise<CommandResult> {
     let streamError: string | undefined;
     const result = await this.runner.stream(['update', ...ids, '--yes', '--json-stream'], {
       ...options,

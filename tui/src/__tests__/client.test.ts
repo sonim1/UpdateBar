@@ -74,6 +74,17 @@ describe('CLIUpdateBarClient', () => {
     ]);
   });
 
+  it('rejects empty selected updates before invoking the CLI', async () => {
+    const runner = new FakeRunner({exitCode: 0, stdout: '', stderr: ''});
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.updateSelected([], {onEvent: () => {}})).rejects.toThrow(
+      'select at least one update target'
+    );
+
+    expect(runner.calls).toEqual([]);
+  });
+
   it('uses streamed failure event errors when update exits hard', async () => {
     const runner = new FakeRunner({exitCode: 1, stdout: '', stderr: ''});
     runner.events = [
