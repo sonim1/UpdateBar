@@ -37,6 +37,9 @@ public struct CommandLatestStrategy: LatestStrategy {
         guard result.exitCode == 0 else {
             throw LatestError.commandFailed("latest.cmd exited \(result.exitCode): \(result.stderr)")
         }
-        return try VersionParser.extract(from: result.stdout, using: recipe.versionParse)
+        return try VersionParser.extract(
+            from: "\(result.stdout)\n\(result.stderr)",
+            using: recipe.versionParse
+        )
     }
 }

@@ -378,6 +378,23 @@ final class LatestStrategyTests: XCTestCase {
         XCTAssertEqual(latest, "9.8.7")
     }
 
+    func testCmdStrategyParsesVersionFromStderr() throws {
+        var item = try recipe()
+        item.latest.strategy = .cmd
+        item.latest.cmd = "tool latest"
+        item.versionParse = .regex("([0-9]+\\.[0-9]+\\.[0-9]+)")
+        let context = LatestContext(
+            httpClient: emptyHTTP(),
+            commandRunner: MockCommandExecutor(results: [
+                "tool latest": CommandResult(exitCode: 0, stdout: "", stderr: "version 9.8.7")
+            ])
+        )
+
+        let latest = try CommandLatestStrategy().latest(for: item, context: context)
+
+        XCTAssertEqual(latest, "9.8.7")
+    }
+
     private func recipe() throws -> Recipe {
         let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
         return try JSONDecoder.updateBar.decode(Manifest.self, from: data).items[0]
