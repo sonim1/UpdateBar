@@ -9,9 +9,31 @@ extension UpdateBar {
 
     static func validatePreflightArguments(_ arguments: [String]) throws {
         try validateHelpTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
+        try validateVersionTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
         try validateHelpCommandPath(arguments)
         try validateTrailingInlineHelpArguments(arguments)
         try validateTrailingInlineVersionArguments(arguments)
+    }
+
+    private static func validateVersionTarget(
+        _ arguments: [String],
+        knownTopLevelHelpTargets: Set<String>
+    ) throws {
+        guard arguments.contains(where: isInlineVersionFlag),
+              let first = arguments.first,
+              !isInlineVersionFlag(first),
+              !first.hasPrefix("-")
+        else {
+            return
+        }
+
+        guard knownTopLevelHelpTargets.contains(first) else {
+            throw ValidationError("""
+            Unexpected argument '\(first)'
+            Usage: updatebar <subcommand>
+              See 'updatebar --help' for more information.
+            """)
+        }
     }
 
     private static func validateHelpCommandPath(_ arguments: [String]) throws {
