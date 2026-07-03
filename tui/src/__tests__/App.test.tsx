@@ -1122,6 +1122,59 @@ describe('App', () => {
     expect(updated).toEqual([['brew.gh']]);
   });
 
+  it('refreshes status before showing update targets', async () => {
+    let statusCalls = 0;
+    const client = createClient({
+      async status() {
+        statusCalls += 1;
+        if (statusCalls === 1) {
+          return {
+            generated_at: '2026-06-30T00:00:00Z',
+            summary: {total: 1, outdated: 0, errors: 0, untrusted: 0, pinned: 0},
+            items: [
+              {
+                id: 'brew.gh',
+                name: 'gh',
+                category: 'cloud-devops',
+                status: 'ok',
+                pinned: false,
+                current: '2.74.0',
+                latest: '2.74.0'
+              }
+            ]
+          };
+        }
+        return {
+          generated_at: '2026-06-30T00:01:00Z',
+          summary: {total: 1, outdated: 1, errors: 0, untrusted: 0, pinned: 0},
+          items: [
+            {
+              id: 'brew.gh',
+              name: 'gh',
+              category: 'cloud-devops',
+              status: 'outdated',
+              pinned: false,
+              current: '2.74.0',
+              latest: '2.75.0'
+            }
+          ]
+        };
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, '1 tracked · 0 outdated');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Select updates to run');
+
+    expect(view.lastFrame()).toContain('selected: 1/1');
+    expect(view.lastFrame()).toContain('brew.gh · gh · 2.74.0 → 2.75.0');
+  });
+
   it('does not run updates when no outdated items are selectable', async () => {
     let updateCalls = 0;
     const client = createClient({

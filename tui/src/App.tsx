@@ -267,17 +267,15 @@ export function App({client: providedClient}: AppProps) {
   async function openUpdateSelection(activeClient: UpdateBarClient) {
     setUpdateIndex(0);
     setError(undefined);
-    let snapshot = status;
-    if (!snapshot) {
-      try {
-        snapshot = await activeClient.status();
-        setStatus(snapshot);
-      } catch (caught) {
-        setSelectedUpdateIds(new Set());
-        setScreen('select-update');
-        setError(messageFor(caught));
-        return;
-      }
+    let snapshot: StatusSnapshot;
+    try {
+      snapshot = await activeClient.status();
+      setStatus(snapshot);
+    } catch (caught) {
+      setSelectedUpdateIds(new Set());
+      setScreen('select-update');
+      setError(messageFor(caught));
+      return;
     }
     setSelectedUpdateIds(new Set(updateCandidates(snapshot).map(item => item.id)));
     setScreen('select-update');
