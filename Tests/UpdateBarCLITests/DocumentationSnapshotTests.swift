@@ -100,6 +100,17 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(optionHasDescription("--yes", in: helpLines))
     }
 
+    func testEditHelpDocumentsVisualAndEditorLookup() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        let result = try CLIProcess.run(["edit", "--help"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("$VISUAL"))
+        XCTAssertTrue(result.stdout.contains("$EDITOR"))
+    }
+
     func testHiddenWorkflowCommandInputsHaveHelpDescriptions() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let expectedOptionsByCommand: [String: [String]] = [

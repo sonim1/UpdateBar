@@ -5,7 +5,7 @@ import UpdateBarCore
 struct EditCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "edit",
-        abstract: "Edit one registered recipe in $EDITOR.",
+        abstract: "Edit one registered recipe in $VISUAL or $EDITOR.",
         shouldDisplay: false
     )
 
