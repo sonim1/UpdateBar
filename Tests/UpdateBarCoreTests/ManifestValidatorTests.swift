@@ -160,6 +160,20 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[1].id: duplicate id claude-code"))
     }
 
+    func testRejectsDuplicateSecretLikeIDsWithoutLeakingValue() throws {
+        let secret = "sk-or-v1-secret-value"
+        var manifest = try loadValid()
+        manifest.items[0].id = secret
+        manifest.items.append(manifest.items[0])
+
+        let result = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
+
+        XCTAssertFalse(result.isValid)
+        XCTAssertTrue(result.errors.contains("items[0].id: duplicate id [REDACTED]"))
+        XCTAssertTrue(result.errors.contains("items[1].id: duplicate id [REDACTED]"))
+        XCTAssertFalse(result.errors.joined(separator: "\n").contains(secret))
+    }
+
     func testRejectsIDsWithTrailingNewlines() throws {
         var manifest = try loadValid()
         manifest.items[0].id = "claude-code\n"
@@ -364,6 +378,9 @@ final class ManifestValidatorTests: XCTestCase {
 
     func testRejectsLiteralSecretsInStoredMetadataFields() throws {
         let result = try validateFirstRawItem {
+            $0["id"] = "sk-or-v1-secret-value"
+            $0["name"] = "Tool sk-or-v1-secret-value"
+            $0["category"] = "sk-or-v1-secret-value"
             $0["path"] = "/tmp/sk-or-v1-secret-value"
             $0["source"] = [
                 "kind": "git",
@@ -377,6 +394,9 @@ final class ManifestValidatorTests: XCTestCase {
             ] as [String: Any]
         }
 
+        XCTAssertTrue(result.errors.contains("items[0].id: must not contain literal secrets"))
+        XCTAssertTrue(result.errors.contains("items[0].name: must not contain literal secrets"))
+        XCTAssertTrue(result.errors.contains("items[0].category: must not contain literal secrets"))
         XCTAssertTrue(result.errors.contains("items[0].path: must not contain literal secrets"))
         XCTAssertTrue(result.errors.contains("items[0].source.ref: must not contain literal secrets"))
         XCTAssertTrue(result.errors.contains("items[0].check.file: must not contain literal secrets"))

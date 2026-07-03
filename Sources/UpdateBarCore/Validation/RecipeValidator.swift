@@ -33,6 +33,9 @@ public enum RecipeValidator {
         errors += requireString(item, "version_scheme", path: path)
         errors += requireOptionalStringIfPresent(item, "path", path: path)
         errors += requireOptionalStringIfPresent(item, "pin", path: path)
+        errors += rejectLiteralSecret(item["id"], path: "\(path).id")
+        errors += rejectLiteralSecret(item["name"], path: "\(path).name")
+        errors += rejectLiteralSecret(item["category"], path: "\(path).category")
         errors += rejectLiteralSecret(item["path"], path: "\(path).path")
 
         if let id = item["id"] as? String, !matchesID(id) {

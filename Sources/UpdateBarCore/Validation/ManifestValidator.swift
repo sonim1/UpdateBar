@@ -30,8 +30,9 @@ public enum ManifestValidator {
             errors.append(contentsOf: RecipeValidator.validateRaw(item, path: "items[\(index)]"))
             if let id = item["id"] as? String {
                 if let firstIndex = ids[id] {
-                    errors.append("items[\(index)].id: duplicate id \(id)")
-                    errors.append("items[\(firstIndex)].id: duplicate id \(id)")
+                    let redactedID = SecretRedactor.redact(id)
+                    errors.append("items[\(index)].id: duplicate id \(redactedID)")
+                    errors.append("items[\(firstIndex)].id: duplicate id \(redactedID)")
                 } else {
                     ids[id] = index
                 }
