@@ -24,6 +24,7 @@ public struct StatusService {
         let state: State
 
         if refresh {
+            try validate(manifest)
             if manifest.items.isEmpty {
                 state = try stateStore.loadExistingOrEmpty(now: now)
                 return StatusSnapshot.from(manifest: manifest, state: state, now: now)
@@ -48,6 +49,14 @@ public struct StatusService {
         }
 
         return StatusSnapshot.from(manifest: manifest, state: state, now: now)
+    }
+
+    private func validate(_ manifest: Manifest) throws {
+        let data = try JSONEncoder.updateBar.encode(manifest)
+        let result = try ManifestValidator.validate(data: data)
+        if !result.isValid {
+            throw RegistryError.invalidManifest(result.errors)
+        }
     }
 
     private func markStaleItemsChecking(
