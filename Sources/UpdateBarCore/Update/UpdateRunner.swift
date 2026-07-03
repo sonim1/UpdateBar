@@ -238,6 +238,26 @@ public struct UpdateSummary: Codable, Equatable {
         self.hardFailures = results.filter { $0.outcome.isHardFailure }.count
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        total = try container.decode(Int.self, forKey: .total)
+        updated = try container.decode(Int.self, forKey: .updated)
+        failed = try container.decode(Int.self, forKey: .failed)
+        skipped = try container.decode(Int.self, forKey: .skipped)
+        skippedUntrusted = try container.decode(Int.self, forKey: .skippedUntrusted)
+        missing = try container.decode(Int.self, forKey: .missing)
+        cancelled = try container.decode(Int.self, forKey: .cancelled)
+        hardFailures = try container.decode(Int.self, forKey: .hardFailures)
+        try Self.validateNonNegative(total, forKey: .total, in: container)
+        try Self.validateNonNegative(updated, forKey: .updated, in: container)
+        try Self.validateNonNegative(failed, forKey: .failed, in: container)
+        try Self.validateNonNegative(skipped, forKey: .skipped, in: container)
+        try Self.validateNonNegative(skippedUntrusted, forKey: .skippedUntrusted, in: container)
+        try Self.validateNonNegative(missing, forKey: .missing, in: container)
+        try Self.validateNonNegative(cancelled, forKey: .cancelled, in: container)
+        try Self.validateNonNegative(hardFailures, forKey: .hardFailures, in: container)
+    }
+
     enum CodingKeys: String, CodingKey {
         case total
         case updated
@@ -247,6 +267,20 @@ public struct UpdateSummary: Codable, Equatable {
         case missing
         case cancelled
         case hardFailures = "hard_failures"
+    }
+
+    private static func validateNonNegative(
+        _ value: Int,
+        forKey key: CodingKeys,
+        in container: KeyedDecodingContainer<CodingKeys>
+    ) throws {
+        guard value >= 0 else {
+            throw DecodingError.dataCorruptedError(
+                forKey: key,
+                in: container,
+                debugDescription: "\(key.stringValue) must be non-negative"
+            )
+        }
     }
 }
 

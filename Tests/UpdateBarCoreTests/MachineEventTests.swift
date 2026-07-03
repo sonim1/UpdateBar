@@ -88,4 +88,49 @@ final class MachineEventTests: XCTestCase {
 
         XCTAssertThrowsError(try JSONDecoder.updateBar.decode(MachineEvent.self, from: data))
     }
+
+    func testMachineEventRejectsNegativeUpdateSummaryCounts() throws {
+        let data = Data("""
+        {
+          "event": "finished",
+          "type": "finished",
+          "operation": "update",
+          "timestamp": "2026-06-30T00:00:00Z",
+          "summary": {
+            "total": 1,
+            "updated": -1,
+            "failed": 0,
+            "skipped": 0,
+            "skipped_untrusted": 0,
+            "missing": 0,
+            "cancelled": 0,
+            "hard_failures": 0
+          }
+        }
+        """.utf8)
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(MachineEvent.self, from: data))
+    }
+
+    func testMachineEventRejectsNegativeCheckSummaryCounts() throws {
+        let data = Data("""
+        {
+          "event": "finished",
+          "type": "finished",
+          "operation": "check",
+          "timestamp": "2026-06-30T00:00:00Z",
+          "check_summary": {
+            "total": 1,
+            "outdated": -1,
+            "errors": 0,
+            "untrusted": 0,
+            "disabled": 0,
+            "pinned": 0,
+            "differs": 0
+          }
+        }
+        """.utf8)
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(MachineEvent.self, from: data))
+    }
 }
