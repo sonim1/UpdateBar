@@ -117,6 +117,59 @@ struct ApprovalMutationPayload: Encodable {
     var item: Recipe
 }
 
+func redactedItemMutationPayload(for recipe: Recipe) -> ItemMutationPayload {
+    ItemMutationPayload(ok: true, id: SecretRedactor.redact(recipe.id), item: redactedRecipe(recipe))
+}
+
+func redactedApprovalMutationPayload(for recipe: Recipe, field: String?) -> ApprovalMutationPayload {
+    ApprovalMutationPayload(
+        ok: true,
+        id: SecretRedactor.redact(recipe.id),
+        field: field.map(SecretRedactor.redact),
+        item: redactedRecipe(recipe)
+    )
+}
+
+private func redactedRecipe(_ recipe: Recipe) -> Recipe {
+    var recipe = recipe
+    recipe.id = SecretRedactor.redact(recipe.id)
+    recipe.name = SecretRedactor.redact(recipe.name)
+    recipe.category = SecretRedactor.redact(recipe.category)
+    recipe.path = recipe.path.map(SecretRedactor.redact)
+    recipe.source.ref = SecretRedactor.redact(recipe.source.ref)
+    recipe.source.branch = recipe.source.branch.map(SecretRedactor.redact)
+    recipe.check = redactedCheck(recipe.check)
+    recipe.latest.cmd = recipe.latest.cmd.map(SecretRedactor.redact)
+    recipe.latest.pattern = recipe.latest.pattern.map(SecretRedactor.redact)
+    recipe.versionParse = redactedVersionParse(recipe.versionParse)
+    recipe.update.cmd = SecretRedactor.redact(recipe.update.cmd)
+    recipe.update.cwd = recipe.update.cwd.map(SecretRedactor.redact)
+    recipe.pin = recipe.pin.map(SecretRedactor.redact)
+    recipe.trust.approvedCommands = Dictionary(
+        recipe.trust.approvedCommands.map {
+            (SecretRedactor.redact($0.key), SecretRedactor.redact($0.value))
+        },
+        uniquingKeysWith: { first, _ in first }
+    )
+    return recipe
+}
+
+private func redactedCheck(_ check: CheckSpec) -> CheckSpec {
+    switch check {
+    case let .command(cmd):
+        return .command(SecretRedactor.redact(cmd))
+    case let .file(path):
+        return .file(path: SecretRedactor.redact(path))
+    }
+}
+
+private func redactedVersionParse(_ versionParse: VersionParse) -> VersionParse {
+    switch versionParse {
+    case let .regex(regex):
+        return .regex(SecretRedactor.redact(regex))
+    }
+}
+
 struct RemovePayload: Encodable {
     var ok: Bool
     var id: String

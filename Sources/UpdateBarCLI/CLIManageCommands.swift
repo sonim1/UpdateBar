@@ -21,7 +21,7 @@ struct PinCommand: ParsableCommand {
     func run() throws {
         let recipe = try RegistryService().pin(id: id, version: version)
         if json {
-            try printJSON(ItemMutationPayload(ok: true, id: recipe.id, item: recipe))
+            try printJSON(redactedItemMutationPayload(for: recipe))
         } else {
             writeStdout("pinned \(recipe.id) \(recipe.pin ?? "")")
         }
@@ -44,7 +44,7 @@ struct UnpinCommand: ParsableCommand {
     func run() throws {
         let recipe = try RegistryService().unpin(id: id)
         if json {
-            try printJSON(ItemMutationPayload(ok: true, id: recipe.id, item: recipe))
+            try printJSON(redactedItemMutationPayload(for: recipe))
         } else {
             writeStdout("unpinned \(recipe.id)")
         }
@@ -67,7 +67,7 @@ struct EnableCommand: ParsableCommand {
     func run() throws {
         let recipe = try RegistryService().setEnabled(id: id, enabled: true)
         if json {
-            try printJSON(ItemMutationPayload(ok: true, id: recipe.id, item: recipe))
+            try printJSON(redactedItemMutationPayload(for: recipe))
         } else {
             writeStdout("enabled \(recipe.id)")
         }
@@ -90,7 +90,7 @@ struct DisableCommand: ParsableCommand {
     func run() throws {
         let recipe = try RegistryService().setEnabled(id: id, enabled: false)
         if json {
-            try printJSON(ItemMutationPayload(ok: true, id: recipe.id, item: recipe))
+            try printJSON(redactedItemMutationPayload(for: recipe))
         } else {
             writeStdout("disabled \(recipe.id)")
         }
@@ -151,7 +151,7 @@ struct ApprovalCommand: ParsableCommand {
     func run() throws {
         let recipe = try RegistryService().approve(id: id, field: field)
         if json {
-            try printJSON(ApprovalMutationPayload(ok: true, id: recipe.id, field: field, item: recipe))
+            try printJSON(redactedApprovalMutationPayload(for: recipe, field: field))
         } else {
             if let field {
                 writeStdout("approved \(recipe.id) \(field)")
@@ -254,7 +254,7 @@ struct RevokeCommand: ParsableCommand {
     func run() throws {
         let recipe = try RegistryService().revokeApproval(id: id, field: field)
         if json {
-            try printJSON(ApprovalMutationPayload(ok: true, id: recipe.id, field: field, item: recipe))
+            try printJSON(redactedApprovalMutationPayload(for: recipe, field: field))
         } else {
             writeStdout("revoked \(recipe.id) \(field)")
             printNextCommands([approvalCommand(for: recipe.id)])

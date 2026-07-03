@@ -471,6 +471,25 @@ final class ManageItemCommandTests: XCTestCase {
         }
     }
 
+    func testMutationJSONRedactsSecretLikeTrustMetadata() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        let secret = "sk-or-v1-secret-value"
+        var item = recipe()
+        item.trust.approvedCommands["update.cmd"] = secret
+        try ManifestStore(paths: paths).save(Manifest(
+            schemaVersion: 1,
+            items: [item],
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        ))
+
+        let result = try CLIProcess.run(["disable", "tool", "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("[REDACTED]"))
+        XCTAssertFalse(result.stdout.contains(secret))
+    }
+
     private func saveFixture(paths: AppPaths) throws {
         try saveManifestOnly(paths: paths)
         try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [

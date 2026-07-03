@@ -70,6 +70,29 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
+    func testCLIMutationJSONPayloadsUseRedactedHelpers() throws {
+        let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCLI")
+        let sourceFiles = try swiftSourceFiles(under: sourceRoot)
+            .filter { $0.lastPathComponent != "CLIPayloads.swift" }
+        var violations: [String] = []
+
+        for file in sourceFiles {
+            let contents = try String(contentsOf: file, encoding: .utf8)
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
+                where line.contains("ItemMutationPayload(ok:")
+                    || line.contains("ApprovalMutationPayload(ok:")
+            {
+                violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+
+        XCTAssertEqual(
+            violations,
+            [],
+            "CLI mutation JSON should use redacted payload helpers instead of embedding Recipe values directly:\n\(violations.joined(separator: "\n"))"
+        )
+    }
+
     private func swiftSourceFiles(under root: URL) throws -> [URL] {
         guard let enumerator = FileManager.default.enumerator(
             at: root,
