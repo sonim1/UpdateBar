@@ -529,6 +529,18 @@ public struct ScanService {
     private struct NPMGlobalList: Decodable {
         var dependencies: [String: Package]
 
+        enum CodingKeys: String, CodingKey {
+            case dependencies
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            dependencies = try container.decodeIfPresent(
+                [String: Package].self,
+                forKey: .dependencies
+            ) ?? [:]
+        }
+
         struct Package: Decodable {
             var version: String?
         }

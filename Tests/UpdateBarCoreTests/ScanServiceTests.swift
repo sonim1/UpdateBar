@@ -141,6 +141,22 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertEqual(report.candidates.map(\.id), ["brew.gh"])
     }
 
+    func testNPMGlobalScanTreatsMissingDependenciesAsEmpty() throws {
+        let commands = MockCommandExecutor(results: [
+            ScanService.npmGlobalListCommand: CommandResult(
+                exitCode: 0,
+                stdout: #"{"name":"lib","version":"1.0.0"}"#,
+                stderr: ""
+            ),
+        ])
+        let service = ScanService(commandRunner: commands)
+
+        let report = try service.scan(detectors: [.npmGlobal])
+
+        XCTAssertEqual(report.candidates, [])
+        XCTAssertEqual(report.errors, [])
+    }
+
     func testScanCandidateIDsStayASCIIAndValidatorCompatible() throws {
         let commands = MockCommandExecutor(results: [
             ScanService.brewListCommand: CommandResult(
