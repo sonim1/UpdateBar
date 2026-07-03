@@ -7,9 +7,9 @@ public enum StoreError: Error, CustomStringConvertible, Equatable {
     public var description: String {
         switch self {
         case let .corruptFile(path, reason):
-            return "\(path): corrupt file: \(reason)"
+            return "\(SecretRedactor.redact(path)): corrupt file: \(SecretRedactor.redact(reason))"
         case let .writeFailed(path, reason):
-            return "\(path): write failed: \(reason)"
+            return "\(SecretRedactor.redact(path)): write failed: \(SecretRedactor.redact(reason))"
         }
     }
 }

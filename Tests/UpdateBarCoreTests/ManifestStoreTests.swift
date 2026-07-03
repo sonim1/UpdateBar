@@ -266,6 +266,20 @@ final class ManifestStoreTests: XCTestCase {
         }
     }
 
+    func testStoreErrorDescriptionRedactsSecretLikePathsAndReasons() {
+        let secret = "sk-or-v1-store-secret-value"
+        let errors: [StoreError] = [
+            .corruptFile(path: "/tmp/\(secret)/manifest.json", reason: "invalid \(secret)"),
+            .writeFailed(path: "/tmp/\(secret)/state.json", reason: "failed \(secret)"),
+        ]
+
+        for error in errors {
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("[REDACTED]"))
+            XCTAssertFalse(message.contains(secret))
+        }
+    }
+
     func testAppPathsUsesExplicitHomeAndDoesNotEscapeIt() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
