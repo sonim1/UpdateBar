@@ -222,6 +222,7 @@ struct TemplateCommand: ParsableCommand {
         var source: String?
 
         func run() throws {
+            try validateTemplateOverrides(id: id, name: name, source: source)
             try printJSON(kind.recipe(id: id, name: name, sourceRef: source))
         }
     }
@@ -245,6 +246,7 @@ struct TemplateCommand: ParsableCommand {
         var source: String?
 
         func run() throws {
+            try validateTemplateOverrides(id: id, name: name, source: source)
             let now = Date()
             let manifest = Manifest(
                 schemaVersion: 1,
@@ -253,6 +255,13 @@ struct TemplateCommand: ParsableCommand {
             )
             try printJSON(manifest)
         }
+    }
+}
+
+private func validateTemplateOverrides(id: String?, name: String?, source: String?) throws {
+    let values = [id, name, source].compactMap(\.self)
+    guard values.allSatisfy({ SecretRedactor.redact($0) == $0 }) else {
+        throw ValidationError("template override must not contain literal secrets")
     }
 }
 

@@ -907,6 +907,26 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(docs.contains("version_parse.jq"))
     }
 
+    func testCliDocsTemplateDocumentsSecretOverrideRejection() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let recipeTemplateSection = try readmeSection(
+            "### `updatebar template recipe",
+            before: "### `updatebar template manifest",
+            in: docs
+        )
+        let manifestTemplateSection = try readmeTail(
+            "### `updatebar template manifest",
+            in: docs
+        )
+
+        for section in [recipeTemplateSection, manifestTemplateSection] {
+            XCTAssertTrue(section.contains("literal secrets"))
+            XCTAssertTrue(section.contains("--id"))
+            XCTAssertTrue(section.contains("--name"))
+            XCTAssertTrue(section.contains("--source"))
+        }
+    }
+
     func testCurrentArchitectureMatchesReducedCLISurfaceAndMenuBarAdapter() throws {
         let architecture = try String(contentsOfFile: "current-architecture.md", encoding: .utf8)
         let cliSurface = try readmeSection(
@@ -987,6 +1007,14 @@ final class DocumentationSnapshotTests: XCTestCase {
             return ""
         }
         return String(readme[start..<end])
+    }
+
+    private func readmeTail(_ heading: String, in readme: String) throws -> String {
+        guard let start = readme.range(of: heading)?.upperBound else {
+            XCTFail("README section not found: \(heading)")
+            return ""
+        }
+        return String(readme[start...])
     }
 
     private func rootCompletionCommands(from script: String, shell: String) throws -> Set<String> {

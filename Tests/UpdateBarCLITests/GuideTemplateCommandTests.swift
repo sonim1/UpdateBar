@@ -123,6 +123,21 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertEqual(recipe.source.ref, "ripgrep")
     }
 
+    func testTemplateRecipeRejectsSecretLikeOverridesWithoutEchoingThem() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-template-tests")
+        let secret = "sk-or-v1-secret-value"
+
+        let result = try CLIProcess.run(
+            ["template", "recipe", "--kind", "npm", "--id", secret, "--name", "Tool \(secret)", "--source", secret],
+            home: home
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("template override must not contain literal secrets"))
+        XCTAssertFalse(result.stderr.contains(secret))
+    }
+
     func testTemplateManifestPrintsSingleItemManifest() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-template-tests")
 
@@ -133,6 +148,21 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertEqual(manifest.schemaVersion, 1)
         XCTAssertEqual(manifest.items.count, 1)
         XCTAssertEqual(manifest.items.first?.trust.level, .untrusted)
+    }
+
+    func testTemplateManifestRejectsSecretLikeOverridesWithoutEchoingThem() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-template-tests")
+        let secret = "sk-or-v1-secret-value"
+
+        let result = try CLIProcess.run(
+            ["template", "manifest", "--kind", "npm", "--source", secret],
+            home: home
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("template override must not contain literal secrets"))
+        XCTAssertFalse(result.stderr.contains(secret))
     }
 
     private func schemaRecipeDefinition(from root: [String: Any]?) throws -> [String: Any] {
