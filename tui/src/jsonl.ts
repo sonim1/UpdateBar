@@ -120,7 +120,7 @@ function parseLine(line: string, lineNumber: number): MachineEvent {
     if (typeof value.timestamp !== 'string') {
       throw new Error('missing timestamp');
     }
-    if (!isValidTimestamp(value.timestamp)) {
+    if (!isValidMachineTimestamp(value.timestamp)) {
       throw new Error('invalid timestamp');
     }
     if (!isOptionalString(value.run_id)) {
@@ -236,7 +236,7 @@ function isOptionalString(value: unknown) {
   return value === undefined || typeof value === 'string';
 }
 
-function isValidTimestamp(value: string) {
+export function isValidMachineTimestamp(value: string) {
   return ISO_TIMESTAMP_PATTERN.test(value) && !Number.isNaN(Date.parse(value));
 }
 

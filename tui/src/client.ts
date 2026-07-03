@@ -2,7 +2,7 @@ import {spawn} from 'node:child_process';
 import type {Readable} from 'node:stream';
 import {resolveUpdateBarBinary} from './binaryResolver.js';
 import type {BinaryResolverOptions} from './binaryResolver.js';
-import {parseJSONLines} from './jsonl.js';
+import {isValidMachineTimestamp, parseJSONLines} from './jsonl.js';
 import type {
   CheckReport,
   CheckSummary,
@@ -267,7 +267,7 @@ function parseStatusSnapshot(payload: string): StatusSnapshot {
   const snapshot = parseJSON<unknown>(payload, 'status');
   if (
     !isObject(snapshot) ||
-    typeof snapshot.generated_at !== 'string' ||
+    !isValidMachineTimestampValue(snapshot.generated_at) ||
     !isStatusSummary(snapshot.summary) ||
     !Array.isArray(snapshot.items) ||
     !snapshot.items.every(isStatusItem)
@@ -338,7 +338,7 @@ function isStatusItem(value: unknown): value is StatusItem {
     ITEM_STATUSES.has(value.status as ItemStatus) &&
     isOptionalString(value.current) &&
     isOptionalString(value.latest) &&
-    isOptionalString(value.last_checked) &&
+    isOptionalMachineTimestamp(value.last_checked) &&
     isOptionalString(value.error)
   );
 }
@@ -378,7 +378,7 @@ function isCheckResult(value: unknown): value is CheckResult {
     ITEM_STATUSES.has(value.status as ItemStatus) &&
     isOptionalString(value.current) &&
     isOptionalString(value.latest) &&
-    isOptionalString(value.last_checked) &&
+    isOptionalMachineTimestamp(value.last_checked) &&
     isOptionalString(value.error)
   );
 }
@@ -393,6 +393,14 @@ function isStringArray(value: unknown): value is string[] {
 
 function isOptionalString(value: unknown) {
   return value === undefined || typeof value === 'string';
+}
+
+function isValidMachineTimestampValue(value: unknown) {
+  return typeof value === 'string' && isValidMachineTimestamp(value);
+}
+
+function isOptionalMachineTimestamp(value: unknown) {
+  return value === undefined || isValidMachineTimestampValue(value);
 }
 
 function isOptionalNumber(value: unknown) {
