@@ -555,6 +555,28 @@ describe('App', () => {
     view.unmount();
   });
 
+  it('does not keep showing registration progress after registration failure', async () => {
+    const client = createClient({
+      async initSelected() {
+        throw new Error('manifest is locked');
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'brew.gh');
+    view.stdin.write(' ');
+    await waitForFrame(view, 'importable: 1/1');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'manifest is locked');
+
+    expect(view.lastFrame()).toContain('registration failed');
+    expect(view.lastFrame()).not.toContain('registering scan selections');
+  });
+
   it('navigates scan candidates before registering', async () => {
     const selected: string[][] = [];
     const client = createClient({

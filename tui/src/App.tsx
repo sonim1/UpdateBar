@@ -337,7 +337,9 @@ export function App({client: providedClient}: AppProps) {
       setSelectedScanIds(new Set());
       await refreshStatus(client, setStatus, setError);
     } catch (caught) {
-      setError(controller.signal.aborted ? 'registration cancelled' : messageFor(caught));
+      const cancelled = controller.signal.aborted;
+      setLogs([cancelled ? 'registration cancelled' : 'registration failed']);
+      setError(cancelled ? 'registration cancelled' : messageFor(caught));
     } finally {
       endAbortableAction(controller);
     }
