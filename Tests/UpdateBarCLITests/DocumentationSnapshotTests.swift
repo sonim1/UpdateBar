@@ -636,6 +636,17 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testCompletionDocsDescribeFocusedCommandSurface() throws {
+        let docs = try String(contentsOfFile: "docs/completions.md", encoding: .utf8)
+
+        for command in ["init", "scan", "status", "check", "update", "approvals", "help"] {
+            XCTAssertTrue(docs.contains("`\(command)`"), "completion docs missing visible command \(command)")
+        }
+        for phrase in ["import/export", "advanced item-management", "background/configuration", "support commands"] {
+            XCTAssertTrue(docs.contains(phrase), "completion docs missing hidden command category \(phrase)")
+        }
+    }
+
     func testReadmeQuickStartStaysFocusedOnFirstRunWorkflow() throws {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let quickStart = try readmeSection("## Quick Start", before: "## Scope", in: readme)
