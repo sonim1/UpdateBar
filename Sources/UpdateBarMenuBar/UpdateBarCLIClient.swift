@@ -167,7 +167,7 @@ public enum UpdateBarCLIClientError: Error, CustomStringConvertible, Equatable, 
     public var description: String {
         switch self {
         case .failed(let exitCode, let stderr):
-            let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            let detail = SecretRedactor.redact(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
             return detail.isEmpty
                 ? "updatebar exited \(exitCode)" : "updatebar exited \(exitCode): \(detail)"
         case .timedOut:

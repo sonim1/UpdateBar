@@ -102,6 +102,16 @@ final class UpdateBarCLIClientTests: XCTestCase {
         }
     }
 
+    func testClientErrorDescriptionRedactsSecretLikeValues() {
+        let secret = "sk-or-v1-secret-value"
+        let error = UpdateBarCLIClientError.failed(exitCode: 1, stderr: "failed \(secret)")
+
+        let message = String(describing: error)
+
+        XCTAssertTrue(message.contains("[REDACTED]"))
+        XCTAssertFalse(message.contains(secret))
+    }
+
     func testUpdateActionsUseHeadlessJSONFlags() throws {
         let runner = RecordingRunner(result: CommandResult(exitCode: 0, stdout: "[]", stderr: ""))
         let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
