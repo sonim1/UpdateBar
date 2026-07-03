@@ -275,6 +275,17 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("Use ids copied from `updatebar scan`"))
     }
 
+    func testInitHelpUsesSelectionValueNameForSelectOption() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        let result = try CLIProcess.run(["init", "--help"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("--select <selection>"))
+        XCTAssertFalse(result.stdout.contains("--select <select>"))
+    }
+
     func testScanAndInitHelpListSupportedCategories() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 

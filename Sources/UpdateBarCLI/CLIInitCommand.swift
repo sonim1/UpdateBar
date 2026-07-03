@@ -18,7 +18,10 @@ struct InitCommand: ParsableCommand {
     @Flag(name: .long, help: "Overwrite existing items with matching ids.")
     var replace = false
 
-    @Option(name: .long, help: "Comma-separated candidate ids, numbers, or all.")
+    @Option(
+        name: .long,
+        help: ArgumentHelp("Comma-separated candidate ids, numbers, or all.", valueName: "selection")
+    )
     var select: String?
 
     @Option(name: .long, help: "Filter by category: ai-agent, package-manager, runtime-sdk, shell-utility, cloud-devops, library, codex-skill, or mcp-server.")
