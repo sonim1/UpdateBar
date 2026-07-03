@@ -46,6 +46,26 @@ describe('CLIUpdateBarClient', () => {
     expect(runner.calls[0]).toEqual(['update', '--yes', '--json-stream']);
   });
 
+  it('uses streamed failure event errors when update exits hard', async () => {
+    const runner = new FakeRunner({exitCode: 1, stdout: '', stderr: ''});
+    runner.events = [
+      {
+        event: 'failed',
+        operation: 'update',
+        timestamp: '2026-06-30T00:00:00Z',
+        error: 'manifest lock timed out'
+      }
+    ];
+    const client = new CLIUpdateBarClient(runner);
+    const events: string[] = [];
+
+    await expect(client.updateAll({onEvent: event => events.push(event.event)})).rejects.toThrow(
+      'manifest lock timed out'
+    );
+
+    expect(events).toEqual(['failed']);
+  });
+
   it('reads scan candidates through the Swift CLI contract', async () => {
     const runner = new FakeRunner({
       exitCode: 0,

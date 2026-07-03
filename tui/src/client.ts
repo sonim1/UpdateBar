@@ -122,8 +122,17 @@ export class CLIUpdateBarClient implements UpdateBarClient {
   }
 
   async updateAll(options: StreamOptions): Promise<CommandResult> {
-    const result = await this.runner.stream(['update', '--yes', '--json-stream'], options);
-    ensureExit(result, [0, 2, 3]);
+    let streamError: string | undefined;
+    const result = await this.runner.stream(['update', '--yes', '--json-stream'], {
+      ...options,
+      onEvent: event => {
+        if (event.error?.trim()) {
+          streamError = event.error.trim();
+        }
+        options.onEvent(event);
+      }
+    });
+    ensureExit(result, [0, 2, 3], streamError);
     return result;
   }
 }
@@ -135,9 +144,13 @@ export async function createDefaultClient(
   return new CLIUpdateBarClient(new SubprocessRunner(resolution.path));
 }
 
-function ensureExit(result: CommandResult, allowed: number[]) {
+function ensureExit(result: CommandResult, allowed: number[], fallbackDetail?: string) {
   if (!allowed.includes(result.exitCode)) {
-    const detail = stdoutError(result.stdout) || result.stderr.trim() || `exit ${result.exitCode}`;
+    const detail =
+      stdoutError(result.stdout) ||
+      fallbackDetail?.trim() ||
+      result.stderr.trim() ||
+      `exit ${result.exitCode}`;
     throw new Error(detail);
   }
 }
