@@ -140,6 +140,9 @@ struct EditCommand: ParsableCommand {
         copy.trust.approvedCommands = edited.trust.approvedCommands.filter { field, approved in
             original.trust.approvedCommands[field] == approved && newFingerprints[field] == approved
         }
+        if copy.trust.approvedCommands.isEmpty {
+            copy.trust.level = .untrusted
+        }
         return copy
     }
 
