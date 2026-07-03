@@ -192,7 +192,7 @@ public struct ScanService {
             else {
                 return nil
             }
-            let name = url.lastPathComponent
+            let name = SecretRedactor.redact(url.lastPathComponent)
             return ScanCandidate(
                 id: "codex_skill.\(idComponent(name))",
                 name: name,
@@ -201,7 +201,7 @@ public struct ScanService {
                 capability: .metadataOnly,
                 confidence: .high,
                 installedVersion: nil,
-                sourceRef: "~/\(root)/\(name)",
+                sourceRef: SecretRedactor.redact("~/\(root)/\(url.lastPathComponent)"),
                 recipe: nil
             )
         }
@@ -290,15 +290,22 @@ public struct ScanService {
             return nil
         }
         let command = command?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = SecretRedactor.redact(name)
+        let sourceRef: String
+        if let command, !command.isEmpty {
+            sourceRef = SecretRedactor.redact(command)
+        } else {
+            sourceRef = SecretRedactor.redact("~/\(displayPath)#\(name)")
+        }
         return ScanCandidate(
-            id: "mcp_config.\(idComponent(name))",
-            name: name,
+            id: "mcp_config.\(idComponent(displayName))",
+            name: displayName,
             detector: .mcpConfig,
             category: "mcp-server",
             capability: .metadataOnly,
             confidence: .medium,
             installedVersion: nil,
-            sourceRef: command?.isEmpty == false ? command : "~/\(displayPath)#\(name)",
+            sourceRef: sourceRef,
             recipe: nil
         )
     }

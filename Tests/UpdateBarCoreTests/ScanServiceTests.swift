@@ -248,6 +248,23 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertNil(skill.recipe)
     }
 
+    func testScanRedactsCodexSkillMetadataNamesAndSourceRefs() throws {
+        let home = try temporaryHome(prefix: "updatebar-core-scan-tests")
+        try writeSkill(named: "sk-or-v1-secret-value", under: ".codex/skills", home: home)
+        let service = ScanService(
+            commandRunner: MockCommandExecutor(results: [:]),
+            homeDirectory: home
+        )
+
+        let report = try service.scan(detectors: [.codexSkill])
+
+        let candidate = try XCTUnwrap(report.candidates.first)
+        XCTAssertEqual(candidate.id, "codex_skill.redacted")
+        XCTAssertEqual(candidate.name, "[REDACTED]")
+        XCTAssertEqual(candidate.sourceRef, "~/.codex/skills/[REDACTED]")
+        XCTAssertFalse(report.candidates.description.contains("sk-or-v1-secret-value"))
+    }
+
     func testScanParsesMCPConfigsAsMetadataOnlyCandidatesWithoutEnvValues() throws {
         let home = try temporaryHome(prefix: "updatebar-core-scan-tests")
         try writeText(
@@ -297,6 +314,35 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertEqual(filesystem.sourceRef, "npx")
         XCTAssertNil(filesystem.recipe)
         XCTAssertFalse(report.candidates.description.contains("secret-token"))
+    }
+
+    func testScanRedactsMCPMetadataNamesAndSourceRefs() throws {
+        let home = try temporaryHome(prefix: "updatebar-core-scan-tests")
+        try writeText(
+            """
+            {
+              "mcpServers": {
+                "sk-or-v1-secret-value": {
+                  "command": "node /tmp/sk-or-v1-secret-value/server.js"
+                }
+              }
+            }
+            """,
+            to: ".cursor/mcp.json",
+            home: home
+        )
+        let service = ScanService(
+            commandRunner: MockCommandExecutor(results: [:]),
+            homeDirectory: home
+        )
+
+        let report = try service.scan(detectors: [.mcpConfig])
+
+        let candidate = try XCTUnwrap(report.candidates.first)
+        XCTAssertEqual(candidate.id, "mcp_config.redacted")
+        XCTAssertEqual(candidate.name, "[REDACTED]")
+        XCTAssertEqual(candidate.sourceRef, "node /tmp/[REDACTED]/server.js")
+        XCTAssertFalse(report.candidates.description.contains("sk-or-v1-secret-value"))
     }
 
     func testScanRedactsThrownDetectorErrors() throws {
