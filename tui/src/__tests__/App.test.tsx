@@ -801,6 +801,39 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('manifest lock timed out');
   });
 
+  it('shows failed item result errors in update logs', async () => {
+    const client = createClient({
+      async updateAll(options: StreamOptions): Promise<CommandResult> {
+        options.onEvent({
+          event: 'item_finished',
+          operation: 'update',
+          timestamp: '2026-06-30T00:00:00Z',
+          item_id: 'brew.gh',
+          result: {
+            id: 'brew.gh',
+            name: 'gh',
+            outcome: 'failed',
+            error: 'brew upgrade gh failed'
+          }
+        });
+        return {exitCode: 2, stdout: '', stderr: ''};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Run Updates');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run approved updates now?');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'brew.gh failed · brew upgrade gh failed');
+
+    expect(view.lastFrame()).toContain('brew.gh failed · brew upgrade gh failed');
+  });
+
   it('asks for confirmation before running updates', async () => {
     let updateCalls = 0;
     const client = createClient({
