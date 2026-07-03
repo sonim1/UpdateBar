@@ -96,6 +96,20 @@ describe('CLIUpdateBarClient', () => {
     expect(runner.calls[0]).toEqual(['init', '--select', 'brew.gh', '--json']);
   });
 
+  it('passes cancellation to init selection commands', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout: '{"ok":true,"added":["brew.gh"],"replaced":[],"skipped":[],"errors":[]}',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+    const controller = new AbortController();
+
+    await client.initSelected(['brew.gh'], {signal: controller.signal});
+
+    expect(runner.runOptions[0]?.signal).toBe(controller.signal);
+  });
+
   it('rejects empty scan selections before invoking the CLI', async () => {
     const runner = new FakeRunner({
       exitCode: 0,

@@ -75,7 +75,7 @@ export class SubprocessRunner implements CommandRunner {
 export interface UpdateBarClient {
   status(): Promise<StatusSnapshot>;
   scan(options?: RunOptions): Promise<ScanReport>;
-  initSelected(ids: string[]): Promise<InitResult>;
+  initSelected(ids: string[], options?: RunOptions): Promise<InitResult>;
   checkNow(options?: RunOptions): Promise<CheckReport>;
   updateAll(options: StreamOptions): Promise<CommandResult>;
 }
@@ -95,11 +95,11 @@ export class CLIUpdateBarClient implements UpdateBarClient {
     return parseScanReport(result.stdout);
   }
 
-  async initSelected(ids: string[]): Promise<InitResult> {
+  async initSelected(ids: string[], options: RunOptions = {}): Promise<InitResult> {
     if (ids.length === 0) {
       throw new Error('select at least one scan candidate');
     }
-    const result = await this.runner.run(['init', '--select', ids.join(','), '--json']);
+    const result = await this.runner.run(['init', '--select', ids.join(','), '--json'], options);
     ensureExit(result, [0]);
     return parseInitResult(result.stdout);
   }

@@ -248,10 +248,12 @@ export function App({client: providedClient}: AppProps) {
       setError('Select at least one full scan candidate');
       return;
     }
+    const controller = beginAbortableAction();
     setScreen('logs');
     setLogs(['registering scan selections']);
+    setError(undefined);
     try {
-      const result = await client.initSelected(ids);
+      const result = await client.initSelected(ids, {signal: controller.signal});
       setLogs([
         `added ${result.added.length}`,
         `replaced ${result.replaced.length}`,
@@ -261,7 +263,9 @@ export function App({client: providedClient}: AppProps) {
       setSelectedScanIds(new Set());
       await refreshStatus(client, setStatus, setError);
     } catch (caught) {
-      setError(messageFor(caught));
+      setError(controller.signal.aborted ? 'registration cancelled' : messageFor(caught));
+    } finally {
+      endAbortableAction(controller);
     }
   }
 

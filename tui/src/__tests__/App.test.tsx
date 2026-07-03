@@ -457,6 +457,35 @@ describe('App', () => {
     expect(selected).toEqual([['brew.gh']]);
   });
 
+  it('cancels active scan candidate registration', async () => {
+    let aborted = false;
+    const client = createClient({
+      async initSelected(_ids, options?: {signal?: AbortSignal}) {
+        options?.signal?.addEventListener('abort', () => {
+          aborted = true;
+        });
+        return new Promise(() => {});
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'brew.gh');
+    view.stdin.write(' ');
+    await waitForFrame(view, 'importable: 1/1');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'registering scan selections');
+    view.stdin.write('c');
+    await wait();
+
+    expect(aborted).toBe(true);
+
+    view.unmount();
+  });
+
   it('navigates scan candidates before registering', async () => {
     const selected: string[][] = [];
     const client = createClient({
