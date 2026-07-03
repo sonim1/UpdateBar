@@ -40,8 +40,7 @@ public struct RegistryService {
         force: Bool = false,
         onEvent: ((CheckProgressEvent) throws -> Void)? = nil
     ) throws -> [CheckResult] {
-        let manifest = try manifestStore.loadExistingOrEmpty(now: now())
-        try validate(manifest)
+        let manifest = try loadValidExistingOrEmpty(now: now())
 
         let selected = try selectedRecipes(from: manifest, ids: ids)
         if selected.isEmpty {
@@ -165,8 +164,7 @@ public struct RegistryService {
 
     public func pin(id: String, version: String? = nil) throws -> Recipe {
         try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.loadExistingOrEmpty(now: now())
-            try validate(manifest)
+            var manifest = try loadValidExistingOrEmpty(now: now())
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }
@@ -190,7 +188,7 @@ public struct RegistryService {
 
     public func unpin(id: String) throws -> Recipe {
         try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.loadExistingOrEmpty(now: now())
+            var manifest = try loadValidExistingOrEmpty(now: now())
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }
@@ -204,7 +202,7 @@ public struct RegistryService {
 
     public func setEnabled(id: String, enabled: Bool) throws -> Recipe {
         try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.loadExistingOrEmpty(now: now())
+            var manifest = try loadValidExistingOrEmpty(now: now())
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }
@@ -218,8 +216,7 @@ public struct RegistryService {
 
     public func approve(id: String, field: String? = nil) throws -> Recipe {
         try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.loadExistingOrEmpty(now: now())
-            try validate(manifest)
+            var manifest = try loadValidExistingOrEmpty(now: now())
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }
@@ -241,8 +238,7 @@ public struct RegistryService {
     }
 
     public func approvals(id: String) throws -> [ApprovalStatus] {
-        let manifest = try manifestStore.loadExistingOrEmpty(now: now())
-        try validate(manifest)
+        let manifest = try loadValidExistingOrEmpty(now: now())
         guard let recipe = manifest.item(id: id) else {
             throw RegistryError.itemNotFound(id)
         }
@@ -263,8 +259,7 @@ public struct RegistryService {
     }
 
     public func recipe(id: String) throws -> Recipe {
-        let manifest = try manifestStore.loadExistingOrEmpty(now: now())
-        try validate(manifest)
+        let manifest = try loadValidExistingOrEmpty(now: now())
         guard let recipe = manifest.item(id: id) else {
             throw RegistryError.itemNotFound(id)
         }
@@ -273,7 +268,7 @@ public struct RegistryService {
 
     public func revokeApproval(id: String, field: String) throws -> Recipe {
         try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.loadExistingOrEmpty(now: now())
+            var manifest = try loadValidExistingOrEmpty(now: now())
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }
@@ -293,7 +288,7 @@ public struct RegistryService {
 
     public func remove(id: String) throws {
         try manifestStore.withExclusiveLock {
-            var manifest = try manifestStore.loadExistingOrEmpty(now: now())
+            var manifest = try loadValidExistingOrEmpty(now: now())
             guard manifest.item(id: id) != nil else {
                 throw RegistryError.itemNotFound(id)
             }
@@ -314,9 +309,7 @@ public struct RegistryService {
     }
 
     public func exportManifest() throws -> Manifest {
-        let manifest = try manifestStore.loadExistingOrEmpty(now: now())
-        try validate(manifest)
-        return manifest
+        try loadValidExistingOrEmpty(now: now())
     }
 
     public func addRecipe(_ recipe: Recipe, replace: Bool) throws -> AddRecipeOutcome {
@@ -372,6 +365,12 @@ public struct RegistryService {
     private func saveValid(_ manifest: Manifest) throws {
         try validate(manifest)
         try manifestStore.save(manifest)
+    }
+
+    private func loadValidExistingOrEmpty(now: Date) throws -> Manifest {
+        let manifest = try manifestStore.loadExistingOrEmpty(now: now)
+        try validate(manifest)
+        return manifest
     }
 
     private func validate(_ manifest: Manifest) throws {

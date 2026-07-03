@@ -105,30 +105,34 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
     }
 
-    func testRemoveHumanRedactsLegacySecretLikeID() throws {
+    func testRemoveHumanRejectsLegacySecretLikeID() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
         let secretID = "sk-or-v1-secret-value"
         try saveLegacySecretIDItem(secretID, paths: paths)
 
         let result = try CLIProcess.run(["remove", secretID, "--yes"], home: home)
+        let combined = result.stdout + result.stderr
 
-        XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stdout.contains("removed [REDACTED]"))
-        XCTAssertFalse(result.stdout.contains(secretID))
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("items[0].id: must not contain literal secrets"))
+        XCTAssertFalse(combined.contains(secretID))
     }
 
-    func testRemoveJSONRedactsLegacySecretLikeID() throws {
+    func testRemoveJSONRejectsLegacySecretLikeID() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
         let secretID = "sk-or-v1-secret-value"
         try saveLegacySecretIDItem(secretID, paths: paths)
 
         let result = try CLIProcess.run(["remove", secretID, "--yes", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(RemovePayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
-        XCTAssertEqual(result.exitCode, 0)
-        XCTAssertEqual(payload.id, "[REDACTED]")
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "registry_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].id: must not contain literal secrets") })
         XCTAssertFalse(result.stdout.contains(secretID))
     }
 
@@ -283,6 +287,46 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("missing: item not found") })
         XCTAssertTrue(payload.errors.contains { $0.contains("updatebar status") })
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
+    }
+
+    func testMissingItemMutationsRejectInvalidManifestBeforeItemLookup() throws {
+        let commands = [
+            ["pin", "missing", "1.0.0", "--json"],
+            ["unpin", "missing", "--json"],
+            ["disable", "missing", "--json"],
+            ["enable", "missing", "--json"],
+            ["approve", "missing", "--json"],
+            ["revoke", "missing", "--field", "update.cmd", "--json"],
+            ["remove", "missing", "--yes", "--json"],
+        ]
+
+        for command in commands {
+            let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+            let paths = AppPaths(homeDirectory: home)
+            let secret = "sk-or-v1-secret-value"
+            var item = recipe()
+            item.update.cmd = "OPENROUTER_API_KEY=\(secret) tool update"
+            try ManifestStore(paths: paths).save(Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
+
+            let result = try CLIProcess.run(command, home: home)
+            let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+            let combined = result.stdout + result.stderr
+
+            XCTAssertEqual(result.exitCode, 1, command.joined(separator: " "))
+            XCTAssertEqual(result.stderr, "", command.joined(separator: " "))
+            XCTAssertEqual(payload.code, "registry_error", command.joined(separator: " "))
+            XCTAssertTrue(
+                payload.errors.contains { $0.contains("items[0].update.cmd: must not contain literal secrets") },
+                command.joined(separator: " ")
+            )
+            XCTAssertFalse(payload.errors.contains { $0.contains("missing: item not found") }, command.joined(separator: " "))
+            XCTAssertFalse(payload.errors.contains { $0.contains("updatebar status") }, command.joined(separator: " "))
+            XCTAssertFalse(combined.contains(secret), command.joined(separator: " "))
+        }
     }
 
     func testMissingItemMutationsDoNotCreateManifest() throws {
@@ -622,9 +666,5 @@ final class ManageItemCommandTests: XCTestCase {
         var ok: Bool
         var code: String
         var errors: [String]
-    }
-
-    private struct RemovePayload: Decodable {
-        var id: String
     }
 }
