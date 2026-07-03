@@ -233,6 +233,33 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].sync: unsupported in schema_version 1"))
     }
 
+    func testRedactsSecretLikeUnsupportedEnumValues() throws {
+        let secret = "sk-or-v1-secret-value"
+        let result = try validateFirstRawItem {
+            $0["source"] = [
+                "kind": secret,
+                "ref": "@anthropic-ai/claude-code",
+                "branch": NSNull(),
+            ] as [String: Any]
+            $0["version_scheme"] = secret
+            $0["latest"] = [
+                "strategy": secret,
+                "cmd": NSNull(),
+                "pattern": NSNull(),
+            ] as [String: Any]
+            $0["trust"] = [
+                "level": secret,
+                "approved_commands": [:],
+            ] as [String: Any]
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].source.kind: unsupported value [REDACTED]"))
+        XCTAssertTrue(result.errors.contains("items[0].version_scheme: unsupported value [REDACTED]"))
+        XCTAssertTrue(result.errors.contains("items[0].latest.strategy: unsupported value [REDACTED]"))
+        XCTAssertTrue(result.errors.contains("items[0].trust.level: unsupported value [REDACTED]"))
+        XCTAssertFalse(result.errors.joined(separator: "\n").contains(secret))
+    }
+
     func testRejectsMalformedGitHubReleaseSourceRefs() throws {
         let ownerOnly = try validateFirstRawItem {
             $0["source"] = ["kind": "github_release", "ref": "owner"]

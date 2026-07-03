@@ -48,7 +48,7 @@ public enum RecipeValidator {
             errors.append("\(path).source: required")
         }
         if let scheme = item["version_scheme"] as? String, !versionSchemes.contains(scheme) {
-            errors.append("\(path).version_scheme: unsupported value \(scheme)")
+            errors.append("\(path).version_scheme: unsupported value \(redactedValue(scheme))")
         }
         if let check = item["check"] as? [String: Any] {
             errors += validateCheck(check, path: "\(path).check")
@@ -123,7 +123,7 @@ public enum RecipeValidator {
         errors += rejectLiteralSecret(source["ref"], path: "\(path).ref")
         errors += rejectLiteralSecret(source["branch"], path: "\(path).branch")
         if let kind = source["kind"] as? String, !sourceKinds.contains(kind) {
-            errors.append("\(path).kind: unsupported value \(kind)")
+            errors.append("\(path).kind: unsupported value \(redactedValue(kind))")
         }
         if let kind = source["kind"] as? String,
             kind == "github_release",
@@ -186,7 +186,7 @@ public enum RecipeValidator {
             return errors
         }
         if !latestStrategies.contains(strategy) {
-            errors.append("\(path).strategy: unsupported value \(strategy)")
+            errors.append("\(path).strategy: unsupported value \(redactedValue(strategy))")
         }
         if strategy == "cmd", !nonEmptyString(latest["cmd"]) {
             errors.append("\(path).cmd: required when latest.strategy is cmd")
@@ -233,7 +233,7 @@ public enum RecipeValidator {
     private static func validateTrust(_ trust: [String: Any], path: String) -> [String] {
         var errors = requireString(trust, "level", path: path)
         if let level = trust["level"] as? String, !trustLevels.contains(level) {
-            errors.append("\(path).level: unsupported value \(level)")
+            errors.append("\(path).level: unsupported value \(redactedValue(level))")
         }
         if let approvedCommands = trust["approved_commands"] as? [String: Any] {
             for (field, fingerprint) in approvedCommands where !(fingerprint is String) {
@@ -263,6 +263,10 @@ public enum RecipeValidator {
     private static func rejectLiteralSecret(_ value: Any?, path: String) -> [String] {
         guard let text = value as? String, SecretRedactor.redact(text) != text else { return [] }
         return ["\(path): must not contain literal secrets"]
+    }
+
+    private static func redactedValue(_ value: String) -> String {
+        SecretRedactor.redact(value)
     }
 
     private static func nonEmptyString(_ value: Any?) -> Bool {
