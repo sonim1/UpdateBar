@@ -26,11 +26,12 @@ export async function* parseJSONLines(
 }
 
 export function parseJSONLText(text: string): MachineEvent[] {
-  return text
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean)
-    .map((line, index) => parseLine(line, index + 1));
+  const events: MachineEvent[] = [];
+  for (const [index, rawLine] of text.split('\n').entries()) {
+    const line = rawLine.trim();
+    if (line.length > 0) events.push(parseLine(line, index + 1));
+  }
+  return events;
 }
 
 function parseLine(line: string, lineNumber: number): MachineEvent {

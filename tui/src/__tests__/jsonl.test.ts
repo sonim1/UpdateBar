@@ -37,4 +37,8 @@ describe('jsonl parser', () => {
   it('reports invalid lines with line numbers', () => {
     expect(() => parseJSONLText('{')).toThrow('line 1');
   });
+
+  it('counts blank lines when reporting text parse failures', () => {
+    expect(() => parseJSONLText('\n\n{')).toThrow('line 3');
+  });
 });

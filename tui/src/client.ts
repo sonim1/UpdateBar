@@ -96,6 +96,9 @@ export class CLIUpdateBarClient implements UpdateBarClient {
   }
 
   async initSelected(ids: string[]): Promise<InitResult> {
+    if (ids.length === 0) {
+      throw new Error('select at least one scan candidate');
+    }
     const result = await this.runner.run(['init', '--select', ids.join(','), '--json']);
     ensureExit(result, [0]);
     return parseInitResult(result.stdout);
