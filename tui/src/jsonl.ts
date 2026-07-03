@@ -20,6 +20,7 @@ const MACHINE_EVENT_TYPES = new Set<MachineEventType>([
 ]);
 
 const MACHINE_OPERATIONS = new Set<MachineEvent['operation']>(['update', 'check']);
+const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
 const MACHINE_LOG_LEVELS = new Set<NonNullable<MachineEvent['level']>>([
   'debug',
@@ -228,7 +229,7 @@ function isOptionalString(value: unknown) {
 }
 
 function isValidTimestamp(value: string) {
-  return !Number.isNaN(Date.parse(value));
+  return ISO_TIMESTAMP_PATTERN.test(value) && !Number.isNaN(Date.parse(value));
 }
 
 function hasUpdatePayload(value: Partial<MachineEvent>) {
