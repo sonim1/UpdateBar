@@ -37,7 +37,7 @@ struct ScanCommand: ParsableCommand {
         let needsReview = report.candidates.filter { $0.capability != .full }
         let nextIndex = printSection("Recommended", candidates: recommended, startIndex: 1)
         _ = printSection("Needs Review", candidates: needsReview, startIndex: nextIndex)
-        printReviewOnlyNote(recommended: recommended, needsReview: needsReview)
+        printReviewOnlyNote(recommended: recommended, needsReview: needsReview, categoryFilter: categoryFilter)
         printNextStep(recommended, categoryFilter: categoryFilter)
         if !report.errors.isEmpty {
             writeStderr("")
@@ -96,12 +96,16 @@ struct ScanCommand: ParsableCommand {
 
     private func printReviewOnlyNote(
         recommended: [ScanCandidate],
-        needsReview: [ScanCandidate]
+        needsReview: [ScanCandidate],
+        categoryFilter: String?
     ) {
         guard recommended.isEmpty, !needsReview.isEmpty else {
             return
         }
         print("Review-only candidates are not importable yet.")
+        if categoryFilter != nil {
+            print("Run updatebar scan without --category to look for importable candidates.")
+        }
         print("")
     }
 

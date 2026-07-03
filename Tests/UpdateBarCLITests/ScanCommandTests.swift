@@ -308,6 +308,7 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stdout.contains("Needs Review"))
         XCTAssertTrue(result.stdout.contains("not importable yet"))
+        XCTAssertTrue(result.stdout.contains("Run updatebar scan without --category to look for importable candidates."))
         XCTAssertFalse(result.stdout.contains("updatebar init --select"))
     }
 
