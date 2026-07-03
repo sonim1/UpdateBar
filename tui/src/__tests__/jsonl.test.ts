@@ -123,6 +123,14 @@ describe('jsonl parser', () => {
     ).toThrow('line 1');
   });
 
+  it('rejects invalid update result optional fields with line numbers', () => {
+    expect(() =>
+      parseJSONLText(
+        '{"event":"item_finished","operation":"update","timestamp":"2026-06-30T00:00:00Z","result":{"id":"brew.gh","name":"gh","outcome":"failed","error":42}}'
+      )
+    ).toThrow('line 1');
+  });
+
   it('rejects invalid update summaries with line numbers', () => {
     expect(() =>
       parseJSONLText(
@@ -159,6 +167,14 @@ describe('jsonl parser', () => {
     expect(() =>
       parseJSONLText(
         '{"event":"item_finished","operation":"check","timestamp":"2026-06-30T00:00:00Z","check_result":{"id":"brew.gh","name":"gh","status":"mystery"}}'
+      )
+    ).toThrow('line 1');
+  });
+
+  it('rejects invalid check result optional fields with line numbers', () => {
+    expect(() =>
+      parseJSONLText(
+        '{"event":"item_finished","operation":"check","timestamp":"2026-06-30T00:00:00Z","check_result":{"id":"brew.gh","name":"gh","status":"ok","last_checked":"June 30, 2026"}}'
       )
     ).toThrow('line 1');
   });

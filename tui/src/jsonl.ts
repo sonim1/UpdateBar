@@ -179,7 +179,11 @@ function isUpdateResult(value: unknown): value is UpdateResult {
     typeof value.id === 'string' &&
     typeof value.name === 'string' &&
     typeof value.outcome === 'string' &&
-    UPDATE_OUTCOMES.has(value.outcome as UpdateOutcome)
+    UPDATE_OUTCOMES.has(value.outcome as UpdateOutcome) &&
+    isOptionalString(value.current) &&
+    isOptionalString(value.latest) &&
+    isOptionalString(value.error) &&
+    isOptionalString(value.command_fingerprint)
   );
 }
 
@@ -207,7 +211,11 @@ function isCheckResult(value: unknown): value is CheckResult {
     typeof value.id === 'string' &&
     typeof value.name === 'string' &&
     typeof value.status === 'string' &&
-    ITEM_STATUSES.has(value.status as ItemStatus)
+    ITEM_STATUSES.has(value.status as ItemStatus) &&
+    isOptionalString(value.current) &&
+    isOptionalString(value.latest) &&
+    isOptionalMachineTimestamp(value.last_checked) &&
+    isOptionalString(value.error)
   );
 }
 
@@ -238,6 +246,10 @@ function isOptionalString(value: unknown) {
 
 function isNonNegativeInteger(value: unknown) {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function isOptionalMachineTimestamp(value: unknown) {
+  return value === undefined || (typeof value === 'string' && isValidMachineTimestamp(value));
 }
 
 export function isValidMachineTimestamp(value: string) {
