@@ -25,6 +25,21 @@ final class ExecutionPolicyTests: XCTestCase {
         XCTAssertEqual(result.stderr, "nope")
     }
 
+    func testCommandExecutorRejectsFileWorkingDirectory() throws {
+        let file = try temporaryDirectory().appendingPathComponent("not-a-directory")
+        try Data("not a directory".utf8).write(to: file)
+        let executor = CommandExecutor()
+
+        XCTAssertThrowsError(
+            try executor.run(
+                ShellCommand(command: "pwd", cwd: file.path),
+                policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 1024)
+            )
+        ) { error in
+            XCTAssertEqual(error as? ExecutionError, .invalidWorkingDirectory(file.path))
+        }
+    }
+
     func testCommandExecutorTimesOut() {
         let executor = CommandExecutor()
 

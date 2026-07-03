@@ -25,8 +25,13 @@ public struct CommandExecutor: CommandRunning {
     }
 
     public func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult {
-        if let cwd = command.cwd, !fileManager.fileExists(atPath: cwd) {
-            throw ExecutionError.invalidWorkingDirectory(cwd)
+        if let cwd = command.cwd {
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: cwd, isDirectory: &isDirectory),
+                  isDirectory.boolValue
+            else {
+                throw ExecutionError.invalidWorkingDirectory(cwd)
+            }
         }
         if cancellationToken?.isCancelled == true {
             throw ExecutionError.cancelled(command: command.command)
