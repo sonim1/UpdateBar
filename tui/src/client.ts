@@ -309,14 +309,14 @@ function parseInitResult(payload: string): InitResult {
 function isStatusSummary(value: unknown): value is StatusSnapshot['summary'] {
   if (!isObject(value)) return false;
   return (
-    typeof value.total === 'number' &&
-    typeof value.outdated === 'number' &&
-    typeof value.errors === 'number' &&
-    isOptionalNumber(value.untrusted) &&
-    isOptionalNumber(value.pinned) &&
-    isOptionalNumber(value.disabled) &&
-    isOptionalNumber(value.checking) &&
-    isOptionalNumber(value.differs)
+    isNonNegativeInteger(value.total) &&
+    isNonNegativeInteger(value.outdated) &&
+    isNonNegativeInteger(value.errors) &&
+    isOptionalNonNegativeInteger(value.untrusted) &&
+    isOptionalNonNegativeInteger(value.pinned) &&
+    isOptionalNonNegativeInteger(value.disabled) &&
+    isOptionalNonNegativeInteger(value.checking) &&
+    isOptionalNonNegativeInteger(value.differs)
   );
 }
 
@@ -403,8 +403,12 @@ function isOptionalMachineTimestamp(value: unknown) {
   return value === undefined || isValidMachineTimestampValue(value);
 }
 
-function isOptionalNumber(value: unknown) {
-  return value === undefined || typeof value === 'number';
+function isNonNegativeInteger(value: unknown) {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function isOptionalNonNegativeInteger(value: unknown) {
+  return value === undefined || isNonNegativeInteger(value);
 }
 
 function normalizeStatusSnapshot(snapshot: StatusSnapshot): StatusSnapshot {
