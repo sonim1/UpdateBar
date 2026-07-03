@@ -245,6 +245,56 @@ final class EditCommandTests: XCTestCase {
         XCTAssertNotNil(recipe.trust.approvedCommands["check.cmd"])
     }
 
+    func testChangingCheckCommandToFileInvalidatesStaleCheckApproval() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let versionFile = home.appendingPathComponent("version.txt")
+        try "tool 1.0.0\n".write(to: versionFile, atomically: true, encoding: .utf8)
+        let original = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
+        let checkApproval = try XCTUnwrap(original.trust.approvedCommands["check.cmd"])
+        let latestApproval = try XCTUnwrap(original.trust.approvedCommands["latest.cmd"])
+        let updateApproval = try XCTUnwrap(original.trust.approvedCommands["update.cmd"])
+        let editor = try editorScript(
+            home: home,
+            body: """
+            cat > "$1" <<'JSON'
+            {
+              "id": "tool",
+              "name": "Tool",
+              "category": "cli",
+              "path": null,
+              "source": { "kind": "custom", "ref": "tool", "branch": null },
+              "version_scheme": "semver",
+              "check": { "file": "\(versionFile.path)" },
+              "latest": { "strategy": "cmd", "cmd": "printf 'tool 1.1.0'", "pattern": null },
+              "version_parse": { "regex": "([0-9]+\\\\.[0-9]+\\\\.[0-9]+)" },
+              "update": { "cmd": "printf updated", "requires_write": true, "cwd": null },
+              "pin": null,
+              "enabled": true,
+              "trust": {
+                "level": "trusted",
+                "approved_commands": {
+                  "check.cmd": "\(checkApproval)",
+                  "latest.cmd": "\(latestApproval)",
+                  "update.cmd": "\(updateApproval)"
+                }
+              }
+            }
+            JSON
+            """
+        )
+
+        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
+        let recipe = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(recipe.check, .file(path: versionFile.path))
+        XCTAssertNil(recipe.trust.approvedCommands["check.cmd"])
+        XCTAssertNotNil(recipe.trust.approvedCommands["latest.cmd"])
+        XCTAssertNil(recipe.trust.approvedCommands["update.cmd"])
+    }
+
     private func saveManifest(paths: AppPaths) throws {
         try ManifestStore(paths: paths).save(Manifest(
             schemaVersion: 1,

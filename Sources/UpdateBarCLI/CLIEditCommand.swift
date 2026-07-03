@@ -26,16 +26,11 @@ struct EditCommand: ParsableCommand {
 
         try runEditor(file: temp)
         let editedData = try Data(contentsOf: temp)
-        let validation = try RecipeValidator.validate(data: editedData)
-        guard validation.isValid else {
-            throw ValidationError(validation.errors.joined(separator: "\n"))
-        }
-        var edited = try JSONDecoder.updateBar.decode(Recipe.self, from: editedData)
+        let edited = try loadEditedRecipe(data: editedData, original: original)
         guard edited.id == original.id else {
             throw ValidationError("id cannot be changed during edit")
         }
         try validateEditedRecipe(edited)
-        edited = invalidateChangedApprovals(original: original, edited: edited)
 
         try store.withExclusiveLock {
             var latest = try store.loadExistingOrEmpty()
@@ -47,6 +42,26 @@ struct EditCommand: ParsableCommand {
             try store.save(latest)
         }
         writeStdout("edited \(id)")
+    }
+
+    private func loadEditedRecipe(data: Data, original: Recipe) throws -> Recipe {
+        let validation = try RecipeValidator.validate(data: data)
+        if validation.isValid {
+            return try invalidateChangedApprovals(
+                original: original,
+                edited: JSONDecoder.updateBar.decode(Recipe.self, from: data)
+            )
+        }
+
+        guard let decoded = try? JSONDecoder.updateBar.decode(Recipe.self, from: data) else {
+            throw ValidationError(validation.errors.joined(separator: "\n"))
+        }
+        let cleaned = invalidateChangedApprovals(original: original, edited: decoded)
+        let cleanedValidation = try RecipeValidator.validate(data: JSONEncoder.updateBar.encode(cleaned))
+        guard cleanedValidation.isValid else {
+            throw ValidationError(validation.errors.joined(separator: "\n"))
+        }
+        return cleaned
     }
 
     private func runEditor(file: URL) throws {
