@@ -223,6 +223,37 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('No logs yet');
   });
 
+  it('ignores scan selection input while scan is running', async () => {
+    let registrations = 0;
+    const client = createClient({
+      async scan() {
+        return new Promise(() => {});
+      },
+      async initSelected() {
+        registrations += 1;
+        return {ok: true, added: [], replaced: [], skipped: [], errors: []};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Scanning...');
+    view.stdin.write('\r');
+    await wait();
+    view.stdin.write('a');
+    await wait();
+
+    expect(registrations).toBe(0);
+    expect(view.lastFrame()).toContain('Scanning...');
+    expect(view.lastFrame()).not.toContain('Select at least one full scan candidate');
+    expect(view.lastFrame()).not.toContain('No importable candidates to select');
+
+    view.unmount();
+  });
+
   it('selects all importable scan candidates at once', async () => {
     const selected: string[][] = [];
     const client = createClient({

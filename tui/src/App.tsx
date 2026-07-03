@@ -86,8 +86,10 @@ export function App({client: providedClient}: AppProps) {
 
   useInput(
     (_input, key) => {
-      if ((_input === 'c' || _input === 'q') && abortControllerRef.current) {
-        abortControllerRef.current.abort();
+      if (abortControllerRef.current) {
+        if (_input === 'c' || _input === 'q') {
+          abortControllerRef.current.abort();
+        }
         return;
       }
       if (_input === 'q') {
