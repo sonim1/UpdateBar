@@ -48,6 +48,16 @@ final class ConfigCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("unknown config key"))
     }
 
+    func testConfigSetInvalidKeyDoesNotCreateConfigFile() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
+        let paths = AppPaths(homeDirectory: home)
+
+        let result = try CLIProcess.run(["config", "set", "missing.key", "value", "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
+    }
+
     func testConfigJSONOmitsRemovedConfigKeys() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
 

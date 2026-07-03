@@ -57,7 +57,7 @@ struct ConfigCommand: ParsableCommand {
 
         func run() throws {
             let store = ConfigStore()
-            var config = try store.load()
+            var config = try store.loadExistingOrDefault()
             try config.set(key, value: value)
             try store.save(config)
             if json {
