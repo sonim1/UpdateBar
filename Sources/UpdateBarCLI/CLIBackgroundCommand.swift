@@ -33,7 +33,7 @@ struct BackgroundCommand: ParsableCommand {
             let payload = BackgroundInstallPayload(
                 ok: true,
                 installed: true,
-                path: url.path,
+                path: SecretRedactor.redact(url.path),
                 label: BackgroundLaunchAgentManager.label
             )
             if json {
@@ -63,7 +63,7 @@ struct BackgroundCommand: ParsableCommand {
             let payload = BackgroundStatusPayload(
                 ok: true,
                 installed: manager.isInstalled,
-                path: manager.plistURL.path,
+                path: SecretRedactor.redact(manager.plistURL.path),
                 label: BackgroundLaunchAgentManager.label
             )
             if json {
@@ -93,7 +93,7 @@ struct BackgroundCommand: ParsableCommand {
             let payload = BackgroundUninstallPayload(
                 ok: true,
                 removed: removed,
-                path: manager.plistURL.path,
+                path: SecretRedactor.redact(manager.plistURL.path),
                 label: BackgroundLaunchAgentManager.label
             )
             if json {

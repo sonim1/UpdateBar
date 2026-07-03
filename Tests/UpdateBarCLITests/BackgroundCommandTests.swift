@@ -181,6 +181,23 @@ final class BackgroundCommandTests: XCTestCase {
         XCTAssertFalse(status.stdout.contains(secret))
     }
 
+    func testBackgroundJSONOutputRedactsSecretLikeHomePath() throws {
+        let base = try makeTemporaryHome(prefix: "updatebar-cli-background-tests")
+        let secret = "sk-or-v1-secret-value"
+        let home = base.appendingPathComponent(secret)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+
+        let install = try CLIProcess.run(["background", "install", "--yes", "--json"], home: home, environment: ["HOME": home.path])
+        let status = try CLIProcess.run(["background", "status", "--json"], home: home, environment: ["HOME": home.path])
+        let uninstall = try CLIProcess.run(["background", "uninstall", "--json"], home: home, environment: ["HOME": home.path])
+
+        for result in [install, status, uninstall] {
+            XCTAssertEqual(result.exitCode, 0)
+            XCTAssertTrue(result.stdout.contains("[REDACTED]"))
+            XCTAssertFalse(result.stdout.contains(secret))
+        }
+    }
+
     private func plistURL(home: URL) -> URL {
         home
             .appendingPathComponent("Library")
