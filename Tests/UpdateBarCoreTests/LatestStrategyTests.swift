@@ -3,6 +3,22 @@ import UpdateBarTestSupport
 import XCTest
 
 final class LatestStrategyTests: XCTestCase {
+    func testLatestErrorDescriptionsRedactSecretLikeValues() {
+        let secret = "sk-or-v1-secret-value"
+        let errors: [LatestError] = [
+            .invalidSource("bad source \(secret)"),
+            .missingField("missing field \(secret)"),
+            .commandFailed("command failed \(secret)"),
+            .parseFailed("parse failed \(secret)")
+        ]
+
+        for error in errors {
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("[REDACTED]"), "\(error)")
+            XCTAssertFalse(message.contains(secret), "\(error)")
+        }
+    }
+
     func testNPMRegistryReadsDistTagLatest() throws {
         let data = try Data(
             contentsOf: TestFixtures.fixtureURL("npm", "claude-code-registry-response.json")

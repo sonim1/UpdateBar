@@ -104,10 +104,10 @@ public enum LatestError: Error, CustomStringConvertible, Equatable {
 
     public var description: String {
         switch self {
-        case let .invalidSource(message): message
-        case let .missingField(message): message
-        case let .commandFailed(message): message
-        case let .parseFailed(message): message
+        case let .invalidSource(message): SecretRedactor.redact(message)
+        case let .missingField(message): SecretRedactor.redact(message)
+        case let .commandFailed(message): SecretRedactor.redact(message)
+        case let .parseFailed(message): SecretRedactor.redact(message)
         }
     }
 }

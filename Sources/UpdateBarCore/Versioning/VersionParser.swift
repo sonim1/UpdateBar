@@ -8,9 +8,9 @@ public enum VersionParser {
         public var description: String {
             switch self {
             case let .invalidRegex(pattern):
-                return "version_parse.regex invalid: \(pattern)"
+                return "version_parse.regex invalid: \(SecretRedactor.redact(pattern))"
             case let .missingMatch(pattern):
-                return "version_parse.regex did not match output: \(pattern)"
+                return "version_parse.regex did not match output: \(SecretRedactor.redact(pattern))"
             }
         }
     }

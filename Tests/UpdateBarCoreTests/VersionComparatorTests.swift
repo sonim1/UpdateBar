@@ -50,4 +50,18 @@ final class VersionComparatorTests: XCTestCase {
             try VersionParser.extract(from: "claude 1.2.3", using: .regex("version: ([0-9]+)"))
         )
     }
+
+    func testVersionParseErrorDescriptionsRedactSecretLikeValues() {
+        let secret = "sk-or-v1-secret-value"
+        let errors: [VersionParser.ParseError] = [
+            .invalidRegex("version \(secret)"),
+            .missingMatch("version \(secret)")
+        ]
+
+        for error in errors {
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("[REDACTED]"), "\(error)")
+            XCTAssertFalse(message.contains(secret), "\(error)")
+        }
+    }
 }

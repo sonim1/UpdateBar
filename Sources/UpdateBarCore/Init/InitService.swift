@@ -90,7 +90,7 @@ public enum InitServiceError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
         case .invalidSelection(let errors):
-            return errors.joined(separator: "\n")
+            return errors.map(SecretRedactor.redact).joined(separator: "\n")
         }
     }
 }
