@@ -110,28 +110,14 @@ public struct StatusSummary: Codable, Equatable {
         disabled = try container.decodeIfPresent(Int.self, forKey: .disabled) ?? 0
         checking = try container.decodeIfPresent(Int.self, forKey: .checking) ?? 0
         differs = try container.decodeIfPresent(Int.self, forKey: .differs) ?? 0
-        try Self.validateNonNegative(total, forKey: .total, in: container)
-        try Self.validateNonNegative(outdated, forKey: .outdated, in: container)
-        try Self.validateNonNegative(errors, forKey: .errors, in: container)
-        try Self.validateNonNegative(untrusted, forKey: .untrusted, in: container)
-        try Self.validateNonNegative(pinned, forKey: .pinned, in: container)
-        try Self.validateNonNegative(disabled, forKey: .disabled, in: container)
-        try Self.validateNonNegative(checking, forKey: .checking, in: container)
-        try Self.validateNonNegative(differs, forKey: .differs, in: container)
-    }
-
-    private static func validateNonNegative(
-        _ value: Int,
-        forKey key: CodingKeys,
-        in container: KeyedDecodingContainer<CodingKeys>
-    ) throws {
-        guard value >= 0 else {
-            throw DecodingError.dataCorruptedError(
-                forKey: key,
-                in: container,
-                debugDescription: "\(key.stringValue) must be non-negative"
-            )
-        }
+        try validateNonNegativeDecoded(total, forKey: .total, in: container)
+        try validateNonNegativeDecoded(outdated, forKey: .outdated, in: container)
+        try validateNonNegativeDecoded(errors, forKey: .errors, in: container)
+        try validateNonNegativeDecoded(untrusted, forKey: .untrusted, in: container)
+        try validateNonNegativeDecoded(pinned, forKey: .pinned, in: container)
+        try validateNonNegativeDecoded(disabled, forKey: .disabled, in: container)
+        try validateNonNegativeDecoded(checking, forKey: .checking, in: container)
+        try validateNonNegativeDecoded(differs, forKey: .differs, in: container)
     }
 }
 

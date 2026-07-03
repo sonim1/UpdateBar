@@ -248,14 +248,14 @@ public struct UpdateSummary: Codable, Equatable {
         missing = try container.decode(Int.self, forKey: .missing)
         cancelled = try container.decode(Int.self, forKey: .cancelled)
         hardFailures = try container.decode(Int.self, forKey: .hardFailures)
-        try Self.validateNonNegative(total, forKey: .total, in: container)
-        try Self.validateNonNegative(updated, forKey: .updated, in: container)
-        try Self.validateNonNegative(failed, forKey: .failed, in: container)
-        try Self.validateNonNegative(skipped, forKey: .skipped, in: container)
-        try Self.validateNonNegative(skippedUntrusted, forKey: .skippedUntrusted, in: container)
-        try Self.validateNonNegative(missing, forKey: .missing, in: container)
-        try Self.validateNonNegative(cancelled, forKey: .cancelled, in: container)
-        try Self.validateNonNegative(hardFailures, forKey: .hardFailures, in: container)
+        try validateNonNegativeDecoded(total, forKey: .total, in: container)
+        try validateNonNegativeDecoded(updated, forKey: .updated, in: container)
+        try validateNonNegativeDecoded(failed, forKey: .failed, in: container)
+        try validateNonNegativeDecoded(skipped, forKey: .skipped, in: container)
+        try validateNonNegativeDecoded(skippedUntrusted, forKey: .skippedUntrusted, in: container)
+        try validateNonNegativeDecoded(missing, forKey: .missing, in: container)
+        try validateNonNegativeDecoded(cancelled, forKey: .cancelled, in: container)
+        try validateNonNegativeDecoded(hardFailures, forKey: .hardFailures, in: container)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -269,19 +269,6 @@ public struct UpdateSummary: Codable, Equatable {
         case hardFailures = "hard_failures"
     }
 
-    private static func validateNonNegative(
-        _ value: Int,
-        forKey key: CodingKeys,
-        in container: KeyedDecodingContainer<CodingKeys>
-    ) throws {
-        guard value >= 0 else {
-            throw DecodingError.dataCorruptedError(
-                forKey: key,
-                in: container,
-                debugDescription: "\(key.stringValue) must be non-negative"
-            )
-        }
-    }
 }
 
 public enum UpdateOutcome: String, Codable, Equatable {
