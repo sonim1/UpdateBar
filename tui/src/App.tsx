@@ -71,7 +71,10 @@ export function App({client: providedClient}: AppProps) {
 
   useEffect(() => {
     if (providedClient) return;
-    createDefaultClient().then(setClient).catch(caught => setError(messageFor(caught)));
+    createDefaultClient().then(setClient).catch(caught => {
+      setStatusUnavailable(true);
+      setError(messageFor(caught));
+    });
   }, [providedClient]);
 
   useEffect(() => {
