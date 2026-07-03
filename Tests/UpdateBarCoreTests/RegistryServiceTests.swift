@@ -300,6 +300,25 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertNil(stored.trust.approvedCommands["update.cmd"])
     }
 
+    func testRegistryErrorDescriptionsRedactSecretLikeValues() {
+        let secret = "sk-or-v1-secret-value"
+        let errors: [RegistryError] = [
+            .itemNotFound(secret),
+            .missingCurrentVersion(secret),
+            .duplicateItem(secret),
+            .invalidManifest(["bad value \(secret)"]),
+            .commandFailed("stderr \(secret)"),
+            .commandFieldNotFound(secret),
+            .checkFileNotReadable("/tmp/\(secret)")
+        ]
+
+        for error in errors {
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("[REDACTED]"), "\(error)")
+            XCTAssertFalse(message.contains(secret), "\(error)")
+        }
+    }
+
     func testCheckEmitsProgressEventsFromCoreContract() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)

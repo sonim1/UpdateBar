@@ -482,20 +482,24 @@ public enum RegistryError: Error, CustomStringConvertible, Equatable {
     public var description: String {
         switch self {
         case let .itemNotFound(id):
-            return "\(id): item not found"
+            return "\(redacted(id)): item not found"
         case let .missingCurrentVersion(id):
-            return "\(id): current version is unavailable"
+            return "\(redacted(id)): current version is unavailable"
         case let .duplicateItem(id):
-            return "\(id): duplicate item; pass --replace to overwrite"
+            return "\(redacted(id)): duplicate item; pass --replace to overwrite"
         case let .invalidManifest(errors):
-            return "manifest invalid: \(errors.joined(separator: "; "))"
+            return "manifest invalid: \(errors.map(redacted).joined(separator: "; "))"
         case let .commandFailed(message):
-            return message
+            return redacted(message)
         case let .commandFieldNotFound(field):
-            return "\(field): command field not found"
+            return "\(redacted(field)): command field not found"
         case let .checkFileNotReadable(path):
-            return "check.file not readable: \(path)"
+            return "check.file not readable: \(redacted(path))"
         }
+    }
+
+    private func redacted(_ text: String) -> String {
+        SecretRedactor.redact(text)
     }
 }
 
