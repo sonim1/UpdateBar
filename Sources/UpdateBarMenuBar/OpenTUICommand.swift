@@ -15,6 +15,17 @@ public struct OpenTUICommand: Equatable, Sendable {
             updateBarHome.map { "export UPDATEBAR_HOME=\(Self.shellQuote($0))" },
             tuiCommandOverride.map { "export UPDATEBAR_TUI=\(Self.shellQuote($0))" },
         ].compactMap { $0 }
+        let pathFilter = [
+            "old_ifs=$IFS",
+            "IFS=:",
+            "absolute_path_entries=",
+            "for path_entry in $PATH",
+            "do case \"$path_entry\" in /*) absolute_path_entries=\"${absolute_path_entries:+$absolute_path_entries:}$path_entry\" ;; esac",
+            "done",
+            "IFS=$old_ifs",
+            "PATH=$absolute_path_entries",
+            "export PATH",
+        ]
 
         let quotedCommand = Self.shellQuote(tuiCommand)
         let fallbackPrompt = Self.shellQuote("\(tuiCommand) is not available")
@@ -42,7 +53,7 @@ public struct OpenTUICommand: Equatable, Sendable {
             "fi",
         ]
 
-        let script = (exports + launch).joined(separator: "; ")
+        let script = (exports + pathFilter + launch).joined(separator: "; ")
         executablePath = "/usr/bin/osascript"
         arguments = [
             "-e",

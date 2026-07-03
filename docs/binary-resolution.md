@@ -12,7 +12,8 @@ the `updatebar` binary in this order:
    architecture-specific debug directories.
 
 Explicit override paths must be executable. Bundled, `PATH`, and development
-fallback candidates are used only when executable.
+fallback candidates are used only when executable. Relative `PATH` entries such
+as `.` are ignored for presentation-layer subprocess resolution.
 
 The Swift Menu Bar layer uses `UpdateBarBinaryResolver`. The Ink TUI package
 uses its Node `resolveUpdateBarBinary` implementation with the same order and

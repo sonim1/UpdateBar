@@ -82,4 +82,19 @@ final class OpenTUICommandTests: XCTestCase {
         XCTAssertLessThan(exit.lowerBound, cliFallback.lowerBound)
         XCTAssertTrue(joined.contains("updatebar-tui is not available"))
     }
+
+    func testTerminalCommandFiltersRelativePathEntriesBeforePathFallback() throws {
+        let command = OpenTUICommand(
+            cliPath: "/Applications/UpdateBar.app/Contents/Resources/updatebar",
+            tuiCommand: "updatebar-tui",
+            updateBarHome: nil
+        )
+
+        let joined = command.arguments.joined(separator: " ")
+        let pathFilter = try XCTUnwrap(joined.range(of: "absolute_path_entries"))
+        let commandLookup = try XCTUnwrap(joined.range(of: "command -v"))
+
+        XCTAssertLessThan(pathFilter.lowerBound, commandLookup.lowerBound)
+        XCTAssertTrue(joined.contains("/*) absolute_path_entries"))
+    }
 }
