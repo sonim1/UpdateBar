@@ -80,6 +80,24 @@ describe('resolveUpdateBarBinary', () => {
     ).resolves.toEqual({path: bundled, source: 'bundled'});
   });
 
+  it('ignores relative PATH entries', async () => {
+    const root = await tempDir();
+    await executable(path.join(root, 'updatebar'));
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(root);
+      await expect(
+        resolveUpdateBarBinary({
+          env: {PATH: '.'},
+          cwd: root,
+          defaultPathEntries: []
+        })
+      ).rejects.toThrow(/updatebar binary not found/);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   it('uses development fallback after PATH misses', async () => {
     const root = await tempDir();
     const dev = await executable(path.join(root, '.build', 'debug', 'updatebar'));

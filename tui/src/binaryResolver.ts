@@ -68,7 +68,9 @@ async function explicitPath(value: string | undefined, source: BinarySource, cwd
 }
 
 async function findOnPath(pathValue: string, defaultEntries: string[]) {
-  const entries = [...pathValue.split(path.delimiter).filter(Boolean), ...defaultEntries];
+  const entries = [...pathValue.split(path.delimiter), ...defaultEntries].filter(entry =>
+    path.isAbsolute(entry)
+  );
   const seen = new Set<string>();
   for (const entry of entries) {
     if (seen.has(entry)) continue;
