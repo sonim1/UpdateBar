@@ -161,7 +161,8 @@ JSON output prints:
 only selected recipes. It does not approve commands.
 If scan finds only review-only candidates for a filtered category, `init`
 refuses to import them and points the user back to `updatebar scan --category`
-for review.
+for review, or to `updatebar scan` without `--category` to look for importable
+candidates.
 Scan detector errors are preserved when `init` cannot find importable
 candidates, so failed local tool detection is visible in human and JSON errors.
 

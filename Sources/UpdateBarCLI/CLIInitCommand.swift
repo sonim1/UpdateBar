@@ -141,7 +141,8 @@ struct InitCommand: ParsableCommand {
         } else if let categoryFilter {
             message = "No importable candidates found. "
                 + "Detected candidates are review-only and cannot be imported yet. "
-                + "Run updatebar scan --category \(categoryFilter) to review them."
+                + "Run updatebar scan --category \(categoryFilter) to review them, "
+                + "or run updatebar scan without --category to look for importable candidates."
         } else {
             message = "No importable candidates found. "
                 + "Detected candidates are review-only and cannot be imported yet."

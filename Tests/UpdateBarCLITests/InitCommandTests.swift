@@ -531,6 +531,7 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("No importable candidates found") })
         XCTAssertTrue(payload.errors.contains { $0.contains("review-only") })
         XCTAssertTrue(payload.errors.contains { $0.contains("updatebar scan --category mcp-server") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar scan without --category") })
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
     }
 
