@@ -69,6 +69,9 @@ function parseLine(line: string, lineNumber: number): MachineEvent {
     if (!MACHINE_OPERATIONS.has(value.operation as MachineEvent['operation'])) {
       throw new Error(`unknown operation ${value.operation}`);
     }
+    if (typeof value.timestamp !== 'string') {
+      throw new Error('missing timestamp');
+    }
     return {...value, event, type: value.type ?? event} as MachineEvent;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

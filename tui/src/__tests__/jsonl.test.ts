@@ -58,6 +58,10 @@ describe('jsonl parser', () => {
     ).toThrow('line 1');
   });
 
+  it('rejects missing timestamps with line numbers', () => {
+    expect(() => parseJSONLText('{"event":"started","operation":"update"}')).toThrow('line 1');
+  });
+
   it('counts blank lines when reporting text parse failures', () => {
     expect(() => parseJSONLText('\n\n{')).toThrow('line 3');
   });
