@@ -86,7 +86,11 @@ public enum RecipeValidator {
             errors.append("\(path).update: required")
         }
         if let trust = item["trust"] as? [String: Any] {
-            errors += validateTrust(trust, path: "\(path).trust")
+            errors += validateTrust(
+                trust,
+                path: "\(path).trust",
+                approvedCommandFields: approvedCommandFields(for: item)
+            )
         } else {
             errors.append("\(path).trust: required")
         }
@@ -230,7 +234,11 @@ public enum RecipeValidator {
         }
     }
 
-    private static func validateTrust(_ trust: [String: Any], path: String) -> [String] {
+    private static func validateTrust(
+        _ trust: [String: Any],
+        path: String,
+        approvedCommandFields: Set<String>
+    ) -> [String] {
         var errors = requireString(trust, "level", path: path)
         if let level = trust["level"] as? String, !trustLevels.contains(level) {
             errors.append("\(path).level: unsupported value \(redactedValue(level))")
@@ -239,6 +247,9 @@ public enum RecipeValidator {
             for (field, fingerprint) in approvedCommands {
                 let fieldPath = "\(path).approved_commands[\(redactedValue(field))]"
                 errors += rejectLiteralSecret(field, path: fieldPath)
+                if !approvedCommandFields.contains(field) {
+                    errors.append("\(fieldPath): unknown command field")
+                }
                 guard let fingerprint = fingerprint as? String else {
                     errors.append("\(fieldPath): must be a string")
                     continue
@@ -250,6 +261,20 @@ public enum RecipeValidator {
             errors.append("\(path).approved_commands: required")
         }
         return errors
+    }
+
+    private static func approvedCommandFields(for item: [String: Any]) -> Set<String> {
+        var fields: Set<String> = ["update.cmd"]
+        if let check = item["check"] as? [String: Any], nonEmptyString(check["cmd"]) {
+            fields.insert("check.cmd")
+        }
+        if let latest = item["latest"] as? [String: Any],
+            latest["strategy"] as? String == "cmd",
+            nonEmptyString(latest["cmd"])
+        {
+            fields.insert("latest.cmd")
+        }
+        return fields
     }
 
     private static func requireString(_ object: [String: Any], _ key: String, path: String) -> [String] {

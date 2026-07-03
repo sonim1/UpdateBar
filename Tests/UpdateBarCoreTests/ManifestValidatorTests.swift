@@ -579,6 +579,34 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertFalse(result.errors.contains { $0.contains("approved_commands[update.cmd]") })
     }
 
+    func testRejectsUnknownApprovedCommandFields() throws {
+        let result = try validateFirstRawItem {
+            var trust = try XCTUnwrap($0["trust"] as? [String: Any])
+            trust["approved_commands"] = [
+                "install.cmd": "sha256:\(String(repeating: "a", count: 64))",
+            ] as [String: Any]
+            $0["trust"] = trust
+        }
+
+        XCTAssertTrue(
+            result.errors.contains("items[0].trust.approved_commands[install.cmd]: unknown command field")
+        )
+    }
+
+    func testRejectsApprovalForCommandFieldAbsentFromRecipe() throws {
+        let result = try validateFirstRawItem {
+            var trust = try XCTUnwrap($0["trust"] as? [String: Any])
+            trust["approved_commands"] = [
+                "latest.cmd": "sha256:\(String(repeating: "a", count: 64))",
+            ] as [String: Any]
+            $0["trust"] = trust
+        }
+
+        XCTAssertTrue(
+            result.errors.contains("items[0].trust.approved_commands[latest.cmd]: unknown command field")
+        )
+    }
+
     func testRejectsSecretLikeApprovedCommandFieldNames() throws {
         let secret = "sk-or-v1-secret-value"
         let result = try validateFirstRawItem {

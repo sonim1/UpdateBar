@@ -48,4 +48,6 @@ Rules:
 - `check.file` reads local file content and parses it with `version_parse.regex`.
 - API keys and token literals are rejected in command fields and stored path/source fields.
 - `sync` is not part of v1.
-- Command approvals are `sha256:<64 lowercase hex>` fingerprints of command fields and relevant cwd values.
+- Command approvals are `sha256:<64 lowercase hex>` fingerprints keyed by
+  command fields present in the recipe: `check.cmd`, `latest.cmd`, and
+  `update.cmd`.

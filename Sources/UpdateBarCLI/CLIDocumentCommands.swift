@@ -187,6 +187,9 @@ struct SchemaCommand: ParsableCommand {
                 "level": { "enum": ["trusted", "untrusted"] },
                 "approved_commands": {
                   "type": "object",
+                  "propertyNames": {
+                    "enum": ["check.cmd", "latest.cmd", "update.cmd"]
+                  },
                   "additionalProperties": {
                     "type": "string",
                     "minLength": 71,

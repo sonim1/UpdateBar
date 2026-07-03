@@ -75,6 +75,8 @@ final class GuideTemplateCommandTests: XCTestCase {
         let trustLevel = try XCTUnwrap(trustProperties["level"] as? [String: Any])
         XCTAssertEqual(trustLevel["enum"] as? [String], ["trusted", "untrusted"])
         let approvedCommands = try XCTUnwrap(trustProperties["approved_commands"] as? [String: Any])
+        let approvedCommandNames = try XCTUnwrap(approvedCommands["propertyNames"] as? [String: Any])
+        XCTAssertEqual(approvedCommandNames["enum"] as? [String], ["check.cmd", "latest.cmd", "update.cmd"])
         let approvedCommandValue = try XCTUnwrap(approvedCommands["additionalProperties"] as? [String: Any])
         XCTAssertEqual(approvedCommandValue["minLength"] as? Int, 71)
         XCTAssertEqual(approvedCommandValue["maxLength"] as? Int, 71)
