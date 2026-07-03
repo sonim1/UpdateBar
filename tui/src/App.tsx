@@ -499,10 +499,14 @@ function describeEvent(event: MachineEvent) {
     return event.result?.error ? `${summary} · ${event.result.error}` : summary;
   }
   if (event.event === 'finished') {
-    const updated = event.summary?.updated;
-    const total = event.summary?.total;
-    if (typeof updated === 'number' && typeof total === 'number') {
-      return `finished · updated ${updated}/${total}`;
+    const summary = event.summary;
+    if (summary && typeof summary.updated === 'number' && typeof summary.total === 'number') {
+      const parts = [`finished · updated ${summary.updated}/${summary.total}`];
+      if (summary.failed > 0) parts.push(`failed ${summary.failed}`);
+      if (summary.skipped_untrusted > 0) parts.push(`approval ${summary.skipped_untrusted}`);
+      if (summary.missing > 0) parts.push(`missing ${summary.missing}`);
+      if (summary.cancelled > 0) parts.push(`cancelled ${summary.cancelled}`);
+      return parts.join(' · ');
     }
     return `finished ${event.summary?.updated ?? 0} updated`;
   }

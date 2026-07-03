@@ -834,6 +834,42 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('brew.gh failed · brew upgrade gh failed');
   });
 
+  it('shows failed and approval-blocked counts in finished update logs', async () => {
+    const client = createClient({
+      async updateAll(options: StreamOptions): Promise<CommandResult> {
+        options.onEvent({
+          event: 'finished',
+          operation: 'update',
+          timestamp: '2026-06-30T00:00:00Z',
+          summary: {
+            total: 3,
+            updated: 1,
+            failed: 1,
+            skipped: 1,
+            skipped_untrusted: 1,
+            missing: 0,
+            cancelled: 0,
+            hard_failures: 1
+          }
+        });
+        return {exitCode: 3, stdout: '', stderr: ''};
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Run Updates');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Run approved updates now?');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'finished · updated 1/3 · failed 1 · approval 1');
+
+    expect(view.lastFrame()).toContain('finished · updated 1/3 · failed 1 · approval 1');
+  });
+
   it('asks for confirmation before running updates', async () => {
     let updateCalls = 0;
     const client = createClient({
