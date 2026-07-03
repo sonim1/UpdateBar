@@ -62,4 +62,24 @@ final class OpenTUICommandTests: XCTestCase {
 
         XCTAssertLessThan(invalidOverride.lowerBound, cliFallback.lowerBound)
     }
+
+    func testTerminalCommandExitsNonZeroAfterSetupFailures() throws {
+        let command = OpenTUICommand(
+            cliPath: "/Applications/UpdateBar.app/Contents/Resources/updatebar",
+            tuiCommand: "updatebar-tui",
+            updateBarHome: nil,
+            tuiCommandOverride: "/tmp/missing-updatebar-tui"
+        )
+
+        let joined = command.arguments.joined(separator: " ")
+        let invalidOverride = try XCTUnwrap(
+            joined.range(of: "UPDATEBAR_TUI is set but not executable")
+        )
+        let exit = try XCTUnwrap(joined.range(of: "exit 1"))
+        let cliFallback = try XCTUnwrap(joined.range(of: "$UPDATEBAR_BIN"))
+
+        XCTAssertLessThan(invalidOverride.lowerBound, exit.lowerBound)
+        XCTAssertLessThan(exit.lowerBound, cliFallback.lowerBound)
+        XCTAssertTrue(joined.contains("updatebar-tui is not available"))
+    }
 }

@@ -30,6 +30,7 @@ public struct OpenTUICommand: Equatable, Sendable {
             "elif [ -n \"$UPDATEBAR_TUI\" ]",
             "then printf '%s\\n' \(invalidTUIMessage)",
             "printf '%s\\n' \"$UPDATEBAR_TUI\"",
+            "exit 1",
             "elif [ -x \"$UPDATEBAR_BIN\" ]",
             "then exec \"$UPDATEBAR_BIN\" tui",
             "elif command -v \(quotedCommand) >/dev/null 2>&1",
@@ -37,6 +38,7 @@ public struct OpenTUICommand: Equatable, Sendable {
             "else printf '%s\\n' \(fallbackPrompt)",
             "printf '%s\\n' \(fallbackSetup)",
             "printf '%s\\n' \(fallbackHowToMessage)",
+            "exit 1",
             "fi",
         ]
 
