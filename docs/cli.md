@@ -163,8 +163,9 @@ entries.
 `2,brew.gh,npm.typescript`, optional spaces are ignored, duplicate values are
 ignored, and `ALL` is accepted for `all`. `--json` requires `--select` so stdout
 stays JSON-only; use `updatebar init --select all --json` to add every
-importable candidate headlessly. Numbers refer to the current `updatebar init` candidate list;
-use ids when copying from `updatebar scan`.
+importable candidate headlessly. `all` must be used by itself and cannot be
+combined with explicit ids or numbers.
+Numbers refer to the current `updatebar init` candidate list; use ids when copying from `updatebar scan`.
 If a selected id is not found, rerun `updatebar scan` or
 `updatebar scan --category <category>` and copy the candidate id again.
 

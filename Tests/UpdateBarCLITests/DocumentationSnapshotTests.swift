@@ -603,6 +603,10 @@ final class DocumentationSnapshotTests: XCTestCase {
             "init docs should show the headless add-all form"
         )
         XCTAssertTrue(
+            initSection.contains("`all` must be used by itself"),
+            "init docs should explain that all cannot be combined with explicit selections"
+        )
+        XCTAssertTrue(
             initSection.contains("If a selected id is not found"),
             "init docs should explain invalid selected id recovery"
         )

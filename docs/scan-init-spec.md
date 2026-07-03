@@ -185,6 +185,7 @@ updatebar init --select brew.gh,brew.jq
 updatebar init --replace --select npm.typescript
 ```
 
+`all` must be used by itself and cannot be combined with explicit ids or numbers.
 `init --json` requires `--select` so stdout remains a single JSON payload.
 
 Duplicate ids are skipped by default. `--replace` overwrites existing recipes.
