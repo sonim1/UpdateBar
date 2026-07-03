@@ -101,6 +101,10 @@ if [[ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]]; then
 fi
 
 tar -xzf "$ARCHIVE_PATH" -C "$TMP_DIR"
+if [[ ! -x "${TMP_DIR}/updatebar" ]]; then
+  echo "release archive did not contain executable updatebar: ${ARCHIVE_NAME}" >&2
+  exit 1
+fi
 
 mkdir -p "$PREFIX"
 install -m 755 "${TMP_DIR}/updatebar" "${PREFIX}/updatebar"

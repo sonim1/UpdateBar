@@ -214,10 +214,47 @@ run_missing_checksum_tool_fails_clearly() {
   fi
 }
 
+run_missing_archive_binary_fails_clearly() {
+  local bad_payload="$TMP_DIR/bad-payload"
+  local output="$TMP_DIR/install-missing-binary.out"
+  mkdir -p "$bad_payload"
+  printf 'not updatebar\n' > "$bad_payload/README.txt"
+  tar -czf "$FIXTURES/$ASSET_NAME" -C "$bad_payload" README.txt
+
+  if command -v shasum >/dev/null 2>&1; then
+    SHA="$(shasum -a 256 "$FIXTURES/$ASSET_NAME" | awk '{print $1}')"
+  else
+    SHA="$(sha256sum "$FIXTURES/$ASSET_NAME" | awk '{print $1}')"
+  fi
+  printf '%s  %s\n' "$SHA" "$ASSET_NAME" > "$FIXTURES/${ASSET_NAME}.sha256"
+
+  set +e
+  env \
+    PATH="$FAKE_BIN:$PATH" \
+    UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+    UPDATEBAR_INSTALL_PREFIX="$TMP_DIR/install-missing-binary" \
+    UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+    bash Scripts/install-release.sh > "$output" 2>&1
+  local rc=$?
+  set -e
+
+  if [[ "$rc" -eq 0 ]]; then
+    echo "install-release accepted an archive without updatebar" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "release archive did not contain executable updatebar" "$output"; then
+    echo "install-release missing-binary error was not clear" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
 run_install "" "$TMP_DIR/install-latest"
 run_install "v9.9.9" "$TMP_DIR/install-tag"
 run_piped_install "" "$TMP_DIR/install-piped-latest"
 run_piped_install "v9.9.9" "$TMP_DIR/install-piped-tag"
 run_missing_checksum_tool_fails_clearly
+run_missing_archive_binary_fails_clearly
 
 echo "install release smoke ok"
