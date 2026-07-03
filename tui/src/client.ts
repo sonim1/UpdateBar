@@ -3,7 +3,47 @@ import type {Readable} from 'node:stream';
 import {resolveUpdateBarBinary} from './binaryResolver.js';
 import type {BinaryResolverOptions} from './binaryResolver.js';
 import {parseJSONLines} from './jsonl.js';
-import type {CheckReport, CheckSummary, CheckResult, InitResult, MachineEvent, ScanReport, StatusSnapshot} from './types.js';
+import type {
+  CheckReport,
+  CheckSummary,
+  CheckResult,
+  InitResult,
+  ItemStatus,
+  MachineEvent,
+  ScanCandidate,
+  ScanError,
+  ScanReport,
+  StatusItem,
+  StatusSnapshot
+} from './types.js';
+
+const ITEM_STATUSES = new Set<ItemStatus>([
+  'ok',
+  'outdated',
+  'differs',
+  'error',
+  'pinned',
+  'disabled',
+  'checking',
+  'untrusted'
+]);
+
+const SCAN_DETECTORS = new Set<ScanCandidate['detector']>([
+  'brew',
+  'npm_global',
+  'known',
+  'codex_skill',
+  'mcp_config'
+]);
+
+const SCAN_CAPABILITIES = new Set<ScanCandidate['capability']>([
+  'full',
+  'check-only',
+  'metadata-only',
+  'unsupported'
+]);
+
+const SCAN_CONFIDENCES = new Set<ScanCandidate['confidence']>(['high', 'medium', 'low']);
 
 export interface CommandResult {
   exitCode: number;
@@ -114,7 +154,7 @@ export class CLIUpdateBarClient implements UpdateBarClient {
     if (!Array.isArray(parsed)) {
       throw new Error('unexpected check result format from updatebar');
     }
-    const results = parsed as CheckResult[];
+    const results = parseCheckResults(parsed);
     return {
       items: results,
       summary: summarizeCheck(results)
@@ -225,7 +265,12 @@ function parseJSON<T>(payload: string, command: string): T {
 
 function parseStatusSnapshot(payload: string): StatusSnapshot {
   const snapshot = parseJSON<unknown>(payload, 'status');
-  if (!isObject(snapshot) || !isObject(snapshot.summary) || !Array.isArray(snapshot.items)) {
+  if (
+    !isObject(snapshot) ||
+    !isObject(snapshot.summary) ||
+    !Array.isArray(snapshot.items) ||
+    !snapshot.items.every(isStatusItem)
+  ) {
     throw new Error('unexpected status result format from updatebar');
   }
   return snapshot as unknown as StatusSnapshot;
@@ -233,7 +278,13 @@ function parseStatusSnapshot(payload: string): StatusSnapshot {
 
 function parseScanReport(payload: string): ScanReport {
   const report = parseJSON<unknown>(payload, 'scan');
-  if (!isObject(report) || !Array.isArray(report.candidates) || !Array.isArray(report.errors)) {
+  if (
+    !isObject(report) ||
+    !Array.isArray(report.candidates) ||
+    !Array.isArray(report.errors) ||
+    !report.candidates.every(isScanCandidate) ||
+    !report.errors.every(isScanError)
+  ) {
     throw new Error('unexpected scan result format from updatebar');
   }
   return report as unknown as ScanReport;
@@ -244,18 +295,75 @@ function parseInitResult(payload: string): InitResult {
   if (
     !isObject(result) ||
     typeof result.ok !== 'boolean' ||
-    !Array.isArray(result.added) ||
-    !Array.isArray(result.replaced) ||
-    !Array.isArray(result.skipped) ||
-    !Array.isArray(result.errors)
+    !isStringArray(result.added) ||
+    !isStringArray(result.replaced) ||
+    !isStringArray(result.skipped) ||
+    !isStringArray(result.errors)
   ) {
     throw new Error('unexpected init result format from updatebar');
   }
   return result as unknown as InitResult;
 }
 
+function parseCheckResults(results: unknown[]): CheckResult[] {
+  if (!results.every(isCheckResult)) {
+    throw new Error('unexpected check result format from updatebar');
+  }
+  return results;
+}
+
+function isStatusItem(value: unknown): value is StatusItem {
+  if (!isObject(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.category === 'string' &&
+    typeof value.status === 'string' &&
+    typeof value.pinned === 'boolean' &&
+    ITEM_STATUSES.has(value.status as ItemStatus)
+  );
+}
+
+function isScanCandidate(value: unknown): value is ScanCandidate {
+  if (!isObject(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.detector === 'string' &&
+    typeof value.category === 'string' &&
+    typeof value.capability === 'string' &&
+    typeof value.confidence === 'string' &&
+    SCAN_DETECTORS.has(value.detector as ScanCandidate['detector']) &&
+    SCAN_CAPABILITIES.has(value.capability as ScanCandidate['capability']) &&
+    SCAN_CONFIDENCES.has(value.confidence as ScanCandidate['confidence'])
+  );
+}
+
+function isScanError(value: unknown): value is ScanError {
+  if (!isObject(value)) return false;
+  return (
+    typeof value.detector === 'string' &&
+    typeof value.message === 'string' &&
+    SCAN_DETECTORS.has(value.detector as ScanError['detector'])
+  );
+}
+
+function isCheckResult(value: unknown): value is CheckResult {
+  if (!isObject(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.status === 'string' &&
+    ITEM_STATUSES.has(value.status as ItemStatus)
+  );
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(item => typeof item === 'string');
 }
 
 function normalizeStatusSnapshot(snapshot: StatusSnapshot): StatusSnapshot {

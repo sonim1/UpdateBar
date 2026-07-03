@@ -88,6 +88,18 @@ describe('CLIUpdateBarClient', () => {
     await expect(client.scan()).rejects.toThrow('unexpected scan result format from updatebar');
   });
 
+  it('reports unexpected scan candidate JSON shape with command context', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout:
+        '{"candidates":[{"id":"brew.gh","name":"gh","detector":"brew","category":"cloud-devops","capability":"maybe","confidence":"high"}],"errors":[]}',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.scan()).rejects.toThrow('unexpected scan result format from updatebar');
+  });
+
   it('passes cancellation to scan commands', async () => {
     const runner = new FakeRunner({
       exitCode: 0,
@@ -152,6 +164,19 @@ describe('CLIUpdateBarClient', () => {
     );
   });
 
+  it('reports unexpected init result item shape with command context', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout: '{"ok":true,"added":[1],"replaced":[],"skipped":[],"errors":[]}',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.initSelected(['brew.gh'])).rejects.toThrow(
+      'unexpected init result format from updatebar'
+    );
+  });
+
   it('passes cancellation to check commands', async () => {
     const runner = new FakeRunner({exitCode: 0, stdout: '[]', stderr: ''});
     const client = new CLIUpdateBarClient(runner);
@@ -176,6 +201,18 @@ describe('CLIUpdateBarClient', () => {
     await expect(client.status()).rejects.toThrow('unexpected status result format from updatebar');
   });
 
+  it('reports unexpected status item JSON shape with command context', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout:
+        '{"generated_at":"2026-06-30T00:00:00Z","summary":{"total":1,"outdated":0,"errors":0},"items":[{"id":"brew.gh","name":"gh","category":"cloud-devops","status":"mystery","pinned":false}]}',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.status()).rejects.toThrow('unexpected status result format from updatebar');
+  });
+
   it('summarizes differs check results from the Swift CLI contract', async () => {
     const runner = new FakeRunner({
       exitCode: 10,
@@ -190,6 +227,17 @@ describe('CLIUpdateBarClient', () => {
     expect(report.summary.total).toBe(1);
     expect(report.summary.outdated).toBe(0);
     expect(report.summary.differs).toBe(1);
+  });
+
+  it('reports unexpected check item JSON shape with command context', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout: '[{"id":"brew.gh","name":"gh","status":"mystery"}]',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.checkNow()).rejects.toThrow('unexpected check result format from updatebar');
   });
 
   it('surfaces JSON error payloads from failed commands', async () => {
