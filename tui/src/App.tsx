@@ -66,14 +66,20 @@ export function App({client: providedClient}: AppProps) {
   const [updateIndex, setUpdateIndex] = useState(0);
   const [selectedUpdateIds, setSelectedUpdateIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | undefined>();
+  const [clientSetupError, setClientSetupError] = useState<string | undefined>();
   const [abortController, setAbortController] = useState<AbortController | undefined>();
   const abortControllerRef = useRef<AbortController | undefined>(undefined);
 
   useEffect(() => {
     if (providedClient) return;
-    createDefaultClient().then(setClient).catch(caught => {
+    createDefaultClient().then(createdClient => {
+      setClientSetupError(undefined);
+      setClient(createdClient);
+    }).catch(caught => {
+      const message = messageFor(caught);
+      setClientSetupError(message);
       setStatusUnavailable(true);
-      setError(messageFor(caught));
+      setError(message);
     });
   }, [providedClient]);
 
@@ -255,7 +261,11 @@ export function App({client: providedClient}: AppProps) {
         exit();
         return;
     }
-    if (!client) return;
+    if (!client) {
+      setStatusUnavailable(true);
+      setError(clientSetupError ?? 'updatebar client unavailable');
+      return;
+    }
     switch (selected) {
       case 'refresh-status':
         setScreen('status');

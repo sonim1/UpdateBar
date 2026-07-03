@@ -57,6 +57,43 @@ describe('App default client setup', () => {
       }
     }
   });
+
+  it('restores setup failure feedback when a client-backed action is selected later', async () => {
+    const previousHome = process.env.UPDATEBAR_HOME;
+    process.env.UPDATEBAR_HOME = '/tmp/updatebar-tui-home';
+    mockedCreateDefaultClient.mockRejectedValue(new Error('updatebar binary not found'));
+    const view = render(<App />);
+
+    try {
+      await waitForFrame(view, 'updatebar binary not found');
+      view.stdin.write('\u001B[B');
+      view.stdin.write('\u001B[B');
+      view.stdin.write('\u001B[B');
+      view.stdin.write('\u001B[B');
+      await wait();
+      view.stdin.write('\r');
+      await waitForFrame(view, 'config path: /tmp/updatebar-tui-home/config.toml');
+      view.stdin.write('m');
+      await waitForFrame(view, 'Refresh Status');
+      view.stdin.write('\u001B[A');
+      view.stdin.write('\u001B[A');
+      view.stdin.write('\u001B[A');
+      view.stdin.write('\u001B[A');
+      await wait();
+      view.stdin.write('\r');
+      await waitForFrame(view, 'updatebar binary not found');
+
+      expect(view.lastFrame()).toContain('Status unavailable');
+      expect(view.lastFrame()).not.toContain('config path: /tmp/updatebar-tui-home/config.toml');
+    } finally {
+      view.unmount();
+      if (previousHome === undefined) {
+        delete process.env.UPDATEBAR_HOME;
+      } else {
+        process.env.UPDATEBAR_HOME = previousHome;
+      }
+    }
+  });
 });
 
 async function waitForFrame(view: {lastFrame(): string | undefined}, text: string) {
