@@ -102,8 +102,9 @@ echo "path:$UPDATEBAR_BIN"
         XCTAssertNotEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.contains("Could not locate updatebar-tui on PATH."))
         XCTAssertTrue(result.stderr.contains("UPDATEBAR_TUI"))
-        XCTAssertTrue(result.stderr.contains("npm link"))
-        XCTAssertTrue(result.stderr.contains("tui"))
+        XCTAssertTrue(result.stderr.contains("npm --prefix tui install"))
+        XCTAssertTrue(result.stderr.contains("npm --prefix tui run build"))
+        XCTAssertTrue(result.stderr.contains("tui/dist/index.js"))
     }
 
     func testTUICommandIgnoresRelativePathEntries() throws {
