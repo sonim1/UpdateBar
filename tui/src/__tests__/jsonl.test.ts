@@ -62,6 +62,22 @@ describe('jsonl parser', () => {
     expect(() => parseJSONLText('{"event":"started","operation":"update"}')).toThrow('line 1');
   });
 
+  it('rejects unknown update result outcomes with line numbers', () => {
+    expect(() =>
+      parseJSONLText(
+        '{"event":"item_finished","operation":"update","timestamp":"2026-06-30T00:00:00Z","result":{"id":"brew.gh","name":"gh","outcome":"mystery"}}'
+      )
+    ).toThrow('line 1');
+  });
+
+  it('rejects invalid update summaries with line numbers', () => {
+    expect(() =>
+      parseJSONLText(
+        '{"event":"finished","operation":"update","timestamp":"2026-06-30T00:00:00Z","summary":{"total":"1","updated":1,"failed":0,"skipped":0,"skipped_untrusted":0,"missing":0,"cancelled":0,"hard_failures":0}}'
+      )
+    ).toThrow('line 1');
+  });
+
   it('counts blank lines when reporting text parse failures', () => {
     expect(() => parseJSONLText('\n\n{')).toThrow('line 3');
   });

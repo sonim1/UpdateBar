@@ -1,4 +1,10 @@
-import type {MachineEvent, MachineEventType} from './types.js';
+import type {
+  MachineEvent,
+  MachineEventType,
+  UpdateOutcome,
+  UpdateResult,
+  UpdateSummary
+} from './types.js';
 
 const MACHINE_EVENT_TYPES = new Set<MachineEventType>([
   'started',
@@ -11,6 +17,17 @@ const MACHINE_EVENT_TYPES = new Set<MachineEventType>([
 ]);
 
 const MACHINE_OPERATIONS = new Set<MachineEvent['operation']>(['update', 'check']);
+
+const UPDATE_OUTCOMES = new Set<UpdateOutcome>([
+  'updated',
+  'failed',
+  'skipped_pinned',
+  'skipped_disabled',
+  'skipped_untrusted',
+  'skipped_not_outdated',
+  'missing',
+  'cancelled'
+]);
 
 export async function* parseJSONLines(
   chunks: AsyncIterable<Buffer | string>
@@ -72,9 +89,43 @@ function parseLine(line: string, lineNumber: number): MachineEvent {
     if (typeof value.timestamp !== 'string') {
       throw new Error('missing timestamp');
     }
+    if (value.result !== undefined && !isUpdateResult(value.result)) {
+      throw new Error('invalid result');
+    }
+    if (value.summary !== undefined && !isUpdateSummary(value.summary)) {
+      throw new Error('invalid summary');
+    }
     return {...value, event, type: value.type ?? event} as MachineEvent;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`invalid JSONL event on line ${lineNumber}: ${message}`);
   }
+}
+
+function isUpdateResult(value: unknown): value is UpdateResult {
+  if (!isObject(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.outcome === 'string' &&
+    UPDATE_OUTCOMES.has(value.outcome as UpdateOutcome)
+  );
+}
+
+function isUpdateSummary(value: unknown): value is UpdateSummary {
+  if (!isObject(value)) return false;
+  return (
+    typeof value.total === 'number' &&
+    typeof value.updated === 'number' &&
+    typeof value.failed === 'number' &&
+    typeof value.skipped === 'number' &&
+    typeof value.skipped_untrusted === 'number' &&
+    typeof value.missing === 'number' &&
+    typeof value.cancelled === 'number' &&
+    typeof value.hard_failures === 'number'
+  );
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
