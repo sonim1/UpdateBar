@@ -114,6 +114,25 @@ final class UpdateBarCLIClientTests: XCTestCase {
             ])
     }
 
+    func testUpdateActionsAllowApprovalBlockedExitCode() throws {
+        let runner = RecordingRunner(result: CommandResult(exitCode: 3, stdout: "[]", stderr: ""))
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        try client.update(id: "tool")
+        try client.updateAllApproved()
+
+        XCTAssertEqual(
+            runner.calls,
+            [
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["update", "tool", "--yes", "--json"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["update", "--yes", "--json"]),
+            ])
+    }
+
     func testApprovalActionsUseJSONContract() throws {
         let runner = RecordingRunner(
             result: CommandResult(

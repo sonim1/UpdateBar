@@ -80,7 +80,7 @@ public struct UpdateBarCLIClient: Sendable {
             arguments: ["update", id, "--yes", "--json"],
             cancellationToken: cancellationToken
         )
-        try ensureSuccess(result, allowedExitCodes: [0, 2])
+        try ensureSuccess(result, allowedExitCodes: [0, 2, 3])
     }
 
     public func updateAllApproved(cancellationToken: CancellationToken? = nil) throws {
@@ -89,7 +89,7 @@ public struct UpdateBarCLIClient: Sendable {
             arguments: ["update", "--yes", "--json"],
             cancellationToken: cancellationToken
         )
-        try ensureSuccess(result, allowedExitCodes: [0, 2])
+        try ensureSuccess(result, allowedExitCodes: [0, 2, 3])
     }
 
     public func approvals(id: String) throws -> [CommandApprovalStatus] {
