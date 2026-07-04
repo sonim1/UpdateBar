@@ -57,7 +57,7 @@ private func errorCode(for error: Error, exitCode: ExitCode) -> String {
     if exitCode == .validationFailure {
         return "usage_error"
     }
-    if error is ValidationError {
+    if error is ValidationError || error is ScanCategoryError {
         return "usage_error"
     }
     if error is ConfigError {

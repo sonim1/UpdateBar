@@ -78,27 +78,3 @@ func batchUpdateYesCommand(for ids: [String]) -> String? {
 private func displayID(_ id: String) -> String {
     SecretRedactor.redact(id)
 }
-
-func normalizedCategory(for value: String) throws -> String {
-    let category = ScanCategory.normalizedValue(for: value)
-    guard !category.isEmpty else {
-        throw ValidationError("category must not be empty")
-    }
-    return category
-}
-
-func parseCategoryFilter(_ value: String?) throws -> String? {
-    guard let value else {
-        return nil
-    }
-    let category = try normalizedCategory(for: value)
-    guard ScanCategory.supportedValues.contains(category) else {
-        throw ValidationError(
-            "\(category): unknown category; expected \(scanCategoryDescription())")
-    }
-    return category
-}
-
-func scanCategoryDescription() -> String {
-    ScanCategory.description
-}

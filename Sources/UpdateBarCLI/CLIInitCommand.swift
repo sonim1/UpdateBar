@@ -27,13 +27,13 @@ struct InitCommand: ParsableCommand {
 
     @Option(
         name: .long,
-        help: ArgumentHelp("Filter by category: \(scanCategoryDescription())."),
+        help: ArgumentHelp("Filter by category: \(ScanCategory.description)."),
         completion: .list(ScanCategory.completionValues)
     )
     var category: String?
 
     func run() throws {
-        let categoryFilter = try parseCategoryFilter(category)
+        let categoryFilter = try ScanCategory.filterValue(for: category)
         let selectedDetectors = ScanCategory.defaultDetectors(for: categoryFilter)
         let report = try filteredReport(
             detectors: selectedDetectors,

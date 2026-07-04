@@ -461,6 +461,7 @@ final class InitCommandTests: XCTestCase {
         let payload = try JSONDecoder.updateBar.decode(
             ErrorPayload.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
+        XCTAssertEqual(payload.code, "usage_error")
         XCTAssertTrue(payload.errors.contains { $0.contains("category must not be empty") })
     }
 
@@ -491,6 +492,7 @@ final class InitCommandTests: XCTestCase {
         let payload = try JSONDecoder.updateBar.decode(
             ErrorPayload.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
+        XCTAssertEqual(payload.code, "usage_error")
         XCTAssertTrue(payload.errors.contains { $0.contains("category must not be empty") })
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
         XCTAssertFalse(result.stderr.contains("detector should not run"))
@@ -702,6 +704,7 @@ final class InitCommandTests: XCTestCase {
 
     private struct ErrorPayload: Decodable {
         var ok: Bool
+        var code: String
         var errors: [String]
     }
 }

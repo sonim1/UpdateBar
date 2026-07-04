@@ -32,6 +32,20 @@ public enum ScanCategory {
         return aliases[normalized] ?? normalized
     }
 
+    public static func filterValue(for value: String?) throws -> String? {
+        guard let value else {
+            return nil
+        }
+        let category = normalizedValue(for: value)
+        guard !category.isEmpty else {
+            throw ScanCategoryError.empty
+        }
+        guard supportedValues.contains(category) else {
+            throw ScanCategoryError.unknown(category)
+        }
+        return category
+    }
+
     public static func defaultDetectors(for category: String?) -> [ScanDetector] {
         guard let category else {
             return ScanDetector.allCases
@@ -57,4 +71,18 @@ public enum ScanCategory {
         "mcpserver": "mcp-server",
         "codexskill": "codex-skill",
     ]
+}
+
+public enum ScanCategoryError: Error, CustomStringConvertible {
+    case empty
+    case unknown(String)
+
+    public var description: String {
+        switch self {
+        case .empty:
+            return "category must not be empty"
+        case .unknown(let category):
+            return "\(category): unknown category; expected \(ScanCategory.description)"
+        }
+    }
 }

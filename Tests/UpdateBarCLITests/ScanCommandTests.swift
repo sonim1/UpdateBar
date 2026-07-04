@@ -676,8 +676,33 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stderr.contains("detector should not run"))
     }
 
+    func testScanRejectsUnknownCategoryWithJSONUsageError() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+
+        let result = try CLIProcess.run(
+            ["scan", "--category", "localservice", "--json"],
+            home: home
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("localservice: unknown category") }
+        )
+    }
+
     private func writeExecutable(_ url: URL, _ body: String) throws {
         try body.write(to: url, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+    }
+
+    private struct ErrorPayload: Decodable {
+        var ok: Bool
+        var code: String
+        var errors: [String]
     }
 }

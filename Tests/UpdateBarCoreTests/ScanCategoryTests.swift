@@ -9,6 +9,20 @@ final class ScanCategoryTests: XCTestCase {
         XCTAssertEqual(ScanCategory.normalizedValue(for: "cloud/devops"), "cloud-devops")
     }
 
+    func testScanCategoryFilterValueValidatesInput() throws {
+        XCTAssertNil(try ScanCategory.filterValue(for: nil))
+        XCTAssertEqual(try ScanCategory.filterValue(for: "mcp"), "mcp-server")
+        XCTAssertThrowsError(try ScanCategory.filterValue(for: "___")) { error in
+            XCTAssertEqual(String(describing: error), "category must not be empty")
+        }
+        XCTAssertThrowsError(try ScanCategory.filterValue(for: "localservice")) { error in
+            XCTAssertEqual(
+                String(describing: error),
+                "localservice: unknown category; expected \(ScanCategory.description)"
+            )
+        }
+    }
+
     func testScanCategoryCompletionValuesIncludeAliases() {
         XCTAssertTrue(ScanCategory.completionValues.contains("ai-agent"))
         XCTAssertTrue(ScanCategory.completionValues.contains("mcp-server"))

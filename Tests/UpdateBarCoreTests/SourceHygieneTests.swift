@@ -180,18 +180,32 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertEqual(
             violations,
             [],
-            "CLI category help should use scanCategoryDescription() instead of duplicating the category list:\n\(violations.joined(separator: "\n"))"
+            "CLI category help should use ScanCategory.description instead of duplicating the category list:\n\(violations.joined(separator: "\n"))"
         )
     }
 
     func testCLIScanCategoryMetadataComesFromCore() throws {
-        let file = URL(fileURLWithPath: "Sources/UpdateBarCLI/CLIWorkflowSupport.swift")
-        let contents = try String(contentsOf: file, encoding: .utf8)
+        let workflow = try String(
+            contentsOf: URL(fileURLWithPath: "Sources/UpdateBarCLI/CLIWorkflowSupport.swift"),
+            encoding: .utf8
+        )
+        let scan = try String(
+            contentsOf: URL(fileURLWithPath: "Sources/UpdateBarCLI/CLIScanCommand.swift"),
+            encoding: .utf8
+        )
+        let initCommand = try String(
+            contentsOf: URL(fileURLWithPath: "Sources/UpdateBarCLI/CLIInitCommand.swift"),
+            encoding: .utf8
+        )
+        let commandSources = scan + "\n" + initCommand
 
-        XCTAssertFalse(contents.contains("let supportedScanCategories"))
-        XCTAssertFalse(contents.contains("let scanCategoryCompletionValues"))
-        XCTAssertFalse(contents.contains("func defaultScanDetectors"))
-        XCTAssertTrue(contents.contains("ScanCategory."))
+        XCTAssertFalse(workflow.contains("let supportedScanCategories"))
+        XCTAssertFalse(workflow.contains("let scanCategoryCompletionValues"))
+        XCTAssertFalse(workflow.contains("func defaultScanDetectors"))
+        XCTAssertFalse(workflow.contains("func parseCategoryFilter"))
+        XCTAssertFalse(workflow.contains("func normalizedCategory"))
+        XCTAssertTrue(commandSources.contains("ScanCategory.filterValue"))
+        XCTAssertTrue(commandSources.contains("ScanCategory.description"))
     }
 
     func testCLIScanCategoryFilteringUsesCoreReportHelper() throws {
