@@ -57,7 +57,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-curl -fsSL "$RELEASE_URL" > "$RELEASE_JSON"
+if ! curl -fsSL "$RELEASE_URL" > "$RELEASE_JSON"; then
+  echo "Failed to fetch GitHub release metadata: $RELEASE_URL" >&2
+  exit 1
+fi
 
 RELEASE_ERROR_MESSAGE="$(awk -F'"' '$2 == "message" { print $4; exit }' "$RELEASE_JSON")"
 if [[ -n "$RELEASE_ERROR_MESSAGE" ]] && ! grep -Fq '"browser_download_url"' "$RELEASE_JSON"; then

@@ -226,6 +226,34 @@ JSON
   fi
 }
 
+run_release_metadata_download_failure_fails_clearly() {
+  local output="$TMP_DIR/install-release-metadata-download-failure.out"
+  local saved_release="$TMP_DIR/release.json.saved"
+  mv "$FIXTURES/release.json" "$saved_release"
+
+  set +e
+  env \
+    PATH="$FAKE_BIN:$PATH" \
+    UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+    UPDATEBAR_INSTALL_PREFIX="$TMP_DIR/install-release-metadata-download-failure" \
+    UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+    bash Scripts/install-release.sh > "$output" 2>&1
+  local rc=$?
+  set -e
+  mv "$saved_release" "$FIXTURES/release.json"
+
+  if [[ "$rc" -eq 0 ]]; then
+    echo "install-release succeeded when release metadata download failed" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "Failed to fetch GitHub release metadata: https://api.github.com/repos/sonim1/UpdateBar/releases/latest" "$output"; then
+    echo "install-release release metadata download failure was not clear" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
 run_missing_prebuilt_asset_fails_with_source_hint() {
   local output="$TMP_DIR/install-missing-prebuilt.out"
   local saved_release="$TMP_DIR/release.json.saved"
@@ -429,6 +457,7 @@ run_install "v9.9.9" "$TMP_DIR/install-tag"
 run_piped_install "" "$TMP_DIR/install-piped-latest"
 run_piped_install "v9.9.9" "$TMP_DIR/install-piped-tag"
 run_release_api_error_fails_clearly
+run_release_metadata_download_failure_fails_clearly
 run_missing_prebuilt_asset_fails_with_source_hint
 run_archive_download_failure_fails_clearly
 run_checksum_download_failure_fails_clearly
