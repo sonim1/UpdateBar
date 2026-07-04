@@ -322,7 +322,7 @@ public struct RegistryService {
         try validate(incoming)
         return try manifestStore.withExclusiveLock {
             let mutationDate = now()
-            var manifest = try manifestStore.loadExistingOrEmpty(now: mutationDate)
+            var manifest = try loadValidExistingOrEmpty(now: mutationDate)
             let outcome: AddRecipeOutcome = manifest.item(id: recipe.id) == nil ? .added : .replaced
             if outcome == .replaced, !replace {
                 throw RegistryError.duplicateItem(recipe.id)
@@ -338,7 +338,7 @@ public struct RegistryService {
         try validate(incoming)
         return try manifestStore.withExclusiveLock {
             let mutationDate = now()
-            var manifest = try manifestStore.loadExistingOrEmpty(now: mutationDate)
+            var manifest = try loadValidExistingOrEmpty(now: mutationDate)
             var added: [String] = []
             var replaced: [String] = []
 

@@ -363,6 +363,26 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertEqual(stored.items.map(\.id), ["tool"])
     }
 
+    func testAddRecipeValidatesExistingManifestBeforeDuplicateLookup() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let stores = Stores(paths: paths)
+        var existing = recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
+        existing.update.cmd = "OPENROUTER_API_KEY=sk-or-v1-secret-value tool update"
+        try stores.manifest.save(manifest(items: [existing]))
+        let service = registryService(paths: paths, commands: MockCommandExecutor(results: [:]))
+
+        XCTAssertThrowsError(try service.addRecipe(
+            recipe(id: "tool", currentCommand: "new current", latestCommand: "new latest"),
+            replace: false
+        )) { error in
+            guard case let RegistryError.invalidManifest(errors) = error else {
+                return XCTFail("expected invalid manifest, got \(error)")
+            }
+            XCTAssertTrue(errors.contains("items[0].update.cmd: must not contain literal secrets"))
+        }
+    }
+
     func testImportManifestCreatesFreshManifestWithInjectedClock() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
@@ -380,6 +400,26 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertEqual(stored.provenance.createdAt, now)
         XCTAssertEqual(stored.provenance.updatedAt, now)
         XCTAssertEqual(stored.items.map(\.id), ["tool"])
+    }
+
+    func testImportManifestValidatesExistingManifestBeforeDuplicateLookup() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let stores = Stores(paths: paths)
+        var existing = recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
+        existing.update.cmd = "OPENROUTER_API_KEY=sk-or-v1-secret-value tool update"
+        try stores.manifest.save(manifest(items: [existing]))
+        let service = registryService(paths: paths, commands: MockCommandExecutor(results: [:]))
+
+        XCTAssertThrowsError(try service.importManifest(
+            manifest(items: [recipe(id: "tool", currentCommand: "new current", latestCommand: "new latest")]),
+            replace: false
+        )) { error in
+            guard case let RegistryError.invalidManifest(errors) = error else {
+                return XCTFail("expected invalid manifest, got \(error)")
+            }
+            XCTAssertTrue(errors.contains("items[0].update.cmd: must not contain literal secrets"))
+        }
     }
 
     private func registryService(
