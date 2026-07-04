@@ -11,6 +11,8 @@ commands, background/configuration commands, and support commands such as
 
 `scan` and `init` complete `--category` values, including the short aliases
 `ai` and `mcp`.
+`init --select` completes `all`; candidate ids and numbers come from the current
+`updatebar scan` output.
 
 Bash:
 

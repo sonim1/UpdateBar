@@ -671,6 +671,7 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertTrue(docs.contains(phrase), "completion docs missing hidden command category \(phrase)")
         }
         XCTAssertTrue(docs.contains("`--category` values"), "completion docs missing category value completion note")
+        XCTAssertTrue(docs.contains("`init --select` completes `all`"), "completion docs missing init select all note")
     }
 
     func testFishCompletionsSuggestScanCategoryValues() throws {
@@ -689,6 +690,17 @@ final class DocumentationSnapshotTests: XCTestCase {
                 XCTAssertTrue(values.contains(value), "\(command) --category completion missing \(value)")
             }
         }
+    }
+
+    func testFishCompletionsSuggestInitSelectAll() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        let result = try CLIProcess.run(["--generate-completion-script", "fish"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        let values = try fishCompletionValues(for: "init", option: "select", in: result.stdout)
+        XCTAssertTrue(values.contains("all"), "init --select completion missing all")
     }
 
     func testReadmeQuickStartStaysFocusedOnFirstRunWorkflow() throws {

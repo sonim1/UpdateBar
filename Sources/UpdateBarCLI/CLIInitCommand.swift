@@ -20,7 +20,8 @@ struct InitCommand: ParsableCommand {
 
     @Option(
         name: .long,
-        help: ArgumentHelp("Comma-separated candidate ids, numbers, or all.", valueName: "selection")
+        help: ArgumentHelp("Comma-separated candidate ids, numbers, or all.", valueName: "selection"),
+        completion: .list(["all"])
     )
     var select: String?
 
