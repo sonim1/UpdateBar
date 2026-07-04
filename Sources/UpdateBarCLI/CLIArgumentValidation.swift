@@ -125,7 +125,7 @@ extension UpdateBar {
 
     private static func validateUnsupportedJSONStreamFlags(_ arguments: [String]) throws {
         guard let command = arguments.first,
-              ["init", "scan", "status"].contains(command),
+              ["export", "init", "scan", "status"].contains(command),
               hasOption("--json-stream", in: arguments)
         else {
             return
