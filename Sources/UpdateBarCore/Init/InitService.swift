@@ -52,6 +52,17 @@ public struct InitService {
         var added: [String] = []
         var replaced: [String] = []
         var skipped: [String] = []
+        var recipesToImport: [Recipe] = []
+        var recipeImportIndexes: [String: Int] = [:]
+
+        func stageForImport(_ recipe: Recipe) {
+            if let index = recipeImportIndexes[recipe.id] {
+                recipesToImport[index] = recipe
+            } else {
+                recipeImportIndexes[recipe.id] = recipesToImport.count
+                recipesToImport.append(recipe)
+            }
+        }
 
         for id in selectedIDs {
             guard let recipe = recipesByID[id] else { continue }
@@ -60,14 +71,23 @@ public struct InitService {
                     skipped.append(recipe.id)
                     continue
                 }
-                _ = try registryService.addRecipe(recipe, replace: true)
                 manifest = manifest.replacing(item: recipe)
+                stageForImport(recipe)
                 replaced.append(recipe.id)
             } else {
-                _ = try registryService.addRecipe(recipe, replace: false)
                 manifest = manifest.replacing(item: recipe)
+                stageForImport(recipe)
                 added.append(recipe.id)
             }
+        }
+
+        if !recipesToImport.isEmpty {
+            let incoming = Manifest(
+                schemaVersion: manifest.schemaVersion,
+                items: recipesToImport,
+                provenance: manifest.provenance
+            )
+            _ = try registryService.importManifest(incoming, replace: true)
         }
 
         return InitSummary(added: added, replaced: replaced, skipped: skipped)
