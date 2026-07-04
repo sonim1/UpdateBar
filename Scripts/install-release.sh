@@ -83,6 +83,10 @@ if [[ -z "$EXPECTED_SHA" ]]; then
   echo "Failed to parse SHA from ${ARCHIVE_PATH}.sha256" >&2
   exit 1
 fi
+if [[ ! "$EXPECTED_SHA" =~ ^[0-9a-f]{64}$ ]]; then
+  echo "release checksum file did not contain a 64-character lowercase hex SHA: ${ARCHIVE_PATH}.sha256" >&2
+  exit 1
+fi
 
 if command -v shasum >/dev/null 2>&1; then
   ACTUAL_SHA="$(shasum -a 256 "$ARCHIVE_PATH" | awk '{print $1}')"

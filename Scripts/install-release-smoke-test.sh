@@ -214,6 +214,34 @@ run_missing_checksum_tool_fails_clearly() {
   fi
 }
 
+run_invalid_checksum_file_fails_clearly() {
+  local output="$TMP_DIR/install-invalid-checksum.out"
+  printf 'not-a-sha  %s\n' "$ASSET_NAME" > "$FIXTURES/${ASSET_NAME}.sha256"
+
+  set +e
+  env \
+    PATH="$FAKE_BIN:$PATH" \
+    UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+    UPDATEBAR_INSTALL_PREFIX="$TMP_DIR/install-invalid-checksum" \
+    UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+    bash Scripts/install-release.sh > "$output" 2>&1
+  local rc=$?
+  set -e
+
+  printf '%s  %s\n' "$SHA" "$ASSET_NAME" > "$FIXTURES/${ASSET_NAME}.sha256"
+
+  if [[ "$rc" -eq 0 ]]; then
+    echo "install-release accepted an invalid checksum file" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "release checksum file did not contain a 64-character lowercase hex SHA" "$output"; then
+    echo "install-release invalid-checksum error was not clear" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
 run_missing_archive_binary_fails_clearly() {
   local bad_payload="$TMP_DIR/bad-payload"
   local output="$TMP_DIR/install-missing-binary.out"
@@ -255,6 +283,7 @@ run_install "v9.9.9" "$TMP_DIR/install-tag"
 run_piped_install "" "$TMP_DIR/install-piped-latest"
 run_piped_install "v9.9.9" "$TMP_DIR/install-piped-tag"
 run_missing_checksum_tool_fails_clearly
+run_invalid_checksum_file_fails_clearly
 run_missing_archive_binary_fails_clearly
 
 echo "install release smoke ok"
