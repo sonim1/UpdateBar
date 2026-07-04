@@ -83,38 +83,34 @@ extension UpdateBar {
     }
 
     private static func validateIntrinsicJSONFlags(_ arguments: [String]) throws {
-        guard hasOption("--json", in: arguments) || hasOption("--json-stream", in: arguments) else { return }
+        guard let command = intrinsicJSONCommand(in: arguments) else { return }
+        if hasOption("--json-stream", in: arguments) {
+            throw ValidationError("""
+            \(command) does not support JSONL streaming.
+            Run updatebar \(command) without --json-stream.
+            Usage: updatebar \(command)
+            """)
+        }
+        if hasOption("--json", in: arguments) {
+            throw ValidationError("""
+            \(command) already prints JSON.
+            Run updatebar \(command) without --json.
+            Usage: updatebar \(command)
+            """)
+        }
+    }
+
+    private static func intrinsicJSONCommand(in arguments: [String]) -> String? {
         if arguments.first == "schema" {
-            if hasOption("--json-stream", in: arguments) {
-                throw ValidationError("""
-                schema does not support JSONL streaming.
-                Run updatebar schema without --json-stream.
-                Usage: updatebar schema
-                """)
-            }
-            throw ValidationError("""
-            schema already prints JSON.
-            Run updatebar schema without --json.
-            Usage: updatebar schema
-            """)
+            return "schema"
         }
-        if arguments.first == "template",
-           let subcommand = arguments.dropFirst().first(where: { !$0.hasPrefix("-") }),
-           subcommand == "recipe" || subcommand == "manifest"
-        {
-            if hasOption("--json-stream", in: arguments) {
-                throw ValidationError("""
-                template \(subcommand) does not support JSONL streaming.
-                Run updatebar template \(subcommand) without --json-stream.
-                Usage: updatebar template \(subcommand)
-                """)
-            }
-            throw ValidationError("""
-            template \(subcommand) already prints JSON.
-            Run updatebar template \(subcommand) without --json.
-            Usage: updatebar template \(subcommand)
-            """)
+        guard arguments.first == "template",
+              let subcommand = arguments.dropFirst().first(where: { !$0.hasPrefix("-") }),
+              subcommand == "recipe" || subcommand == "manifest"
+        else {
+            return nil
         }
+        return "template \(subcommand)"
     }
 
     private static func validateTopLevelTarget(
