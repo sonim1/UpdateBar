@@ -769,6 +769,7 @@ final class DocumentationSnapshotTests: XCTestCase {
     func testTUIDocsUseDirectBuildAndOverrideSetup() throws {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let architecture = try String(contentsOfFile: "docs/architecture.md", encoding: .utf8)
+        let releaseDocs = try String(contentsOfFile: "docs/release.md", encoding: .utf8)
         let troubleshooting = try String(contentsOfFile: "docs/troubleshooting.md", encoding: .utf8)
         let tuiReadme = try String(contentsOfFile: "tui/README.md", encoding: .utf8)
         let combined = [readme, troubleshooting, tuiReadme].joined(separator: "\n")
@@ -777,6 +778,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(combined.contains("npm --prefix tui run build"))
         XCTAssertTrue(combined.contains("UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui"))
         XCTAssertTrue(architecture.contains("UPDATEBAR_TUI"))
+        XCTAssertTrue(releaseDocs.contains("Build or install the Ink TUI from source with npm"))
+        XCTAssertFalse(releaseDocs.contains("Install the Ink TUI separately through npm"))
         XCTAssertFalse(combined.contains("npm link"))
     }
 

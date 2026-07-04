@@ -122,7 +122,8 @@ Release identity:
 - App cask source lives in `Packaging/homebrew/Casks/updatebar-app.rb`; copy it to
   the tap as `Casks/updatebar-app.rb`. The cask installs `UpdateBar.app` only and
   must not link the bundled CLI. The CLI remains owned by the `updatebar` formula.
-- Install the Ink TUI separately through npm until a dedicated formula is justified.
+- Build or install the Ink TUI from source with npm until a published package or
+  dedicated formula is justified.
 
 Before tagging:
 
