@@ -159,6 +159,7 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("USAGE: updatebar add --from <file|->"))
         XCTAssertTrue(result.stdout.contains("Required recipe input"))
         XCTAssertTrue(result.stdout.contains("single-item manifest"))
         XCTAssertTrue(result.stdout.contains("'-' for stdin"))
