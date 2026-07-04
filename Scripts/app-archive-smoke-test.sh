@@ -44,6 +44,21 @@ if command -v plutil >/dev/null 2>&1; then
 fi
 
 if command -v plutil >/dev/null 2>&1; then
+  LSUI_ELEMENT="$(plutil -extract LSUIElement raw "$INFO_PLIST" 2>/dev/null || true)"
+else
+  LSUI_ELEMENT="$(
+    awk '/<key>LSUIElement<\/key>/ { getline; gsub(/[[:space:]]/, ""); print; exit }' \
+      "$INFO_PLIST"
+  )"
+fi
+if [[ "$LSUI_ELEMENT" != "true" && "$LSUI_ELEMENT" != "1" && "$LSUI_ELEMENT" != "<true/>" ]]; then
+  echo "app archive is not configured as a menu bar app: $ARCHIVE" >&2
+  echo "  expected LSUIElement true" >&2
+  echo "  actual:   ${LSUI_ELEMENT:-missing}" >&2
+  exit 1
+fi
+
+if command -v plutil >/dev/null 2>&1; then
   APP_VERSION="$(plutil -extract CFBundleShortVersionString raw "$INFO_PLIST" 2>/dev/null || true)"
 else
   APP_VERSION="$(awk '/<key>CFBundleShortVersionString<\/key>/ { getline; gsub(/.*<string>|<\/string>.*/, ""); print; exit }' "$INFO_PLIST")"
