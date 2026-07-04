@@ -105,7 +105,9 @@ func normalizedCategory(for value: String) throws -> String {
     }
 
     let aliases: [String: String] = [
+        "ai": "ai-agent",
         "aiagent": "ai-agent",
+        "mcp": "mcp-server",
         "packagemanager": "package-manager",
         "runtimesdk": "runtime-sdk",
         "shellutility": "shell-utility",

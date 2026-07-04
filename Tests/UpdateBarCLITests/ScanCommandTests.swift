@@ -558,6 +558,56 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("jq"))
     }
 
+    func testScanFiltersShortAIAlias() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("npm"),
+            """
+            #!/bin/sh
+            if [ "$1" = "ls" ]; then
+              printf '{"dependencies":{"@openai/codex":{"version":"0.140.0"},"typescript":{"version":"5.8.3"}}}\\n'
+            fi
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--category", "ai"],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("@openai/codex"))
+        XCTAssertTrue(result.stdout.contains("ai-agent"))
+        XCTAssertFalse(result.stdout.contains("typescript"))
+    }
+
+    func testScanFiltersShortMCPAlias() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let config = home.appendingPathComponent(".cursor/mcp.json")
+        try FileManager.default.createDirectory(
+            at: config.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try #"{"mcpServers":{"filesystem":{"command":"npx"}}}"#.write(
+            to: config,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try CLIProcess.run(
+            ["scan", "--category", "mcp"],
+            home: home,
+            environment: ["HOME": home.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("mcp_config.filesystem"))
+        XCTAssertTrue(result.stdout.contains("mcp-server"))
+    }
+
     func testScanRejectsBlankCategoryFilter() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
 
