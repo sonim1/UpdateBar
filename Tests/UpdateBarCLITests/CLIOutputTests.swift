@@ -306,6 +306,20 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertFalse(payload.errors.contains(where: { $0.contains("Unknown option '--json-stream'") }))
     }
 
+    func testApproveJSONWithoutIDReportsMissingIDBeforeFieldHint() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["approve", "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertTrue(payload.errors.contains(where: { $0.contains("Missing expected argument '<id>'") }))
+        XCTAssertFalse(payload.errors.contains(where: { $0.contains("approve requires --field") }))
+    }
+
     func testStatusWithJSONEqualsParsesAsJSONMode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 

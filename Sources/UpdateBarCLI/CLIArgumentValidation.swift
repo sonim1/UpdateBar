@@ -161,7 +161,9 @@ extension UpdateBar {
             return
         }
 
-        let id = arguments.dropFirst().first { !$0.hasPrefix("-") } ?? "<id>"
+        guard let id = arguments.dropFirst().first(where: { !$0.hasPrefix("-") }) else {
+            return
+        }
         throw ValidationError(
             "approve requires --field. Run updatebar approvals \(SecretRedactor.redact(id)) to review command fields."
         )
