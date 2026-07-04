@@ -5,7 +5,8 @@ import UpdateBarCore
 struct StatusCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "status",
-        abstract: "Show the latest stored status without running updates."
+        abstract: "Show the latest stored status without running updates.",
+        discussion: "Returns 10 when any item is outdated."
     )
 
     @Flag(name: .long, help: "Print machine-readable JSON.")

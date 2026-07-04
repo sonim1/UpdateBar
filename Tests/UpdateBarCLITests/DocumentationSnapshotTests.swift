@@ -126,6 +126,10 @@ final class DocumentationSnapshotTests: XCTestCase {
                 )
             }
             if ["status", "check"].contains(command) {
+                XCTAssertTrue(
+                    result.stdout.contains("Returns 10"),
+                    "\(command) help should document the default outdated exit code"
+                )
                 XCTAssertFalse(
                     optionHasDescription("--exit-zero-on-outdated", in: helpLines),
                     "\(command) --exit-zero-on-outdated is for automation and should stay out of primary help"

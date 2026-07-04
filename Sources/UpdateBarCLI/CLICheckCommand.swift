@@ -5,7 +5,8 @@ import UpdateBarCore
 struct CheckCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "check",
-        abstract: "Refresh current/latest versions for registered items."
+        abstract: "Refresh current/latest versions for registered items.",
+        discussion: "Returns 10 when any checked item is outdated."
     )
 
     @Argument(help: "Item ids to check. Checks every registered item when omitted.")
