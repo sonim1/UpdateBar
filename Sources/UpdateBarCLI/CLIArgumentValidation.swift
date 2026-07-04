@@ -136,24 +136,29 @@ extension UpdateBar {
     }
 
     private static func suggestedMachineOutputUsage(afterLeadingFlagIn arguments: [String], flag: String) -> String? {
-        let commandPath = arguments.dropFirst().prefix(while: { !$0.hasPrefix("-") })
-        guard let first = commandPath.first else { return nil }
+        let remaining = Array(arguments.dropFirst())
+        guard let first = remaining.first, !first.hasPrefix("-") else { return nil }
 
-        let command: String
-        if commandPath.count >= 2 {
-            let nested = commandPath.prefix(2).joined(separator: " ")
-            command = jsonOutputUsage[nested] == nil ? first : nested
+        let commandTokens: [String]
+        if remaining.count >= 2 {
+            let nested = remaining.prefix(2).joined(separator: " ")
+            commandTokens = jsonOutputUsage[nested] == nil ? [first] : Array(remaining.prefix(2))
         } else {
-            command = first
+            commandTokens = [first]
         }
+        let command = commandTokens.joined(separator: " ")
+        let reordered = (commandTokens + remaining.dropFirst(commandTokens.count) + [flag]).joined(separator: " ")
 
         if flag == "--json-stream" {
             if jsonStreamCommands.contains(command) {
-                return "updatebar \(command) --json-stream"
+                return "updatebar \(reordered)"
             }
             return jsonOutputUsage[command]
         }
-        return jsonOutputUsage[command] ?? "updatebar \(command) --json"
+        if remaining.count > commandTokens.count {
+            return "updatebar \(reordered)"
+        }
+        return jsonOutputUsage[command] ?? "updatebar \(reordered)"
     }
 
     private static func validateUnsupportedJSONStreamFlags(_ arguments: [String]) throws {

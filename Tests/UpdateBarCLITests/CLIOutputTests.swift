@@ -310,7 +310,8 @@ final class CLIOutputTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
         let cases = [
             (["--json", "status"], "Run updatebar status --json"),
-            (["--json-stream", "check"], "Run updatebar check --json-stream")
+            (["--json-stream", "check"], "Run updatebar check --json-stream"),
+            (["--json-stream", "update", "tool", "--yes"], "Run updatebar update tool --yes --json-stream")
         ]
 
         for (arguments, guidance) in cases {
