@@ -53,6 +53,7 @@ public enum ConfigError: Error, CustomStringConvertible, Equatable, Sendable {
     case unknownKey(String)
     case invalidValue(key: String, value: String)
     case corruptConfig(String)
+    case writeFailed(path: String, reason: String)
 
     public var description: String {
         switch self {
@@ -62,6 +63,8 @@ public enum ConfigError: Error, CustomStringConvertible, Equatable, Sendable {
             return "\(redacted(key)): invalid value \(redacted(value))"
         case .corruptConfig(let message):
             return "config.toml: \(redacted(message))"
+        case .writeFailed(let path, let reason):
+            return "\(redacted(path)): write failed: \(redacted(reason))"
         }
     }
 

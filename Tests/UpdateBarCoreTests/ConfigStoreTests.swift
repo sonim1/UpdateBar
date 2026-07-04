@@ -233,6 +233,18 @@ final class ConfigStoreTests: XCTestCase {
         }
     }
 
+    func testSaveFailureRedactsSecretLikePathAndReason() throws {
+        let root = try temporaryDirectory().appendingPathComponent("sk-or-v1-secret-value")
+        try Data("not a directory".utf8).write(to: root)
+        let store = ConfigStore(paths: AppPaths(homeDirectory: root))
+
+        XCTAssertThrowsError(try store.save(.default)) { error in
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("config.toml: write failed"))
+            XCTAssertFalse(message.contains("sk-or-v1-secret-value"))
+        }
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("updatebar-tests-\(UUID().uuidString)")

@@ -31,9 +31,16 @@ public struct ConfigStore {
     }
 
     public func save(_ config: Config) throws {
-        try ensureHome()
-        try AtomicFileWriter.write(
-            Data(render(config).utf8), to: paths.configFile, fileManager: fileManager)
+        do {
+            try ensureHome()
+            try AtomicFileWriter.write(
+                Data(render(config).utf8), to: paths.configFile, fileManager: fileManager)
+        } catch let error as ConfigError {
+            throw error
+        } catch {
+            throw ConfigError.writeFailed(
+                path: paths.configFile.path, reason: String(describing: error))
+        }
     }
 
     public func renderForDisplay(_ config: Config) -> String {
