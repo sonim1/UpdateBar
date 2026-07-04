@@ -34,6 +34,7 @@ export UPDATEBAR_TEST_BIN="$ROOT/.build/debug/updatebar"
 
 echo "running swift unit tests"
 "$SWIFT_BIN" test
+export UPDATEBAR_BIN="$ROOT/.build/debug/updatebar"
 
 echo "running updatebar smoke test"
 bash Scripts/smoke-test.sh

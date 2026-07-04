@@ -44,6 +44,11 @@ if ! grep -Fq 'export UPDATEBAR_TEST_BIN="$ROOT/.build/debug/updatebar"' "$QUALI
   exit 1
 fi
 
+if ! grep -Fq 'export UPDATEBAR_BIN="$ROOT/.build/debug/updatebar"' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must point smoke scripts at the freshly built updatebar binary" >&2
+  exit 1
+fi
+
 if ! grep -Fq 'bash Scripts/menubar-smoke-test.sh dist/UpdateBar.app' "$QUALITY_GATE"; then
   echo "quality-gate.sh must run menu bar launch smoke checks" >&2
   exit 1
