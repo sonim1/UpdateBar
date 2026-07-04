@@ -95,7 +95,7 @@ if ! curl -fsSL -o "${ARCHIVE_PATH}.sha256" "$ASSET_SHA_URL"; then
   exit 1
 fi
 
-EXPECTED_SHA="$(awk '{print $1}' "${ARCHIVE_PATH}.sha256" | head -n 1)"
+EXPECTED_SHA="$(awk 'NF > 0 { print $1; exit }' "${ARCHIVE_PATH}.sha256")"
 if [[ -z "$EXPECTED_SHA" ]]; then
   echo "Failed to parse SHA from ${ARCHIVE_PATH}.sha256" >&2
   exit 1

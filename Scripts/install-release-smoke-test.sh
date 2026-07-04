@@ -360,7 +360,7 @@ run_missing_checksum_tool_fails_clearly() {
   local limited_bin="$TMP_DIR/no-checksum-bin"
   local output="$TMP_DIR/install-no-checksum.out"
   mkdir -p "$limited_bin"
-  for tool in awk bash cat cp head mktemp rm uname; do
+  for tool in awk bash cat cp mktemp rm uname; do
     ln -sf "$(command -v "$tool")" "$limited_bin/$tool"
   done
   cp "$FAKE_BIN/curl" "$limited_bin/curl"

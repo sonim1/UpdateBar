@@ -19,7 +19,7 @@ if [[ ${#casks[@]} -eq 0 ]]; then
 fi
 
 for cask in "${casks[@]}"; do
-  token="$(sed -nE 's/^[[:space:]]*cask "([^"]+)".*/\1/p' "$cask" | head -n 1)"
+  token="$(awk -F'"' '/^[[:space:]]*cask "/ { print $2; exit }' "$cask")"
   if [[ -z "$token" ]]; then
     echo "missing cask token in $cask" >&2
     exit 1
