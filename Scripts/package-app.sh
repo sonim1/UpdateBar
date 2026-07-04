@@ -35,7 +35,6 @@ sign_app_if_requested() {
 
   local options=(
     --force
-    --deep
     --options runtime
     --timestamp
   )
@@ -44,7 +43,9 @@ sign_app_if_requested() {
     options+=(--entitlements "$entitlements")
   fi
 
-  log "signing app with identity: ${identity}"
+  log "signing app inside-out with identity: ${identity}"
+  codesign "${options[@]}" --sign "$identity" "$RESOURCES_DIR/updatebar"
+  codesign "${options[@]}" --sign "$identity" "$MACOS_DIR/UpdateBar"
   codesign "${options[@]}" --sign "$identity" "$APP_DIR"
 }
 

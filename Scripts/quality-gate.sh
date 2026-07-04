@@ -50,6 +50,9 @@ bash Scripts/build-release-archive-test.sh
 echo "running app archive behavior check"
 bash Scripts/build-app-archive-test.sh
 
+echo "running app signing behavior check"
+bash Scripts/package-app-signing-test.sh
+
 echo "running archive version checks"
 bash Scripts/archive-version-smoke-test.sh
 

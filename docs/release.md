@@ -94,6 +94,10 @@ Apple tooling:
 - `UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE`: keychain profile name for `xcrun notarytool`
 - optional `UPDATEBAR_SIGN_ENTITLEMENTS_FILE`: entitlements file path for `codesign`
 
+When signing is enabled, the script signs inside-out: bundled CLI first, menu bar
+executable second, app bundle last. It intentionally does not use
+`codesign --deep`.
+
 The app bundle does not currently include the Ink TUI. The `Open TUI` menu item
 prefers launching `UPDATEBAR_BIN tui` when the bundled CLI is available, and
 falls back to `updatebar-tui` from the user's `PATH`.
