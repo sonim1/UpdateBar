@@ -1,4 +1,5 @@
 import {spawn} from 'node:child_process';
+import path from 'node:path';
 import type {Readable} from 'node:stream';
 import {resolveUpdateBarBinary} from './binaryResolver.js';
 import type {BinaryResolverOptions} from './binaryResolver.js';
@@ -135,6 +136,11 @@ function subprocessEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   for (const key of SUBPROCESS_ENV_KEYS) {
     const value = source[key];
     if (value) environment[key] = value;
+  }
+  if (environment.PATH) {
+    environment.PATH = environment.PATH.split(path.delimiter)
+      .filter(entry => path.isAbsolute(entry))
+      .join(path.delimiter);
   }
   return environment;
 }

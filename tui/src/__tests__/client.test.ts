@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {mkdtemp, rm, stat} from 'node:fs/promises';
+import {mkdir, mkdtemp, rm, stat} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {
@@ -411,24 +411,33 @@ describe('CLIUpdateBarClient', () => {
   });
 
   it('does not forward provider secrets to updatebar subprocesses', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'updatebar-tui-env-'));
+    const bin = path.join(root, 'bin');
+    await mkdir(bin, {recursive: true});
     const runner = new SubprocessRunner('/bin/sh');
     const originalSecret = process.env.OPENROUTER_API_KEY;
     const originalHome = process.env.UPDATEBAR_HOME;
+    const originalPath = process.env.PATH;
     process.env.OPENROUTER_API_KEY = 'sk-or-v1-secret-value';
     process.env.UPDATEBAR_HOME = '/tmp/updatebar-tui-home';
+    process.env.PATH = `.:${bin}`;
 
     try {
       const result = await runner.run([
         '-c',
-        'printf "secret=${OPENROUTER_API_KEY:-missing}\\nhome=${UPDATEBAR_HOME:-missing}\\n"'
+        'printf "secret=${OPENROUTER_API_KEY:-missing}\\nhome=${UPDATEBAR_HOME:-missing}\\npath=${PATH:-missing}\\n"'
       ]);
 
       expect(result.stdout).toContain('secret=missing');
       expect(result.stdout).toContain('home=/tmp/updatebar-tui-home');
+      expect(result.stdout).toContain(`path=${bin}`);
+      expect(result.stdout).not.toContain('path=.:');
       expect(result.stdout).not.toContain('sk-or-v1-secret-value');
     } finally {
       restoreEnv('OPENROUTER_API_KEY', originalSecret);
       restoreEnv('UPDATEBAR_HOME', originalHome);
+      restoreEnv('PATH', originalPath);
+      await rm(root, {recursive: true, force: true});
     }
   });
 
