@@ -13,6 +13,7 @@ extension UpdateBar {
         try validateRemovedAddOptions(arguments)
         try validateRemovedUpdateOptions(arguments)
         try validateRemovedScanOptions(arguments)
+        try validateSchemaJSONFlag(arguments)
         try validateHelpTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isInlineVersionFlag)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isMachineOutputFlag)
@@ -78,6 +79,19 @@ extension UpdateBar {
         throw ValidationError("""
         \(command) --detectors was removed.
         Run updatebar \(command) --category <category> to filter results. Default scan sources are selected automatically.
+        """)
+    }
+
+    private static func validateSchemaJSONFlag(_ arguments: [String]) throws {
+        guard arguments.first == "schema",
+              arguments.contains(where: { $0 == "--json" || $0.hasPrefix("--json=") })
+        else {
+            return
+        }
+        throw ValidationError("""
+        schema already prints JSON.
+        Run updatebar schema without --json.
+        Usage: updatebar schema
         """)
     }
 

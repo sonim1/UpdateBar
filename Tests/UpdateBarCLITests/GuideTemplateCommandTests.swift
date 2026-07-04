@@ -107,7 +107,8 @@ final class GuideTemplateCommandTests: XCTestCase {
         let result = try CLIProcess.run(["schema", "--json"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue((result.stdout + result.stderr).contains("Unknown option '--json'"))
+        XCTAssertTrue((result.stdout + result.stderr).contains("schema already prints JSON"))
+        XCTAssertTrue((result.stdout + result.stderr).contains("Run updatebar schema without --json"))
         XCTAssertTrue((result.stdout + result.stderr).contains("Usage: updatebar schema"))
     }
 
