@@ -23,6 +23,7 @@ extension UpdateBar {
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isInlineVersionFlag)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isMachineOutputFlag)
         try validateHelpCommandPath(arguments)
+        try validateHelpCommandTrailingInlineHelpArguments(arguments)
         try validateTrailingInlineHelpArguments(arguments)
         try validateTrailingInlineVersionArguments(arguments)
         try validateApproveRequiresField(arguments)
@@ -377,6 +378,27 @@ extension UpdateBar {
             Usage: \(command)
             """
         }
+    }
+
+    private static func validateHelpCommandTrailingInlineHelpArguments(_ arguments: [String]) throws {
+        guard arguments.first == "help",
+              let flagIndex = arguments.firstIndex(where: isInlineHelpFlag)
+        else {
+            return
+        }
+
+        let afterFlagIndex = arguments.index(after: flagIndex)
+        guard afterFlagIndex < arguments.endIndex,
+              let trailing = arguments[afterFlagIndex...].first
+        else {
+            return
+        }
+
+        let commandTokens = arguments[..<flagIndex].joined(separator: " ")
+        throw ValidationError("""
+        Unexpected argument '\(trailing)' after updatebar \(commandTokens) --help
+        Usage: updatebar \(commandTokens) --help
+        """)
     }
 
     private static func validateTrailingInlineVersionArguments(_ arguments: [String]) throws {
