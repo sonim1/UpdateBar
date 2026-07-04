@@ -21,12 +21,17 @@ bash Scripts/script-syntax-test.sh
 echo "running quality gate contract checks"
 bash Scripts/quality-gate-contract-test.sh
 
-if ! command -v xcrun >/dev/null 2>&1 || ! xcrun --find swift-format >/dev/null 2>&1; then
+SWIFT_FORMAT_COMMAND=()
+if command -v swift-format >/dev/null 2>&1; then
+  SWIFT_FORMAT_COMMAND=(swift-format)
+elif command -v xcrun >/dev/null 2>&1 && xcrun --find swift-format >/dev/null 2>&1; then
+  SWIFT_FORMAT_COMMAND=(xcrun swift-format)
+else
   echo "swift-format is required for quality gate checks" >&2
   exit 1
 fi
 echo "running Swift format checks"
-xcrun swift-format lint --strict --recursive Sources Tests Package.swift
+"${SWIFT_FORMAT_COMMAND[@]}" lint --strict --recursive Sources Tests Package.swift
 
 if command -v shellcheck >/dev/null 2>&1; then
   echo "running script quality checks"
