@@ -278,6 +278,23 @@ final class UpdateBarCLIClientTests: XCTestCase {
         }
     }
 
+    func testProcessRunnerDoesNotLaunchWhenTokenIsAlreadyCancelled() throws {
+        let home = try temporaryDirectory(prefix: "updatebar-menubar-client-tests")
+        let marker = home.appendingPathComponent("started")
+        let runner = ProcessRunner(timeout: 5)
+        let token = CancellationToken()
+        token.cancel()
+
+        XCTAssertThrowsError(try runner.run(
+            executablePath: "/bin/sh",
+            arguments: ["-c", "touch \(ShellQuote.single(marker.path))"],
+            cancellationToken: token
+        )) { error in
+            XCTAssertEqual(error as? UpdateBarCLIClientError, .cancelled)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
     func testProcessRunnerTimesOut() throws {
         let runner = ProcessRunner(timeout: 0.2)
 

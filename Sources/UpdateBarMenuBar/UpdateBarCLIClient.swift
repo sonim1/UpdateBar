@@ -196,6 +196,9 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
         arguments: [String],
         cancellationToken: CancellationToken?
     ) throws -> CommandResult {
+        if cancellationToken?.isCancelled == true {
+            throw UpdateBarCLIClientError.cancelled
+        }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executablePath)
         process.arguments = arguments
