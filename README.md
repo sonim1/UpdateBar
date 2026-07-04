@@ -55,6 +55,7 @@ x86_64. Other platforms should build from source.
 It prefers direct `UpdateBarCore` calls, keeps a CLI subprocess fallback, and exposes:
 
 - check now
+- refresh status
 - update selected
 - update all approved outdated
 - per-command approve/revoke
