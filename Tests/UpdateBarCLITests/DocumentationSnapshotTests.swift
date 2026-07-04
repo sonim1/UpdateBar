@@ -768,6 +768,7 @@ final class DocumentationSnapshotTests: XCTestCase {
 
     func testTUIDocsUseDirectBuildAndOverrideSetup() throws {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
+        let architecture = try String(contentsOfFile: "docs/architecture.md", encoding: .utf8)
         let troubleshooting = try String(contentsOfFile: "docs/troubleshooting.md", encoding: .utf8)
         let tuiReadme = try String(contentsOfFile: "tui/README.md", encoding: .utf8)
         let combined = [readme, troubleshooting, tuiReadme].joined(separator: "\n")
@@ -775,6 +776,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(combined.contains("npm --prefix tui install"))
         XCTAssertTrue(combined.contains("npm --prefix tui run build"))
         XCTAssertTrue(combined.contains("UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui"))
+        XCTAssertTrue(architecture.contains("UPDATEBAR_TUI"))
         XCTAssertFalse(combined.contains("npm link"))
     }
 
@@ -965,6 +967,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(architecture.contains("updatebar update [ids]"))
         XCTAssertTrue(architecture.contains("direct UpdateBarCore adapter by default"))
         XCTAssertTrue(architecture.contains("UPDATEBAR_MENUBAR_ADAPTER=cli"))
+        XCTAssertTrue(architecture.contains("tui/"))
+        XCTAssertTrue(architecture.contains("UPDATEBAR_TUI"))
         XCTAssertTrue(architecture.contains("HOME/.updatebar"))
         XCTAssertTrue(architecture.contains("UPDATEBAR_HOME"))
         XCTAssertTrue(architecture.contains("updatebar list"))

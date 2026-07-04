@@ -5,6 +5,7 @@ Status inspected from the current repo under `~/projects/UpdateBar` (current rel
 Scope:
 
 - CLI + optional macOS menu bar app
+- optional Ink TUI in `tui/` using the Swift CLI JSON/JSONL contracts
 - macOS menu bar app supported (native wrapper using the direct UpdateBarCore adapter by default)
 - no bundled always-on daemon; optional LaunchAgent runs `check` only when installed by the user
 - no built-in AI generation
@@ -26,6 +27,9 @@ UpdateBar
 │   └── target: Sources/UpdateBarMenuBar
 └── library: UpdateBarTestSupport
     └── target: Sources/UpdateBarTestSupport
+
+Node/React TUI
+└── package: tui/
 ```
 
 Missing today:
@@ -61,6 +65,8 @@ UpdateBarCore
 UpdateBar does not author commands. Humans or external agents write recipe JSON. UpdateBar validates, stores as untrusted by default, and runs only approved command fingerprints.
 
 The menu bar app (`updatebar-menubar`) uses `CoreMenuBarService` and the direct UpdateBarCore adapter by default. It accesses manifest/state/config through the same core stores and services as the CLI, not through duplicated UI logic. A CLI subprocess adapter still exists for compatibility and can be selected with `UPDATEBAR_MENUBAR_ADAPTER=cli`.
+
+The Ink TUI lives in `tui/` as a Node/React presentation layer. It calls the Swift CLI through JSON/JSONL contracts instead of importing Swift libraries directly. `UPDATEBAR_TUI` can point `updatebar tui` or the Menu Bar `Open TUI` action at a built TUI entrypoint.
 
 ---
 
