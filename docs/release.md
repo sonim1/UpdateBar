@@ -29,6 +29,9 @@ bash Scripts/verify-homebrew-metadata.sh
 On macOS, `Scripts/quality-gate.sh` prefers `/Applications/Xcode.app` when it is
 available so `swift test` can find `XCTest`. Set `DEVELOPER_DIR` explicitly if
 you need a different toolchain.
+The quality gate runs Homebrew metadata verification with
+`UPDATEBAR_VERIFY_STATIC_ONLY=1`, which checks formula/cask metadata without
+comparing local `dist` checksums. Use strict verification before publishing.
 
 Build a local release archive:
 

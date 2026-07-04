@@ -68,6 +68,12 @@ bash Scripts/install-release-smoke-test.sh
 echo "running homebrew packaging check"
 bash Scripts/homebrew-packaging-test.sh
 
+echo "running homebrew metadata check"
+UPDATEBAR_VERIFY_STATIC_ONLY=1 bash Scripts/verify-homebrew-metadata.sh
+
+echo "running homebrew metadata behavior check"
+bash Scripts/verify-homebrew-metadata-test.sh
+
 echo "running tui smoke test"
 bash Scripts/tui-smoke-test.sh
 

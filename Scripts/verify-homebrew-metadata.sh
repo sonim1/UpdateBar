@@ -22,6 +22,7 @@ DIST_DIR="${1:-dist}"
 FORMULA_PATH="Packaging/homebrew/updatebar.rb"
 CASK_PATH="Packaging/homebrew/Casks/updatebar-app.rb"
 STRICT="${UPDATEBAR_VERIFY_STRICT:-0}"
+STATIC_ONLY="${UPDATEBAR_VERIFY_STATIC_ONLY:-0}"
 
 hash_file() {
   local path="$1"
@@ -47,7 +48,9 @@ fi
 FORMULA_ASSET="$(basename "$FORMULA_URL")"
 FORMULA_SHA_FILE="$DIST_DIR/$FORMULA_ASSET.sha256"
 FORMULA_ARCHIVE="$DIST_DIR/$FORMULA_ASSET"
-if [[ ! -f "$FORMULA_ARCHIVE" ]]; then
+if [[ "$STATIC_ONLY" == "1" ]]; then
+  FORMULA_VERIFIED=0
+elif [[ ! -f "$FORMULA_ARCHIVE" ]]; then
   if [[ "$STRICT" == "1" ]]; then
     echo "missing CLI archive for formula check: $FORMULA_ARCHIVE" >&2
     exit 1
@@ -104,7 +107,9 @@ CASK_ASSET="${CASK_ASSET/\#\{version\}/$CASK_VERSION}"
 CASK_ARCHIVE="$DIST_DIR/$CASK_ASSET"
 CASK_SHA_FILE="$DIST_DIR/$CASK_ASSET.sha256"
 
-if [[ -f "$CASK_ARCHIVE" ]]; then
+if [[ "$STATIC_ONLY" == "1" ]]; then
+  :
+elif [[ -f "$CASK_ARCHIVE" ]]; then
   if [[ ! -f "$CASK_SHA_FILE" ]]; then
     echo "missing app archive checksum: $CASK_SHA_FILE" >&2
     exit 1
