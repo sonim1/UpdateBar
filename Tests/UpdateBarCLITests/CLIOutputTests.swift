@@ -368,7 +368,8 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
         let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
         XCTAssertEqual(payload.code, "usage_error")
-        XCTAssertFalse(payload.errors.isEmpty)
+        XCTAssertTrue(payload.errors.contains { $0.contains("status does not support JSONL streaming") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("Run updatebar status --json") })
     }
 
     func testCheckWithJSONEqualsParsesAsJSONMode() throws {

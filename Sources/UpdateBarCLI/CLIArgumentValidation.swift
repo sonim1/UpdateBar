@@ -15,6 +15,7 @@ extension UpdateBar {
         try validateRemovedUpdateOptions(arguments)
         try validateRemovedScanOptions(arguments)
         try validateIntrinsicJSONFlags(arguments)
+        try validateUnsupportedJSONStreamFlags(arguments)
         try validateHelpTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isInlineVersionFlag)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isMachineOutputFlag)
@@ -120,6 +121,18 @@ extension UpdateBar {
             return nil
         }
         return "template \(subcommand)"
+    }
+
+    private static func validateUnsupportedJSONStreamFlags(_ arguments: [String]) throws {
+        guard arguments.first == "status",
+              hasOption("--json-stream", in: arguments)
+        else {
+            return
+        }
+        throw ValidationError("""
+        status does not support JSONL streaming.
+        Run updatebar status --json for a snapshot, or updatebar check --json-stream to stream refresh progress.
+        """)
     }
 
     private static func validateTopLevelTarget(
