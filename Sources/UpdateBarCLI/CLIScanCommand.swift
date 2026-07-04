@@ -36,9 +36,9 @@ struct ScanCommand: ParsableCommand {
         let recommended = report.candidates.filter { $0.capability == .full }
         let needsReview = report.candidates.filter { $0.capability != .full }
         let nextIndex = printSection("Recommended", candidates: recommended, startIndex: 1)
+        printNextStep(recommended, categoryFilter: categoryFilter)
         _ = printSection("Needs Review", candidates: needsReview, startIndex: nextIndex)
         printReviewOnlyNote(recommended: recommended, needsReview: needsReview, categoryFilter: categoryFilter)
-        printNextStep(recommended, categoryFilter: categoryFilter)
         if !report.errors.isEmpty {
             writeStderr("")
             writeStderr("Errors")

@@ -14,6 +14,7 @@ struct CLIProcess {
         process.arguments = arguments
         process.currentDirectoryURL = currentDirectory
         var environment = ProcessInfo.processInfo.environment
+        environment["HOME"] = home.path
         environment["UPDATEBAR_HOME"] = home.path
         for (key, value) in overrides {
             environment[key] = value
@@ -58,6 +59,7 @@ struct CLIProcess {
         process.executableURL = try updatebarBinary()
         process.arguments = arguments
         var environment = ProcessInfo.processInfo.environment
+        environment["HOME"] = home.path
         environment["UPDATEBAR_HOME"] = home.path
         for (key, value) in overrides {
             environment[key] = value

@@ -221,6 +221,25 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertNil(report.candidates.first?.recipe)
     }
 
+    func testScanCodexSkillsUsesIsolatedCLIProcessHome() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let skill = home.appendingPathComponent(".codex/skills/local-only")
+        try FileManager.default.createDirectory(at: skill, withIntermediateDirectories: true)
+        try "Skill instructions\n".write(
+            to: skill.appendingPathComponent("SKILL.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try CLIProcess.run(["scan", "--json", "--category", "codex-skill"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        let report = try JSONDecoder.updateBar.decode(
+            ScanReport.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(report.candidates.map(\.id), ["codex_skill.local-only"])
+        XCTAssertEqual(report.candidates.first?.sourceRef, "~/.codex/skills/local-only")
+    }
+
     func testScanJSONCanScanMCPConfigs() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
         let config = home.appendingPathComponent(".cursor/mcp.json")
@@ -377,6 +396,9 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("updatebar init\n"))
         XCTAssertTrue(result.stdout.contains("updatebar init --select all"))
         XCTAssertFalse(result.stdout.contains("updatebar init --select brew.gh"))
+        let next = try XCTUnwrap(result.stdout.range(of: "Next\nupdatebar init"))
+        let needsReview = try XCTUnwrap(result.stdout.range(of: "Needs Review"))
+        XCTAssertLessThan(next.lowerBound, needsReview.lowerBound)
     }
 
     func testScanHumanCategoryNextStepPreservesCategoryAndUsesAllSelection() throws {
