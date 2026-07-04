@@ -8,7 +8,14 @@ source "$ROOT/version.env"
 
 VERSION="${UPDATEBAR_VERSION:?UPDATEBAR_VERSION is required}"
 APP_DIR="dist/UpdateBar.app"
-ARCHIVE="dist/UpdateBar-${VERSION}-macos-arm64.app.tar.gz"
+
+case "$(uname -m)" in
+  arm64|aarch64) ARCH="arm64" ;;
+  x86_64|amd64) ARCH="x86_64" ;;
+  *) echo "unsupported arch: $(uname -m)" >&2; exit 1 ;;
+esac
+
+ARCHIVE="dist/UpdateBar-${VERSION}-macos-${ARCH}.app.tar.gz"
 
 if [[ ! -d "$APP_DIR" ]]; then
   echo "missing app bundle: $APP_DIR" >&2

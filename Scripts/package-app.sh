@@ -8,6 +8,11 @@ source version.env
 
 SWIFT_BIN="${SWIFT_BIN:-swift}"
 VERSION="${UPDATEBAR_VERSION:?UPDATEBAR_VERSION is required}"
+case "$(uname -m)" in
+  arm64|aarch64) ARCH="arm64" ;;
+  x86_64|amd64) ARCH="x86_64" ;;
+  *) echo "unsupported arch: $(uname -m)" >&2; exit 1 ;;
+esac
 APP_DIR="dist/UpdateBar.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
@@ -71,7 +76,7 @@ notarize_app_if_requested() {
 
   TMP_DIR="$(mktemp -d)"
   trap 'rm -rf "$TMP_DIR"' EXIT
-  local zip_path="$TMP_DIR/UpdateBar-${VERSION}-macos-arm64.app.zip"
+  local zip_path="$TMP_DIR/UpdateBar-${VERSION}-macos-${ARCH}.app.zip"
 
   log "creating notarization archive at $zip_path"
   ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$zip_path"

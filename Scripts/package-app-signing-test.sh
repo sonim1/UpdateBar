@@ -10,6 +10,8 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 TEST_ROOT="$TMP_DIR/root"
 BIN_DIR="$TMP_DIR/bin"
 CODESIGN_LOG="$TMP_DIR/codesign.log"
+DITTO_LOG="$TMP_DIR/ditto.log"
+XCRUN_LOG="$TMP_DIR/xcrun.log"
 mkdir -p "$TEST_ROOT/Scripts" "$BIN_DIR"
 
 cp "$ROOT/Scripts/package-app.sh" "$TEST_ROOT/Scripts/package-app.sh"
@@ -25,11 +27,11 @@ chmod +x "$TEST_ROOT/Scripts/generate-version-source.sh"
 cat >"$BIN_DIR/uname" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ "${1:-}" == "-s" ]]; then
-  printf 'Darwin\n'
-else
-  /usr/bin/uname "$@"
-fi
+case "${1:-}" in
+  -s) printf 'Darwin\n' ;;
+  -m) printf 'x86_64\n' ;;
+  *) /usr/bin/uname "$@" ;;
+esac
 SH
 
 cat >"$BIN_DIR/swift" <<'SH'
@@ -73,15 +75,31 @@ set -euo pipefail
 printf '%s\n' "$*" >>"${CODESIGN_LOG:?}"
 SH
 
-chmod +x "$BIN_DIR/uname" "$BIN_DIR/swift" "$BIN_DIR/plutil" "$BIN_DIR/codesign"
+cat >"$BIN_DIR/ditto" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${DITTO_LOG:?}"
+SH
+
+cat >"$BIN_DIR/xcrun" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${XCRUN_LOG:?}"
+SH
+
+chmod +x "$BIN_DIR/uname" "$BIN_DIR/swift" "$BIN_DIR/plutil" "$BIN_DIR/codesign" "$BIN_DIR/ditto" "$BIN_DIR/xcrun"
 
 (
   cd "$TEST_ROOT"
   env \
     PATH="$BIN_DIR:$PATH" \
     CODESIGN_LOG="$CODESIGN_LOG" \
+    DITTO_LOG="$DITTO_LOG" \
+    XCRUN_LOG="$XCRUN_LOG" \
     UPDATEBAR_SIGN_APP=1 \
     UPDATEBAR_SIGN_IDENTITY="Developer ID Application: Test" \
+    UPDATEBAR_NOTARIZE_APP=1 \
+    UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE="UpdateBar Notary Test" \
     UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE=1 \
     bash Scripts/package-app.sh >/dev/null
 )
@@ -125,5 +143,23 @@ for required in "--force" "--options runtime" "--timestamp" "--sign Developer ID
     exit 1
   fi
 done
+
+if ! grep -Fq "UpdateBar-${UPDATEBAR_VERSION}-macos-x86_64.app.zip" "$DITTO_LOG"; then
+  echo "notarization archive should include host architecture" >&2
+  cat "$DITTO_LOG" >&2
+  exit 1
+fi
+
+if ! grep -Fq "notarytool submit" "$XCRUN_LOG"; then
+  echo "package-app should submit notarization archive" >&2
+  cat "$XCRUN_LOG" >&2
+  exit 1
+fi
+
+if ! grep -Fq "UpdateBar-${UPDATEBAR_VERSION}-macos-x86_64.app.zip" "$XCRUN_LOG"; then
+  echo "notarytool submit should use host-architecture archive" >&2
+  cat "$XCRUN_LOG" >&2
+  exit 1
+fi
 
 echo "package app signing behavior ok"

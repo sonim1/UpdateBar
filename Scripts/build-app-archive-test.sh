@@ -17,6 +17,17 @@ cp "$ROOT/Scripts/build-app-archive.sh" "$TEST_ROOT/Scripts/build-app-archive.sh
 cp "$ROOT/version.env" "$TEST_ROOT/version.env"
 printf 'fixture\n' >"$TEST_ROOT/dist/UpdateBar.app/Contents/fixture.txt"
 
+cat >"$BIN_DIR/uname" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+  -s) printf 'Darwin\n' ;;
+  -m) printf 'x86_64\n' ;;
+  *) /usr/bin/uname "$@" ;;
+esac
+SH
+
 cat >"$BIN_DIR/tar" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -67,13 +78,14 @@ printf 'fakehash  %s\n' "$target"
 SH
 
 chmod +x "$BIN_DIR/tar" "$BIN_DIR/gzip" "$BIN_DIR/shasum"
+chmod +x "$BIN_DIR/uname"
 
 output="$(
   env PATH="$BIN_DIR:$PATH" TAR_LOG="$TAR_LOG" GZIP_LOG="$GZIP_LOG" \
     "$TEST_ROOT/Scripts/build-app-archive.sh"
 )"
 
-expected_archive="$TEST_ROOT/dist/UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.app.tar.gz"
+expected_archive="$TEST_ROOT/dist/UpdateBar-${UPDATEBAR_VERSION}-macos-x86_64.app.tar.gz"
 
 if [[ "$output" != "$expected_archive" ]]; then
   echo "unexpected app archive output path" >&2

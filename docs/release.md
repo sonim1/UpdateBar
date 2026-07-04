@@ -87,8 +87,9 @@ bash Scripts/app-archive-smoke-test.sh
 The app packaging script creates `dist/UpdateBar.app` with the menu bar executable
 in `Contents/MacOS/UpdateBar` and the CLI in `Contents/Resources/updatebar`.
 Tagged macOS releases also upload an unsigned
-`UpdateBar-<version>-macos-arm64.app.tar.gz` archive. Signing/notarization are not
-part of the CLI release.
+`UpdateBar-<version>-macos-<arch>.app.tar.gz` archive for the host architecture.
+The published Homebrew cask currently targets the arm64 app asset.
+Signing/notarization are not part of the CLI release.
 
 For future signed releases, `Scripts/package-app.sh` also supports optional
 environment-based signing/notarization when `UPDATEBAR_SIGN_APP=1` and
