@@ -240,6 +240,31 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertEqual(report.candidates.first?.sourceRef, "~/.codex/skills/local-only")
     }
 
+    #if os(macOS)
+    func testScanCodexSkillsUsesIsolatedTTYProcessHome() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+        let skill = home.appendingPathComponent(".codex/skills/tty-local-only")
+        try FileManager.default.createDirectory(at: skill, withIntermediateDirectories: true)
+        try "Skill instructions\n".write(
+            to: skill.appendingPathComponent("SKILL.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = try XCTUnwrap(
+            CLIProcess.runWithOpenTTYUntilExit(
+                ["scan", "--json", "--category", "codex-skill"],
+                home: home,
+                timeout: 5
+            )
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("codex_skill.tty-local-only"))
+        XCTAssertFalse(result.stdout.contains("codex_skill.agent-browser"))
+    }
+    #endif
+
     func testScanJSONCanScanMCPConfigs() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
         let config = home.appendingPathComponent(".cursor/mcp.json")

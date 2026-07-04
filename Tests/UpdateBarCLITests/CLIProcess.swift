@@ -98,6 +98,7 @@ struct CLIProcess {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/script")
         process.arguments = ["-q", "/dev/null", try updatebarBinary().path] + arguments
         var environment = ProcessInfo.processInfo.environment
+        environment["HOME"] = home.path
         environment["UPDATEBAR_HOME"] = home.path
         for (key, value) in overrides {
             environment[key] = value
