@@ -472,7 +472,9 @@ final class ScanCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
-        XCTAssertTrue(result.stdout.contains("Unknown option '--detectors'"))
+        XCTAssertTrue(result.stdout.contains("scan --detectors was removed"))
+        XCTAssertTrue(result.stdout.contains("Run updatebar scan --category <category>"))
+        XCTAssertTrue(result.stdout.contains("Default scan sources are selected automatically"))
     }
 
     func testScanFiltersCategoryCaseInsensitive() throws {

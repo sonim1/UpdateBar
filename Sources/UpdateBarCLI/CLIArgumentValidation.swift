@@ -12,6 +12,7 @@ extension UpdateBar {
         try validateRemovedListCommand(arguments)
         try validateRemovedAddOptions(arguments)
         try validateRemovedUpdateOptions(arguments)
+        try validateRemovedScanOptions(arguments)
         try validateHelpTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isInlineVersionFlag)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isMachineOutputFlag)
@@ -65,6 +66,19 @@ extension UpdateBar {
             Run updatebar update without ids to update every approved outdated item.
             """)
         }
+    }
+
+    private static func validateRemovedScanOptions(_ arguments: [String]) throws {
+        guard let command = arguments.first,
+              command == "scan" || command == "init",
+              arguments.contains(where: { $0 == "--detectors" || $0.hasPrefix("--detectors=") })
+        else {
+            return
+        }
+        throw ValidationError("""
+        \(command) --detectors was removed.
+        Run updatebar \(command) --category <category> to filter results. Default scan sources are selected automatically.
+        """)
     }
 
     private static func validateTopLevelTarget(
