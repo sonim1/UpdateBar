@@ -348,6 +348,7 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertTrue(result.stdout.contains("ai-agent"), "\(command) help missing ai-agent")
             XCTAssertTrue(result.stdout.contains("library"), "\(command) help missing library")
             XCTAssertTrue(result.stdout.contains("mcp-server"), "\(command) help missing mcp-server")
+            XCTAssertTrue(result.stdout.contains("aliases: ai, mcp"), "\(command) help missing short category aliases")
         }
     }
 
@@ -768,6 +769,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         )
 
         XCTAssertTrue(scanSection.contains("`ai-agent`, `package-manager`, `runtime-sdk`"))
+        XCTAssertTrue(scanSection.contains("Aliases: `ai` for `ai-agent` and `mcp` for `mcp-server`."))
         XCTAssertFalse(scanSection.contains("--detectors"))
         XCTAssertTrue(scanSection.contains("`scan` is read-only"))
         XCTAssertTrue(scanSection.contains("choose and register"))
@@ -949,6 +951,7 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertTrue(categorySection.contains(category), "spec missing \(category)")
         }
         XCTAssertFalse(categorySection.contains("local-service"))
+        XCTAssertTrue(categorySection.contains("Aliases: `ai` maps to `ai-agent`; `mcp` maps to `mcp-server`."))
         XCTAssertTrue(categorySection.contains("Unknown category values are rejected"))
     }
 

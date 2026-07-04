@@ -73,6 +73,8 @@ User-facing categories:
 - `codex-skill`: local skill bundles.
 - `library`: globally installed package without a clear CLI identity.
 
+Aliases: `ai` maps to `ai-agent`; `mcp` maps to `mcp-server`.
+
 Versioned formulae such as `node@22` or `python@3.12` are categorized by their
 base tool name. Scoped npm agent packages such as `@openai/codex` are categorized
 by their package leaf name. Unknown brew formulae default to `shell-utility`.

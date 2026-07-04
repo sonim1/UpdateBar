@@ -142,5 +142,5 @@ let supportedScanCategories = [
 ]
 
 func scanCategoryDescription() -> String {
-    supportedScanCategories.joined(separator: ", ")
+    "\(supportedScanCategories.joined(separator: ", ")); aliases: ai, mcp"
 }
