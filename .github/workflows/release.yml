@@ -20,6 +20,14 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Verify tag matches version
+        run: |
+          source version.env
+          expected="v${UPDATEBAR_VERSION}"
+          if [[ "$GITHUB_REF_NAME" != "$expected" ]]; then
+            echo "release tag must match version.env: expected $expected, got $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
       - uses: swift-actions/setup-swift@7591e4f04c00624cb043783da51a7fd6ee0a6bf6
         if: runner.os == 'Linux'
         with:

@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 QUALITY_GATE="$ROOT/Scripts/quality-gate.sh"
 CI_WORKFLOW="$ROOT/.github/workflows/ci.yml"
+RELEASE_WORKFLOW="$ROOT/.github/workflows/release.yml"
 
 if [[ ! -f "$CI_WORKFLOW" ]]; then
   echo "ci.yml must exist and run quality-gate.sh" >&2
@@ -27,6 +28,16 @@ fi
 
 if ! grep -Fq 'concurrency:' "$CI_WORKFLOW" || ! grep -Fq 'cancel-in-progress: true' "$CI_WORKFLOW"; then
   echo "ci.yml must cancel superseded runs" >&2
+  exit 1
+fi
+
+if [[ ! -f "$RELEASE_WORKFLOW" ]]; then
+  echo "release.yml must exist for tag publishing" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'GITHUB_REF_NAME' "$RELEASE_WORKFLOW" || ! grep -Fq 'version.env' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must verify that the pushed tag matches version.env" >&2
   exit 1
 fi
 
