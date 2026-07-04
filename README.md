@@ -61,6 +61,9 @@ curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/insta
 
 Published prebuilt CLI archives currently cover Apple Silicon macOS and Linux
 x86_64. Other platforms should build from source.
+The installer downloads the matching release archive with `curl`, extracts it
+with `tar`, and verifies the `.sha256` checksum with `shasum` or `sha256sum`
+before installing `updatebar`.
 
 ### Menu bar app
 

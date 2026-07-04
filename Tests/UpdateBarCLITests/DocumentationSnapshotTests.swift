@@ -991,6 +991,24 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testGitHubInstallerDocsMatchInstallerPreflight() throws {
+        let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
+        let releaseDocs = try String(contentsOfFile: "docs/release.md", encoding: .utf8)
+        let installSection = try readmeSection(
+            "### Install from GitHub (single command)",
+            before: "### Menu bar app",
+            in: readme
+        )
+
+        for document in [installSection, releaseDocs] {
+            XCTAssertTrue(document.contains("curl"))
+            XCTAssertTrue(document.contains("tar"))
+            XCTAssertTrue(document.contains("shasum"))
+            XCTAssertTrue(document.contains("sha256sum"))
+            XCTAssertTrue(document.contains("checksum"))
+        }
+    }
+
     func testReleaseDocsExplainQualityGateXCTestPreflight() throws {
         let releaseDocs = try String(contentsOfFile: "docs/release.md", encoding: .utf8)
 

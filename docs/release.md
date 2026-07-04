@@ -12,6 +12,11 @@ bash Scripts/install-release.sh --help
 UPDATEBAR_VERIFY_STRICT=1 bash Scripts/verify-homebrew-metadata.sh
 ```
 
+`Scripts/install-release.sh` installs published CLI archives with `curl`,
+`tar`, and `install`. It verifies each archive against the uploaded `.sha256`
+checksum using `shasum` or `sha256sum`, and fails before download/extraction if
+a required tool is missing.
+
 On macOS, `Scripts/quality-gate.sh` prefers `/Applications/Xcode.app` when it is
 available so `swift test` can find `XCTest`. Before running Swift tests, the
 gate checks that the selected developer directory contains `XCTest.framework`;
