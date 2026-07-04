@@ -328,7 +328,8 @@ final class UpdateCommandTests: XCTestCase {
         )
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stdout.contains("Unknown option '--all'"))
+        XCTAssertTrue(result.stdout.contains("update --all was removed"))
+        XCTAssertTrue(result.stdout.contains("Run updatebar update without ids"))
         XCTAssertFalse(result.stdout.contains("\"ok\":true"))
         XCTAssertTrue(result.stderr.isEmpty)
     }

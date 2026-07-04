@@ -11,6 +11,7 @@ extension UpdateBar {
     static func validatePreflightArguments(_ arguments: [String]) throws {
         try validateRemovedListCommand(arguments)
         try validateRemovedAddOptions(arguments)
+        try validateRemovedUpdateOptions(arguments)
         try validateHelpTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isInlineVersionFlag)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isMachineOutputFlag)
@@ -52,6 +53,16 @@ extension UpdateBar {
             throw ValidationError("""
             add --trust was removed.
             New recipes are saved untrusted. Run updatebar approvals <id> to review command fields.
+            """)
+        }
+    }
+
+    private static func validateRemovedUpdateOptions(_ arguments: [String]) throws {
+        guard arguments.first == "update" else { return }
+        if arguments.contains(where: { $0 == "--all" || $0.hasPrefix("--all=") }) {
+            throw ValidationError("""
+            update --all was removed.
+            Run updatebar update without ids to update every approved outdated item.
             """)
         }
     }
