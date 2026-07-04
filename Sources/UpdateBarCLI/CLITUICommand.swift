@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import UpdateBarCore
 
 struct TUICommand: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -43,28 +44,7 @@ struct TUICommand: ParsableCommand {
 
     private func makeTUIEnvironment() -> [String: String] {
         let source = ProcessInfo.processInfo.environment
-        let allowedKeys = [
-            "PATH",
-            "HOME",
-            "LANG",
-            "LC_ALL",
-            "LC_CTYPE",
-            "TMPDIR",
-            "USER",
-            "TERM",
-            "COLORTERM",
-            "NO_COLOR",
-            "FORCE_COLOR",
-            "UPDATEBAR_HOME",
-            "GITHUB_TOKEN",
-            "GH_TOKEN",
-        ]
-        var environment: [String: String] = [:]
-        for key in allowedKeys {
-            if let value = source[key], !value.isEmpty {
-                environment[key] = value
-            }
-        }
+        var environment = SubprocessEnvironment.presentation(from: source)
         environment["UPDATEBAR_BIN"] = resolveCurrentUpdateBarBinary(environment: source)
         return environment
     }
