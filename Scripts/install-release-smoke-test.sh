@@ -106,7 +106,7 @@ esac
 if [[ -n "$output" ]]; then
   cp "$file" "$output"
 else
-  cat "$file"
+  /bin/cat "$file"
 fi
 SH
 chmod 755 "$FAKE_BIN/curl"
@@ -425,6 +425,32 @@ run_missing_required_tool_fails_clearly() {
   fi
 }
 
+run_without_cat_still_installs() {
+  local limited_bin="$TMP_DIR/no-cat-bin"
+  local prefix="$TMP_DIR/install-no-cat"
+  local output="$TMP_DIR/install-no-cat.out"
+  mkdir -p "$limited_bin"
+  for tool in awk bash cp grep install mkdir mktemp rm tar uname; do
+    ln -sf "$(command -v "$tool")" "$limited_bin/$tool"
+  done
+  if command -v shasum >/dev/null 2>&1; then
+    ln -sf "$(command -v shasum)" "$limited_bin/shasum"
+  else
+    ln -sf "$(command -v sha256sum)" "$limited_bin/sha256sum"
+  fi
+  cp "$FAKE_BIN/curl" "$limited_bin/curl"
+  chmod 755 "$limited_bin/curl"
+
+  env \
+    PATH="$limited_bin" \
+    UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+    UPDATEBAR_INSTALL_PREFIX="$prefix" \
+    UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+    /bin/bash Scripts/install-release.sh > "$output"
+
+  assert_installed "$prefix" "$output"
+}
+
 run_invalid_checksum_file_fails_clearly() {
   local output="$TMP_DIR/install-invalid-checksum.out"
   printf 'not-a-sha  %s\n' "$ASSET_NAME" > "$FIXTURES/${ASSET_NAME}.sha256"
@@ -539,6 +565,7 @@ run_archive_download_failure_fails_clearly
 run_checksum_download_failure_fails_clearly
 run_missing_checksum_tool_fails_clearly
 run_missing_required_tool_fails_clearly
+run_without_cat_still_installs
 run_invalid_checksum_file_fails_clearly
 run_corrupt_archive_fails_clearly
 run_missing_archive_binary_fails_clearly

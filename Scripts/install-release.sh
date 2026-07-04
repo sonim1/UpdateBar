@@ -2,20 +2,19 @@
 set -euo pipefail
 
 if [[ "${1-}" == "--help" ]]; then
-  cat <<'EOF'
-Usage: Scripts/install-release.sh [tag]
-
-Download and install the prebuilt UpdateBar CLI archive from GitHub releases.
-
-Arguments:
-  [tag]   Release tag to install, e.g. v0.2.0. Defaults to latest.
-
-Environment:
-  UPDATEBAR_INSTALL_PREFIX   Directory to install updatebar into.
-                           Defaults to "$HOME/.local/bin".
-  UPDATEBAR_GITHUB_REPO      GitHub repo in owner/name form.
-                            Defaults to "sonim1/UpdateBar".
-EOF
+  printf '%s\n' \
+    "Usage: Scripts/install-release.sh [tag]" \
+    "" \
+    "Download and install the prebuilt UpdateBar CLI archive from GitHub releases." \
+    "" \
+    "Arguments:" \
+    "  [tag]   Release tag to install, e.g. v0.2.0. Defaults to latest." \
+    "" \
+    "Environment:" \
+    "  UPDATEBAR_INSTALL_PREFIX   Directory to install updatebar into." \
+    '                           Defaults to "$HOME/.local/bin".' \
+    "  UPDATEBAR_GITHUB_REPO      GitHub repo in owner/name form." \
+    '                            Defaults to "sonim1/UpdateBar".'
   exit 0
 fi
 
@@ -135,8 +134,7 @@ fi
 mkdir -p "$PREFIX"
 install -m 755 "${TMP_DIR}/updatebar" "${PREFIX}/updatebar"
 
-cat <<EOF
-Installed updatebar to ${PREFIX}/updatebar
-Make sure this directory is on your PATH:
-  export PATH="${PREFIX}:\$PATH"
-EOF
+printf '%s\n' \
+  "Installed updatebar to ${PREFIX}/updatebar" \
+  "Make sure this directory is on your PATH:" \
+  "  export PATH=\"${PREFIX}:\$PATH\""
