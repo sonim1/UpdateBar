@@ -226,6 +226,52 @@ JSON
   fi
 }
 
+run_missing_prebuilt_asset_fails_with_source_hint() {
+  local output="$TMP_DIR/install-missing-prebuilt.out"
+  local saved_release="$TMP_DIR/release.json.saved"
+  cp "$FIXTURES/release.json" "$saved_release"
+  cat > "$FIXTURES/release.json" <<JSON
+{
+  "tag_name": "v9.9.9",
+  "assets": [
+    { "browser_download_url": "https://example.test/releases/updatebar-9.9.9-${PLATFORM}-unsupported.tar.gz" }
+  ]
+}
+JSON
+
+  set +e
+  env \
+    PATH="$FAKE_BIN:$PATH" \
+    UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+    UPDATEBAR_INSTALL_PREFIX="$TMP_DIR/install-missing-prebuilt" \
+    UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+    bash Scripts/install-release.sh > "$output" 2>&1
+  local rc=$?
+  set -e
+  mv "$saved_release" "$FIXTURES/release.json"
+
+  if [[ "$rc" -eq 0 ]]; then
+    echo "install-release accepted a release without a matching prebuilt asset" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "No prebuilt UpdateBar archive found for ${PLATFORM}/${ARCH}" "$output"; then
+    echo "install-release missing-asset error was not clear" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "Available updatebar assets" "$output"; then
+    echo "install-release missing-asset error did not list available assets" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "swift build -c release --product updatebar" "$output"; then
+    echo "install-release missing-asset error did not suggest building from source" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
 run_missing_checksum_tool_fails_clearly() {
   local limited_bin="$TMP_DIR/no-checksum-bin"
   local output="$TMP_DIR/install-no-checksum.out"
@@ -327,6 +373,7 @@ run_install "v9.9.9" "$TMP_DIR/install-tag"
 run_piped_install "" "$TMP_DIR/install-piped-latest"
 run_piped_install "v9.9.9" "$TMP_DIR/install-piped-tag"
 run_release_api_error_fails_clearly
+run_missing_prebuilt_asset_fails_with_source_hint
 run_missing_checksum_tool_fails_clearly
 run_invalid_checksum_file_fails_clearly
 run_missing_archive_binary_fails_clearly

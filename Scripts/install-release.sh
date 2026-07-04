@@ -75,6 +75,8 @@ if [[ -z "$ASSET_URL" ]]; then
   echo "Available updatebar assets in ${RELEASE_PATH} are:" >&2
   awk -F'"' '$2=="browser_download_url" && $4 ~ "/updatebar-[0-9][^\\\"]*\\.tar\\.gz$" { print $4 }' \
     "$RELEASE_JSON" >&2
+  echo "No matching prebuilt asset is published for this platform. Build from source instead:" >&2
+  echo "  swift build -c release --product updatebar" >&2
   exit 1
 fi
 
