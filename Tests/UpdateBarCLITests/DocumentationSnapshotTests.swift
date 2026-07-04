@@ -544,6 +544,10 @@ final class DocumentationSnapshotTests: XCTestCase {
                 XCTAssertTrue(result.stdout.contains("updatebar approve <id> --field <field>"))
                 XCTAssertFalse(result.stdout.contains("[--field <field>]"))
             }
+            if commandPath == ["remove"] {
+                XCTAssertTrue(result.stdout.contains("required with --json"))
+                XCTAssertTrue(result.stdout.contains("remove."))
+            }
         }
 
         for (commandPath, arguments) in expectedArgumentsByCommand {

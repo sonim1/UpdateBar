@@ -267,6 +267,7 @@ Disables an item.
 ### `updatebar remove <id> [--yes] [--json]`
 
 Removes an item and its state entry.
+In `--json` mode, pass `--yes` to remove; omitting `--yes` returns a structured cancellation error.
 
 ### `updatebar edit <id>`
 

@@ -107,7 +107,7 @@ struct RemoveCommand: ParsableCommand {
     @Argument(help: "Item id to remove.")
     var id: String
 
-    @Flag(name: .long, help: "Remove without prompting for confirmation.")
+    @Flag(name: .long, help: "Remove without prompting; required with --json to remove.")
     var yes = false
 
     @Flag(name: .long, help: "Print machine-readable JSON.")
