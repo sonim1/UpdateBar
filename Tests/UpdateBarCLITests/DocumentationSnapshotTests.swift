@@ -159,6 +159,7 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("Required recipe input"))
         XCTAssertTrue(result.stdout.contains("single-item manifest"))
         XCTAssertTrue(result.stdout.contains("'-' for stdin"))
         XCTAssertFalse(result.stdout.contains("manual wizard"))

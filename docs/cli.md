@@ -122,7 +122,7 @@ Reads config. Without `key`, prints the full config.
 
 Sets a known config key.
 
-### `updatebar add [--from <file|->] [--dry-run] [--json] [--replace]`
+### `updatebar add --from <file|-> [--dry-run] [--json] [--replace]`
 
 Adds one recipe from a recipe JSON file, stdin (`--from -`), or a single-item manifest. Saved recipes are untrusted by default. Review command fields with `updatebar approvals <id>` and approve them with `updatebar approve <id> --field <field>`.
 In `--json` mode, saved recipes include `outcome: "added"` or `outcome: "replaced"`; dry runs omit `outcome`.

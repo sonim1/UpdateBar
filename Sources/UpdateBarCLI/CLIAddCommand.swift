@@ -12,7 +12,8 @@ struct AddCommand: ParsableCommand {
     @Option(
         name: .long,
         help: ArgumentHelp(
-            "Recipe or single-item manifest JSON file to add, or '-' for stdin.", valueName: "file")
+            "Required recipe input: recipe or single-item manifest JSON file, or '-' for stdin.",
+            valueName: "file")
     )
     var from: String?
 
