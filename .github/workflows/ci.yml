@@ -22,13 +22,6 @@ jobs:
         run: bash Scripts/quality-gate.sh
       - name: App package smoke
         run: bash Scripts/package-app.sh
-      - name: Format
-        run: |
-          if command -v swift-format >/dev/null 2>&1; then
-            swift-format lint --recursive Sources Tests
-          else
-            xcrun swift-format lint --recursive Sources Tests
-          fi
 
   linux:
     runs-on: ubuntu-latest

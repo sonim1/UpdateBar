@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 QUALITY_GATE="$ROOT/Scripts/quality-gate.sh"
+CI_WORKFLOW="$ROOT/.github/workflows/ci.yml"
 
 if ! grep -Fq 'bash Scripts/tui-smoke-test.sh' "$QUALITY_GATE"; then
   echo "quality-gate.sh must run the TUI smoke/package checks" >&2
@@ -21,6 +22,11 @@ fi
 
 if grep -Fq 'skipping Swift format checks' "$QUALITY_GATE"; then
   echo "quality-gate.sh must fail when Swift format checks are unavailable" >&2
+  exit 1
+fi
+
+if grep -Fq 'name: Format' "$CI_WORKFLOW"; then
+  echo "ci.yml must rely on quality-gate.sh for Swift format checks" >&2
   exit 1
 fi
 
