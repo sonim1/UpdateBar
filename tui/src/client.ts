@@ -92,14 +92,18 @@ export class SubprocessRunner implements CommandRunner {
       env: subprocessEnvironment(process.env),
       stdio: ['ignore', 'pipe', 'pipe']
     });
-    bindAbort(child, options.signal);
+    const cleanupAbort = bindAbort(child, options.signal);
 
-    const [stdout, stderr, exitCode] = await Promise.all([
-      collect(child.stdout),
-      collect(child.stderr),
-      waitForExit(child)
-    ]);
-    return {exitCode, stdout, stderr};
+    try {
+      const [stdout, stderr, exitCode] = await Promise.all([
+        collect(child.stdout),
+        collect(child.stderr),
+        waitForExit(child)
+      ]);
+      return {exitCode, stdout, stderr};
+    } finally {
+      cleanupAbort();
+    }
   }
 
   async stream(args: string[], options: StreamOptions): Promise<CommandResult> {
@@ -112,24 +116,28 @@ export class SubprocessRunner implements CommandRunner {
     child.once('close', () => {
       exited = true;
     });
-    bindAbort(child, options.signal);
+    const cleanupAbort = bindAbort(child, options.signal);
 
-    const stdoutEvents = (async () => {
-      try {
-        for await (const event of parseJSONLines(child.stdout)) {
-          options.onEvent(event);
+    try {
+      const stdoutEvents = (async () => {
+        try {
+          for await (const event of parseJSONLines(child.stdout)) {
+            options.onEvent(event);
+          }
+        } catch (error) {
+          stopChild(child, () => exited, 250);
+          throw error;
         }
-      } catch (error) {
-        stopChild(child, () => exited, 250);
-        throw error;
-      }
-    })();
-    const [stderr, exitCode] = await Promise.all([
-      collect(child.stderr),
-      waitForExit(child),
-      stdoutEvents
-    ]).then(([stderrResult, exitCodeResult]) => [stderrResult, exitCodeResult] as const);
-    return {exitCode, stdout: '', stderr};
+      })();
+      const [stderr, exitCode] = await Promise.all([
+        collect(child.stderr),
+        waitForExit(child),
+        stdoutEvents
+      ]).then(([stderrResult, exitCodeResult]) => [stderrResult, exitCodeResult] as const);
+      return {exitCode, stdout: '', stderr};
+    } finally {
+      cleanupAbort();
+    }
   }
 }
 
@@ -264,7 +272,7 @@ function stdoutError(stdout: string): string | undefined {
 }
 
 function bindAbort(child: ReturnType<typeof spawn>, signal: AbortSignal | undefined) {
-  if (!signal) return;
+  if (!signal) return () => {};
   let exited = false;
   child.once('close', () => {
     exited = true;
@@ -274,9 +282,12 @@ function bindAbort(child: ReturnType<typeof spawn>, signal: AbortSignal | undefi
   };
   if (signal.aborted) {
     cancel();
-    return;
+    return () => {};
   }
   signal.addEventListener('abort', cancel, {once: true});
+  return () => {
+    signal.removeEventListener('abort', cancel);
+  };
 }
 
 function stopChild(

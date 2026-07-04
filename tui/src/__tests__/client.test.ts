@@ -468,6 +468,30 @@ describe('CLIUpdateBarClient', () => {
     }
   });
 
+  it('removes abort listeners after subprocesses exit', async () => {
+    const runner = new SubprocessRunner('/bin/sh');
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const originalAdd = signal.addEventListener.bind(signal);
+    const originalRemove = signal.removeEventListener.bind(signal);
+    let abortListenersAdded = 0;
+    let abortListenersRemoved = 0;
+    signal.addEventListener = ((type, listener, options) => {
+      if (type === 'abort') abortListenersAdded += 1;
+      return originalAdd(type, listener, options);
+    }) as AbortSignal['addEventListener'];
+    signal.removeEventListener = ((type, listener, options) => {
+      if (type === 'abort') abortListenersRemoved += 1;
+      return originalRemove(type, listener, options);
+    }) as AbortSignal['removeEventListener'];
+
+    const result = await runner.run(['-c', 'printf ok'], {signal});
+
+    expect(result.exitCode).toBe(0);
+    expect(abortListenersAdded).toBe(1);
+    expect(abortListenersRemoved).toBe(1);
+  });
+
   it('terminates streaming subprocesses when JSONL parsing fails', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'updatebar-tui-stream-'));
     const marker = path.join(root, 'marker');
