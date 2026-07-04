@@ -267,6 +267,18 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertFalse(payload.errors.contains(where: { $0.contains("Unknown option '--json'") }))
     }
 
+    func testUnknownCommandWithJSONEqualsFalseUsesHumanError() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["not-a-command", "--json=false"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("not-a-command"))
+        XCTAssertTrue(result.stderr.contains("updatebar --help"))
+        XCTAssertFalse(result.stderr.contains(#""ok":false"#))
+    }
+
     func testUnknownCommandWithJSONStreamEqualsReturnsErrorEnvelope() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 
