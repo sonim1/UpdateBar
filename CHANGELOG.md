@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Removed the hidden prompt-based `updatebar add` wizard; use `updatebar add --from <file>` or `updatebar add --from -` for explicit recipe input.
+
 ### Fixed
 
 - Improved release installer errors for failed GitHub metadata, archive,

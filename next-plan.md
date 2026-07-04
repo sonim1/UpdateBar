@@ -22,7 +22,7 @@ Current implemented base:
   and `UpdateBarMenuBarApp`, using direct `UpdateBarCore` by default with an
   explicit CLI-subprocess fallback
 - manifest/state/config stores with `manifest.lock` / `state.lock`
-- manual add/import/export
+- explicit JSON add/import/export
 - `guide agent`, `guide recipe`, recipe/manifest templates, JSON schema output
 - `validate` for manifest or single recipe JSON, including stdin
 - `import` from file or stdin

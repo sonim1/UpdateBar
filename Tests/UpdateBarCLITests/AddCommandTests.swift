@@ -84,7 +84,7 @@ final class AddCommandTests: XCTestCase {
         XCTAssertEqual(result.stdout, "")
         XCTAssertEqual(
             result.stderr,
-            "add requires recipe input; pass --from <file> or pipe wizard answers on stdin\n")
+            "add requires recipe input; pass --from <file> or --from - for stdin\n")
     }
 
     func testAddJSONWithoutInputDoesNotWritePromptToStderr() throws {
@@ -99,7 +99,7 @@ final class AddCommandTests: XCTestCase {
         XCTAssertEqual(payload.code, "usage_error")
         XCTAssertTrue(
             payload.errors.contains(
-                "add requires recipe input; pass --from <file> or pipe wizard answers on stdin"))
+                "add requires recipe input; pass --from <file> or --from - for stdin"))
     }
 
     #if os(macOS)
@@ -253,7 +253,7 @@ final class AddCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("updatebar approvals <id>"))
     }
 
-    func testAddWithoutSourceRunsManualWizardAndCreatesUntrustedRecipe() throws {
+    func testAddWithoutSourceRejectsLegacyWizardAnswers() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let paths = AppPaths(homeDirectory: home)
         try ManifestStore(paths: paths).save(manifest(items: []))
@@ -261,10 +261,14 @@ final class AddCommandTests: XCTestCase {
 
         let result = try CLIProcess.run(["add", "--json"], home: home, stdin: input)
         let stored = try ManifestStore(paths: paths).load()
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
-        XCTAssertEqual(result.exitCode, 0)
-        XCTAssertEqual(stored.item(id: "wizard")?.name, "Wizard Tool")
-        XCTAssertEqual(stored.item(id: "wizard")?.trust.level, .untrusted)
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertNil(stored.item(id: "wizard"))
+        XCTAssertTrue(
+            payload.errors.contains(
+                "add requires recipe input; pass --from <file> or --from - for stdin"))
     }
 
     func testAddManualFlagIsRemovedFromCLI() throws {
@@ -277,7 +281,8 @@ final class AddCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.isEmpty)
         XCTAssertTrue(payload.errors.contains { $0.contains("add --manual was removed") })
-        XCTAssertTrue(payload.errors.contains { $0.contains("Run updatebar add without --from") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar add --from <file>") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar add --from -") })
     }
 
     private func wizardInput() -> String {

@@ -76,7 +76,7 @@ extension UpdateBar {
             throw ValidationError(
                 """
                 add --manual was removed.
-                Run updatebar add without --from to use the manual wizard, or run updatebar add --from <file>.
+                Run updatebar add --from <file>, or updatebar add --from - for stdin.
                 """)
         }
         if hasOption("--trust", in: arguments) {

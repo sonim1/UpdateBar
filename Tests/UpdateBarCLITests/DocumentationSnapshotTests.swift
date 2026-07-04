@@ -161,6 +161,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertEqual(result.stderr, "")
         XCTAssertTrue(result.stdout.contains("single-item manifest"))
         XCTAssertTrue(result.stdout.contains("'-' for stdin"))
+        XCTAssertFalse(result.stdout.contains("manual wizard"))
+        XCTAssertFalse(result.stdout.contains("interactive wizard"))
     }
 
     func testAddHelpUsesFileValueNameForFromOption() throws {
@@ -212,7 +214,7 @@ final class DocumentationSnapshotTests: XCTestCase {
             if command == "add" {
                 XCTAssertFalse(
                     optionHasDescription("--manual", in: helpLines),
-                    "add defaults to the manual wizard when --from is omitted"
+                    "add accepts explicit recipe input through --from"
                 )
             }
         }
@@ -1271,6 +1273,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         let plan = try String(contentsOfFile: "current-plan.md", encoding: .utf8)
 
         XCTAssertFalse(plan.contains("updatebar add --manual"))
+        XCTAssertFalse(plan.contains("manual wizard"))
         XCTAssertFalse(plan.contains("updatebar help agent"))
         XCTAssertFalse(plan.contains("updatebar help recipe"))
         XCTAssertFalse(plan.contains("updatebar trust/approve"))

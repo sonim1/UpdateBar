@@ -5,7 +5,7 @@ import UpdateBarCore
 struct AddCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "add",
-        abstract: "Add one recipe from JSON or the manual wizard.",
+        abstract: "Add one recipe from JSON.",
         shouldDisplay: false
     )
 
@@ -26,7 +26,7 @@ struct AddCommand: ParsableCommand {
     var replace = false
 
     func run() throws {
-        let recipe = try loadManualRecipe()
+        let recipe = try loadRecipeInput()
         let validated = try validatedRecipe(recipe)
         let prepared = TrustPolicy.untrustedCopy(validated)
 
@@ -55,12 +55,13 @@ struct AddCommand: ParsableCommand {
         }
     }
 
-    private func loadManualRecipe() throws -> Recipe {
-        if let from {
-            let data = try readInputData(from)
-            return try loadRecipe(data: data)
+    private func loadRecipeInput() throws -> Recipe {
+        guard let from else {
+            throw ValidationError(
+                "add requires recipe input; pass --from <file> or --from - for stdin")
         }
-        return try runWizard()
+        let data = try readInputData(from)
+        return try loadRecipe(data: data)
     }
 
     private func loadRecipe(data: Data) throws -> Recipe {
@@ -115,86 +116,5 @@ struct AddCommand: ParsableCommand {
                 writeStderr(error)
             }
         }
-    }
-
-    private func runWizard() throws -> Recipe {
-        let id = try prompt("id")
-        let name = try prompt("name")
-        let category = try prompt("category")
-        let path = optionalPrompt("path")
-        let sourceKindText = try prompt("source.kind")
-        guard let sourceKind = SourceKind(rawValue: sourceKindText) else {
-            throw ValidationError("source.kind: unsupported value \(sourceKindText)")
-        }
-        let sourceRef = try prompt("source.ref")
-        let sourceBranch = optionalPrompt("source.branch")
-        let schemeText = try prompt("version_scheme")
-        guard let scheme = VersionScheme(rawValue: schemeText) else {
-            throw ValidationError("version_scheme: unsupported value \(schemeText)")
-        }
-        let checkCommand = try prompt("check.cmd")
-        let latestStrategyText = try prompt("latest.strategy")
-        guard let latestStrategy = LatestStrategyKind(rawValue: latestStrategyText) else {
-            throw ValidationError("latest.strategy: unsupported value \(latestStrategyText)")
-        }
-        let latestCommand =
-            latestStrategy == .cmd ? try prompt("latest.cmd") : optionalPrompt("latest.cmd")
-        let latestPattern =
-            latestStrategy == .httpRegex
-            ? try prompt("latest.pattern") : optionalPrompt("latest.pattern")
-        let versionRegex = try prompt("version_parse.regex")
-        let updateCommand = try prompt("update.cmd")
-        let updateCWD = optionalPrompt("update.cwd")
-
-        return Recipe(
-            id: id,
-            name: name,
-            category: category,
-            path: path,
-            source: Source(kind: sourceKind, ref: sourceRef, branch: sourceBranch),
-            versionScheme: scheme,
-            check: .command(checkCommand),
-            latest: LatestSpec(
-                strategy: latestStrategy, cmd: latestCommand, pattern: latestPattern),
-            versionParse: .regex(versionRegex),
-            update: UpdateSpec(cmd: updateCommand, cwd: updateCWD),
-            pin: nil,
-            enabled: true,
-            trust: Trust(level: .untrusted, approvedCommands: [:])
-        )
-    }
-
-    private func prompt(_ label: String) throws -> String {
-        guard let line = readManualLine(label) else {
-            if label == "id" {
-                throw ValidationError(
-                    "add requires recipe input; pass --from <file> or pipe wizard answers on stdin")
-            }
-            throw ValidationError("\(label): required")
-        }
-        guard !line.isEmpty else {
-            throw ValidationError("\(label): required")
-        }
-        return line
-    }
-
-    private func optionalPrompt(_ label: String) -> String? {
-        guard let line = readManualLine(label) else {
-            return nil
-        }
-        guard !line.isEmpty else {
-            return nil
-        }
-        return line
-    }
-
-    private func readManualLine(_ label: String) -> String? {
-        if json && standardInputIsTTY() {
-            return nil
-        }
-        guard standardInputIsTTY() && !json else {
-            return readLine()
-        }
-        return readPromptedLine(label)
     }
 }

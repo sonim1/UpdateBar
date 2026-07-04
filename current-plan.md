@@ -361,20 +361,12 @@ updatebar validate <file> --json
 Keep:
 
 ```text
-updatebar add
 updatebar add --from recipe.json
 updatebar add --from recipe.json --dry-run --json
-```
-
-`updatebar add` without `--from` starts the manual wizard.
-
-Consider allowing `--from -` for stdin:
-
-```text
 cat recipe.json | updatebar add --from - --dry-run --json
 ```
 
-This is useful for agents.
+`add` requires explicit recipe input through `--from`; the old prompt-based wizard is removed to keep the hidden support command deterministic and automation-friendly.
 
 ### Approval flow
 
@@ -408,7 +400,6 @@ Gate:
 
 ```text
 swift test passes
-updatebar add manual wizard works
 updatebar add --from works
 updatebar validate works
 no OpenRouter references remain except maybe migration notes/changelog
