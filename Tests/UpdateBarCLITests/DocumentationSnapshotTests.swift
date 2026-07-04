@@ -294,6 +294,17 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("update events never include check payload fields"))
     }
 
+    func testDocsDocumentStructuredJSONLFailures() throws {
+        let cliDocs = try normalizedWhitespace(
+            String(contentsOfFile: "docs/cli.md", encoding: .utf8))
+        let troubleshooting = try normalizedWhitespace(
+            String(contentsOfFile: "docs/troubleshooting.md", encoding: .utf8))
+
+        XCTAssertTrue(cliDocs.contains("JSONL failures are reported as `failed` events"))
+        XCTAssertTrue(cliDocs.contains("stderr may be empty after a structured failure event"))
+        XCTAssertTrue(troubleshooting.contains("look for a `failed` event before reading stderr"))
+    }
+
     func testApprovalsHelpAndDocsExplainReviewWorkflow() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let rootResult = try CLIProcess.run(["--help"], home: home)
@@ -1293,6 +1304,10 @@ final class DocumentationSnapshotTests: XCTestCase {
             return ""
         }
         return String(readme[start..<end])
+    }
+
+    private func normalizedWhitespace(_ value: String) -> String {
+        value.split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 
     private func readmeTail(_ heading: String, in readme: String) throws -> String {

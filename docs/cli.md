@@ -12,7 +12,9 @@ Exit codes:
 
 Prints the installed CLI version and exits with code `0`.
 
-Machine-readable commands print JSON or JSONL to stdout. Human warnings and errors go to stderr.
+Machine-readable commands print JSON or JSONL to stdout. Human warnings and
+errors go to stderr unless the command has already emitted a structured JSON
+error payload or JSONL failure event.
 `--json` and `--json-stream` accept explicit forms for easier shell composition:
 
 ```bash
@@ -45,6 +47,8 @@ JSONL streaming mode is available for `updatebar check --json-stream` and
 `updatebar update --json-stream`. Each
 stdout line is exactly one JSON object. No human log text is written to stdout.
 Consumers should parse each line independently and ignore unknown fields.
+JSONL failures are reported as `failed` events, and stderr may be empty after a
+structured failure event.
 
 Event fields:
 

@@ -46,9 +46,10 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 
 ## Invalid JSON Or JSONL
 
-Machine-readable commands reserve stdout for JSON or JSONL only. Human errors go
-to stderr. If a TUI or script reports invalid JSON, rerun the underlying command
-and inspect stdout/stderr separately:
+Machine-readable commands reserve stdout for JSON or JSONL only. Structured
+errors are returned as JSON error envelopes or JSONL events; human-only errors
+go to stderr. If a TUI or script reports invalid JSON, rerun the underlying
+command and inspect stdout/stderr separately:
 
 ```bash
 updatebar status --json >stdout.json 2>stderr.log
@@ -56,6 +57,8 @@ updatebar update --yes --json-stream >events.jsonl 2>stderr.log
 ```
 
 Every JSONL line should parse independently as one JSON object.
+For JSONL commands, look for a `failed` event before reading stderr; stderr may
+be empty when the failure was already represented structurally.
 
 ## Corrupt Store Files
 

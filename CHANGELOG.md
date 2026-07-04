@@ -13,6 +13,8 @@
   checks against accidental removal from the local release gate.
 - Hardened TUI subprocess cancellation by refusing already-aborted launches and
   cleaning abort listeners after command exit.
+- Kept JSON and JSONL failure modes machine-readable by avoiding duplicate
+  human stderr after structured error payloads or failed events.
 - Enforced explicit-any linting in the TUI TypeScript source.
 
 ## 0.2.0 - 2026-07-01
