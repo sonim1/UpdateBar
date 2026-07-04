@@ -47,6 +47,9 @@ struct UnpinCommand: ParsableCommand {
             try printJSON(redactedItemMutationPayload(for: recipe))
         } else {
             writeStdout("unpinned \(SecretRedactor.redact(recipe.id))")
+            if let retry = batchUpdateYesCommand(for: [recipe.id]) {
+                printNextCommands([retry])
+            }
         }
     }
 }
@@ -70,6 +73,9 @@ struct EnableCommand: ParsableCommand {
             try printJSON(redactedItemMutationPayload(for: recipe))
         } else {
             writeStdout("enabled \(SecretRedactor.redact(recipe.id))")
+            if let retry = batchUpdateYesCommand(for: [recipe.id]) {
+                printNextCommands([retry])
+            }
         }
     }
 }

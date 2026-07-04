@@ -274,11 +274,13 @@ Pins an item to an explicit version or its current state version.
 
 ### `updatebar unpin <id> [--json]`
 
-Clears an item pin.
+Clears an item pin. Human output suggests `updatebar update <id> --yes` so the
+same item can be retried immediately.
 
 ### `updatebar enable <id> [--json]`
 
-Enables an item.
+Enables an item. Human output suggests `updatebar update <id> --yes` so the same
+item can be retried immediately.
 
 ### `updatebar disable <id> [--json]`
 

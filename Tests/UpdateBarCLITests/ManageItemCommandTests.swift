@@ -22,6 +22,8 @@ final class ManageItemCommandTests: XCTestCase {
 
         XCTAssertEqual(unpinResult.exitCode, 0)
         XCTAssertNil(manifest.item(id: "tool")?.pin)
+        XCTAssertTrue(unpinResult.stdout.contains("Next"))
+        XCTAssertTrue(unpinResult.stdout.contains("updatebar update tool --yes"))
     }
 
     func testPinWithoutStoredCurrentVersionDoesNotCreateState() throws {
@@ -82,6 +84,8 @@ final class ManageItemCommandTests: XCTestCase {
 
         XCTAssertEqual(enableResult.exitCode, 0)
         XCTAssertEqual(manifest.item(id: "tool")?.enabled, true)
+        XCTAssertTrue(enableResult.stdout.contains("Next"))
+        XCTAssertTrue(enableResult.stdout.contains("updatebar update tool --yes"))
     }
 
     func testRemoveDeletesManifestItemAndState() throws {

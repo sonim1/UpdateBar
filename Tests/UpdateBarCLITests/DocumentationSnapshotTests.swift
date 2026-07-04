@@ -1186,6 +1186,23 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testCliDocsExplainUnpinAndEnableRetryNextSteps() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let unpinSection = try readmeSection(
+            "### `updatebar unpin",
+            before: "### `updatebar enable",
+            in: docs
+        )
+        let enableSection = try readmeSection(
+            "### `updatebar enable",
+            before: "### `updatebar disable",
+            in: docs
+        )
+
+        XCTAssertTrue(unpinSection.contains("`updatebar update <id> --yes`"))
+        XCTAssertTrue(enableSection.contains("`updatebar update <id> --yes`"))
+    }
+
     func testScanInitSpecDocumentsCurrentCategories() throws {
         let spec = try String(contentsOfFile: "docs/scan-init-spec.md", encoding: .utf8)
         let categorySection = try readmeSection(
