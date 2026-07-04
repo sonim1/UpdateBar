@@ -393,7 +393,7 @@ This would make the agent workflow safer because adding and approving are separa
 - Remove `add --ai` and `--provider`.
 - Remove provider model config if unused.
 - Remove AI-specific auth paths and docs.
-- Keep manual/import recipe flow.
+- Keep explicit add/import recipe flow.
 - Ensure tests reflect CLI-only behavior.
 
 Gate:

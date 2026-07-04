@@ -174,7 +174,7 @@ Contract work (new — the machine-readable surface):
   payload has already been written.
 - **Done: granular exit code for approval block.** `update` returns `3` when blocked on approval
   without harder failures.
-- **Done: removed `add --trust`.** Imported/manual/templated recipes stay untrusted until explicit `approve`.
+- **Done: removed `add --trust`.** Imported, explicitly added, and templated recipes stay untrusted until explicit `approve`.
 - **Done: stdin for `validate` and `import`.** `add --from -` already existed.
 - **Done: JSON output for mutators:** `approve`, `revoke`, `config set`, `enable`, `disable`,
   `pin`, `unpin`, `remove`.

@@ -65,5 +65,5 @@
 ## 0.1.0
 
 - Initial CLI: manifest validation, config, check/status/list/update,
-  item management, import/export, manual add, edit.
+  item management, import/export, explicit add, edit.
 - Smoke tests and release packaging scripts.
