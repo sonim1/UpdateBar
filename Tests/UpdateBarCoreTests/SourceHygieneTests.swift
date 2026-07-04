@@ -144,6 +144,15 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
+    func testPackageDoesNotPublishTestSupportProduct() throws {
+        let contents = try String(contentsOfFile: "Package.swift", encoding: .utf8)
+
+        XCTAssertFalse(
+            contents.contains(#".library(name: "UpdateBarTestSupport""#),
+            "UpdateBarTestSupport should stay an internal test target dependency, not a published package product."
+        )
+    }
+
     func testCLICategoryHelpUsesSharedDescription() throws {
         let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCLI")
         let sourceFiles = try swiftSourceFiles(under: sourceRoot)

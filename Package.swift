@@ -11,8 +11,7 @@ let package = Package(
         .executable(name: "updatebar", targets: ["UpdateBarCLI"]),
         .executable(name: "updatebar-menubar", targets: ["UpdateBarMenuBarApp"]),
         .library(name: "UpdateBarCore", targets: ["UpdateBarCore"]),
-        .library(name: "UpdateBarMenuBar", targets: ["UpdateBarMenuBar"]),
-        .library(name: "UpdateBarTestSupport", targets: ["UpdateBarTestSupport"])
+        .library(name: "UpdateBarMenuBar", targets: ["UpdateBarMenuBar"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0")
