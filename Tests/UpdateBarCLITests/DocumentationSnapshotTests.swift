@@ -1005,6 +1005,23 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(menuBarSpec.contains("Update All Approved Outdated"))
     }
 
+    func testOpenSpecDesignDoesNotLeaveResolvedTUIDecisionsOpen() throws {
+        let design = try String(
+            contentsOfFile: "openspec/changes/add-ink-tui-menubar-architecture/design.md",
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(design.contains("Which package manager will own the Ink workspace"))
+        XCTAssertFalse(design.contains("What command name should launch the TUI"))
+        XCTAssertFalse(design.contains("Should JSONL streaming be added to both `check` and `update`"))
+        XCTAssertFalse(design.contains("Which terminal application should Menu Bar prefer"))
+        XCTAssertTrue(design.contains("npm"))
+        XCTAssertTrue(design.contains("updatebar tui"))
+        XCTAssertTrue(design.contains("updatebar-tui"))
+        XCTAssertTrue(design.contains("Terminal.app"))
+        XCTAssertTrue(design.contains("/usr/bin/osascript"))
+    }
+
     func testTroubleshootingDocsExplainManualCorruptStoreRecovery() throws {
         let docs = try String(contentsOfFile: "docs/troubleshooting.md", encoding: .utf8)
 

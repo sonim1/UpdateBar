@@ -121,9 +121,9 @@ Menu Bar cancellation uses the native task/cancellation path when using `UpdateB
 
 Rollback strategy: Each implementation phase must preserve the existing Swift CLI. If Ink or Menu Bar changes regress, disable or remove the presentation package/app entrypoint without changing `UpdateBarCore` data formats.
 
-## Open Questions
+## Resolved Decisions
 
-- Which package manager will own the Ink workspace (`npm`, `pnpm`, or another tool)?
-- What command name should launch the TUI in packaged installs (`updatebar-tui`, `updatebar-ui`, or `updatebar tui`)?
-- Should JSONL streaming be added to both `check` and `update` in the first implementation, or only `update` first?
-- Which terminal application should Menu Bar prefer for `Open TUI` when multiple terminals are installed?
+- The Ink workspace uses npm for install, build, typecheck, lint, test, and package smoke checks.
+- `updatebar tui` is the Swift CLI entrypoint for launching the TUI with a resolved `UPDATEBAR_TUI`; `updatebar-tui` remains the standalone PATH fallback command.
+- JSONL streaming is implemented for both `check --json-stream` and `update --json-stream`.
+- Menu Bar `Open TUI` launches Terminal.app through `/usr/bin/osascript` for the current MVP.
