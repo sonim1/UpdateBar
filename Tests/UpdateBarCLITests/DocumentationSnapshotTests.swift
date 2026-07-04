@@ -724,6 +724,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(scanSpec.contains("updatebar scan --category"))
         XCTAssertTrue(scanSpec.contains("without `--category`"))
         XCTAssertTrue(scanSpec.contains("look for importable"))
+        XCTAssertTrue(scanSpec.contains("read-only"))
+        XCTAssertTrue(scanSpec.contains("choose and register"))
         XCTAssertTrue(scanSpec.contains("Scan detector errors"))
     }
 
@@ -737,6 +739,8 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertTrue(scanSection.contains("`ai-agent`, `package-manager`, `runtime-sdk`"))
         XCTAssertFalse(scanSection.contains("--detectors"))
+        XCTAssertTrue(scanSection.contains("`scan` is read-only"))
+        XCTAssertTrue(scanSection.contains("choose and register"))
         XCTAssertTrue(scanSection.contains("metadata-only"))
         XCTAssertTrue(scanSection.contains("source ref"))
         XCTAssertTrue(scanSection.contains("review-only"))
