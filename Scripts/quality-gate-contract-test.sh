@@ -106,6 +106,11 @@ if ! grep -Fq 'bash Scripts/install-release-smoke-test.sh' "$QUALITY_GATE"; then
   exit 1
 fi
 
+if grep -Fq 'Scripts/quality-gate-contract-test.sh must not assign grep pipelines' "$ROOT/Scripts/script-syntax-test.sh"; then
+  echo "script-syntax-test.sh must guard fragile grep pipeline assignments across Scripts/*.sh" >&2
+  exit 1
+fi
+
 if ! grep -Fq '"$SWIFT_BIN" build --product updatebar' "$QUALITY_GATE"; then
   echo "quality-gate.sh must build the debug updatebar CLI before swift tests" >&2
   exit 1
