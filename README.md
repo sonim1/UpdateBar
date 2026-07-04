@@ -37,6 +37,16 @@ Scripts/install-local.sh
 UPDATEBAR_INSTALL_PREFIX="$HOME/.local/bin" Scripts/install-local.sh
 ```
 
+For development checks from a source checkout, use the same gate as CI:
+
+```bash
+Scripts/quality-gate.sh
+```
+
+On macOS, the gate prefers `/Applications/Xcode.app` when available so SwiftPM
+can find `XCTest`. If direct `swift test` fails, set `DEVELOPER_DIR` or see
+[docs/troubleshooting.md](docs/troubleshooting.md).
+
 ### Install from GitHub (single command)
 
 ```bash

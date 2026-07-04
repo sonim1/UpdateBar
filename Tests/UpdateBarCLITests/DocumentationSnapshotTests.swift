@@ -792,6 +792,19 @@ final class DocumentationSnapshotTests: XCTestCase {
             "README Quick Start should stay short enough to scan")
     }
 
+    func testReadmeDocumentsSourceDevelopmentQualityGate() throws {
+        let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
+        let sourceSection = try readmeSection(
+            "## Install From Source",
+            before: "### Menu bar app",
+            in: readme
+        )
+
+        XCTAssertTrue(sourceSection.contains("Scripts/quality-gate.sh"))
+        XCTAssertTrue(sourceSection.contains("DEVELOPER_DIR"))
+        XCTAssertTrue(sourceSection.contains("docs/troubleshooting.md"))
+    }
+
     func testCliDocsInitSelectMatchesHeadlessSelectionContract() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
         let initSection = try readmeSection(
