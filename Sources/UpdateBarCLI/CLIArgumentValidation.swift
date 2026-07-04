@@ -124,9 +124,8 @@ extension UpdateBar {
     }
 
     private static func validateUnsupportedJSONStreamFlags(_ arguments: [String]) throws {
-        guard let command = arguments.first,
-              ["add", "approvals", "export", "import", "init", "scan", "status"].contains(command),
-              hasOption("--json-stream", in: arguments)
+        guard hasOption("--json-stream", in: arguments),
+              let command = unsupportedJSONStreamCommand(in: arguments)
         else {
             return
         }
@@ -140,7 +139,7 @@ extension UpdateBar {
             Run updatebar init --select all --json for headless setup, or updatebar scan --json to preview candidates.
             """
         }
-        if let usage = jsonSnapshotUsage[command] {
+        if let usage = jsonOutputUsage[command] {
             return """
             \(command) does not support JSONL streaming.
             Run \(usage) for machine-readable output, or updatebar check --json-stream to stream refresh progress.
@@ -152,13 +151,37 @@ extension UpdateBar {
         """
     }
 
-    private static let jsonSnapshotUsage = [
+    private static func unsupportedJSONStreamCommand(in arguments: [String]) -> String? {
+        guard let first = arguments.first, !first.hasPrefix("-") else { return nil }
+
+        let commandPath = arguments.prefix(while: { !$0.hasPrefix("-") })
+        if commandPath.count >= 2 {
+            let nested = commandPath.prefix(2).joined(separator: " ")
+            if jsonOutputUsage[nested] != nil {
+                return nested
+            }
+        }
+        return jsonOutputUsage[first] == nil ? nil : first
+    }
+
+    private static let jsonOutputUsage = [
         "add": "updatebar add --json",
+        "approve": "updatebar approve <id> --field <field> --json",
         "approvals": "updatebar approvals <id> --json",
+        "config get": "updatebar config get --json",
+        "config set": "updatebar config set <key> <value> --json",
+        "disable": "updatebar disable <id> --json",
+        "enable": "updatebar enable <id> --json",
         "export": "updatebar export --json",
         "import": "updatebar import <file> --json",
+        "init": "updatebar init --select all --json",
+        "pin": "updatebar pin <id> [version] --json",
+        "remove": "updatebar remove <id> --json",
+        "revoke": "updatebar revoke <id> --field <field> --json",
         "scan": "updatebar scan --json",
-        "status": "updatebar status --json"
+        "status": "updatebar status --json",
+        "unpin": "updatebar unpin <id> --json",
+        "validate": "updatebar validate <file> --json"
     ]
 
     private static func validateTopLevelTarget(

@@ -429,6 +429,28 @@ final class CLIOutputTests: XCTestCase {
         }
     }
 
+    func testMutationJSONCommandsWithJSONStreamEqualsProduceGuidance() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+        let cases = [
+            ("approve", ["approve", "tool", "--field", "update.cmd", "--json-stream=true"], "Run updatebar approve <id> --field <field> --json"),
+            ("remove", ["remove", "tool", "--json-stream=true"], "Run updatebar remove <id> --json"),
+            ("config get", ["config", "get", "--json-stream=true"], "Run updatebar config get --json"),
+            ("validate", ["validate", "--json-stream=true"], "Run updatebar validate <file> --json")
+        ]
+
+        for (command, arguments, guidance) in cases {
+            let result = try CLIProcess.run(arguments, home: home)
+            let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+            XCTAssertEqual(result.exitCode, 1, command)
+            XCTAssertEqual(payload.code, "usage_error", command)
+            XCTAssertTrue(payload.errors.contains { $0.contains("\(command) does not support JSONL streaming") }, command)
+            XCTAssertTrue(payload.errors.contains { $0.contains(guidance) }, command)
+            XCTAssertFalse(payload.errors.contains { $0.contains("Unknown option '--json-stream'") }, command)
+            XCTAssertFalse(payload.errors.contains { $0.contains("Missing expected argument") }, command)
+        }
+    }
+
     func testCheckWithJSONEqualsParsesAsJSONMode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 
