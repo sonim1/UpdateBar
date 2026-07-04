@@ -96,7 +96,15 @@ public struct CommandExecutor: CommandRunning {
 
     private func scrubbedEnvironment() -> [String: String] {
         let allowedKeys = Set(["PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "USER"])
-        return environment.filter { allowedKeys.contains($0.key) }
+        var scrubbed = environment.filter { allowedKeys.contains($0.key) }
+        if let path = scrubbed["PATH"] {
+            scrubbed["PATH"] = path
+                .split(separator: ":", omittingEmptySubsequences: false)
+                .map(String.init)
+                .filter { $0.hasPrefix("/") }
+                .joined(separator: ":")
+        }
+        return scrubbed
     }
 
     private func stopProcess(_ process: Process) {

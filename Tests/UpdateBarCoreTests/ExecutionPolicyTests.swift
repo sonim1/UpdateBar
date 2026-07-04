@@ -134,6 +134,26 @@ final class ExecutionPolicyTests: XCTestCase {
         XCTAssertEqual(result.stdout, "missing:missing:missing:path")
     }
 
+    func testCommandExecutorDropsRelativePathEntries() throws {
+        let root = try temporaryDirectory()
+        let work = root.appendingPathComponent("work")
+        let bin = root.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(work.appendingPathComponent("tool"), body: "printf bad")
+        try writeExecutable(bin.appendingPathComponent("tool"), body: "printf safe")
+        let executor = CommandExecutor(environment: [
+            "PATH": ".:\(bin.path)"
+        ])
+
+        let result = try executor.run(
+            ShellCommand(command: "tool", cwd: work.path),
+            policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 1024)
+        )
+
+        XCTAssertEqual(result.stdout, "safe")
+    }
+
     func testCommandExecutorCapsOutput() throws {
         let executor = CommandExecutor()
         let result = try executor.run(
@@ -228,5 +248,13 @@ final class ExecutionPolicyTests: XCTestCase {
             .appendingPathComponent("updatebar-execution-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    private func writeExecutable(_ url: URL, body: String) throws {
+        try Data("#!/bin/sh\n\(body)\n".utf8).write(to: url)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755],
+            ofItemAtPath: url.path
+        )
     }
 }

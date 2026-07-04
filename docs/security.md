@@ -41,7 +41,7 @@ Recipes should reference environment variables instead of storing secret values.
 Approved recipe commands are **not sandboxed**. The current guarantees are:
 
 - approval-gated: a command runs only while its exact fingerprint is approved
-- environment-allowlisted: child processes see only `PATH`, `HOME`, `LANG`, `LC_ALL`, `LC_CTYPE`, `TMPDIR`, `USER`
+- environment-allowlisted: child processes see only `PATH`, `HOME`, `LANG`, `LC_ALL`, `LC_CTYPE`, `TMPDIR`, `USER`; relative entries are removed so recipe commands receive only absolute `PATH` entries
 - no login shell: commands run via `/bin/sh -c`; shell startup files are not sourced
 - timeout-capped and output-capped
 - secrets redacted from captured output and errors

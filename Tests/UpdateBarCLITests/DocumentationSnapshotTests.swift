@@ -52,6 +52,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("`updatebar tui`"))
         XCTAssertTrue(docs.contains("do not forward provider token environment variables"))
         XCTAssertTrue(docs.contains("GitHub release-check tokens"))
+        XCTAssertTrue(docs.contains("absolute `PATH` entries"))
         for field in [
             "id",
             "name",
