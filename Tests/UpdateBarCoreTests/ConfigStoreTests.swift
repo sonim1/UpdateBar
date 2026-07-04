@@ -156,6 +156,24 @@ final class ConfigStoreTests: XCTestCase {
         }
     }
 
+    func testInvalidRefreshIntervalReportsConfigKey() throws {
+        let root = try temporaryDirectory()
+        let configFile = root.appendingPathComponent("config.toml")
+        try Data(
+            """
+            [refresh]
+            interval = "never"
+            """.utf8
+        ).write(to: configFile)
+
+        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) { error in
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("line 2"))
+            XCTAssertTrue(message.contains("refresh.interval: invalid value never"))
+            XCTAssertFalse(message.contains("duration: invalid value never"))
+        }
+    }
+
     func testInvalidConfigLineRedactsSecretLikeContent() throws {
         let root = try temporaryDirectory()
         let configFile = root.appendingPathComponent("config.toml")

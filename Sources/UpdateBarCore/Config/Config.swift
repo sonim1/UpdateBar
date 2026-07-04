@@ -12,7 +12,11 @@ public struct Config: Equatable, Sendable {
     public mutating func set(_ key: String, value: String) throws {
         switch key {
         case "refresh.interval":
-            refresh.interval = try Duration(parse: value)
+            do {
+                refresh.interval = try Duration(parse: value)
+            } catch {
+                throw ConfigError.invalidValue(key: key, value: value)
+            }
         case "security.require_https_source":
             security.requireHTTPSSource = try parseBool(key: key, value: value)
         default:

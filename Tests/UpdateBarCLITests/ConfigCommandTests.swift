@@ -48,6 +48,18 @@ final class ConfigCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("unknown config key"))
     }
 
+    func testConfigSetInvalidIntervalJSONReportsConfigKey() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
+
+        let result = try CLIProcess.run(["config", "set", "refresh.interval", "never", "--json"], home: home)
+        let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(payload.code, "config_error")
+        XCTAssertTrue(payload.errors.contains("refresh.interval: invalid value never"))
+        XCTAssertFalse(payload.errors.contains("duration: invalid value never"))
+    }
+
     func testConfigSetInvalidKeyDoesNotCreateConfigFile() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
         let paths = AppPaths(homeDirectory: home)
