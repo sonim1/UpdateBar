@@ -224,12 +224,16 @@ final class UpdateBarCLIClientTests: XCTestCase {
     }
 
     func testProcessRunnerScrubsInheritedEnvironment() throws {
+        let home = try temporaryDirectory(prefix: "updatebar-menubar-client-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
         try withProcessEnvironment([
             "OPENROUTER_API_KEY": "sk-or-v1-secret-value",
             "CUSTOM_SECRET": "custom-secret",
             "GITHUB_TOKEN": "ghp_release_check_token",
             "GH_TOKEN": "gh_release_check_token",
             "UPDATEBAR_HOME": "/tmp/updatebar-home",
+            "PATH": ".:\(bin.path)",
         ]) {
             let runner = ProcessRunner(timeout: 5)
 
@@ -244,14 +248,16 @@ final class UpdateBarCLIClientTests: XCTestCase {
                     "${GITHUB_TOKEN:-missing}" \
                     "${GH_TOKEN:-missing}" \
                     "${UPDATEBAR_HOME:-missing}"
+                    printf '\npath=%s' "${PATH:-missing}"
                     """,
                 ]
             )
 
-            XCTAssertEqual(
-                result.stdout,
+            XCTAssertTrue(result.stdout.contains(
                 "missing:missing:ghp_release_check_token:gh_release_check_token:/tmp/updatebar-home"
-            )
+            ))
+            XCTAssertTrue(result.stdout.contains("path=\(bin.path)"))
+            XCTAssertFalse(result.stdout.contains("path=.:"))
         }
     }
 
@@ -303,6 +309,13 @@ final class UpdateBarCLIClientTests: XCTestCase {
             }
         }
         try body()
+    }
+
+    private func temporaryDirectory(prefix: String) throws -> URL {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        return root
     }
 }
 

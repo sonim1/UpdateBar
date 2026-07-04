@@ -54,6 +54,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("Menu Bar CLI subprocess"))
         XCTAssertTrue(docs.contains("GitHub release-check tokens"))
         XCTAssertTrue(docs.contains("TUI and Menu Bar layers"))
+        XCTAssertTrue(docs.contains("Presentation subprocesses also receive only absolute `PATH` entries"))
         XCTAssertTrue(docs.contains("absolute `PATH` entries"))
         for field in [
             "id",
