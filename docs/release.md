@@ -13,8 +13,10 @@ UPDATEBAR_VERIFY_STRICT=1 bash Scripts/verify-homebrew-metadata.sh
 ```
 
 On macOS, `Scripts/quality-gate.sh` prefers `/Applications/Xcode.app` when it is
-available so `swift test` can find `XCTest`. Set `DEVELOPER_DIR` explicitly if
-you need a different toolchain.
+available so `swift test` can find `XCTest`. Before running Swift tests, the
+gate checks that the selected developer directory contains `XCTest.framework`;
+if it prints `Swift XCTest not found`, set `DEVELOPER_DIR` explicitly or follow
+the recovery steps in `docs/troubleshooting.md`.
 The quality gate also builds the debug `updatebar` executable before Swift
 tests and sets `UPDATEBAR_TEST_BIN` so CLI integration tests run the freshly
 built binary instead of an older `.build/debug/updatebar`. When running Swift

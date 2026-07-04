@@ -991,6 +991,14 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testReleaseDocsExplainQualityGateXCTestPreflight() throws {
+        let releaseDocs = try String(contentsOfFile: "docs/release.md", encoding: .utf8)
+
+        XCTAssertTrue(releaseDocs.contains("XCTest.framework"))
+        XCTAssertTrue(releaseDocs.contains("Swift XCTest not found"))
+        XCTAssertTrue(releaseDocs.contains("docs/troubleshooting.md"))
+    }
+
     func testMenuBarTroubleshootingDocumentsInstalledAppDebugCommand() throws {
         let troubleshooting = try String(contentsOfFile: "docs/troubleshooting.md", encoding: .utf8)
 
