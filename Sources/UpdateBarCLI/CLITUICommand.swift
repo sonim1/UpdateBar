@@ -42,15 +42,35 @@ struct TUICommand: ParsableCommand {
     }
 
     private func makeTUIEnvironment() -> [String: String] {
-        var environment = ProcessInfo.processInfo.environment
-        environment["UPDATEBAR_BIN"] = resolveCurrentUpdateBarBinary()
+        let source = ProcessInfo.processInfo.environment
+        let allowedKeys = [
+            "PATH",
+            "HOME",
+            "LANG",
+            "LC_ALL",
+            "LC_CTYPE",
+            "TMPDIR",
+            "USER",
+            "TERM",
+            "COLORTERM",
+            "NO_COLOR",
+            "FORCE_COLOR",
+            "UPDATEBAR_HOME",
+        ]
+        var environment: [String: String] = [:]
+        for key in allowedKeys {
+            if let value = source[key], !value.isEmpty {
+                environment[key] = value
+            }
+        }
+        environment["UPDATEBAR_BIN"] = resolveCurrentUpdateBarBinary(environment: source)
         return environment
     }
 
-    private func resolveCurrentUpdateBarBinary() -> String {
+    private func resolveCurrentUpdateBarBinary(environment: [String: String]) -> String {
         let fallback = explicitExecutablePath(CommandLine.arguments.first) ?? "updatebar"
         return environmentValueOrDefault(
-            ProcessInfo.processInfo.environment["UPDATEBAR_BIN"],
+            environment["UPDATEBAR_BIN"],
             fallback
         )
     }

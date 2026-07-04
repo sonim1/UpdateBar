@@ -27,6 +27,37 @@ echo "bin:$UPDATEBAR_BIN"
         XCTAssertEqual(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "bin:/tmp/custom-bin-from-env")
     }
 
+    func testTUICommandDoesNotForwardSecretEnvironment() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-tui-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("updatebar-tui"),
+            """
+#!/bin/sh
+printf 'secret=%s\\n' "${OPENROUTER_API_KEY:-missing}"
+printf 'home=%s\\n' "${UPDATEBAR_HOME:-missing}"
+printf 'term=%s\\n' "${TERM:-missing}"
+"""
+        )
+
+        let result = try CLIProcess.run(
+            ["tui"],
+            home: home,
+            environment: [
+                "PATH": bin.path,
+                "OPENROUTER_API_KEY": "sk-or-v1-secret-value",
+                "TERM": "xterm-256color",
+            ]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("secret=missing"))
+        XCTAssertTrue(result.stdout.contains("home=\(home.path)"))
+        XCTAssertTrue(result.stdout.contains("term=xterm-256color"))
+        XCTAssertFalse(result.stdout.contains("sk-or-v1-secret-value"))
+    }
+
     func testTUICommandResolvesFromEnvironmentOverride() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-tui-tests")
         let bin = home.appendingPathComponent("bin")
@@ -92,6 +123,25 @@ echo "path:$UPDATEBAR_BIN"
 
         XCTAssertNotEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.contains("UPDATEBAR_TUI is not executable"))
+    }
+
+    func testTUICommandRedactsInvalidEnvironmentOverridePath() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-tui-tests")
+        let secretPath = "/tmp/sk-or-v1-secret-value/updatebar-tui"
+
+        let result = try CLIProcess.run(
+            ["tui"],
+            home: home,
+            environment: [
+                "PATH": home.path,
+                "UPDATEBAR_TUI": secretPath,
+            ]
+        )
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stderr.contains("UPDATEBAR_TUI is not executable"))
+        XCTAssertTrue(result.stderr.contains("/tmp/[REDACTED]/updatebar-tui"))
+        XCTAssertFalse(result.stderr.contains("sk-or-v1-secret-value"))
     }
 
     func testTUICommandReportsMissingBinary() throws {

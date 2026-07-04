@@ -19,6 +19,7 @@ fingerprint and invalidates the affected approval.
 ## Secrets
 
 Recipe commands run with an allowlisted environment. Common provider and GitHub token values are removed from child process environments and redacted from captured errors.
+`updatebar tui` also uses an allowlisted environment for the optional Ink TUI subprocess and does not forward provider token environment variables.
 Manifest validation rejects literal API keys and token values in recipe fields that are stored, exported, or used by execution:
 
 - `id`, `name`, `category`, `path`, `pin`

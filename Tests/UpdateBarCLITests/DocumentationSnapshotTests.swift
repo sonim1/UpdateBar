@@ -49,6 +49,8 @@ final class DocumentationSnapshotTests: XCTestCase {
     func testSecurityDocsListAllSecretRejectedRecipeFields() throws {
         let docs = try String(contentsOfFile: "docs/security.md", encoding: .utf8)
 
+        XCTAssertTrue(docs.contains("`updatebar tui`"))
+        XCTAssertTrue(docs.contains("does not forward provider token environment variables"))
         for field in [
             "id",
             "name",
