@@ -41,6 +41,39 @@ updatebar update --yes --json-stream >events.jsonl 2>stderr.log
 
 Every JSONL line should parse independently as one JSON object.
 
+## Corrupt Store Files
+
+UpdateBar does not have an automatic repair command yet. If a command reports a
+corrupt `state.json` or `manifest.json`, recover manually from the UpdateBar home
+directory. By default this is `~/.updatebar`; when `UPDATEBAR_HOME` is set, use
+that directory instead.
+
+Make a backup before deleting or replacing anything:
+
+```bash
+cp -R "${UPDATEBAR_HOME:-$HOME/.updatebar}" "${UPDATEBAR_HOME:-$HOME/.updatebar}.backup"
+```
+
+If only `state.json` is corrupt, move it aside and rebuild state by running
+checks:
+
+```bash
+mv "${UPDATEBAR_HOME:-$HOME/.updatebar}/state.json" "${UPDATEBAR_HOME:-$HOME/.updatebar}/state.json.corrupt"
+updatebar check --exit-zero-on-outdated
+```
+
+If `manifest.json` is corrupt, do not delete it first. Copy it aside, inspect the
+backup, and validate any repaired manifest before importing it:
+
+```bash
+cp "${UPDATEBAR_HOME:-$HOME/.updatebar}/manifest.json" /tmp/updatebar-manifest-corrupt.json
+updatebar validate /tmp/repaired-manifest.json --json
+updatebar import /tmp/repaired-manifest.json --replace --json
+```
+
+When a manifest cannot be repaired, recreate recipes with `updatebar scan`,
+`updatebar init`, `updatebar template recipe`, or `updatebar add --from`.
+
 ## Menu Bar App Has No Icon
 
 Launch the packaged binary from Terminal and inspect stderr:

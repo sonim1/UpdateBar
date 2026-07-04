@@ -975,6 +975,18 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("Open Config"))
     }
 
+    func testTroubleshootingDocsExplainManualCorruptStoreRecovery() throws {
+        let docs = try String(contentsOfFile: "docs/troubleshooting.md", encoding: .utf8)
+
+        XCTAssertTrue(docs.contains("Corrupt Store Files"))
+        XCTAssertTrue(docs.contains("state.json"))
+        XCTAssertTrue(docs.contains("manifest.json"))
+        XCTAssertTrue(docs.contains("updatebar check"))
+        XCTAssertTrue(docs.contains("updatebar validate"))
+        XCTAssertTrue(docs.contains("updatebar import"))
+        XCTAssertTrue(docs.contains("Make a backup"))
+    }
+
     func testPlanningDocsMatchCurrentCoreOwnedMenuBarArchitecture() throws {
         let currentPlan = try String(contentsOfFile: "current-plan.md", encoding: .utf8)
         let nextPlan = try String(contentsOfFile: "next-plan.md", encoding: .utf8)
