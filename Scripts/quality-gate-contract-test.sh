@@ -14,6 +14,11 @@ if ! grep -Fq 'xcrun swift-format lint --strict --recursive Sources Tests Packag
   exit 1
 fi
 
+if grep -Fq 'skipping Swift format checks' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must fail when Swift format checks are unavailable" >&2
+  exit 1
+fi
+
 if grep -Fq 'skipping tui smoke test on non-macOS' "$QUALITY_GATE"; then
   echo "quality-gate.sh must not skip Node/Ink TUI checks on non-macOS" >&2
   exit 1
