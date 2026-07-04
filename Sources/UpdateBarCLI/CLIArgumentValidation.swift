@@ -33,25 +33,25 @@ extension UpdateBar {
 
     private static func validateRemovedAddOptions(_ arguments: [String]) throws {
         guard arguments.first == "add" else { return }
-        if arguments.contains(where: { $0 == "--ai" || $0.hasPrefix("--ai=") }) {
+        if hasOption("--ai", in: arguments) {
             throw ValidationError("""
             add --ai was removed.
             Run updatebar template recipe to draft recipe JSON, or use an external agent, then run updatebar add --from <file>.
             """)
         }
-        if arguments.contains(where: { $0 == "--provider" || $0.hasPrefix("--provider=") }) {
+        if hasOption("--provider", in: arguments) {
             throw ValidationError("""
             add --provider was removed.
             Recipe authoring belongs to external agents. Save generated recipe JSON, then run updatebar add --from <file>.
             """)
         }
-        if arguments.contains(where: { $0 == "--manual" || $0.hasPrefix("--manual=") }) {
+        if hasOption("--manual", in: arguments) {
             throw ValidationError("""
             add --manual was removed.
             Run updatebar add without --from to use the manual wizard, or run updatebar add --from <file>.
             """)
         }
-        if arguments.contains(where: { $0 == "--trust" || $0.hasPrefix("--trust=") }) {
+        if hasOption("--trust", in: arguments) {
             throw ValidationError("""
             add --trust was removed.
             New recipes are saved untrusted. Run updatebar approvals <id> to review command fields.
@@ -61,7 +61,7 @@ extension UpdateBar {
 
     private static func validateRemovedUpdateOptions(_ arguments: [String]) throws {
         guard arguments.first == "update" else { return }
-        if arguments.contains(where: { $0 == "--all" || $0.hasPrefix("--all=") }) {
+        if hasOption("--all", in: arguments) {
             throw ValidationError("""
             update --all was removed.
             Run updatebar update without ids to update every approved outdated item.
@@ -72,7 +72,7 @@ extension UpdateBar {
     private static func validateRemovedScanOptions(_ arguments: [String]) throws {
         guard let command = arguments.first,
               command == "scan" || command == "init",
-              arguments.contains(where: { $0 == "--detectors" || $0.hasPrefix("--detectors=") })
+              hasOption("--detectors", in: arguments)
         else {
             return
         }
@@ -84,7 +84,7 @@ extension UpdateBar {
 
     private static func validateSchemaJSONFlag(_ arguments: [String]) throws {
         guard arguments.first == "schema",
-              arguments.contains(where: { $0 == "--json" || $0.hasPrefix("--json=") })
+              hasOption("--json", in: arguments)
         else {
             return
         }
@@ -230,10 +230,16 @@ extension UpdateBar {
         argument == "--json" || argument == "--json-stream"
     }
 
+    private static func hasOption(_ option: String, in arguments: [String]) -> Bool {
+        arguments.contains { argument in
+            argument == option || argument.hasPrefix("\(option)=")
+        }
+    }
+
     private static func validateApproveRequiresField(_ arguments: [String]) throws {
         guard arguments.first == "approve",
               !arguments.contains(where: isInlineHelpFlag),
-              !arguments.contains(where: { $0 == "--field" || $0.hasPrefix("--field=") })
+              !hasOption("--field", in: arguments)
         else {
             return
         }
