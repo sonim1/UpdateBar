@@ -38,11 +38,20 @@ final class ScanCategoryTests: XCTestCase {
         XCTAssertTrue(description.contains("aliases: ai, mcp"))
     }
 
-    func testScanCategorySelectsFocusedDefaultDetectorsForMetadataOnlyCategories() {
-        XCTAssertEqual(ScanCategory.defaultDetectors(for: nil), ScanDetector.allCases)
-        XCTAssertEqual(ScanCategory.defaultDetectors(for: "codex-skill"), [.codexSkill])
-        XCTAssertEqual(ScanCategory.defaultDetectors(for: "mcp"), [.mcpConfig])
-        XCTAssertEqual(ScanCategory.defaultDetectors(for: "ai-agent"), ScanDetector.allCases)
+    func testScanCategorySelectsFocusedDefaultDetectorsForMetadataOnlyCategories() throws {
+        XCTAssertEqual(try ScanCategory.defaultDetectors(for: nil), ScanDetector.allCases)
+        XCTAssertEqual(try ScanCategory.defaultDetectors(for: "codex-skill"), [.codexSkill])
+        XCTAssertEqual(try ScanCategory.defaultDetectors(for: "mcp"), [.mcpConfig])
+        XCTAssertEqual(try ScanCategory.defaultDetectors(for: "ai-agent"), ScanDetector.allCases)
+    }
+
+    func testScanCategoryDefaultDetectorsRejectUnknownCategory() {
+        XCTAssertThrowsError(try ScanCategory.defaultDetectors(for: "localservice")) { error in
+            XCTAssertEqual(
+                String(describing: error),
+                "localservice: unknown category; expected \(ScanCategory.description)"
+            )
+        }
     }
 
     func testScanReportFiltersCandidatesByNormalizedCategoryWithoutDroppingErrors() throws {

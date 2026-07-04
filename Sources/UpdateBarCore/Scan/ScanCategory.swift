@@ -46,11 +46,11 @@ public enum ScanCategory {
         return category
     }
 
-    public static func defaultDetectors(for category: String?) -> [ScanDetector] {
-        guard let category else {
+    public static func defaultDetectors(for category: String?) throws -> [ScanDetector] {
+        guard let category = try filterValue(for: category) else {
             return ScanDetector.allCases
         }
-        switch normalizedValue(for: category) {
+        switch category {
         case "codex-skill":
             return [.codexSkill]
         case "mcp-server":

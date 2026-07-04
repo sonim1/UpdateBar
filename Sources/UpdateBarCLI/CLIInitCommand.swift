@@ -34,7 +34,7 @@ struct InitCommand: ParsableCommand {
 
     func run() throws {
         let categoryFilter = try ScanCategory.filterValue(for: category)
-        let selectedDetectors = ScanCategory.defaultDetectors(for: categoryFilter)
+        let selectedDetectors = try ScanCategory.defaultDetectors(for: categoryFilter)
         let report = try filteredReport(
             detectors: selectedDetectors,
             categoryFilter: categoryFilter

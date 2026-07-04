@@ -19,7 +19,7 @@ struct ScanCommand: ParsableCommand {
 
     func run() throws {
         let categoryFilter = try ScanCategory.filterValue(for: category)
-        let selectedDetectors = ScanCategory.defaultDetectors(for: categoryFilter)
+        let selectedDetectors = try ScanCategory.defaultDetectors(for: categoryFilter)
         let service = ScanService()
         let report = try service.scan(detectors: selectedDetectors).filtered(category: categoryFilter)
 
