@@ -83,8 +83,14 @@ fi
 ARCHIVE_NAME="${ASSET_URL##*/}"
 ARCHIVE_PATH="${TMP_DIR}/${ARCHIVE_NAME}"
 
-curl -fsSL -o "$ARCHIVE_PATH" "$ASSET_URL"
-curl -fsSL -o "${ARCHIVE_PATH}.sha256" "$ASSET_SHA_URL"
+if ! curl -fsSL -o "$ARCHIVE_PATH" "$ASSET_URL"; then
+  echo "Failed to download release archive: $ASSET_URL" >&2
+  exit 1
+fi
+if ! curl -fsSL -o "${ARCHIVE_PATH}.sha256" "$ASSET_SHA_URL"; then
+  echo "Failed to download release checksum: $ASSET_SHA_URL" >&2
+  exit 1
+fi
 
 EXPECTED_SHA="$(awk '{print $1}' "${ARCHIVE_PATH}.sha256" | head -n 1)"
 if [[ -z "$EXPECTED_SHA" ]]; then

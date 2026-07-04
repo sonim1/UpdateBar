@@ -272,6 +272,62 @@ JSON
   fi
 }
 
+run_archive_download_failure_fails_clearly() {
+  local output="$TMP_DIR/install-archive-download-failure.out"
+  local saved_archive="$TMP_DIR/${ASSET_NAME}.saved"
+  mv "$FIXTURES/$ASSET_NAME" "$saved_archive"
+
+  set +e
+  env \
+    PATH="$FAKE_BIN:$PATH" \
+    UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+    UPDATEBAR_INSTALL_PREFIX="$TMP_DIR/install-archive-download-failure" \
+    UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+    bash Scripts/install-release.sh > "$output" 2>&1
+  local rc=$?
+  set -e
+  mv "$saved_archive" "$FIXTURES/$ASSET_NAME"
+
+  if [[ "$rc" -eq 0 ]]; then
+    echo "install-release succeeded when the release archive download failed" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "Failed to download release archive: $ASSET_URL" "$output"; then
+    echo "install-release archive download failure was not clear" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
+run_checksum_download_failure_fails_clearly() {
+  local output="$TMP_DIR/install-checksum-download-failure.out"
+  local saved_checksum="$TMP_DIR/${ASSET_NAME}.sha256.saved"
+  mv "$FIXTURES/${ASSET_NAME}.sha256" "$saved_checksum"
+
+  set +e
+  env \
+    PATH="$FAKE_BIN:$PATH" \
+    UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+    UPDATEBAR_INSTALL_PREFIX="$TMP_DIR/install-checksum-download-failure" \
+    UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+    bash Scripts/install-release.sh > "$output" 2>&1
+  local rc=$?
+  set -e
+  mv "$saved_checksum" "$FIXTURES/${ASSET_NAME}.sha256"
+
+  if [[ "$rc" -eq 0 ]]; then
+    echo "install-release succeeded when the checksum download failed" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "Failed to download release checksum: ${ASSET_URL}.sha256" "$output"; then
+    echo "install-release checksum download failure was not clear" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
 run_missing_checksum_tool_fails_clearly() {
   local limited_bin="$TMP_DIR/no-checksum-bin"
   local output="$TMP_DIR/install-no-checksum.out"
@@ -374,6 +430,8 @@ run_piped_install "" "$TMP_DIR/install-piped-latest"
 run_piped_install "v9.9.9" "$TMP_DIR/install-piped-tag"
 run_release_api_error_fails_clearly
 run_missing_prebuilt_asset_fails_with_source_hint
+run_archive_download_failure_fails_clearly
+run_checksum_download_failure_fails_clearly
 run_missing_checksum_tool_fails_clearly
 run_invalid_checksum_file_fails_clearly
 run_missing_archive_binary_fails_clearly
