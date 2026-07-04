@@ -14,10 +14,6 @@ jobs:
           path: .build
           key: macos-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
           restore-keys: macos-spm-${{ runner.os }}-
-      - name: Build
-        run: swift build
-      - name: Test
-        run: swift test
       - name: Quality gate
         run: bash Scripts/quality-gate.sh
       - name: App package smoke
@@ -33,9 +29,5 @@ jobs:
           path: .build
           key: linux-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
           restore-keys: linux-spm-${{ runner.os }}-
-      - name: Build
-        run: swift build
-      - name: Test
-        run: swift test
       - name: Quality gate
         run: SKIP_MENUBAR_SMOKE=1 bash Scripts/quality-gate.sh
