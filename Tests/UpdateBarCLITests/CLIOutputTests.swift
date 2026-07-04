@@ -311,7 +311,9 @@ final class CLIOutputTests: XCTestCase {
         let cases = [
             (["--json", "status"], "Run updatebar status --json"),
             (["--json-stream", "check"], "Run updatebar check --json-stream"),
-            (["--json-stream", "update", "tool", "--yes"], "Run updatebar update tool --yes --json-stream")
+            (["--json-stream", "update", "tool", "--yes"], "Run updatebar update tool --yes --json-stream"),
+            (["--json-stream", "validate", "document.json"], "Run updatebar validate document.json --json"),
+            (["--json-stream", "add", "--from", "recipe.json"], "Run updatebar add --from recipe.json --json")
         ]
 
         for (arguments, guidance) in cases {

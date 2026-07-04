@@ -148,10 +148,14 @@ extension UpdateBar {
         }
         let command = commandTokens.joined(separator: " ")
         let reordered = (commandTokens + remaining.dropFirst(commandTokens.count) + [flag]).joined(separator: " ")
+        let jsonFallback = (commandTokens + remaining.dropFirst(commandTokens.count) + ["--json"]).joined(separator: " ")
 
         if flag == "--json-stream" {
             if jsonStreamCommands.contains(command) {
                 return "updatebar \(reordered)"
+            }
+            if remaining.count > commandTokens.count {
+                return "updatebar \(jsonFallback)"
             }
             return jsonOutputUsage[command]
         }
