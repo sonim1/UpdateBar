@@ -130,16 +130,20 @@ extension UpdateBar {
         else {
             return
         }
+        throw ValidationError(unsupportedJSONStreamMessage(for: command))
+    }
+
+    private static func unsupportedJSONStreamMessage(for command: String) -> String {
         if command == "init" {
-            throw ValidationError("""
+            return """
             init does not support JSONL streaming.
             Run updatebar init --select all --json for headless setup, or updatebar scan --json to preview candidates.
-            """)
+            """
         }
-        throw ValidationError("""
+        return """
         \(command) does not support JSONL streaming.
         Run updatebar \(command) --json for a snapshot, or updatebar check --json-stream to stream refresh progress.
-        """)
+        """
     }
 
     private static func validateTopLevelTarget(
