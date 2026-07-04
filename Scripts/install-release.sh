@@ -121,7 +121,10 @@ if [[ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]]; then
   exit 1
 fi
 
-tar -xzf "$ARCHIVE_PATH" -C "$TMP_DIR"
+if ! tar -xzf "$ARCHIVE_PATH" -C "$TMP_DIR"; then
+  echo "Failed to extract release archive: $ARCHIVE_NAME" >&2
+  exit 1
+fi
 if [[ ! -x "${TMP_DIR}/updatebar" ]]; then
   echo "release archive did not contain executable updatebar: ${ARCHIVE_NAME}" >&2
   exit 1

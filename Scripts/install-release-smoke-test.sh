@@ -416,6 +416,45 @@ run_invalid_checksum_file_fails_clearly() {
   fi
 }
 
+run_corrupt_archive_fails_clearly() {
+  local output="$TMP_DIR/install-corrupt-archive.out"
+  local saved_archive="$TMP_DIR/${ASSET_NAME}.saved"
+  local saved_checksum="$TMP_DIR/${ASSET_NAME}.sha256.saved"
+  mv "$FIXTURES/$ASSET_NAME" "$saved_archive"
+  mv "$FIXTURES/${ASSET_NAME}.sha256" "$saved_checksum"
+  printf 'not a tar archive\n' > "$FIXTURES/$ASSET_NAME"
+  local corrupt_sha
+  if command -v shasum >/dev/null 2>&1; then
+    corrupt_sha="$(shasum -a 256 "$FIXTURES/$ASSET_NAME" | awk '{print $1}')"
+  else
+    corrupt_sha="$(sha256sum "$FIXTURES/$ASSET_NAME" | awk '{print $1}')"
+  fi
+  printf '%s  %s\n' "$corrupt_sha" "$ASSET_NAME" > "$FIXTURES/${ASSET_NAME}.sha256"
+
+  set +e
+  env \
+    PATH="$FAKE_BIN:$PATH" \
+    UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+    UPDATEBAR_INSTALL_PREFIX="$TMP_DIR/install-corrupt-archive" \
+    UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+    bash Scripts/install-release.sh > "$output" 2>&1
+  local rc=$?
+  set -e
+  mv "$saved_archive" "$FIXTURES/$ASSET_NAME"
+  mv "$saved_checksum" "$FIXTURES/${ASSET_NAME}.sha256"
+
+  if [[ "$rc" -eq 0 ]]; then
+    echo "install-release accepted a corrupt release archive" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "Failed to extract release archive: $ASSET_NAME" "$output"; then
+    echo "install-release corrupt-archive error was not clear" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
 run_missing_archive_binary_fails_clearly() {
   local bad_payload="$TMP_DIR/bad-payload"
   local output="$TMP_DIR/install-missing-binary.out"
@@ -463,6 +502,7 @@ run_archive_download_failure_fails_clearly
 run_checksum_download_failure_fails_clearly
 run_missing_checksum_tool_fails_clearly
 run_invalid_checksum_file_fails_clearly
+run_corrupt_archive_fails_clearly
 run_missing_archive_binary_fails_clearly
 
 echo "install release smoke ok"
