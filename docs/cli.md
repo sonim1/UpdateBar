@@ -168,7 +168,7 @@ are not importable yet and suggests running `updatebar scan` without
 When no candidates are found, human output says `No candidates found`; with a
 category filter, it suggests retrying `updatebar scan` without `--category`.
 
-### `updatebar init [--json] [--category <category>] [--select <ids>] [--replace]`
+### `updatebar init [--json] [--category <category>] [--select <selection>] [--replace]`
 
 Scans installed local tools, lets the user select importable candidates, and stores selected recipes as untrusted manifest items.
 

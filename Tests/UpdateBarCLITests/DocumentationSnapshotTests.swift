@@ -842,6 +842,11 @@ final class DocumentationSnapshotTests: XCTestCase {
         )
 
         XCTAssertTrue(
+            initSection.contains("[--select <selection>]"),
+            "init docs should match help's generic selection value name"
+        )
+        XCTAssertFalse(initSection.contains("[--select <ids>]"))
+        XCTAssertTrue(
             initSection.contains("`--select` accepts comma-separated candidate numbers or ids"),
             "init docs should mention numeric --select values"
         )

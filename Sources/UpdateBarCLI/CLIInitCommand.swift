@@ -93,7 +93,7 @@ struct InitCommand: ParsableCommand {
         if let select {
             let values = parseSelectionTokens(select)
             guard !values.isEmpty else {
-                throw ValidationError("select: expected at least one candidate id")
+                throw ValidationError("select: expected at least one selection")
             }
             let importable = importableCandidates(from: report)
             if values.contains(where: isAllSelectionToken) {

@@ -314,6 +314,25 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("updatebar scan") })
     }
 
+    func testInitRejectsBlankSelectWithSelectionMessage() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
+        let bin = try fakeManagers(home: home)
+
+        let result = try CLIProcess.run(
+            ["init", "--json", "--select", " , "],
+            home: home,
+            environment: ["PATH": bin.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertFalse(payload.ok)
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("select: expected at least one selection") })
+        XCTAssertFalse(payload.errors.contains { $0.contains("candidate id") })
+    }
+
     func testInitSelectSupportsWhitespaceAndDedupe() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = try fakeManagers(home: home)
