@@ -785,6 +785,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(combined.contains("npm --prefix tui run build"))
         XCTAssertTrue(combined.contains("UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui"))
         XCTAssertTrue(architecture.contains("UPDATEBAR_TUI"))
+        XCTAssertTrue(releaseDocs.contains("Scripts/quality-gate.sh"))
+        XCTAssertTrue(releaseDocs.contains("npm --prefix tui run build"))
         XCTAssertTrue(releaseDocs.contains("Build or install the Ink TUI from source with npm"))
         XCTAssertFalse(releaseDocs.contains("Install the Ink TUI separately through npm"))
         XCTAssertFalse(combined.contains("npm link"))

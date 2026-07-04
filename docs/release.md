@@ -10,6 +10,8 @@ swift test
 npm --prefix tui test
 npm --prefix tui run typecheck
 npm --prefix tui run lint
+npm --prefix tui run build
+bash Scripts/quality-gate.sh
 bash Scripts/smoke-test.sh
 rm -f dist/*.tar.gz dist/*.sha256
 Scripts/build-release.sh
