@@ -136,8 +136,9 @@ For categories that map to a single metadata detector, such as `codex-skill` or
 `mcp-server`, the default scan only runs that relevant detector.
 
 Human output is tab-separated with `ITEM`, `ID`, `CATEGORY`, `SOURCE`, and
-`CAPABILITY` columns. It includes each candidate id, such as `brew.gh`, plus the
-interactive `updatebar init` command and a ready-to-run
+`CAPABILITY` columns. `scan` is read-only; use `init` to choose and register
+items. It includes each candidate id, such as `brew.gh`, plus the interactive
+`updatebar init` command and a ready-to-run
 `updatebar init --select all` command for importable candidates.
 Category-filtered scans preserve the same `--category` filter in those Next
 commands. `metadata-only` rows include a source ref so local skill and MCP

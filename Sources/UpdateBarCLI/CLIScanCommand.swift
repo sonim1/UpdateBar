@@ -124,6 +124,7 @@ struct ScanCommand: ParsableCommand {
         let baseCommand = categoryFilter.map {
             "updatebar init --category \($0)"
         } ?? "updatebar init"
+        writeStdout("Scan is read-only. Use init to choose and register items.")
         printNextCommands(
             [
                 baseCommand,
