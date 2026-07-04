@@ -338,8 +338,9 @@
         }
 
         private static func debugLog(_ message: String) {
-            FileHandle.standardError.write(Data(("UpdateBarMenuBar: \(message)\n").utf8))
-            appendLog(message)
+            let redactedMessage = SecretRedactor.redact(message)
+            FileHandle.standardError.write(Data(("UpdateBarMenuBar: \(redactedMessage)\n").utf8))
+            appendLog(redactedMessage)
         }
 
         private func openInFinder(_ targetURL: URL, failureMessage: Error) {

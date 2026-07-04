@@ -17,4 +17,14 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(source.contains("updatebar: \\(resolution.path)"))
         XCTAssertTrue(source.contains("SecretRedactor.redact(resolution.path)"))
     }
+
+    func testMenuBarDebugLogRedactsMessagesCentrally() throws {
+        let sourceURL = URL(fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("SecretRedactor.redact(message)"))
+        XCTAssertTrue(source.contains("UpdateBarMenuBar: \\(redactedMessage)\\n"))
+        XCTAssertTrue(source.contains("appendLog(redactedMessage)"))
+        XCTAssertFalse(source.contains("appendLog(message)"))
+    }
 }
