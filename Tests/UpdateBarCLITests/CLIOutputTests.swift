@@ -372,6 +372,18 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("Run updatebar status --json") })
     }
 
+    func testScanWithJSONStreamEqualsProducesGuidance() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["scan", "--json-stream=true"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("scan does not support JSONL streaming") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("Run updatebar scan --json") })
+    }
+
     func testCheckWithJSONEqualsParsesAsJSONMode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 

@@ -124,14 +124,15 @@ extension UpdateBar {
     }
 
     private static func validateUnsupportedJSONStreamFlags(_ arguments: [String]) throws {
-        guard arguments.first == "status",
+        guard let command = arguments.first,
+              ["scan", "status"].contains(command),
               hasOption("--json-stream", in: arguments)
         else {
             return
         }
         throw ValidationError("""
-        status does not support JSONL streaming.
-        Run updatebar status --json for a snapshot, or updatebar check --json-stream to stream refresh progress.
+        \(command) does not support JSONL streaming.
+        Run updatebar \(command) --json for a snapshot, or updatebar check --json-stream to stream refresh progress.
         """)
     }
 
