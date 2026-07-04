@@ -10,6 +10,7 @@ extension UpdateBar {
 
     static func validatePreflightArguments(_ arguments: [String]) throws {
         try validateRemovedListCommand(arguments)
+        try validateRemovedAddOptions(arguments)
         try validateHelpTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isInlineVersionFlag)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isMachineOutputFlag)
@@ -25,6 +26,28 @@ extension UpdateBar {
         updatebar list was removed.
         Run updatebar status to list registered item ids.
         """)
+    }
+
+    private static func validateRemovedAddOptions(_ arguments: [String]) throws {
+        guard arguments.first == "add" else { return }
+        if arguments.contains(where: { $0 == "--ai" || $0.hasPrefix("--ai=") }) {
+            throw ValidationError("""
+            add --ai was removed.
+            Run updatebar template recipe to draft recipe JSON, or use an external agent, then run updatebar add --from <file>.
+            """)
+        }
+        if arguments.contains(where: { $0 == "--provider" || $0.hasPrefix("--provider=") }) {
+            throw ValidationError("""
+            add --provider was removed.
+            Recipe authoring belongs to external agents. Save generated recipe JSON, then run updatebar add --from <file>.
+            """)
+        }
+        if arguments.contains(where: { $0 == "--trust" || $0.hasPrefix("--trust=") }) {
+            throw ValidationError("""
+            add --trust was removed.
+            New recipes are saved untrusted. Run updatebar approvals <id> to review command fields.
+            """)
+        }
     }
 
     private static func validateTopLevelTarget(

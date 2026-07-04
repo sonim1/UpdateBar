@@ -213,7 +213,19 @@ final class AddCommandTests: XCTestCase {
         let result = try CLIProcess.run(["add", "--ai", "--from", "anything"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.contains("Unknown option '--ai'"))
+        XCTAssertTrue(result.stderr.contains("add --ai was removed"))
+        XCTAssertTrue(result.stderr.contains("Run updatebar template recipe"))
+        XCTAssertTrue(result.stderr.contains("updatebar add --from <file>"))
+    }
+
+    func testAddProviderFlagIsRemovedFromCLI() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+        let result = try CLIProcess.run(["add", "--provider", "openrouter", "--from", "anything"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("add --provider was removed"))
+        XCTAssertTrue(result.stderr.contains("Recipe authoring belongs to external agents"))
+        XCTAssertTrue(result.stderr.contains("updatebar add --from <file>"))
     }
 
     func testAddTrustFlagIsRemovedFromCLI() throws {
@@ -221,7 +233,9 @@ final class AddCommandTests: XCTestCase {
         let result = try CLIProcess.run(["add", "--trust", "--from", "anything"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.contains("Unknown option '--trust'"))
+        XCTAssertTrue(result.stderr.contains("add --trust was removed"))
+        XCTAssertTrue(result.stderr.contains("New recipes are saved untrusted"))
+        XCTAssertTrue(result.stderr.contains("updatebar approvals <id>"))
     }
 
     func testAddWithoutSourceRunsManualWizardAndCreatesUntrustedRecipe() throws {
