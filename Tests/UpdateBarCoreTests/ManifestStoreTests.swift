@@ -170,6 +170,21 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
     }
 
+    func testLoadExistingOrEmptyRepairsExistingHomePermissionsWhenManifestIsMissing() throws {
+        let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
+        let store = ManifestStore(paths: AppPaths(homeDirectory: root))
+
+        let manifest = try store.loadExistingOrEmpty()
+
+        XCTAssertTrue(manifest.items.isEmpty)
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: root.appendingPathComponent("manifest.json").path))
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
+    }
+
     func testLoadExistingOrEmptyRepairsExistingHomePermissions() throws {
         let root = try temporaryDirectory()
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)

@@ -38,6 +38,20 @@ final class StateStoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
     }
 
+    func testLoadExistingOrEmptyRepairsExistingHomePermissionsWhenStateIsMissing() throws {
+        let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
+        let store = StateStore(paths: AppPaths(homeDirectory: root))
+
+        let state = try store.loadExistingOrEmpty(now: Date(timeIntervalSince1970: 1_812_499_200))
+
+        XCTAssertTrue(state.items.isEmpty)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent("state.json").path))
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
+    }
+
     func testLoadExistingOrEmptyRepairsExistingHomePermissions() throws {
         let root = try temporaryDirectory()
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)

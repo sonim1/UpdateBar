@@ -22,6 +22,7 @@ public struct ConfigStore {
 
     public func loadExistingOrDefault() throws -> Config {
         if !fileManager.fileExists(atPath: paths.configFile.path) {
+            try AppHomeDirectory.ensureIfExists(paths.homeDirectory, fileManager: fileManager)
             return .default
         }
         try ensureHome()

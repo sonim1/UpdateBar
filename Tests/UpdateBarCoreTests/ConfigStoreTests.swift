@@ -62,6 +62,20 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
     }
 
+    func testLoadExistingOrDefaultRepairsExistingHomePermissionsWhenConfigIsMissing() throws {
+        let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
+        let store = ConfigStore(paths: AppPaths(homeDirectory: root))
+
+        let config = try store.loadExistingOrDefault()
+
+        XCTAssertEqual(config, .default)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent("config.toml").path))
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
+    }
+
     func testSetKnownKeyRejectsUnknownKey() throws {
         var config = Config.default
         try config.set("refresh.interval", value: "30m")

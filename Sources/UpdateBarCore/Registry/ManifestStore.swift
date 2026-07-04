@@ -21,6 +21,7 @@ public struct ManifestStore {
 
     public func loadExistingOrEmpty(now: Date = Date()) throws -> Manifest {
         if !fileManager.fileExists(atPath: paths.manifestFile.path) {
+            try AppHomeDirectory.ensureIfExists(paths.homeDirectory, fileManager: fileManager)
             return emptyManifest(now: now)
         }
         try ensureHome()
