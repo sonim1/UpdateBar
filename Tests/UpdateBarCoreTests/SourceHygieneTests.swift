@@ -125,6 +125,15 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(contents.contains("TrustPolicy.approveAllCommands(in: &recipe)"))
     }
 
+    func testCoreDoesNotExposeLegacyCommandApprovalStore() {
+        let file = URL(fileURLWithPath: "Sources/UpdateBarCore/Execution/CommandApprovalStore.swift")
+
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: file.path),
+            "CommandApprovalStore should not re-expose broad command approval APIs."
+        )
+    }
+
     func testCLICategoryHelpUsesSharedDescription() throws {
         let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCLI")
         let sourceFiles = try swiftSourceFiles(under: sourceRoot)
