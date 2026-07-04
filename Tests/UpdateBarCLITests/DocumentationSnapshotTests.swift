@@ -792,6 +792,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(combined.contains("UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui"))
         XCTAssertTrue(architecture.contains("UPDATEBAR_TUI"))
         XCTAssertTrue(releaseDocs.contains("Scripts/quality-gate.sh"))
+        XCTAssertTrue(releaseDocs.contains("UPDATEBAR_TEST_BIN=$PWD/.build/debug/updatebar swift test"))
         XCTAssertTrue(releaseDocs.contains("npm --prefix tui run build"))
         XCTAssertTrue(releaseDocs.contains("UPDATEBAR_VERIFY_STATIC_ONLY=1"))
         XCTAssertTrue(releaseDocs.contains("Build or install the Ink TUI from source with npm"))

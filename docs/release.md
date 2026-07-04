@@ -4,9 +4,10 @@ Release checklist:
 
 ```bash
 swift build
+swift build --product updatebar
+UPDATEBAR_TEST_BIN=$PWD/.build/debug/updatebar swift test
 swift build -c release --product updatebar
 swift build -c release --product updatebar-menubar
-swift test
 npm --prefix tui test
 npm --prefix tui run typecheck
 npm --prefix tui run lint
@@ -29,6 +30,16 @@ bash Scripts/verify-homebrew-metadata.sh
 On macOS, `Scripts/quality-gate.sh` prefers `/Applications/Xcode.app` when it is
 available so `swift test` can find `XCTest`. Set `DEVELOPER_DIR` explicitly if
 you need a different toolchain.
+The quality gate also builds the debug `updatebar` executable before Swift
+tests and sets `UPDATEBAR_TEST_BIN` so CLI integration tests run the freshly
+built binary instead of an older `.build/debug/updatebar`. When running Swift
+tests manually after CLI changes, use:
+
+```bash
+swift build --product updatebar
+UPDATEBAR_TEST_BIN=$PWD/.build/debug/updatebar swift test
+```
+
 The quality gate runs Homebrew metadata verification with
 `UPDATEBAR_VERIFY_STATIC_ONLY=1`, which checks formula/cask metadata without
 comparing local `dist` checksums. Use strict verification before publishing.
