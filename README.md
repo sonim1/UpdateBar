@@ -32,6 +32,9 @@ Or use the local installer:
 
 ```bash
 Scripts/install-local.sh
+
+# Optional: change install directory
+UPDATEBAR_INSTALL_PREFIX="$HOME/.local/bin" Scripts/install-local.sh
 ```
 
 ### Install from GitHub (single command)

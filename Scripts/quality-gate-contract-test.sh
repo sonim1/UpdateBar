@@ -23,3 +23,8 @@ if ! grep -Fq 'bash Scripts/verify-homebrew-metadata-test.sh' "$QUALITY_GATE"; t
   echo "quality-gate.sh must run Homebrew metadata behavior checks" >&2
   exit 1
 fi
+
+if ! grep -Fq 'bash Scripts/install-local-smoke-test.sh' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must run local installer smoke checks" >&2
+  exit 1
+fi

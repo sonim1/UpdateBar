@@ -41,6 +41,9 @@ bash Scripts/smoke-test.sh
 echo "running updatebar edgecase checks"
 bash Scripts/e2e-edgecases.sh
 
+echo "running local install smoke test"
+bash Scripts/install-local-smoke-test.sh
+
 echo "running release tar args check"
 bash Scripts/release-tar-args-test.sh
 
