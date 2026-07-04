@@ -126,8 +126,8 @@ if ! grep -Fq 'xcode-select -p' "$QUALITY_GATE"; then
   exit 1
 fi
 
-xctest_check_line="$(grep -nF 'checking Swift XCTest availability' "$QUALITY_GATE" | head -n 1 | cut -d: -f1)"
-debug_build_line="$(grep -nF 'building debug updatebar CLI for CLI tests' "$QUALITY_GATE" | head -n 1 | cut -d: -f1)"
+xctest_check_line="$(awk '/checking Swift XCTest availability/ { print NR; exit }' "$QUALITY_GATE")"
+debug_build_line="$(awk '/building debug updatebar CLI for CLI tests/ { print NR; exit }' "$QUALITY_GATE")"
 if [[ -z "$xctest_check_line" || -z "$debug_build_line" || "$xctest_check_line" -ge "$debug_build_line" ]]; then
   echo "quality-gate.sh must check Swift XCTest availability before the debug CLI build" >&2
   exit 1
