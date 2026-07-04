@@ -15,6 +15,29 @@ if [[ "$(uname -s)" == "Darwin" && -z "${DEVELOPER_DIR:-}" ]]; then
   fi
 fi
 
+require_swift_xctest() {
+  if [[ "$(uname -s)" != "Darwin" ]]; then
+    return
+  fi
+
+  local developer_dir="${DEVELOPER_DIR:-}"
+  if [[ -z "$developer_dir" ]] && command -v xcode-select >/dev/null 2>&1; then
+    developer_dir="$(xcode-select -p 2>/dev/null || true)"
+  fi
+
+  local xctest_path=""
+  if [[ -n "$developer_dir" ]]; then
+    xctest_path="$developer_dir/Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework"
+  fi
+
+  if [[ -z "$xctest_path" || ! -d "$xctest_path" ]]; then
+    echo "Swift XCTest not found at ${xctest_path:-<unknown>}" >&2
+    echo "Selected developer directory: ${developer_dir:-<none>}" >&2
+    echo "Install full Xcode or set DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer before running Scripts/quality-gate.sh." >&2
+    exit 1
+  fi
+}
+
 echo "running script syntax checks"
 bash Scripts/script-syntax-test.sh
 
@@ -45,6 +68,9 @@ fi
 echo "building debug updatebar CLI for CLI tests"
 "$SWIFT_BIN" build --product updatebar
 export UPDATEBAR_TEST_BIN="$ROOT/.build/debug/updatebar"
+
+echo "checking Swift XCTest availability"
+require_swift_xctest
 
 echo "running swift unit tests"
 "$SWIFT_BIN" test

@@ -116,6 +116,16 @@ if ! grep -Fq 'export UPDATEBAR_TEST_BIN="$ROOT/.build/debug/updatebar"' "$QUALI
   exit 1
 fi
 
+if ! grep -Fq 'Swift XCTest not found' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must fail early with an actionable XCTest message" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'xcode-select -p' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must report the selected developer directory when XCTest is missing" >&2
+  exit 1
+fi
+
 if ! grep -Fq 'export UPDATEBAR_BIN="$ROOT/.build/debug/updatebar"' "$QUALITY_GATE"; then
   echo "quality-gate.sh must point smoke scripts at the freshly built updatebar binary" >&2
   exit 1

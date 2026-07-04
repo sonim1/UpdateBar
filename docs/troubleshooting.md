@@ -44,6 +44,17 @@ For a quick Swift-only test run, point SwiftPM at Xcode explicitly:
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ```
 
+If that still fails, check that the selected developer directory actually
+contains XCTest:
+
+```bash
+xcode-select -p
+find /Applications/Xcode.app /Library/Developer -name XCTest.framework 2>/dev/null
+```
+
+When no `XCTest.framework` is found, reinstall or finish installing full Xcode,
+then rerun `Scripts/quality-gate.sh`.
+
 ## Invalid JSON Or JSONL
 
 Machine-readable commands reserve stdout for JSON or JSONL only. Structured
