@@ -221,6 +221,9 @@ omit `--yes` to skip execution and receive a `.cancelled` outcome.
 ### `updatebar approve <id> --field <command-field> [--json]`
 
 Approves one command field such as `check.cmd`, `latest.cmd`, or `update.cmd`. Add `--json` for a machine-readable mutation payload.
+Before approving, run `updatebar approvals <id>` to review valid command fields,
+command text, working directories, and fingerprints. Approve only command fields
+you accept.
 
 ### `updatebar approvals <id> [--json]`
 

@@ -300,6 +300,19 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(approvalsSection.contains("`updatebar approvals <id>`"))
     }
 
+    func testApproveDocsExplainReviewBeforeApproval() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let approveSection = try readmeSection(
+            "### `updatebar approve",
+            before: "### `updatebar approvals",
+            in: docs
+        )
+
+        XCTAssertTrue(approveSection.contains("`updatebar approvals <id>`"))
+        XCTAssertTrue(approveSection.contains("review valid command fields"))
+        XCTAssertTrue(approveSection.contains("command text"))
+    }
+
     func testInitHelpDocumentsSelectNumbersAndAll() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
 
