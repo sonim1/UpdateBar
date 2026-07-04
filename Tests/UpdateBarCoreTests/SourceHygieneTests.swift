@@ -2,8 +2,8 @@ import Foundation
 import XCTest
 
 final class SourceHygieneTests: XCTestCase {
-    func testCoreSourcesAvoidForceUnwrapSyntax() throws {
-        let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCore")
+    func testProductionSourcesAvoidForceUnwrapSyntax() throws {
+        let sourceRoot = URL(fileURLWithPath: "Sources")
         let sourceFiles = try swiftSourceFiles(under: sourceRoot)
         var violations: [String] = []
 
@@ -23,7 +23,7 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertEqual(
             violations,
             [],
-            "UpdateBarCore should throw typed errors instead of force-unwrapping:\n\(violations.joined(separator: "\n"))"
+            "Production sources should throw typed errors instead of force-unwrapping:\n\(violations.joined(separator: "\n"))"
         )
     }
 
