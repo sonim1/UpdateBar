@@ -396,6 +396,7 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("updatebar init\n"))
         XCTAssertTrue(result.stdout.contains("updatebar init --select all"))
         XCTAssertFalse(result.stdout.contains("updatebar init --select brew.gh"))
+        XCTAssertTrue(result.stdout.contains("updatebar init --select all\n\nNeeds Review"))
         let next = try XCTUnwrap(result.stdout.range(of: "Next\nupdatebar init"))
         let needsReview = try XCTUnwrap(result.stdout.range(of: "Needs Review"))
         XCTAssertLessThan(next.lowerBound, needsReview.lowerBound)
