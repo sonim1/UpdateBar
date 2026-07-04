@@ -141,6 +141,8 @@ let supportedScanCategories = [
     "mcp-server",
 ]
 
+let scanCategoryCompletionValues = supportedScanCategories + ["ai", "mcp"]
+
 func scanCategoryDescription() -> String {
     "\(supportedScanCategories.joined(separator: ", ")); aliases: ai, mcp"
 }

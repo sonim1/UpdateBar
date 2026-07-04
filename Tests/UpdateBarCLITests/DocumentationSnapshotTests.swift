@@ -670,6 +670,25 @@ final class DocumentationSnapshotTests: XCTestCase {
         for phrase in ["import/export", "advanced item-management", "background/configuration", "support commands"] {
             XCTAssertTrue(docs.contains(phrase), "completion docs missing hidden command category \(phrase)")
         }
+        XCTAssertTrue(docs.contains("`--category` values"), "completion docs missing category value completion note")
+    }
+
+    func testFishCompletionsSuggestScanCategoryValues() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
+
+        let result = try CLIProcess.run(["--generate-completion-script", "fish"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        for command in ["scan", "init"] {
+            let values = try fishCompletionValues(for: command, option: "category", in: result.stdout)
+            for value in [
+                "ai-agent", "package-manager", "runtime-sdk", "shell-utility",
+                "cloud-devops", "library", "codex-skill", "mcp-server", "ai", "mcp",
+            ] {
+                XCTAssertTrue(values.contains(value), "\(command) --category completion missing \(value)")
+            }
+        }
     }
 
     func testReadmeQuickStartStaysFocusedOnFirstRunWorkflow() throws {
@@ -1186,5 +1205,21 @@ final class DocumentationSnapshotTests: XCTestCase {
         default:
             throw XCTSkip("unsupported shell: \(shell)")
         }
+    }
+
+    private func fishCompletionValues(for command: String, option: String, in script: String) throws -> Set<String> {
+        guard
+            let line = script.split(separator: "\n").map(String.init).first(where: {
+                $0.contains(#""updatebar \#(command)""#)
+                    && $0.contains("-l '\(option)'")
+                    && $0.contains("-rfka '")
+            }),
+            let start = line.range(of: "-rfka '")?.upperBound,
+            let end = line[start...].range(of: "'")?.lowerBound
+        else {
+            XCTFail("fish completion not found for \(command) --\(option)")
+            return []
+        }
+        return Set(line[start..<end].split(separator: " ").map(String.init))
     }
 }

@@ -9,6 +9,9 @@ surface small. This includes import/export commands, advanced item-management
 commands, background/configuration commands, and support commands such as
 `guide`, `schema`, `template`, `validate`, and `tui`.
 
+`scan` and `init` complete `--category` values, including the short aliases
+`ai` and `mcp`.
+
 Bash:
 
 ```bash
