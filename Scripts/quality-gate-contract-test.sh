@@ -157,3 +157,9 @@ if ! grep -Fq 'bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"' "$QUALITY_
   echo "quality-gate.sh must run app archive smoke checks" >&2
   exit 1
 fi
+
+if grep -Fq 'build-app-archive.sh | tail -n 1' "$QUALITY_GATE" \
+  || grep -Fq 'build-app-archive.sh | tail -n 1' "$RELEASE_WORKFLOW"; then
+  echo "quality gate and release workflow must consume build-app-archive.sh output directly" >&2
+  exit 1
+fi

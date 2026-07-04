@@ -47,7 +47,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           bash Scripts/package-app.sh
-          APP_ARCHIVE="$(bash Scripts/build-app-archive.sh | tail -n 1)"
+          APP_ARCHIVE="$(bash Scripts/build-app-archive.sh)"
           shasum -a 256 -c "${APP_ARCHIVE}.sha256"
           bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"
       - name: Verify release metadata
