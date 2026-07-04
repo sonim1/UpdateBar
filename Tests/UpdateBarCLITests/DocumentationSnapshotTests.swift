@@ -1176,6 +1176,8 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertTrue(updateSection.contains(column), "update docs missing \(column)")
         }
         XCTAssertTrue(updateSection.contains("`updatebar init`"))
+        XCTAssertTrue(updateSection.contains("`updatebar unpin <id>`"))
+        XCTAssertTrue(updateSection.contains("`updatebar enable <id>`"))
         XCTAssertTrue(updateSection.contains("no items are registered"))
         for section in [checkSection, statusSection, updateSection] {
             XCTAssertTrue(section.contains("`updatebar scan`"))

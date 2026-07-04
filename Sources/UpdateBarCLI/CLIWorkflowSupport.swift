@@ -75,6 +75,14 @@ func batchUpdateYesCommand(for ids: [String]) -> String? {
     return "updatebar update \(ids.map(displayID).joined(separator: " ")) --yes"
 }
 
+func unpinCommands(for ids: [String]) -> [String] {
+    ids.map { "updatebar unpin \(displayID($0))" }
+}
+
+func enableCommands(for ids: [String]) -> [String] {
+    ids.map { "updatebar enable \(displayID($0))" }
+}
+
 private func displayID(_ id: String) -> String {
     SecretRedactor.redact(id)
 }

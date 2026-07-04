@@ -212,6 +212,50 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("updatebar approve tool"))
     }
 
+    func testUpdateHumanPinnedItemPrintsUnpinNextStep() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        var item = recipe(
+            id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
+        item.pin = "1.0.0"
+        try ManifestStore(paths: paths).save(manifest(items: [item]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
+
+        let result = try CLIProcess.run(["update", "tool", "--yes"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("tool\tskipped_pinned\t1.0.0\t1.1.0\t"))
+        XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar unpin tool"))
+    }
+
+    func testUpdateHumanDisabledItemPrintsEnableNextStep() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        var item = recipe(
+            id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
+        item.enabled = false
+        try ManifestStore(paths: paths).save(manifest(items: [item]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
+
+        let result = try CLIProcess.run(["update", "tool", "--yes"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("tool\tskipped_disabled\t1.0.0\t1.1.0\t"))
+        XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar enable tool"))
+    }
+
     func testUpdateJSONStreamEmitsLineDelimitedEvents() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
