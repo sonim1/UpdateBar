@@ -6,6 +6,11 @@ final class MenuBarMenuActionTests: XCTestCase {
         XCTAssertEqual(MenuBarMenuAction.updateAllApprovedOutdated.title, "Run Updates")
     }
 
+    func testRefreshStatusUsesExplicitTitle() {
+        XCTAssertEqual(MenuBarMenuAction.refreshStatus.title, "Refresh Status")
+        XCTAssertNil(MenuBarActionConfirmation.confirmation(for: .refreshStatus))
+    }
+
     func testRunUpdatesConfirmationCopyDescribesScope() {
         let confirmation = MenuBarActionConfirmation.confirmation(for: .updateAllApprovedOutdated)
 
@@ -20,6 +25,7 @@ final class MenuBarMenuActionTests: XCTestCase {
 
     func testErrorRecoveryActionsIncludeDiagnostics() {
         XCTAssertEqual(MenuBarMenuAction.errorRecovery.map(\.title), [
+            "Refresh Status",
             "Check Now",
             "Open TUI",
             "Open Config",

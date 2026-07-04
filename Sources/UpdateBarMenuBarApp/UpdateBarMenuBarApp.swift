@@ -433,6 +433,8 @@
 
         private func selector(for action: MenuBarMenuAction) -> Selector {
             switch action {
+            case .refreshStatus:
+                return #selector(refreshFromMenu)
             case .checkNow:
                 return #selector(checkNow)
             case .updateAllApprovedOutdated:

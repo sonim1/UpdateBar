@@ -8,8 +8,9 @@ Current scope:
 - keeps `UpdateBarCLIClient` as a subprocess fallback with JSON-only contracts
 - shows outdated items separately from recipes that need command approval
 - shows command text before approve/revoke actions
-- supports check now, update selected, update all approved outdated, approve/revoke command fields,
-  cancel current action, open TUI, open config, view logs, and quit
+- supports Check Now, Refresh Status, update selected, update all approved outdated,
+  approve/revoke command fields, cancel current action, Open TUI, Open Config,
+  View Logs, and Quit
 
 Build a local unsigned app:
 

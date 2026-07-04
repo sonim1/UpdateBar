@@ -75,6 +75,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
         }
         appendSeparator(to: &entries)
         appendAction(MenuBarMenuAction.checkNow.title, action: .menu(.checkNow), to: &entries)
+        appendAction(MenuBarMenuAction.refreshStatus.title, action: .menu(.refreshStatus), to: &entries)
         let updateAllAction = MenuBarMenuAction.updateAllApprovedOutdated
         if state.outdatedItems.isEmpty {
             appendDisabled(updateAllAction.title, toolTip: "No updates available.", to: &entries)

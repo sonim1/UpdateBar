@@ -343,7 +343,7 @@ MVP UI:
 - badge count for outdated items only
 - separate "needs approval" indicator for untrusted/unapproved items (never counted as updates)
 - list rows: name, current, latest, status
-- actions: Check now · Update selected · Update all approved outdated ·
+- actions: Check now · Refresh Status · Update selected · Update all approved outdated ·
   Approve/revoke command fields · Open TUI · Open Config · View Logs · Quit
 
 UI decisions to settle inside this milestone (not standing open questions):
@@ -357,7 +357,7 @@ Defer: add-recipe GUI, registry browsing, sync, Sparkle.
 Local gate:
 
 ```text
-status display updates after state.json atomic replace [done]
+Refresh Status rereads state after state.json atomic replace [done]
 outdated check exit code is treated as success-with-updates [done]
 partial update exit 2 surfaces per-item errors [done]
 untrusted items are never counted as "updates available" [done]

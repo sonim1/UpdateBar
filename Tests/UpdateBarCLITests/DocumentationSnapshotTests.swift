@@ -973,10 +973,13 @@ final class DocumentationSnapshotTests: XCTestCase {
 
     func testMenuBarDocsMatchDataDirectoryPrecedence() throws {
         let docs = try String(contentsOfFile: "docs/menu-bar.md", encoding: .utf8)
+        let nextPlan = try String(contentsOfFile: "next-plan.md", encoding: .utf8)
 
         XCTAssertTrue(docs.contains("HOME/.updatebar"))
         XCTAssertTrue(docs.contains("UPDATEBAR_HOME"))
         XCTAssertTrue(docs.contains("Open Config"))
+        XCTAssertTrue(docs.contains("Refresh Status"))
+        XCTAssertTrue(nextPlan.contains("Refresh Status"))
     }
 
     func testTroubleshootingDocsExplainManualCorruptStoreRecovery() throws {

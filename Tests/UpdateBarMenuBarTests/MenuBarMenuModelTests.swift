@@ -24,6 +24,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Up to date",
                 "---",
                 "Check Now",
+                "Refresh Status",
                 "Run Updates",
                 "---",
                 "Open TUI",
@@ -116,6 +117,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "2 need attention",
                 "---",
                 "Check Now",
+                "Refresh Status",
                 "Run Updates",
                 "---",
                 "Updates (1)",
@@ -141,6 +143,7 @@ final class MenuBarMenuModelTests: XCTestCase {
             model.entries.actions,
             [
                 .menu(.checkNow),
+                .menu(.refreshStatus),
                 .menu(.updateAllApprovedOutdated),
                 .update(id: "old"),
                 .approve(id: "fresh", field: "update.cmd"),
@@ -423,6 +426,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "UpdateBar Error",
                 "manifest invalid",
                 "---",
+                "Refresh Status",
                 "Check Now",
                 "Open TUI",
                 "Open Config",
@@ -432,6 +436,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertEqual(
             model.entries.actions,
             [
+                .menu(.refreshStatus),
                 .menu(.checkNow),
                 .menu(.openTUI),
                 .menu(.openConfig),
