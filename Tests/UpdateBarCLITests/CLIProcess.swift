@@ -6,7 +6,8 @@ struct CLIProcess {
         home: URL,
         stdin input: String? = nil,
         currentDirectory: URL? = nil,
-        environment overrides: [String: String?] = [:]
+        environment overrides: [String: String?] = [:],
+        timeout: TimeInterval = 60
     ) throws -> Result {
         let process = Process()
         process.executableURL = try updatebarBinary()
@@ -31,7 +32,14 @@ struct CLIProcess {
             stdin.fileHandleForWriting.write(Data(input.utf8))
         }
         try stdin.fileHandleForWriting.close()
-        process.waitUntilExit()
+        if !waitForExit(process, timeout: timeout) {
+            process.interrupt()
+            if !waitForExit(process, timeout: 1) {
+                process.terminate()
+                _ = waitForExit(process, timeout: 1)
+            }
+            throw Error.timedOut(arguments: arguments)
+        }
 
         return Result(
             exitCode: process.terminationStatus,
@@ -155,8 +163,18 @@ struct CLIProcess {
         var stderr: String
     }
 
-    enum Error: Swift.Error {
+    enum Error: Swift.Error, CustomStringConvertible {
         case binaryNotFound
+        case timedOut(arguments: [String])
+
+        var description: String {
+            switch self {
+            case .binaryNotFound:
+                return "updatebar test binary not found"
+            case .timedOut(let arguments):
+                return "CLI process timed out: \(arguments.joined(separator: " "))"
+            }
+        }
     }
 }
 
