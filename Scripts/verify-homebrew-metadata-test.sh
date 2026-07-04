@@ -91,4 +91,60 @@ if ! grep -Fq "cask sha256 is not a 64-character lowercase hex value" "$BAD_CASK
   exit 1
 fi
 
+cat > "$TMP_DIR/bad-formula-url.rb" <<EOF
+class Updatebar < Formula
+  version "$UPDATEBAR_VERSION"
+  url "https://example.test/releases/v$UPDATEBAR_VERSION/$formula_asset"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+end
+EOF
+
+BAD_URL_OUTPUT="$TMP_DIR/bad-formula-url.out"
+set +e
+UPDATEBAR_VERIFY_STATIC_ONLY=1 \
+UPDATEBAR_HOMEBREW_FORMULA_PATH="$TMP_DIR/bad-formula-url.rb" \
+bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" > "$BAD_URL_OUTPUT" 2>&1
+bad_url_status=$?
+set -e
+
+if [[ "$bad_url_status" -eq 0 ]]; then
+  echo "invalid Homebrew formula release URL was accepted" >&2
+  cat "$BAD_URL_OUTPUT" >&2
+  exit 1
+fi
+
+if ! grep -Fq "formula URL must use https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/" "$BAD_URL_OUTPUT"; then
+  echo "invalid Homebrew formula release URL did not report the expected error" >&2
+  cat "$BAD_URL_OUTPUT" >&2
+  exit 1
+fi
+
+cat > "$TMP_DIR/bad-cask-url.rb" <<EOF
+cask "updatebar-app" do
+  version "$UPDATEBAR_VERSION"
+  url "https://example.test/releases/v#{version}/UpdateBar-#{version}-macos-arm64.app.tar.gz"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+end
+EOF
+
+BAD_CASK_URL_OUTPUT="$TMP_DIR/bad-cask-url.out"
+set +e
+UPDATEBAR_VERIFY_STATIC_ONLY=1 \
+UPDATEBAR_HOMEBREW_CASK_PATH="$TMP_DIR/bad-cask-url.rb" \
+bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" > "$BAD_CASK_URL_OUTPUT" 2>&1
+bad_cask_url_status=$?
+set -e
+
+if [[ "$bad_cask_url_status" -eq 0 ]]; then
+  echo "invalid Homebrew cask release URL was accepted" >&2
+  cat "$BAD_CASK_URL_OUTPUT" >&2
+  exit 1
+fi
+
+if ! grep -Fq "cask URL must use https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/" "$BAD_CASK_URL_OUTPUT"; then
+  echo "invalid Homebrew cask release URL did not report the expected error" >&2
+  cat "$BAD_CASK_URL_OUTPUT" >&2
+  exit 1
+fi
+
 echo "homebrew metadata behavior ok"

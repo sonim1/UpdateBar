@@ -33,6 +33,16 @@ validate_sha256() {
   fi
 }
 
+validate_release_url() {
+  local label="$1"
+  local value="$2"
+  local expected_prefix="https://github.com/sonim1/UpdateBar/releases/download/v${UPDATEBAR_VERSION}/"
+  if [[ "$value" != "$expected_prefix"* ]]; then
+    echo "$label URL must use $expected_prefix" >&2
+    exit 1
+  fi
+}
+
 hash_file() {
   local path="$1"
   if command -v shasum >/dev/null 2>&1; then
@@ -54,6 +64,7 @@ if [[ "$FORMULA_VERSION" != "$UPDATEBAR_VERSION" ]]; then
   echo "formula version ($FORMULA_VERSION) does not match version.env ($UPDATEBAR_VERSION)" >&2
   exit 1
 fi
+validate_release_url "formula" "$FORMULA_URL"
 
 FORMULA_ASSET="$(basename "$FORMULA_URL")"
 FORMULA_SHA_FILE="$DIST_DIR/$FORMULA_ASSET.sha256"
@@ -113,9 +124,10 @@ if [[ "$CASK_VERSION" != "$UPDATEBAR_VERSION" ]]; then
   echo "cask version ($CASK_VERSION) does not match version.env ($UPDATEBAR_VERSION)" >&2
   exit 1
 fi
+CASK_RESOLVED_URL="${CASK_URL/\#\{version\}/$CASK_VERSION}"
+validate_release_url "cask" "$CASK_RESOLVED_URL"
 
-CASK_ASSET="$(basename "$CASK_URL")"
-CASK_ASSET="${CASK_ASSET/\#\{version\}/$CASK_VERSION}"
+CASK_ASSET="$(basename "$CASK_RESOLVED_URL")"
 CASK_ARCHIVE="$DIST_DIR/$CASK_ASSET"
 CASK_SHA_FILE="$DIST_DIR/$CASK_ASSET.sha256"
 
