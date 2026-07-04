@@ -1,6 +1,7 @@
 import Foundation
 import XCTest
 import UpdateBarCore
+import UpdateBarTestSupport
 
 final class ManageItemCommandTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
@@ -531,7 +532,7 @@ final class ManageItemCommandTests: XCTestCase {
         let secretID = "sk-or-v1-secret-value"
         var item = recipe()
         item.id = secretID
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         try ManifestStore(paths: paths).save(Manifest(
             schemaVersion: 1,
             items: [item],
@@ -657,7 +658,7 @@ final class ManageItemCommandTests: XCTestCase {
             enabled: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         return item
     }
 

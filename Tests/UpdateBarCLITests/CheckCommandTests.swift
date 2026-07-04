@@ -1,6 +1,7 @@
 import Foundation
 import XCTest
 import UpdateBarCore
+import UpdateBarTestSupport
 
 final class CheckCommandTests: XCTestCase {
     func testCheckJSONPrintsResultsOnlyAndReturnsOutdatedExit() throws {
@@ -26,7 +27,7 @@ final class CheckCommandTests: XCTestCase {
         recipe.check = .command("printf \"$HOME\"")
         recipe.latest = LatestSpec(strategy: .cmd, cmd: "printf \"$HOME\"", pattern: nil)
         recipe.versionParse = .regex("(sk-or-v1-[A-Za-z0-9._-]+)")
-        TrustPolicy.approveAllCommands(in: &recipe)
+        TestApprovals.approveAllCommands(in: &recipe)
         try ManifestStore(paths: paths).save(manifest(items: [recipe]))
 
         let result = try CLIProcess.run(
@@ -101,7 +102,7 @@ final class CheckCommandTests: XCTestCase {
         recipe.check = .command("printf \"$HOME\"")
         recipe.latest = LatestSpec(strategy: .cmd, cmd: "printf \"$HOME\"", pattern: nil)
         recipe.versionParse = .regex("(sk-or-v1-[A-Za-z0-9._-]+)")
-        TrustPolicy.approveAllCommands(in: &recipe)
+        TestApprovals.approveAllCommands(in: &recipe)
         try ManifestStore(paths: paths).save(manifest(items: [recipe]))
 
         let result = try CLIProcess.run(
@@ -123,7 +124,7 @@ final class CheckCommandTests: XCTestCase {
         let paths = AppPaths(homeDirectory: home)
         var recipe = fixtureRecipe()
         recipe.check = .command("sleep 5")
-        TrustPolicy.approveAllCommands(in: &recipe)
+        TestApprovals.approveAllCommands(in: &recipe)
         try ManifestStore(paths: paths).save(manifest(items: [recipe]))
 
         let result = try CLIProcess.runAndInterrupt(
@@ -201,7 +202,7 @@ final class CheckCommandTests: XCTestCase {
         let home = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: home)
         var recipe = fixtureRecipe()
-        TrustPolicy.approveAllCommands(in: &recipe)
+        TestApprovals.approveAllCommands(in: &recipe)
         recipe.trust.approvedCommands.removeValue(forKey: "update.cmd")
         try ManifestStore(paths: paths).save(manifest(items: [recipe]))
 
@@ -253,7 +254,7 @@ final class CheckCommandTests: XCTestCase {
 
     private func saveManifest(home: URL) throws {
         var recipe = fixtureRecipe()
-        TrustPolicy.approveAllCommands(in: &recipe)
+        TestApprovals.approveAllCommands(in: &recipe)
         try ManifestStore(paths: AppPaths(homeDirectory: home)).save(manifest(items: [recipe]))
     }
 

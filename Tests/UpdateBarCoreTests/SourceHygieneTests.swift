@@ -122,7 +122,7 @@ final class SourceHygieneTests: XCTestCase {
 
         XCTAssertTrue(contents.contains("public func approve(id: String, field: String) throws -> Recipe"))
         XCTAssertFalse(contents.contains("field: String? = nil"))
-        XCTAssertFalse(contents.contains("TrustPolicy.approveAllCommands(in: &recipe)"))
+        XCTAssertFalse(contents.contains("approveAllCommands(in: &recipe)"))
     }
 
     func testCoreDoesNotExposeLegacyCommandApprovalStore() {
@@ -131,6 +131,16 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(
             FileManager.default.fileExists(atPath: file.path),
             "CommandApprovalStore should not re-expose broad command approval APIs."
+        )
+    }
+
+    func testTrustPolicyDoesNotExposeBroadApprovalMutation() throws {
+        let file = URL(fileURLWithPath: "Sources/UpdateBarCore/Security/TrustPolicy.swift")
+        let contents = try String(contentsOf: file, encoding: .utf8)
+
+        XCTAssertFalse(
+            contents.contains("approveAllCommands"),
+            "Broad approve-all mutation helpers belong in UpdateBarTestSupport, not production TrustPolicy."
         )
     }
 

@@ -145,7 +145,7 @@ final class StatusServiceTests: XCTestCase {
         let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
         var manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
         for index in manifest.items.indices {
-            TrustPolicy.approveAllCommands(in: &manifest.items[index])
+            TestApprovals.approveAllCommands(in: &manifest.items[index])
         }
         return manifest
     }
@@ -162,7 +162,7 @@ final class StatusServiceTests: XCTestCase {
         var item = try XCTUnwrap(loadManifest().items.first)
         item.id = id
         item.name = id
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         return item
     }
 

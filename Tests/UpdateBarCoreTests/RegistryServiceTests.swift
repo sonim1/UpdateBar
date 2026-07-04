@@ -127,7 +127,7 @@ final class RegistryServiceTests: XCTestCase {
         var item = recipe(id: "file-tool", currentCommand: "unused", latestCommand: "file-tool latest")
         let missingPath = root.appendingPathComponent("missing-version.txt").path
         item.check = .file(path: missingPath)
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         try stores.manifest.save(manifest(items: [item]))
         let commands = MockCommandExecutor(results: [
             "file-tool latest": CommandResult(exitCode: 0, stdout: "file-tool 1.1.0", stderr: "")
@@ -157,7 +157,7 @@ final class RegistryServiceTests: XCTestCase {
         let stores = Stores(paths: paths)
         var item = recipe(id: "tool", currentCommand: "unused current", latestCommand: "tool latest")
         item.check = .file(path: "~/.tool-version")
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         try stores.manifest.save(manifest(items: [item]))
         let commands = MockCommandExecutor(results: [
             "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.2.3", stderr: "")
@@ -270,7 +270,7 @@ final class RegistryServiceTests: XCTestCase {
         var item = recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
         item.update.cwd = "/tmp/tool"
         item.trust.approvedCommands = [:]
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         try stores.manifest.save(manifest(items: [item]))
         let service = registryService(paths: paths, commands: MockCommandExecutor(results: [:]))
 
@@ -462,7 +462,7 @@ final class RegistryServiceTests: XCTestCase {
             enabled: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         return item
     }
 

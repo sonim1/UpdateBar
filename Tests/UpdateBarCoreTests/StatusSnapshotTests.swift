@@ -296,7 +296,7 @@ final class StatusSnapshotTests: XCTestCase {
         var item = try loadManifest().items[0]
         item.id = id
         item.name = name
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         return item
     }
 
@@ -305,7 +305,7 @@ final class StatusSnapshotTests: XCTestCase {
         var manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
         if approved {
             for index in manifest.items.indices {
-                TrustPolicy.approveAllCommands(in: &manifest.items[index])
+                TestApprovals.approveAllCommands(in: &manifest.items[index])
             }
         }
         return manifest

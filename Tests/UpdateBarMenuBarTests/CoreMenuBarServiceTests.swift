@@ -1,5 +1,6 @@
 import Foundation
 import UpdateBarCore
+import UpdateBarTestSupport
 import UpdateBarMenuBar
 import XCTest
 
@@ -125,7 +126,7 @@ final class CoreMenuBarServiceTests: XCTestCase {
             enabled: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         return item
     }
 

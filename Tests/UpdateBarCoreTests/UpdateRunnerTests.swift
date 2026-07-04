@@ -65,7 +65,7 @@ final class UpdateRunnerTests: XCTestCase {
         let paths = AppPaths(homeDirectory: root)
         var item = recipe(id: "tool")
         item.update.cwd = "~/workspace"
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         try ManifestStore(paths: paths).save(manifest(items: [item]))
         try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
             "tool": itemState(status: .outdated)
@@ -115,7 +115,7 @@ final class UpdateRunnerTests: XCTestCase {
         let paths = AppPaths(homeDirectory: root)
         var item = recipe(id: "bad")
         item.update.cmd = "OPENROUTER_API_KEY=sk-or-v1-secret-value bad update"
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         try ManifestStore(paths: paths).save(manifest(items: [
             item
         ]))
@@ -261,7 +261,7 @@ final class UpdateRunnerTests: XCTestCase {
             enabled: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         return item
     }
 

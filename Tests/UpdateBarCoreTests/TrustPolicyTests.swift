@@ -7,7 +7,7 @@ final class TrustPolicyTests: XCTestCase {
         var recipe = try loadRecipe()
         recipe.latest.strategy = .cmd
         recipe.latest.cmd = "tool latest"
-        TrustPolicy.approveAllCommands(in: &recipe)
+        TestApprovals.approveAllCommands(in: &recipe)
         recipe.latest.cmd = "tool latest v2"
 
         XCTAssertFalse(TrustPolicy.isCheckApproved(recipe))
@@ -26,7 +26,7 @@ final class TrustPolicyTests: XCTestCase {
         var recipe = try loadRecipe()
         recipe.trust.level = .untrusted
 
-        TrustPolicy.approveAllCommands(in: &recipe)
+        TestApprovals.approveAllCommands(in: &recipe)
 
         XCTAssertTrue(TrustPolicy.isApproved(recipe, field: "check.cmd"))
         XCTAssertTrue(TrustPolicy.isApproved(recipe, field: "update.cmd"))
@@ -35,7 +35,7 @@ final class TrustPolicyTests: XCTestCase {
 
     func testChangingCommandInvalidatesPreviousApproval() throws {
         var recipe = try loadRecipe()
-        TrustPolicy.approveAllCommands(in: &recipe)
+        TestApprovals.approveAllCommands(in: &recipe)
         XCTAssertTrue(TrustPolicy.isApproved(recipe, field: "update.cmd"))
 
         recipe.update.cmd = "npm update -g @anthropic-ai/claude-code"

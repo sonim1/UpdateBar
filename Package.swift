@@ -48,7 +48,7 @@ let package = Package(
         ),
         .testTarget(
             name: "UpdateBarMenuBarTests",
-            dependencies: ["UpdateBarCore", "UpdateBarMenuBar"]
+            dependencies: ["UpdateBarCore", "UpdateBarMenuBar", "UpdateBarTestSupport"]
         )
     ]
 )

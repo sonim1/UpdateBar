@@ -168,7 +168,7 @@ final class CLIOutputTests: XCTestCase {
             enabled: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
-        TrustPolicy.approveAllCommands(in: &recipe)
+        TestApprovals.approveAllCommands(in: &recipe)
         try ManifestStore(paths: paths).save(manifest([recipe]))
         try StateStore(paths: paths).save(
             State(schemaVersion: 1, generatedAt: Date(timeIntervalSince1970: 1_800), items: [

@@ -24,11 +24,6 @@ public enum TrustPolicy {
         }
     }
 
-    public static func approveAllCommands(in recipe: inout Recipe) {
-        recipe.trust.approvedCommands = recipe.commandFingerprints()
-        recipe.trust.level = .trusted
-    }
-
     public static func untrustedCopy(_ recipe: Recipe) -> Recipe {
         var copy = recipe
         copy.trust.level = .untrusted

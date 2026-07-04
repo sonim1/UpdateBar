@@ -1,6 +1,7 @@
 import Foundation
 import XCTest
 import UpdateBarCore
+import UpdateBarTestSupport
 
 final class AddCommandTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
@@ -303,7 +304,7 @@ final class AddCommandTests: XCTestCase {
             enabled: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         return item
     }
 

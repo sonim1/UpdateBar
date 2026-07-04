@@ -1,5 +1,6 @@
 import XCTest
 import UpdateBarCore
+import UpdateBarTestSupport
 
 final class CLISmokeTests: XCTestCase {
     func testTargetIsDiscoverable() {
@@ -73,7 +74,7 @@ final class CLISmokeTests: XCTestCase {
             enabled: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
-        TrustPolicy.approveAllCommands(in: &recipe)
+        TestApprovals.approveAllCommands(in: &recipe)
         return Manifest(
             schemaVersion: 1,
             items: [recipe],
