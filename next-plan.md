@@ -402,8 +402,8 @@ Parked deliberately. Each has a written re-entry trigger; none carries design de
 - **Local fan-out sync** — already expressible today as an approved `update.cmd`; needs a docs
   example, not product surface. *Trigger: a user hits an actual wall with the command approach.*
 - **`doctor` / corrupt-store recovery** — `StoreError.corruptFile` exists but no repair path.
-  *Trigger: first real corrupt-store report.* Until then, document manual recovery (delete
-  `state.json`, re-run `check`).
+  *Trigger: first real corrupt-store report.* Until then, document manual recovery (back up the
+  data directory, move `state.json` aside, re-run `check`, and validate/import repaired manifests).
 - **`schema_version` migration policy** — currently hard-pinned to `1`. *Trigger: the first
   schema change; decide read-old-write-new before shipping it.*
 - **Built-in AI / OAuth / local LLM providers** — removed by design. If ever revisited:

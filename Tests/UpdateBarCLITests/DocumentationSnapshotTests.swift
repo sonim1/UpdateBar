@@ -987,6 +987,13 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("Make a backup"))
     }
 
+    func testNextPlanDoesNotRecommendDeletingCorruptState() throws {
+        let plan = try String(contentsOfFile: "next-plan.md", encoding: .utf8)
+
+        XCTAssertFalse(plan.contains("delete\n  `state.json`"))
+        XCTAssertTrue(plan.contains("move `state.json` aside"))
+    }
+
     func testPlanningDocsMatchCurrentCoreOwnedMenuBarArchitecture() throws {
         let currentPlan = try String(contentsOfFile: "current-plan.md", encoding: .utf8)
         let nextPlan = try String(contentsOfFile: "next-plan.md", encoding: .utf8)
