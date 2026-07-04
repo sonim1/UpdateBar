@@ -50,7 +50,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         let docs = try String(contentsOfFile: "docs/security.md", encoding: .utf8)
 
         XCTAssertTrue(docs.contains("`updatebar tui`"))
-        XCTAssertTrue(docs.contains("does not forward provider token environment variables"))
+        XCTAssertTrue(docs.contains("do not forward provider token environment variables"))
         for field in [
             "id",
             "name",

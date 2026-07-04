@@ -46,6 +46,23 @@ const SCAN_CAPABILITIES = new Set<ScanCandidate['capability']>([
 
 const SCAN_CONFIDENCES = new Set<ScanCandidate['confidence']>(['high', 'medium', 'low']);
 
+const SUBPROCESS_ENV_KEYS = [
+  'PATH',
+  'HOME',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'TMPDIR',
+  'USER',
+  'TERM',
+  'COLORTERM',
+  'NO_COLOR',
+  'FORCE_COLOR',
+  'UPDATEBAR_HOME',
+  'GITHUB_TOKEN',
+  'GH_TOKEN'
+] as const;
+
 export interface CommandResult {
   exitCode: number;
   stdout: string;
@@ -70,7 +87,7 @@ export class SubprocessRunner implements CommandRunner {
 
   async run(args: string[], options: RunOptions = {}): Promise<CommandResult> {
     const child = spawn(this.executablePath, args, {
-      env: process.env,
+      env: subprocessEnvironment(process.env),
       stdio: ['ignore', 'pipe', 'pipe']
     });
     bindAbort(child, options.signal);
@@ -85,7 +102,7 @@ export class SubprocessRunner implements CommandRunner {
 
   async stream(args: string[], options: StreamOptions): Promise<CommandResult> {
     const child = spawn(this.executablePath, args, {
-      env: process.env,
+      env: subprocessEnvironment(process.env),
       stdio: ['ignore', 'pipe', 'pipe']
     });
     let exited = false;
@@ -111,6 +128,15 @@ export class SubprocessRunner implements CommandRunner {
     ]).then(([stderrResult, exitCodeResult]) => [stderrResult, exitCodeResult] as const);
     return {exitCode, stdout: '', stderr};
   }
+}
+
+function subprocessEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = {};
+  for (const key of SUBPROCESS_ENV_KEYS) {
+    const value = source[key];
+    if (value) environment[key] = value;
+  }
+  return environment;
 }
 
 export interface UpdateBarClient {

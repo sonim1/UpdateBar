@@ -410,6 +410,28 @@ describe('CLIUpdateBarClient', () => {
     await expect(client.initSelected(['brew.gh'])).rejects.not.toThrow('sk-or-v1-secret-value');
   });
 
+  it('does not forward provider secrets to updatebar subprocesses', async () => {
+    const runner = new SubprocessRunner('/bin/sh');
+    const originalSecret = process.env.OPENROUTER_API_KEY;
+    const originalHome = process.env.UPDATEBAR_HOME;
+    process.env.OPENROUTER_API_KEY = 'sk-or-v1-secret-value';
+    process.env.UPDATEBAR_HOME = '/tmp/updatebar-tui-home';
+
+    try {
+      const result = await runner.run([
+        '-c',
+        'printf "secret=${OPENROUTER_API_KEY:-missing}\\nhome=${UPDATEBAR_HOME:-missing}\\n"'
+      ]);
+
+      expect(result.stdout).toContain('secret=missing');
+      expect(result.stdout).toContain('home=/tmp/updatebar-tui-home');
+      expect(result.stdout).not.toContain('sk-or-v1-secret-value');
+    } finally {
+      restoreEnv('OPENROUTER_API_KEY', originalSecret);
+      restoreEnv('UPDATEBAR_HOME', originalHome);
+    }
+  });
+
   it('cancels subprocesses with AbortSignal', async () => {
     const runner = new SubprocessRunner('/bin/sh');
     const controller = new AbortController();
@@ -476,4 +498,12 @@ function shellQuote(value: string) {
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function restoreEnv(key: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
 }
