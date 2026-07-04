@@ -1,7 +1,8 @@
 # UpdateBar — Next Plan After Local Menu Bar MVP
 
-Status as of 2026-07-01. Reviewed against commit `6b3bdcd` after the public
-v0.2.0 release, Homebrew formula/cask publishing, and scan/init UX hardening.
+Status as of 2026-07-03. Reviewed against commit `ef5e060` after the public
+v0.2.0 release, Homebrew formula/cask publishing, scan/init UX hardening,
+Ink TUI architecture work, and additional post-release CLI safety hardening.
 Roadmap is now focused on post-release polish and the signed-app decision.
 
 The current product stance:
@@ -15,8 +16,11 @@ External agents may author recipe JSON, but UpdateBar remains the validation, tr
 Current implemented base:
 
 - CLI and `UpdateBarCore`
+- Ink/React terminal TUI in `tui/`, consuming Swift CLI JSON/JSONL contracts
+  through subprocesses
 - optional local macOS menu bar wrapper: `updatebar-menubar`, `UpdateBarMenuBar`,
-  and `UpdateBarMenuBarApp`
+  and `UpdateBarMenuBarApp`, using direct `UpdateBarCore` by default with an
+  explicit CLI-subprocess fallback
 - manifest/state/config stores with `manifest.lock` / `state.lock`
 - manual add/import/export
 - `guide agent`, `guide recipe`, recipe/manifest templates, JSON schema output
@@ -27,6 +31,8 @@ Current implemented base:
 - JSON error envelope for parser/runtime failures when `--json` is present and
   no command payload has already been written
 - `check` / `status` / `update`, with `--exit-zero-on-outdated` on `check` and `status`
+- JSONL streaming contracts for `check --json-stream` and `update --json-stream`,
+  including item progress, final summaries, and cancellation events
 - distinct update exit code `3` for approval-blocked updates
 - env allowlist for recipe child processes (`PATH, HOME, LANG, LC_ALL, LC_CTYPE, TMPDIR, USER`)
 - recipe commands run via `/bin/sh -c`, no login shell, no shell startup files
@@ -37,6 +43,9 @@ Current implemented base:
 - Homebrew cask `sonim1/tap/updatebar-app` for the app only
 - CI, CLI release packaging, archive-install smoke, app packaging smoke, and
   E2E edge-case checks
+- Post-release safety hardening: invalid manifests are validated before lookup
+  side effects, `init` registration is atomic, JSON `add` never waits on TTY
+  input, and config parse errors now report the user-facing config key.
 
 Removed from product: built-in OpenRouter add, provider auth, provider config,
 plaintext secret fallback, credential stores.
@@ -335,7 +344,7 @@ MVP UI:
 - separate "needs approval" indicator for untrusted/unapproved items (never counted as updates)
 - list rows: name, current, latest, status
 - actions: Check now · Update selected · Update all approved outdated ·
-  Approve/revoke command fields · Reveal manifest · Preferences · Quit
+  Approve/revoke command fields · Open TUI · Open Config · View Logs · Quit
 
 UI decisions to settle inside this milestone (not standing open questions):
 
