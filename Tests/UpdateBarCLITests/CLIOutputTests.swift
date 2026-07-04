@@ -246,8 +246,13 @@ final class CLIOutputTests: XCTestCase {
         let unreleased = try changelogSection("Unreleased", in: changelog)
 
         XCTAssertTrue(unreleased.contains("release installer"))
+        XCTAssertTrue(unreleased.contains("release archive extraction"))
+        XCTAssertTrue(unreleased.contains("local installer"))
         XCTAssertTrue(unreleased.contains("app archive"))
         XCTAssertTrue(unreleased.contains("quality gate"))
+        XCTAssertTrue(unreleased.contains("TUI subprocess"))
+        XCTAssertTrue(unreleased.contains("abort listener"))
+        XCTAssertTrue(unreleased.contains("explicit-any"))
     }
 
     func testUnknownCommandWithJSONReturnsErrorEnvelope() throws {

@@ -4,12 +4,16 @@
 
 ### Fixed
 
-- Improved release installer errors for failed GitHub metadata, archive, and
-  checksum downloads.
+- Improved release installer errors for failed GitHub metadata, archive,
+  checksum downloads, and release archive extraction failures.
+- Improved local installer output with copyable PATH guidance.
 - Strengthened app archive smoke checks to verify the bundle remains a menu bar
   app.
 - Guarded release installer, menu bar launch, app archive, and quality gate
   checks against accidental removal from the local release gate.
+- Hardened TUI subprocess cancellation by refusing already-aborted launches and
+  cleaning abort listeners after command exit.
+- Enforced explicit-any linting in the TUI TypeScript source.
 
 ## 0.2.0 - 2026-07-01
 
