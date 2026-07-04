@@ -306,6 +306,25 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertFalse(payload.errors.contains(where: { $0.contains("Unknown option '--json-stream'") }))
     }
 
+    func testLeadingMachineOutputFlagsProducePlacementGuidance() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+        let cases = [
+            (["--json", "status"], "Run updatebar status --json"),
+            (["--json-stream", "check"], "Run updatebar check --json-stream")
+        ]
+
+        for (arguments, guidance) in cases {
+            let result = try CLIProcess.run(arguments, home: home)
+            let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+            XCTAssertEqual(result.exitCode, 1, arguments.joined(separator: " "))
+            XCTAssertEqual(payload.code, "usage_error", arguments.joined(separator: " "))
+            XCTAssertTrue(payload.errors.contains { $0.contains("machine output flags must follow a subcommand") })
+            XCTAssertTrue(payload.errors.contains { $0.contains(guidance) })
+            XCTAssertFalse(payload.errors.contains { $0.contains("Unknown option") })
+        }
+    }
+
     func testApproveJSONWithoutIDReportsMissingIDBeforeFieldHint() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 

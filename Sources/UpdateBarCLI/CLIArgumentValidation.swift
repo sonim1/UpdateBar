@@ -15,6 +15,7 @@ extension UpdateBar {
         try validateRemovedUpdateOptions(arguments)
         try validateRemovedScanOptions(arguments)
         try validateIntrinsicJSONFlags(arguments)
+        try validateLeadingMachineOutputFlag(arguments)
         try validateUnsupportedJSONStreamFlags(arguments)
         try validateHelpTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isInlineVersionFlag)
@@ -123,6 +124,38 @@ extension UpdateBar {
         return "template \(subcommand)"
     }
 
+    private static func validateLeadingMachineOutputFlag(_ arguments: [String]) throws {
+        guard let flag = arguments.first, isMachineOutputFlag(flag) else { return }
+        let usage = suggestedMachineOutputUsage(afterLeadingFlagIn: arguments, flag: flag)
+            ?? "updatebar <subcommand> \(flag)"
+
+        throw ValidationError("""
+        machine output flags must follow a subcommand.
+        Run \(usage).
+        """)
+    }
+
+    private static func suggestedMachineOutputUsage(afterLeadingFlagIn arguments: [String], flag: String) -> String? {
+        let commandPath = arguments.dropFirst().prefix(while: { !$0.hasPrefix("-") })
+        guard let first = commandPath.first else { return nil }
+
+        let command: String
+        if commandPath.count >= 2 {
+            let nested = commandPath.prefix(2).joined(separator: " ")
+            command = jsonOutputUsage[nested] == nil ? first : nested
+        } else {
+            command = first
+        }
+
+        if flag == "--json-stream" {
+            if jsonStreamCommands.contains(command) {
+                return "updatebar \(command) --json-stream"
+            }
+            return jsonOutputUsage[command]
+        }
+        return jsonOutputUsage[command] ?? "updatebar \(command) --json"
+    }
+
     private static func validateUnsupportedJSONStreamFlags(_ arguments: [String]) throws {
         guard hasOption("--json-stream", in: arguments),
               let command = unsupportedJSONStreamCommand(in: arguments)
@@ -186,6 +219,8 @@ extension UpdateBar {
         "unpin": "updatebar unpin <id> --json",
         "validate": "updatebar validate <file> --json"
     ]
+
+    private static let jsonStreamCommands: Set<String> = ["check", "update"]
 
     private static func validateTopLevelTarget(
         _ arguments: [String],
