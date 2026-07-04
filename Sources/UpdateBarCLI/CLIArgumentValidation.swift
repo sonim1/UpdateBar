@@ -83,8 +83,15 @@ extension UpdateBar {
     }
 
     private static func validateIntrinsicJSONFlags(_ arguments: [String]) throws {
-        guard hasOption("--json", in: arguments) else { return }
+        guard hasOption("--json", in: arguments) || hasOption("--json-stream", in: arguments) else { return }
         if arguments.first == "schema" {
+            if hasOption("--json-stream", in: arguments) {
+                throw ValidationError("""
+                schema does not support JSONL streaming.
+                Run updatebar schema without --json-stream.
+                Usage: updatebar schema
+                """)
+            }
             throw ValidationError("""
             schema already prints JSON.
             Run updatebar schema without --json.
@@ -95,6 +102,13 @@ extension UpdateBar {
            let subcommand = arguments.dropFirst().first(where: { !$0.hasPrefix("-") }),
            subcommand == "recipe" || subcommand == "manifest"
         {
+            if hasOption("--json-stream", in: arguments) {
+                throw ValidationError("""
+                template \(subcommand) does not support JSONL streaming.
+                Run updatebar template \(subcommand) without --json-stream.
+                Usage: updatebar template \(subcommand)
+                """)
+            }
             throw ValidationError("""
             template \(subcommand) already prints JSON.
             Run updatebar template \(subcommand) without --json.

@@ -55,6 +55,16 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertTrue((result.stdout + result.stderr).contains("Run updatebar template recipe without --json"))
     }
 
+    func testTemplateRecipeRejectsJSONStreamFlagWithActionableGuidance() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-template-tests")
+
+        let result = try CLIProcess.run(["template", "recipe", "--kind", "npm", "--json-stream"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue((result.stdout + result.stderr).contains("template recipe does not support JSONL streaming"))
+        XCTAssertTrue((result.stdout + result.stderr).contains("Run updatebar template recipe without --json-stream"))
+    }
+
     func testTemplateManifestRejectsJSONFlagWithActionableGuidance() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-template-tests")
 
@@ -129,6 +139,17 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue((result.stdout + result.stderr).contains("schema already prints JSON"))
         XCTAssertTrue((result.stdout + result.stderr).contains("Run updatebar schema without --json"))
+        XCTAssertTrue((result.stdout + result.stderr).contains("Usage: updatebar schema"))
+    }
+
+    func testSchemaCommandRejectsJSONStreamFlagWithActionableGuidance() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-schema-json-tests")
+
+        let result = try CLIProcess.run(["schema", "--json-stream"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue((result.stdout + result.stderr).contains("schema does not support JSONL streaming"))
+        XCTAssertTrue((result.stdout + result.stderr).contains("Run updatebar schema without --json-stream"))
         XCTAssertTrue((result.stdout + result.stderr).contains("Usage: updatebar schema"))
     }
 
