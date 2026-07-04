@@ -360,7 +360,7 @@ run_missing_checksum_tool_fails_clearly() {
   local limited_bin="$TMP_DIR/no-checksum-bin"
   local output="$TMP_DIR/install-no-checksum.out"
   mkdir -p "$limited_bin"
-  for tool in awk bash cat cp mktemp rm uname; do
+  for tool in awk bash cat cp grep install mkdir mktemp rm tar uname; do
     ln -sf "$(command -v "$tool")" "$limited_bin/$tool"
   done
   cp "$FAKE_BIN/curl" "$limited_bin/curl"
@@ -383,6 +383,43 @@ run_missing_checksum_tool_fails_clearly() {
   fi
   if ! grep -Fq "shasum or sha256sum is required" "$output"; then
     echo "install-release missing checksum-tool error was not clear" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
+run_missing_required_tool_fails_clearly() {
+  local limited_bin="$TMP_DIR/no-awk-bin"
+  local output="$TMP_DIR/install-no-awk.out"
+  mkdir -p "$limited_bin"
+  for tool in bash cat cp install mktemp rm tar uname; do
+    ln -sf "$(command -v "$tool")" "$limited_bin/$tool"
+  done
+  cp "$FAKE_BIN/curl" "$limited_bin/curl"
+  chmod 755 "$limited_bin/curl"
+
+  set +e
+  env \
+    PATH="$limited_bin" \
+    UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+    UPDATEBAR_INSTALL_PREFIX="$TMP_DIR/install-no-awk" \
+    UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+    /bin/bash Scripts/install-release.sh > "$output" 2>&1
+  local rc=$?
+  set -e
+
+  if [[ "$rc" -eq 0 ]]; then
+    echo "install-release succeeded without awk" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "awk is required to install release assets" "$output"; then
+    echo "install-release missing required-tool error was not clear" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if grep -Fq "command not found" "$output"; then
+    echo "install-release leaked a shell command-not-found error" >&2
     cat "$output" >&2
     exit 1
   fi
@@ -501,6 +538,7 @@ run_missing_prebuilt_asset_fails_with_source_hint
 run_archive_download_failure_fails_clearly
 run_checksum_download_failure_fails_clearly
 run_missing_checksum_tool_fails_clearly
+run_missing_required_tool_fails_clearly
 run_invalid_checksum_file_fails_clearly
 run_corrupt_archive_fails_clearly
 run_missing_archive_binary_fails_clearly

@@ -19,10 +19,12 @@ EOF
   exit 0
 fi
 
-if ! command -v curl >/dev/null 2>&1; then
-  echo "curl is required to download release assets" >&2
-  exit 1
-fi
+for tool in awk curl grep install mkdir mktemp rm tar uname; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "$tool is required to install release assets" >&2
+    exit 1
+  fi
+done
 
 REPO="${UPDATEBAR_GITHUB_REPO:-sonim1/UpdateBar}"
 PLATFORM=""
