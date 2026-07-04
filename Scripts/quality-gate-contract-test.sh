@@ -15,6 +15,11 @@ if ! grep -Fq 'bash Scripts/quality-gate.sh' "$CI_WORKFLOW"; then
   exit 1
 fi
 
+if ! grep -Fq 'actions/setup-node' "$CI_WORKFLOW" || ! grep -Fq 'node-version: 20' "$CI_WORKFLOW"; then
+  echo "ci.yml must install the TUI Node 20 toolchain before quality-gate.sh" >&2
+  exit 1
+fi
+
 if ! grep -Fq 'permissions:' "$CI_WORKFLOW" || ! grep -Fq 'contents: read' "$CI_WORKFLOW"; then
   echo "ci.yml must use least-privilege read-only contents permissions" >&2
   exit 1
