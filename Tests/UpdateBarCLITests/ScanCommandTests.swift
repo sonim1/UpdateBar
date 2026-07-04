@@ -400,9 +400,9 @@ final class ScanCommandTests: XCTestCase {
             """
             #!/bin/sh
             if [ "$1" = "leaves" ]; then
-              printf 'gh\\n'
+              printf 'jq\\ngh\\n'
             elif [ "$1" = "list" ]; then
-              printf 'gh 2.74.0\\n'
+              printf 'jq 1.7.1\\ngh 2.74.0\\n'
             fi
             """
         )
@@ -416,9 +416,11 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stdout.contains("ITEM\tID\tCATEGORY\tSOURCE\tCAPABILITY"))
         XCTAssertTrue(result.stdout.contains("brew.gh"))
+        XCTAssertTrue(result.stdout.contains("brew.jq"))
         XCTAssertTrue(result.stdout.contains("[1] gh 2.74.0\tbrew.gh\tcloud-devops\tbrew\tfull"))
         XCTAssertTrue(result.stdout.contains("Scan is read-only. Use init to choose and register items."))
         XCTAssertTrue(result.stdout.contains("updatebar init\n"))
+        XCTAssertTrue(result.stdout.contains("updatebar init --select 1,2"))
         XCTAssertTrue(result.stdout.contains("updatebar init --select all"))
         XCTAssertFalse(result.stdout.contains("updatebar init --select brew.gh"))
         XCTAssertTrue(result.stdout.contains("updatebar init --select all\n\nNeeds Review"))
