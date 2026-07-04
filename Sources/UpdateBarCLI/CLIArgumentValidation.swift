@@ -9,6 +9,7 @@ extension UpdateBar {
     }
 
     static func validatePreflightArguments(_ arguments: [String]) throws {
+        try validateRemovedListCommand(arguments)
         try validateHelpTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isInlineVersionFlag)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isMachineOutputFlag)
@@ -16,6 +17,14 @@ extension UpdateBar {
         try validateTrailingInlineHelpArguments(arguments)
         try validateTrailingInlineVersionArguments(arguments)
         try validateApproveRequiresField(arguments)
+    }
+
+    private static func validateRemovedListCommand(_ arguments: [String]) throws {
+        guard arguments.first == "list" else { return }
+        throw ValidationError("""
+        updatebar list was removed.
+        Run updatebar status to list registered item ids.
+        """)
     }
 
     private static func validateTopLevelTarget(
