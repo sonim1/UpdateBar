@@ -355,6 +355,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("all"))
         XCTAssertTrue(result.stdout.contains("Without --select"))
         XCTAssertTrue(result.stdout.contains("Use ids copied from `updatebar scan`"))
+        XCTAssertTrue(result.stdout.contains("requires --select"))
     }
 
     func testInitHelpUsesSelectionValueNameForSelectOption() throws {

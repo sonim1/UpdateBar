@@ -12,7 +12,7 @@ struct InitCommand: ParsableCommand {
             """
     )
 
-    @Flag(name: .long, help: "Print machine-readable JSON.")
+    @Flag(name: .long, help: "Print machine-readable JSON; requires --select.")
     var json = false
 
     @Flag(name: .long, help: "Overwrite existing items with matching ids.")
