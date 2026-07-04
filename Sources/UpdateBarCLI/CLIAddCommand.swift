@@ -178,6 +178,9 @@ struct AddCommand: ParsableCommand {
     }
 
     private func readManualLine(_ label: String) -> String? {
+        if json && standardInputIsTTY() {
+            return nil
+        }
         guard standardInputIsTTY() && !json else {
             return readLine()
         }

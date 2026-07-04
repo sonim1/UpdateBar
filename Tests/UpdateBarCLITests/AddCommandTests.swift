@@ -93,6 +93,23 @@ final class AddCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains("add requires recipe input; pass --from <file> or pipe wizard answers on stdin"))
     }
 
+#if os(macOS)
+    func testAddJSONWithTTYDoesNotWaitForWizardInput() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+
+        let result = try CLIProcess.runWithOpenTTYUntilExit(
+            ["add", "--json"],
+            home: home,
+            timeout: 0.5
+        )
+
+        let finished = try XCTUnwrap(result, "add --json should not wait for TTY wizard input")
+        XCTAssertEqual(finished.exitCode, 1)
+        XCTAssertTrue(finished.stdout.contains("usage_error"))
+        XCTAssertFalse(finished.stderr.contains("id"))
+    }
+#endif
+
     func testManualAddRejectsMalformedManifestWithValidationErrors() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let file = home.appendingPathComponent("broken-manifest.json")
