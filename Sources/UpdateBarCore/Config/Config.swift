@@ -4,6 +4,11 @@ public struct Config: Equatable, Sendable {
     public var refresh: RefreshConfig
     public var security: SecurityConfig
 
+    public static let knownKeys = [
+        "refresh.interval",
+        "security.require_https_source",
+    ]
+
     public static let `default` = Config(
         refresh: RefreshConfig(interval: Duration(hours: 6)),
         security: SecurityConfig(requireHTTPSSource: true)

@@ -1153,6 +1153,25 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
+    func testCliDocsListKnownConfigKeys() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let configGetSection = try readmeSection(
+            "### `updatebar config get",
+            before: "### `updatebar config set",
+            in: docs
+        )
+        let configSetSection = try readmeSection(
+            "### `updatebar config set",
+            before: "### `updatebar add",
+            in: docs
+        )
+
+        for section in [configGetSection, configSetSection] {
+            XCTAssertTrue(section.contains("`refresh.interval`"))
+            XCTAssertTrue(section.contains("`security.require_https_source`"))
+        }
+    }
+
     func testCliDocsHideDefaultedAllFlagFromUpdateSignature() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
         let checkSection = try readmeSection(

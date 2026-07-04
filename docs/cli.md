@@ -129,10 +129,12 @@ When a plist is removed, human output also prints the manual unload command:
 ### `updatebar config get [key] [--json]`
 
 Reads config. Without `key`, prints the full config.
+Known keys: `refresh.interval`, `security.require_https_source`.
 
 ### `updatebar config set <key> <value> [--json]`
 
 Sets a known config key.
+Known keys: `refresh.interval`, `security.require_https_source`.
 
 ### `updatebar add --from <file|-> [--dry-run] [--json] [--replace]`
 

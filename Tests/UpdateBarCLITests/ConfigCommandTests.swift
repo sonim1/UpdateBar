@@ -38,10 +38,17 @@ final class ConfigCommandTests: XCTestCase {
         XCTAssertEqual(result.stderr, "")
         XCTAssertEqual(payload.code, "config_error")
         XCTAssertTrue(payload.errors.contains("missing.key: unknown config key"))
+        XCTAssertTrue(
+            payload.errors.contains {
+                $0.contains("Known config keys: refresh.interval, security.require_https_source")
+            })
     }
 
     func testConfigSetRejectsRemovedNotifyKey() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
+        let knownKeys =
+            "Known config keys: refresh.interval, "
+            + "security.require_https_source"
 
         let result = try CLIProcess.run(
             ["config", "set", "notify.enabled", "false", "--json"], home: home)
@@ -49,6 +56,21 @@ final class ConfigCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stdout.contains(#""ok":false"#))
         XCTAssertTrue(result.stdout.contains("unknown config key"))
+        XCTAssertTrue(result.stdout.contains(knownKeys))
+    }
+
+    func testConfigGetUnknownKeyHumanListsKnownKeys() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
+        let knownKeys =
+            "Known config keys: refresh.interval, "
+            + "security.require_https_source"
+
+        let result = try CLIProcess.run(["config", "get", "missing.key"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("missing.key: unknown config key"))
+        XCTAssertTrue(result.stderr.contains(knownKeys))
     }
 
     func testConfigSetInvalidIntervalJSONReportsConfigKey() throws {

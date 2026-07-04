@@ -95,6 +95,8 @@ private func recoveryHint(for error: Error, arguments: [String]) -> String? {
             return nil
         }
         return "Run updatebar approvals \(id) to review command fields."
+    case ConfigError.unknownKey:
+        return "Known config keys: \(Config.knownKeys.joined(separator: ", "))."
     default:
         return nil
     }
