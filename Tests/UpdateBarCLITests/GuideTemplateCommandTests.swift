@@ -45,6 +45,26 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertTrue(validation.stdout.contains(#""valid":true"#))
     }
 
+    func testTemplateRecipeRejectsJSONFlagWithActionableGuidance() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-template-tests")
+
+        let result = try CLIProcess.run(["template", "recipe", "--kind", "npm", "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue((result.stdout + result.stderr).contains("template recipe already prints JSON"))
+        XCTAssertTrue((result.stdout + result.stderr).contains("Run updatebar template recipe without --json"))
+    }
+
+    func testTemplateManifestRejectsJSONFlagWithActionableGuidance() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-template-tests")
+
+        let result = try CLIProcess.run(["template", "manifest", "--kind", "npm", "--json"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue((result.stdout + result.stderr).contains("template manifest already prints JSON"))
+        XCTAssertTrue((result.stdout + result.stderr).contains("Run updatebar template manifest without --json"))
+    }
+
     func testSchemaCommandPrintsRecipeJSONSchema() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-schema-tests")
 

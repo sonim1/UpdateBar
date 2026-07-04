@@ -13,7 +13,7 @@ extension UpdateBar {
         try validateRemovedAddOptions(arguments)
         try validateRemovedUpdateOptions(arguments)
         try validateRemovedScanOptions(arguments)
-        try validateSchemaJSONFlag(arguments)
+        try validateIntrinsicJSONFlags(arguments)
         try validateHelpTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isInlineVersionFlag)
         try validateTopLevelTarget(arguments, knownTopLevelTargets: topLevelHelpTargets, when: isMachineOutputFlag)
@@ -82,17 +82,25 @@ extension UpdateBar {
         """)
     }
 
-    private static func validateSchemaJSONFlag(_ arguments: [String]) throws {
-        guard arguments.first == "schema",
-              hasOption("--json", in: arguments)
-        else {
-            return
+    private static func validateIntrinsicJSONFlags(_ arguments: [String]) throws {
+        guard hasOption("--json", in: arguments) else { return }
+        if arguments.first == "schema" {
+            throw ValidationError("""
+            schema already prints JSON.
+            Run updatebar schema without --json.
+            Usage: updatebar schema
+            """)
         }
-        throw ValidationError("""
-        schema already prints JSON.
-        Run updatebar schema without --json.
-        Usage: updatebar schema
-        """)
+        if arguments.first == "template",
+           let subcommand = arguments.dropFirst().first(where: { !$0.hasPrefix("-") }),
+           subcommand == "recipe" || subcommand == "manifest"
+        {
+            throw ValidationError("""
+            template \(subcommand) already prints JSON.
+            Run updatebar template \(subcommand) without --json.
+            Usage: updatebar template \(subcommand)
+            """)
+        }
     }
 
     private static func validateTopLevelTarget(
