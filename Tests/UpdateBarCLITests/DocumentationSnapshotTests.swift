@@ -687,6 +687,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertEqual(result.stderr, "")
         XCTAssertTrue(output.contains("--yes"))
         XCTAssertTrue(output.contains("--json"))
+        XCTAssertTrue(output.contains("required with"))
+        XCTAssertTrue(output.contains("--json/--json-stream"))
     }
 
     func testCompletionScriptWritesToStdoutOnly() throws {

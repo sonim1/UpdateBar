@@ -11,7 +11,11 @@ struct UpdateCommand: ParsableCommand {
     @Argument(help: "Item ids to update. Updates every outdated item when omitted.")
     var ids: [String] = []
 
-    @Flag(name: .long, help: "Run without an interactive confirmation prompt.")
+    @Flag(
+        name: .long,
+        help:
+            "Run without an interactive prompt; required with --json/--json-stream to execute updates."
+    )
     var yes = false
 
     @Flag(name: .long, help: "Print machine-readable JSON.")
