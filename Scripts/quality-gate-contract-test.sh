@@ -5,6 +5,26 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 QUALITY_GATE="$ROOT/Scripts/quality-gate.sh"
 CI_WORKFLOW="$ROOT/.github/workflows/ci.yml"
 
+if [[ ! -f "$CI_WORKFLOW" ]]; then
+  echo "ci.yml must exist and run quality-gate.sh" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'bash Scripts/quality-gate.sh' "$CI_WORKFLOW"; then
+  echo "ci.yml must run quality-gate.sh" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'permissions:' "$CI_WORKFLOW" || ! grep -Fq 'contents: read' "$CI_WORKFLOW"; then
+  echo "ci.yml must use least-privilege read-only contents permissions" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'concurrency:' "$CI_WORKFLOW" || ! grep -Fq 'cancel-in-progress: true' "$CI_WORKFLOW"; then
+  echo "ci.yml must cancel superseded runs" >&2
+  exit 1
+fi
+
 if ! grep -Fq 'bash Scripts/tui-smoke-test.sh' "$QUALITY_GATE"; then
   echo "quality-gate.sh must run the TUI smoke/package checks" >&2
   exit 1
