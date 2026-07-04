@@ -9,7 +9,7 @@ The macOS Menu Bar app SHALL provide a native status item and lightweight dashbo
 
 #### Scenario: User opens menu
 - **WHEN** the user opens the Menu Bar menu
-- **THEN** it SHALL show actions for Check Now, Run Updates, Open TUI, Open Config, View Logs, and Quit when those actions are available
+- **THEN** it SHALL show actions for Check Now, Refresh Status, Run Updates, Open TUI, Open Config, View Logs, and Quit when those actions are available
 
 ### Requirement: Menu Bar uses shared business logic
 The macOS Menu Bar SHALL use `UpdateBarCore` directly for business behavior when practical and SHALL use the Swift CLI machine interface only as an MVP fallback.
