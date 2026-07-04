@@ -14,6 +14,7 @@ extension UpdateBar {
         try validateRemovedAddOptions(arguments)
         try validateRemovedUpdateOptions(arguments)
         try validateRemovedScanOptions(arguments)
+        try validateMachineOutputBooleanAssignments(arguments)
         try validateIntrinsicJSONFlags(arguments)
         try validateLeadingMachineOutputFlag(arguments)
         try validateUnsupportedJSONStreamFlags(arguments)
@@ -122,6 +123,32 @@ extension UpdateBar {
             return nil
         }
         return "template \(subcommand)"
+    }
+
+    private static func validateMachineOutputBooleanAssignments(_ arguments: [String]) throws {
+        for argument in arguments {
+            guard let assignment = machineOutputAssignment(argument) else { continue }
+            throw ValidationError("""
+            invalid boolean value for \(assignment.flag): \(assignment.value).
+            Use \(assignment.flag), \(assignment.flag)=true, or \(assignment.flag)=false.
+            """)
+        }
+    }
+
+    private static func machineOutputAssignment(_ argument: String) -> (flag: String, value: String)? {
+        if let value = assignmentValue(in: argument, for: "--json") {
+            return ("--json", value)
+        }
+        if let value = assignmentValue(in: argument, for: "--json-stream") {
+            return ("--json-stream", value)
+        }
+        return nil
+    }
+
+    private static func assignmentValue(in argument: String, for flag: String) -> String? {
+        let prefix = "\(flag)="
+        guard argument.hasPrefix(prefix) else { return nil }
+        return String(argument.dropFirst(prefix.count))
     }
 
     private static func validateLeadingMachineOutputFlag(_ arguments: [String]) throws {

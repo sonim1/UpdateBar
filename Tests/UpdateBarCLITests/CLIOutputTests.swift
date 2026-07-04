@@ -313,9 +313,7 @@ final class CLIOutputTests: XCTestCase {
             (["--json-stream", "check"], "Run updatebar check --json-stream"),
             (["--json-stream", "update", "tool", "--yes"], "Run updatebar update tool --yes --json-stream"),
             (["--json-stream", "validate", "document.json"], "Run updatebar validate document.json --json"),
-            (["--json-stream", "add", "--from", "recipe.json"], "Run updatebar add --from recipe.json --json"),
-            (["--json=maybe", "status"], "Run updatebar status --json"),
-            (["--json-stream=maybe", "check"], "Run updatebar check --json-stream")
+            (["--json-stream", "add", "--from", "recipe.json"], "Run updatebar add --from recipe.json --json")
         ]
 
         for (arguments, guidance) in cases {
@@ -326,6 +324,27 @@ final class CLIOutputTests: XCTestCase {
             XCTAssertEqual(payload.code, "usage_error", arguments.joined(separator: " "))
             XCTAssertTrue(payload.errors.contains { $0.contains("machine output flags must follow a subcommand") })
             XCTAssertTrue(payload.errors.contains { $0.contains(guidance) })
+            XCTAssertFalse(payload.errors.contains { $0.contains("Unknown option") })
+        }
+    }
+
+    func testInvalidMachineOutputAssignmentValuesProduceGuidance() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+        let cases = [
+            (["status", "--json=maybe"], "--json", "maybe"),
+            (["check", "--json-stream=maybe"], "--json-stream", "maybe"),
+            (["--json=maybe", "status"], "--json", "maybe")
+        ]
+
+        for (arguments, flag, value) in cases {
+            let result = try CLIProcess.run(arguments, home: home)
+            let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+            XCTAssertEqual(result.exitCode, 1, arguments.joined(separator: " "))
+            XCTAssertEqual(payload.code, "usage_error", arguments.joined(separator: " "))
+            XCTAssertTrue(payload.errors.contains { $0.contains("invalid boolean value for \(flag): \(value)") })
+            XCTAssertTrue(payload.errors.contains { $0.contains("Use \(flag), \(flag)=true, or \(flag)=false") })
+            XCTAssertFalse(payload.errors.contains { $0.contains("does not take any value") })
             XCTAssertFalse(payload.errors.contains { $0.contains("Unknown option") })
         }
     }
