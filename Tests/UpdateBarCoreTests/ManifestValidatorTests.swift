@@ -505,6 +505,25 @@ final class ManifestValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains("items[0].update.cwd: must be a string or null when provided"))
     }
 
+    func testRejectsInvalidRequiredStringFieldTypesWithActionableMessages() throws {
+        let result = try validateFirstRawItem {
+            $0["id"] = 42
+            var source = try XCTUnwrap($0["source"] as? [String: Any])
+            source["kind"] = false
+            $0["source"] = source
+            var update = try XCTUnwrap($0["update"] as? [String: Any])
+            update["cmd"] = ["bad"]
+            $0["update"] = update
+        }
+
+        XCTAssertTrue(result.errors.contains("items[0].id: must be a string"))
+        XCTAssertTrue(result.errors.contains("items[0].source.kind: must be a string"))
+        XCTAssertTrue(result.errors.contains("items[0].update.cmd: must be a string"))
+        XCTAssertFalse(result.errors.contains("items[0].id: required"))
+        XCTAssertFalse(result.errors.contains("items[0].source.kind: required"))
+        XCTAssertFalse(result.errors.contains("items[0].update.cmd: required"))
+    }
+
     func testRejectsNonStringApprovedCommandFingerprints() throws {
         let result = try validateFirstRawItem {
             var trust = try XCTUnwrap($0["trust"] as? [String: Any])

@@ -281,7 +281,16 @@ public enum RecipeValidator {
     }
 
     private static func requireString(_ object: [String: Any], _ key: String, path: String) -> [String] {
-        nonEmptyString(object[key]) ? [] : ["\(path).\(key): required"]
+        guard object.keys.contains(key) else {
+            return ["\(path).\(key): required"]
+        }
+        guard !(object[key] is NSNull) else {
+            return ["\(path).\(key): required"]
+        }
+        guard let value = object[key] as? String else {
+            return ["\(path).\(key): must be a string"]
+        }
+        return nonEmptyString(value) ? [] : ["\(path).\(key): required"]
     }
 
     private static func requireBooleanIfPresent(_ object: [String: Any], _ key: String, path: String) -> [String] {
