@@ -28,7 +28,7 @@ struct InitCommand: ParsableCommand {
     @Option(
         name: .long,
         help: ArgumentHelp("Filter by category: \(scanCategoryDescription())."),
-        completion: .list(scanCategoryCompletionValues)
+        completion: .list(ScanCategory.completionValues)
     )
     var category: String?
 

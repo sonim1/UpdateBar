@@ -91,31 +91,11 @@ private func displayID(_ id: String) -> String {
 }
 
 func normalizedCategory(for value: String) throws -> String {
-    let normalized = value
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-        .lowercased()
-        .replacingOccurrences(of: "_", with: "-")
-        .replacingOccurrences(of: "/", with: "-")
-        .replacingOccurrences(of: " ", with: "-")
-        .split(separator: "-")
-        .filter { !$0.isEmpty }
-        .joined(separator: "-")
-    guard !normalized.isEmpty else {
+    let category = ScanCategory.normalizedValue(for: value)
+    guard !category.isEmpty else {
         throw ValidationError("category must not be empty")
     }
-
-    let aliases: [String: String] = [
-        "ai": "ai-agent",
-        "aiagent": "ai-agent",
-        "mcp": "mcp-server",
-        "packagemanager": "package-manager",
-        "runtimesdk": "runtime-sdk",
-        "shellutility": "shell-utility",
-        "clouddevops": "cloud-devops",
-        "mcpserver": "mcp-server",
-        "codexskill": "codex-skill",
-    ]
-    return aliases[normalized] ?? normalized
+    return category
 }
 
 func parseCategoryFilter(_ value: String?) throws -> String? {
@@ -123,26 +103,13 @@ func parseCategoryFilter(_ value: String?) throws -> String? {
         return nil
     }
     let category = try normalizedCategory(for: value)
-    guard supportedScanCategories.contains(category) else {
+    guard ScanCategory.supportedValues.contains(category) else {
         throw ValidationError(
             "\(category): unknown category; expected \(scanCategoryDescription())")
     }
     return category
 }
 
-let supportedScanCategories = [
-    "ai-agent",
-    "package-manager",
-    "runtime-sdk",
-    "shell-utility",
-    "cloud-devops",
-    "library",
-    "codex-skill",
-    "mcp-server",
-]
-
-let scanCategoryCompletionValues = supportedScanCategories + ["ai", "mcp"]
-
 func scanCategoryDescription() -> String {
-    "\(supportedScanCategories.joined(separator: ", ")); aliases: ai, mcp"
+    ScanCategory.description
 }

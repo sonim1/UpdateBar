@@ -184,6 +184,15 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
+    func testCLIScanCategoryMetadataComesFromCore() throws {
+        let file = URL(fileURLWithPath: "Sources/UpdateBarCLI/CLIWorkflowSupport.swift")
+        let contents = try String(contentsOf: file, encoding: .utf8)
+
+        XCTAssertFalse(contents.contains("let supportedScanCategories"))
+        XCTAssertFalse(contents.contains("let scanCategoryCompletionValues"))
+        XCTAssertTrue(contents.contains("ScanCategory."))
+    }
+
     func testTemplateKindHelpUsesEnumCases() throws {
         let file = URL(fileURLWithPath: "Sources/UpdateBarCLI/CLIDocumentCommands.swift")
         let contents = try String(contentsOf: file, encoding: .utf8)
