@@ -39,6 +39,17 @@ final class VersionFlagTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("Run updatebar --version") })
     }
 
+    func testHelpVersionCommandPointsToVersionFlag() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-version-tests")
+
+        let result = try CLIProcess.run(["help", "version"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("updatebar version was removed"))
+        XCTAssertTrue(result.stderr.contains("Run updatebar --version"))
+    }
+
     private struct ErrorEnvelope: Decodable {
         var code: String
         var errors: [String]

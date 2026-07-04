@@ -30,6 +30,17 @@ final class ListCommandTests: XCTestCase {
             })
     }
 
+    func testHelpListCommandPointsToStatusRecovery() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-list-tests")
+
+        let result = try CLIProcess.run(["help", "list"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("updatebar list was removed"))
+        XCTAssertTrue(result.stderr.contains("Run updatebar status to list registered item ids."))
+    }
+
     private struct ErrorEnvelope: Decodable {
         var code: String
         var errors: [String]

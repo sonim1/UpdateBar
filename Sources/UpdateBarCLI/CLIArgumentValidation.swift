@@ -34,7 +34,7 @@ extension UpdateBar {
     }
 
     private static func validateRemovedListCommand(_ arguments: [String]) throws {
-        guard arguments.first == "list" else { return }
+        guard isRemovedCommand("list", in: arguments) else { return }
         throw ValidationError(
             """
             updatebar list was removed.
@@ -43,12 +43,17 @@ extension UpdateBar {
     }
 
     private static func validateRemovedVersionCommand(_ arguments: [String]) throws {
-        guard arguments.first == "version" else { return }
+        guard isRemovedCommand("version", in: arguments) else { return }
         throw ValidationError(
             """
             updatebar version was removed.
             Run updatebar --version.
             """)
+    }
+
+    private static func isRemovedCommand(_ command: String, in arguments: [String]) -> Bool {
+        arguments.first == command
+            || (arguments.first == "help" && arguments.dropFirst().first == command)
     }
 
     private static func validateRemovedAddOptions(_ arguments: [String]) throws {
