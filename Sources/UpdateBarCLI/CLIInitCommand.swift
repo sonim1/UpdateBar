@@ -202,7 +202,9 @@ struct InitCommand: ParsableCommand {
         return try unique(values).map { value in
             if let index = Int(value) {
                 guard index >= 1, index <= candidates.count else {
-                    throw ValidationError("\(value): selection out of range")
+                    throw ValidationError(
+                        "\(value): selection out of range; use a number from the current init list or a candidate id from updatebar scan"
+                    )
                 }
                 return candidates[index - 1].id
             }

@@ -875,6 +875,10 @@ final class DocumentationSnapshotTests: XCTestCase {
             "init docs should explain invalid selected id recovery"
         )
         XCTAssertTrue(
+            initSection.contains("If a selected number is out of range"),
+            "init docs should explain invalid selected number recovery"
+        )
+        XCTAssertTrue(
             initSection.contains("rerun `updatebar scan"),
             "init docs should point invalid selected ids back to scan"
         )

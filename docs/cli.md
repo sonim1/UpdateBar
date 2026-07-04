@@ -195,6 +195,8 @@ combined with explicit ids or numbers.
 Numbers refer to the current `updatebar init` candidate list. The scan's
 printed Next commands use stable candidate ids so they can be copied directly
 from recent or older scan output.
+If a selected number is out of range, rerun `updatebar init` to view the current
+candidate list or copy a stable candidate id from `updatebar scan`.
 If a selected id is not found, rerun `updatebar scan` or
 `updatebar scan --category <category>` and copy the candidate id again.
 
