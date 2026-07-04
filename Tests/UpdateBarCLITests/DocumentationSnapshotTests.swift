@@ -974,6 +974,7 @@ final class DocumentationSnapshotTests: XCTestCase {
     func testMenuBarDocsMatchDataDirectoryPrecedence() throws {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let docs = try String(contentsOfFile: "docs/menu-bar.md", encoding: .utf8)
+        let releaseDocs = try String(contentsOfFile: "docs/release.md", encoding: .utf8)
         let nextPlan = try String(contentsOfFile: "next-plan.md", encoding: .utf8)
         let menuBarSpec = try String(
             contentsOfFile: "openspec/changes/add-ink-tui-menubar-architecture/specs/macos-menubar/spec.md",
@@ -990,6 +991,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("Open Config"))
         XCTAssertTrue(readmeMenuBarSection.contains("refresh status"))
         XCTAssertTrue(docs.contains("Refresh Status"))
+        XCTAssertTrue(releaseDocs.contains("UPDATEBAR_TUI"))
         XCTAssertTrue(nextPlan.contains("Refresh Status"))
         XCTAssertTrue(menuBarSpec.contains("Refresh Status"))
     }

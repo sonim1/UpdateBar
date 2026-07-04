@@ -99,8 +99,9 @@ executable second, app bundle last. It intentionally does not use
 `codesign --deep`.
 
 The app bundle does not currently include the Ink TUI. The `Open TUI` menu item
-prefers launching `UPDATEBAR_BIN tui` when the bundled CLI is available, and
-falls back to `updatebar-tui` from the user's `PATH`.
+first honors an executable `UPDATEBAR_TUI` override, then prefers launching
+`UPDATEBAR_BIN tui` when the bundled CLI is available, and finally falls back to
+`updatebar-tui` from the user's `PATH`.
 
 Ink TUI packaging:
 
