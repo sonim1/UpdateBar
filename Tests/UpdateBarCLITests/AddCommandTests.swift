@@ -257,7 +257,7 @@ final class AddCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let paths = AppPaths(homeDirectory: home)
         try ManifestStore(paths: paths).save(manifest(items: []))
-        let input = wizardInput()
+        let input = legacyWizardInput()
 
         let result = try CLIProcess.run(["add", "--json"], home: home, stdin: input)
         let stored = try ManifestStore(paths: paths).load()
@@ -285,7 +285,7 @@ final class AddCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains { $0.contains("updatebar add --from -") })
     }
 
-    private func wizardInput() -> String {
+    private func legacyWizardInput() -> String {
         """
         wizard
         Wizard Tool
