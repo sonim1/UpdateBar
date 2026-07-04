@@ -128,8 +128,10 @@ Human `scan` output is tab-separated with `ITEM`, `ID`, `CATEGORY`, `SOURCE`,
 and `CAPABILITY` columns. Review-only rows append `REF` when a source reference
 is available. The output is read-only; use `init` to choose and register items.
 It includes importable candidate ids, the interactive `updatebar init` command,
-and a ready-to-run `updatebar init --select all` command. `init --select`
-accepts those ids exactly.
+a numbered subset example such as `updatebar init --select 1,2` when multiple
+importable candidates are present, and a ready-to-run
+`updatebar init --select all` command. `init --select` accepts candidate ids
+exactly.
 When human `scan` output has no rows, it prints `No candidates found`. If the
 empty result came from a category filter, it suggests retrying `updatebar scan`
 without `--category`.
