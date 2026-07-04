@@ -42,6 +42,12 @@ extension UpdateBar {
             Recipe authoring belongs to external agents. Save generated recipe JSON, then run updatebar add --from <file>.
             """)
         }
+        if arguments.contains(where: { $0 == "--manual" || $0.hasPrefix("--manual=") }) {
+            throw ValidationError("""
+            add --manual was removed.
+            Run updatebar add without --from to use the manual wizard, or run updatebar add --from <file>.
+            """)
+        }
         if arguments.contains(where: { $0 == "--trust" || $0.hasPrefix("--trust=") }) {
             throw ValidationError("""
             add --trust was removed.

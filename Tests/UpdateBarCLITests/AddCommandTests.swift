@@ -256,10 +256,12 @@ final class AddCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
 
         let result = try CLIProcess.run(["add", "--manual", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.isEmpty)
-        XCTAssertTrue(result.stdout.contains("Unknown option '--manual'"))
+        XCTAssertTrue(payload.errors.contains { $0.contains("add --manual was removed") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("Run updatebar add without --from") })
     }
 
     private func wizardInput() -> String {
