@@ -462,7 +462,8 @@
                 let resolution = try UpdateBarBinaryResolver().resolve(
                     bundledDirectory: Bundle.main.resourceURL
                 )
-                debugLog("using \(resolution.source.rawValue) updatebar: \(resolution.path)")
+                let redactedPath = SecretRedactor.redact(resolution.path)
+                debugLog("using \(resolution.source.rawValue) updatebar: \(redactedPath)")
                 return resolution.path
             } catch {
                 debugLog("failed to resolve updatebar path: \(error)")
