@@ -90,6 +90,18 @@ See [completions.md](completions.md).
 
 ## Command Reference
 
+Primary workflow commands:
+
+- `updatebar scan`
+- `updatebar init`
+- `updatebar status`
+- `updatebar check`
+- `updatebar update`
+- `updatebar approvals`
+
+The sections below also document hidden support commands for explicit scripts,
+packaging, and advanced workflows.
+
 ### `updatebar background install --yes [--json]`
 
 Writes the opt-in macOS per-user LaunchAgent plist for background checks.

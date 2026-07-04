@@ -1128,6 +1128,23 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("hidden from default root help and shell completions"))
     }
 
+    func testCliDocsLeadCommandReferenceWithPrimaryWorkflow() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let commandReference = try readmeSection(
+            "## Command Reference",
+            before: "### `updatebar background",
+            in: docs
+        )
+
+        XCTAssertTrue(commandReference.contains("Primary workflow commands"))
+        for command in [
+            "`updatebar scan`", "`updatebar init`", "`updatebar status`", "`updatebar check`",
+            "`updatebar update`", "`updatebar approvals`",
+        ] {
+            XCTAssertTrue(commandReference.contains(command), "missing \(command)")
+        }
+    }
+
     func testCliDocsHideDefaultedAllFlagFromUpdateSignature() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
         let checkSection = try readmeSection(
