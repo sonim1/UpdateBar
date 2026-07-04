@@ -424,9 +424,9 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertTrue(
             result.stdout.contains("Scan is read-only. Use init to choose and register items."))
         XCTAssertTrue(result.stdout.contains("updatebar init\n"))
-        XCTAssertTrue(result.stdout.contains("updatebar init --select 1,2"))
+        XCTAssertTrue(result.stdout.contains("updatebar init --select brew.gh,brew.jq"))
         XCTAssertTrue(result.stdout.contains("updatebar init --select all"))
-        XCTAssertFalse(result.stdout.contains("updatebar init --select brew.gh"))
+        XCTAssertFalse(result.stdout.contains("updatebar init --select 1,2"))
         XCTAssertTrue(result.stdout.contains("updatebar init --select all\n\nNeeds Review"))
         let next = try XCTUnwrap(result.stdout.range(of: "Next\nupdatebar init"))
         let needsReview = try XCTUnwrap(result.stdout.range(of: "Needs Review"))

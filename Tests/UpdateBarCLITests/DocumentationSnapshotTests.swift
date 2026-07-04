@@ -850,13 +850,12 @@ final class DocumentationSnapshotTests: XCTestCase {
             "init docs should scope numeric --select values"
         )
         XCTAssertTrue(
-            initSection.contains("`updatebar init --select 1,2` Next command"),
-            "init docs should explain scan's numbered Next example"
+            initSection.contains("printed Next commands use stable candidate ids"),
+            "init docs should explain scan's stable-id Next examples"
         )
         XCTAssertTrue(
-            initSection.contains("Prefer ids when composing custom")
-                && initSection.contains("older scan output"),
-            "init docs should prefer ids for custom scan-output selections"
+            initSection.contains("recent or older scan output"),
+            "init docs should say scan Next commands can be copied from scan output"
         )
         XCTAssertTrue(
             initSection.contains("`updatebar init --select all --json`"),
@@ -921,7 +920,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(scanSection.contains("source ref"))
         XCTAssertTrue(scanSection.contains("review-only"))
         XCTAssertTrue(scanSection.contains("look for importable candidates"))
-        XCTAssertTrue(scanSection.contains("`updatebar init --select 1,2`"))
+        XCTAssertTrue(scanSection.contains("`updatebar init --select brew.gh,brew.jq`"))
         XCTAssertTrue(scanSection.contains("`updatebar init --select all`"))
         XCTAssertTrue(scanSection.contains("preserve the same `--category` filter"))
         for column in ["`ITEM`", "`ID`", "`CATEGORY`", "`SOURCE`", "`CAPABILITY`"] {

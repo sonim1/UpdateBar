@@ -130,8 +130,8 @@ Human `scan` output is tab-separated with `ITEM`, `ID`, `CATEGORY`, `SOURCE`,
 and `CAPABILITY` columns. Review-only rows append `REF` when a source reference
 is available. The output is read-only; use `init` to choose and register items.
 It includes importable candidate ids, the interactive `updatebar init` command,
-a numbered subset example such as `updatebar init --select 1,2` when multiple
-importable candidates are present, and a ready-to-run
+a stable-id subset example such as `updatebar init --select brew.gh,brew.jq`
+when multiple importable candidates are present, and a ready-to-run
 `updatebar init --select all` command. `init --select` accepts candidate ids
 exactly.
 When human `scan` output has no rows, it prints `No candidates found`. If the
@@ -194,9 +194,8 @@ updatebar init --replace --select npm.typescript
 `all` must be used by itself and cannot be combined with explicit ids or numbers.
 `init --json` requires `--select` so stdout remains a single JSON payload.
 Candidate numbers refer to the current `updatebar init` list. The scan's
-printed `updatebar init --select 1,2` Next command is meant to be run
-immediately for that same scan/category. Prefer ids when composing custom
-selections from older scan output.
+printed Next commands use candidate ids so they can be copied from recent or
+older scan output.
 
 Duplicate ids are skipped by default. `--replace` overwrites existing recipes.
 Unsupported `check-only` and `metadata-only` candidates are visible in `scan`

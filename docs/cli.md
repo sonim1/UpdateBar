@@ -155,9 +155,9 @@ For categories that map to a single metadata detector, such as `codex-skill` or
 Human output is tab-separated with `ITEM`, `ID`, `CATEGORY`, `SOURCE`, and
 `CAPABILITY` columns. `scan` is read-only; use `init` to choose and register
 items. It includes each candidate id, such as `brew.gh`, plus the interactive
-`updatebar init` command, a numbered subset example such as
-`updatebar init --select 1,2` when multiple importable candidates are present,
-and a ready-to-run `updatebar init --select all` command.
+`updatebar init` command, a stable-id subset example such as
+`updatebar init --select brew.gh,brew.jq` when multiple importable candidates
+are present, and a ready-to-run `updatebar init --select all` command.
 Category-filtered scans preserve the same `--category` filter in those Next
 commands. `metadata-only` rows include a source ref so local skill and MCP
 config entries can be traced without printing env values. JSON output returns
@@ -193,9 +193,8 @@ stays JSON-only; use `updatebar init --select all --json` to add every
 importable candidate headlessly. `all` must be used by itself and cannot be
 combined with explicit ids or numbers.
 Numbers refer to the current `updatebar init` candidate list. The scan's
-printed `updatebar init --select 1,2` Next command is meant to be run
-immediately for that same scan/category. Prefer ids when composing custom
-selections from older scan output.
+printed Next commands use stable candidate ids so they can be copied directly
+from recent or older scan output.
 If a selected id is not found, rerun `updatebar scan` or
 `updatebar scan --category <category>` and copy the candidate id again.
 

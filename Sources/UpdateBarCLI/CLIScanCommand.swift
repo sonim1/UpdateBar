@@ -127,15 +127,16 @@ struct ScanCommand: ParsableCommand {
     }
 
     private func printNextStep(_ candidates: [ScanCandidate], categoryFilter: String?) {
-        let importableCount = candidates.filter { $0.recipe != nil }.count
-        guard importableCount > 0 else { return }
+        let importable = candidates.filter { $0.recipe != nil }
+        guard !importable.isEmpty else { return }
         let baseCommand =
             categoryFilter.map {
                 "updatebar init --category \($0)"
             } ?? "updatebar init"
         var commands = [baseCommand]
-        if importableCount >= 2 {
-            commands.append("\(baseCommand) --select 1,2")
+        if importable.count >= 2 {
+            let ids = importable.prefix(2).map(\.id).joined(separator: ",")
+            commands.append("\(baseCommand) --select \(ids)")
         }
         commands.append("\(baseCommand) --select all")
         writeStdout("Scan is read-only. Use init to choose and register items.")
