@@ -111,6 +111,11 @@ if grep -Fq 'Scripts/quality-gate-contract-test.sh must not assign grep pipeline
   exit 1
 fi
 
+if ! grep -Fq '="?\$\(grep .*\|.*head' "$ROOT/Scripts/script-syntax-test.sh"; then
+  echo "script-syntax-test.sh must catch quoted and unquoted grep/head command substitutions" >&2
+  exit 1
+fi
+
 if ! grep -Fq '"$SWIFT_BIN" build --product updatebar' "$QUALITY_GATE"; then
   echo "quality-gate.sh must build the debug updatebar CLI before swift tests" >&2
   exit 1
