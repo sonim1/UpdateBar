@@ -54,7 +54,7 @@ x86_64. Other platforms should build from source.
 
 ### Menu bar app
 
-`updatebar-menubar` ships as an optional macOS wrapper. Release tags publish an unsigned Apple Silicon app archive, and `Scripts/package-app.sh` builds the same local bundle from source.
+`updatebar-menubar` ships as an optional macOS wrapper. Release tags publish an unsigned macOS app archive for the build host architecture, and `Scripts/package-app.sh` builds the same local bundle from source.
 It prefers direct `UpdateBarCore` calls, keeps a CLI subprocess fallback, and exposes:
 
 - check now

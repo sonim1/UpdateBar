@@ -791,6 +791,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(releaseDocs.contains("Build or install the Ink TUI from source with npm"))
         XCTAssertTrue(releaseDocs.contains("macOS app archive for the build\n  host architecture"))
         XCTAssertFalse(releaseDocs.contains("Apple Silicon macOS app archive"))
+        XCTAssertTrue(readme.contains("macOS app archive for the build host architecture"))
+        XCTAssertFalse(readme.contains("Apple Silicon app archive"))
         XCTAssertFalse(releaseDocs.contains("Install the Ink TUI separately through npm"))
         XCTAssertFalse(combined.contains("npm link"))
     }
