@@ -45,6 +45,11 @@ if ! grep -Fq 'command -v swift-format' "$QUALITY_GATE"; then
   exit 1
 fi
 
+if ! grep -Fq '"$SWIFT_BIN" format --version' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must fall back to the Swift toolchain format subcommand" >&2
+  exit 1
+fi
+
 if grep -Fq 'skipping Swift format checks' "$QUALITY_GATE"; then
   echo "quality-gate.sh must fail when Swift format checks are unavailable" >&2
   exit 1

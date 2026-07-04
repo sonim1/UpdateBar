@@ -26,6 +26,8 @@ if command -v swift-format >/dev/null 2>&1; then
   SWIFT_FORMAT_COMMAND=(swift-format)
 elif command -v xcrun >/dev/null 2>&1 && xcrun --find swift-format >/dev/null 2>&1; then
   SWIFT_FORMAT_COMMAND=(xcrun swift-format)
+elif "$SWIFT_BIN" format --version >/dev/null 2>&1; then
+  SWIFT_FORMAT_COMMAND=("$SWIFT_BIN" format)
 else
   echo "swift-format is required for quality gate checks" >&2
   exit 1
