@@ -93,6 +93,27 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
+    func testCLIMutationHumanOutputDoesNotPrintRawRecipeIDs() throws {
+        let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCLI")
+        let sourceFiles = try swiftSourceFiles(under: sourceRoot)
+        var violations: [String] = []
+
+        for file in sourceFiles {
+            let contents = try String(contentsOf: file, encoding: .utf8)
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
+                where line.contains("writeStdout(") && line.contains("\\(recipe.id")
+            {
+                violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+
+        XCTAssertEqual(
+            violations,
+            [],
+            "CLI human mutation output should redact Recipe ids before printing:\n\(violations.joined(separator: "\n"))"
+        )
+    }
+
     func testRegistryApprovalRequiresExplicitCommandField() throws {
         let file = URL(fileURLWithPath: "Sources/UpdateBarCore/Registry/RegistryService.swift")
         let contents = try String(contentsOf: file, encoding: .utf8)

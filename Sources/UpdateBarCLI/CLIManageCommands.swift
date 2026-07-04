@@ -23,7 +23,7 @@ struct PinCommand: ParsableCommand {
         if json {
             try printJSON(redactedItemMutationPayload(for: recipe))
         } else {
-            writeStdout("pinned \(recipe.id) \(recipe.pin ?? "")")
+            writeStdout("pinned \(SecretRedactor.redact(recipe.id)) \(recipe.pin ?? "")")
         }
     }
 }
@@ -46,7 +46,7 @@ struct UnpinCommand: ParsableCommand {
         if json {
             try printJSON(redactedItemMutationPayload(for: recipe))
         } else {
-            writeStdout("unpinned \(recipe.id)")
+            writeStdout("unpinned \(SecretRedactor.redact(recipe.id))")
         }
     }
 }
@@ -69,7 +69,7 @@ struct EnableCommand: ParsableCommand {
         if json {
             try printJSON(redactedItemMutationPayload(for: recipe))
         } else {
-            writeStdout("enabled \(recipe.id)")
+            writeStdout("enabled \(SecretRedactor.redact(recipe.id))")
         }
     }
 }
@@ -92,7 +92,7 @@ struct DisableCommand: ParsableCommand {
         if json {
             try printJSON(redactedItemMutationPayload(for: recipe))
         } else {
-            writeStdout("disabled \(recipe.id)")
+            writeStdout("disabled \(SecretRedactor.redact(recipe.id))")
         }
     }
 }
@@ -153,7 +153,7 @@ struct ApprovalCommand: ParsableCommand {
         if json {
             try printJSON(redactedApprovalMutationPayload(for: recipe, field: field))
         } else {
-            writeStdout("approved \(recipe.id) \(field)")
+            writeStdout("approved \(SecretRedactor.redact(recipe.id)) \(field)")
             printApprovalNextStep(for: recipe)
         }
     }
@@ -252,7 +252,7 @@ struct RevokeCommand: ParsableCommand {
         if json {
             try printJSON(redactedApprovalMutationPayload(for: recipe, field: field))
         } else {
-            writeStdout("revoked \(recipe.id) \(field)")
+            writeStdout("revoked \(SecretRedactor.redact(recipe.id)) \(field)")
             printNextCommands([approvalCommand(for: recipe.id)])
         }
     }
