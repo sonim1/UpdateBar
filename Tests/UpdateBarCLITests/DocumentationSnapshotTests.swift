@@ -968,6 +968,16 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(troubleshooting.contains("brew tap sonim1/tap"))
     }
 
+    func testTroubleshootingDocumentsSwiftTestXCTestRecovery() throws {
+        let troubleshooting = try String(contentsOfFile: "docs/troubleshooting.md", encoding: .utf8)
+
+        XCTAssertTrue(troubleshooting.contains("no such module 'XCTest'"))
+        XCTAssertTrue(
+            troubleshooting.contains(
+                "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test"))
+        XCTAssertTrue(troubleshooting.contains("Scripts/quality-gate.sh"))
+    }
+
     func testTUISourceDocsRunTheLocalBuiltCLI() throws {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let tuiReadme = try String(contentsOfFile: "tui/README.md", encoding: .utf8)

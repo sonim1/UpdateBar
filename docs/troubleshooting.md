@@ -28,6 +28,22 @@ If `xcodebuild` is not available, install the command line tools first:
 xcode-select --install
 ```
 
+## Swift Test Cannot Find XCTest
+
+On macOS, `swift test` may fail with `no such module 'XCTest'` when
+`xcode-select` points at Command Line Tools instead of the full Xcode bundle.
+The full quality gate handles this automatically when Xcode is installed:
+
+```bash
+Scripts/quality-gate.sh
+```
+
+For a quick Swift-only test run, point SwiftPM at Xcode explicitly:
+
+```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
+```
+
 ## Invalid JSON Or JSONL
 
 Machine-readable commands reserve stdout for JSON or JSONL only. Human errors go
