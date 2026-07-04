@@ -45,7 +45,7 @@ final class ScanCategoryTests: XCTestCase {
         XCTAssertEqual(ScanCategory.defaultDetectors(for: "ai-agent"), ScanDetector.allCases)
     }
 
-    func testScanReportFiltersCandidatesByNormalizedCategoryWithoutDroppingErrors() {
+    func testScanReportFiltersCandidatesByNormalizedCategoryWithoutDroppingErrors() throws {
         let report = ScanReport(
             candidates: [
                 scanCandidate(id: "skill", category: "codex-skill"),
@@ -55,19 +55,33 @@ final class ScanCategoryTests: XCTestCase {
             errors: [ScanError(detector: .known, message: "known failed")]
         )
 
-        let filtered = report.filtered(category: "mcp")
+        let filtered = try report.filtered(category: "mcp")
 
         XCTAssertEqual(filtered.candidates.map(\.id), ["server"])
         XCTAssertEqual(filtered.errors, report.errors)
     }
 
-    func testScanReportNilCategoryFilterReturnsOriginalReport() {
+    func testScanReportRejectsUnknownCategoryFilter() {
+        let report = ScanReport(
+            candidates: [scanCandidate(id: "agent", category: "ai-agent")],
+            errors: []
+        )
+
+        XCTAssertThrowsError(try report.filtered(category: "localservice")) { error in
+            XCTAssertEqual(
+                String(describing: error),
+                "localservice: unknown category; expected \(ScanCategory.description)"
+            )
+        }
+    }
+
+    func testScanReportNilCategoryFilterReturnsOriginalReport() throws {
         let report = ScanReport(
             candidates: [scanCandidate(id: "agent", category: "ai-agent")],
             errors: [ScanError(detector: .known, message: "known failed")]
         )
 
-        XCTAssertEqual(report.filtered(category: nil as String?), report)
+        XCTAssertEqual(try report.filtered(category: nil as String?), report)
     }
 
     private func scanCandidate(id: String, category: String) -> ScanCandidate {

@@ -9,11 +9,10 @@ public struct ScanReport: Codable, Equatable {
         self.errors = errors
     }
 
-    public func filtered(category: String?) -> ScanReport {
-        guard let category else {
+    public func filtered(category: String?) throws -> ScanReport {
+        guard let normalizedCategory = try ScanCategory.filterValue(for: category) else {
             return self
         }
-        let normalizedCategory = ScanCategory.normalizedValue(for: category)
         var report = self
         report.candidates = candidates.filter { $0.category == normalizedCategory }
         return report
