@@ -24,7 +24,7 @@ struct InitCommand: ParsableCommand {
     )
     var select: String?
 
-    @Option(name: .long, help: "Filter by category: ai-agent, package-manager, runtime-sdk, shell-utility, cloud-devops, library, codex-skill, or mcp-server.")
+    @Option(name: .long, help: ArgumentHelp("Filter by category: \(scanCategoryDescription())."))
     var category: String?
 
     func run() throws {

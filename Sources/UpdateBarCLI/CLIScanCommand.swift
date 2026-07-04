@@ -10,7 +10,7 @@ struct ScanCommand: ParsableCommand {
     @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
-    @Option(name: .long, help: "Filter by category: ai-agent, package-manager, runtime-sdk, shell-utility, cloud-devops, library, codex-skill, or mcp-server.")
+    @Option(name: .long, help: ArgumentHelp("Filter by category: \(scanCategoryDescription())."))
     var category: String?
 
     func run() throws {

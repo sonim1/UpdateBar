@@ -125,6 +125,28 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(contents.contains("TrustPolicy.approveAllCommands(in: &recipe)"))
     }
 
+    func testCLICategoryHelpUsesSharedDescription() throws {
+        let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCLI")
+        let sourceFiles = try swiftSourceFiles(under: sourceRoot)
+            .filter { $0.lastPathComponent != "CLIWorkflowSupport.swift" }
+        var violations: [String] = []
+
+        for file in sourceFiles {
+            let contents = try String(contentsOf: file, encoding: .utf8)
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
+                where line.contains("ai-agent, package-manager")
+            {
+                violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+
+        XCTAssertEqual(
+            violations,
+            [],
+            "CLI category help should use scanCategoryDescription() instead of duplicating the category list:\n\(violations.joined(separator: "\n"))"
+        )
+    }
+
     private func swiftSourceFiles(under root: URL) throws -> [URL] {
         guard let enumerator = FileManager.default.enumerator(
             at: root,
