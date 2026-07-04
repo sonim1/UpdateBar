@@ -328,12 +328,14 @@ final class CLIOutputTests: XCTestCase {
         }
     }
 
-    func testInvalidMachineOutputAssignmentValuesProduceGuidance() throws {
+    func testInvalidMachineOutputBooleanValuesProduceGuidance() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
         let cases = [
             (["status", "--json=maybe"], "--json", "maybe"),
             (["check", "--json-stream=maybe"], "--json-stream", "maybe"),
-            (["--json=maybe", "status"], "--json", "maybe")
+            (["--json=maybe", "status"], "--json", "maybe"),
+            (["status", "--json", "maybe"], "--json", "maybe"),
+            (["scan", "--json", "maybe"], "--json", "maybe")
         ]
 
         for (arguments, flag, value) in cases {

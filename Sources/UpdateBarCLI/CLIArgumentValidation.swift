@@ -15,6 +15,7 @@ extension UpdateBar {
         try validateRemovedUpdateOptions(arguments)
         try validateRemovedScanOptions(arguments)
         try validateMachineOutputBooleanAssignments(arguments)
+        try validateMachineOutputBooleanValuePairs(arguments)
         try validateIntrinsicJSONFlags(arguments)
         try validateLeadingMachineOutputFlag(arguments)
         try validateUnsupportedJSONStreamFlags(arguments)
@@ -128,11 +129,36 @@ extension UpdateBar {
     private static func validateMachineOutputBooleanAssignments(_ arguments: [String]) throws {
         for argument in arguments {
             guard let assignment = machineOutputAssignment(argument) else { continue }
-            throw ValidationError("""
-            invalid boolean value for \(assignment.flag): \(assignment.value).
-            Use \(assignment.flag), \(assignment.flag)=true, or \(assignment.flag)=false.
-            """)
+            throw ValidationError(invalidMachineOutputBooleanMessage(flag: assignment.flag, value: assignment.value))
         }
+    }
+
+    private static func validateMachineOutputBooleanValuePairs(_ arguments: [String]) throws {
+        guard noPositionalMachineOutputCommands.contains(commandPath(in: arguments)) else { return }
+
+        for index in arguments.indices {
+            guard let flag = machineOutputFlagName(arguments[index]),
+                  !arguments[index].contains("=")
+            else {
+                continue
+            }
+
+            let valueIndex = arguments.index(after: index)
+            guard valueIndex < arguments.endIndex,
+                  !arguments[valueIndex].hasPrefix("-")
+            else {
+                continue
+            }
+
+            throw ValidationError(invalidMachineOutputBooleanMessage(flag: flag, value: arguments[valueIndex]))
+        }
+    }
+
+    private static func invalidMachineOutputBooleanMessage(flag: String, value: String) -> String {
+        """
+        invalid boolean value for \(flag): \(value).
+        Use \(flag), \(flag)=true, or \(flag)=false.
+        """
     }
 
     private static func machineOutputAssignment(_ argument: String) -> (flag: String, value: String)? {
@@ -227,14 +253,23 @@ extension UpdateBar {
     private static func unsupportedJSONStreamCommand(in arguments: [String]) -> String? {
         guard let first = arguments.first, !first.hasPrefix("-") else { return nil }
 
-        let commandPath = arguments.prefix(while: { !$0.hasPrefix("-") })
-        if commandPath.count >= 2 {
-            let nested = commandPath.prefix(2).joined(separator: " ")
+        let commandPath = commandPath(in: arguments)
+        if commandPath.contains(" "),
+           jsonOutputUsage[commandPath] != nil {
+            return commandPath
+        }
+        return jsonOutputUsage[first] == nil ? nil : first
+    }
+
+    private static func commandPath(in arguments: [String]) -> String {
+        let tokens = arguments.prefix(while: { !$0.hasPrefix("-") })
+        if tokens.count >= 2 {
+            let nested = tokens.prefix(2).joined(separator: " ")
             if jsonOutputUsage[nested] != nil {
                 return nested
             }
         }
-        return jsonOutputUsage[first] == nil ? nil : first
+        return tokens.first ?? ""
     }
 
     private static let jsonOutputUsage = [
@@ -261,6 +296,11 @@ extension UpdateBar {
     ]
 
     private static let jsonStreamCommands: Set<String> = ["check", "update"]
+
+    private static let noPositionalMachineOutputCommands: Set<String> = [
+        "scan",
+        "status"
+    ]
 
     private static func validateTopLevelTarget(
         _ arguments: [String],
