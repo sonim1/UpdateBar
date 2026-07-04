@@ -125,7 +125,7 @@ extension UpdateBar {
 
     private static func validateUnsupportedJSONStreamFlags(_ arguments: [String]) throws {
         guard let command = arguments.first,
-              ["export", "init", "scan", "status"].contains(command),
+              ["add", "approvals", "export", "import", "init", "scan", "status"].contains(command),
               hasOption("--json-stream", in: arguments)
         else {
             return
@@ -140,11 +140,26 @@ extension UpdateBar {
             Run updatebar init --select all --json for headless setup, or updatebar scan --json to preview candidates.
             """
         }
+        if let usage = jsonSnapshotUsage[command] {
+            return """
+            \(command) does not support JSONL streaming.
+            Run \(usage) for machine-readable output, or updatebar check --json-stream to stream refresh progress.
+            """
+        }
         return """
         \(command) does not support JSONL streaming.
         Run updatebar \(command) --json for a snapshot, or updatebar check --json-stream to stream refresh progress.
         """
     }
+
+    private static let jsonSnapshotUsage = [
+        "add": "updatebar add --json",
+        "approvals": "updatebar approvals <id> --json",
+        "export": "updatebar export --json",
+        "import": "updatebar import <file> --json",
+        "scan": "updatebar scan --json",
+        "status": "updatebar status --json"
+    ]
 
     private static func validateTopLevelTarget(
         _ arguments: [String],
