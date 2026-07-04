@@ -1,17 +1,6 @@
 import Foundation
 import UpdateBarCore
 
-func defaultScanDetectors(categoryFilter: String?) -> [ScanDetector] {
-    switch categoryFilter {
-    case "codex-skill":
-        return [.codexSkill]
-    case "mcp-server":
-        return [.mcpConfig]
-    default:
-        return ScanDetector.allCases
-    }
-}
-
 func parseList(_ raw: String, separators: CharacterSet = .whitespaceAndComma) -> [String] {
     raw
         .components(separatedBy: separators)

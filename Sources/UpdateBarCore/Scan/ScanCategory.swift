@@ -32,6 +32,20 @@ public enum ScanCategory {
         return aliases[normalized] ?? normalized
     }
 
+    public static func defaultDetectors(for category: String?) -> [ScanDetector] {
+        guard let category else {
+            return ScanDetector.allCases
+        }
+        switch normalizedValue(for: category) {
+        case "codex-skill":
+            return [.codexSkill]
+        case "mcp-server":
+            return [.mcpConfig]
+        default:
+            return ScanDetector.allCases
+        }
+    }
+
     private static let aliases: [String: String] = [
         "ai": "ai-agent",
         "aiagent": "ai-agent",

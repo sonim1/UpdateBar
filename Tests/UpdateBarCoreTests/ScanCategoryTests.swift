@@ -23,4 +23,11 @@ final class ScanCategoryTests: XCTestCase {
         XCTAssertTrue(description.contains("mcp-server"))
         XCTAssertTrue(description.contains("aliases: ai, mcp"))
     }
+
+    func testScanCategorySelectsFocusedDefaultDetectorsForMetadataOnlyCategories() {
+        XCTAssertEqual(ScanCategory.defaultDetectors(for: nil), ScanDetector.allCases)
+        XCTAssertEqual(ScanCategory.defaultDetectors(for: "codex-skill"), [.codexSkill])
+        XCTAssertEqual(ScanCategory.defaultDetectors(for: "mcp"), [.mcpConfig])
+        XCTAssertEqual(ScanCategory.defaultDetectors(for: "ai-agent"), ScanDetector.allCases)
+    }
 }

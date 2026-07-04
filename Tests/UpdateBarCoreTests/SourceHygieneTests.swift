@@ -190,6 +190,7 @@ final class SourceHygieneTests: XCTestCase {
 
         XCTAssertFalse(contents.contains("let supportedScanCategories"))
         XCTAssertFalse(contents.contains("let scanCategoryCompletionValues"))
+        XCTAssertFalse(contents.contains("func defaultScanDetectors"))
         XCTAssertTrue(contents.contains("ScanCategory."))
     }
 
