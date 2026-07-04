@@ -241,6 +241,15 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertTrue(changelog.contains("## \(expected)"))
     }
 
+    func testChangelogUnreleasedDocumentsPostReleaseHardening() throws {
+        let changelog = try String(contentsOfFile: "CHANGELOG.md", encoding: .utf8)
+        let unreleased = try changelogSection("Unreleased", in: changelog)
+
+        XCTAssertTrue(unreleased.contains("release installer"))
+        XCTAssertTrue(unreleased.contains("app archive"))
+        XCTAssertTrue(unreleased.contains("quality gate"))
+    }
+
     func testUnknownCommandWithJSONReturnsErrorEnvelope() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 
@@ -420,5 +429,12 @@ final class CLIOutputTests: XCTestCase {
         var ok: Bool
         var code: String
         var errors: [String]
+    }
+
+    private func changelogSection(_ title: String, in changelog: String) throws -> String {
+        let start = try XCTUnwrap(changelog.range(of: "## \(title)"))
+        let remainder = changelog[start.upperBound...]
+        let end = remainder.range(of: "\n## ")?.lowerBound ?? remainder.endIndex
+        return String(remainder[..<end])
     }
 }

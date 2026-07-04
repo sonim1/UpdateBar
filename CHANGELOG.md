@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed
+
+- Improved release installer errors for failed GitHub metadata, archive, and
+  checksum downloads.
+- Strengthened app archive smoke checks to verify the bundle remains a menu bar
+  app.
+- Guarded release installer, menu bar launch, app archive, and quality gate
+  checks against accidental removal from the local release gate.
+
 ## 0.2.0 - 2026-07-01
 
 ### Breaking
