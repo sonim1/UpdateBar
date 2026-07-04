@@ -93,6 +93,15 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
+    func testRegistryApprovalRequiresExplicitCommandField() throws {
+        let file = URL(fileURLWithPath: "Sources/UpdateBarCore/Registry/RegistryService.swift")
+        let contents = try String(contentsOf: file, encoding: .utf8)
+
+        XCTAssertTrue(contents.contains("public func approve(id: String, field: String) throws -> Recipe"))
+        XCTAssertFalse(contents.contains("field: String? = nil"))
+        XCTAssertFalse(contents.contains("TrustPolicy.approveAllCommands(in: &recipe)"))
+    }
+
     private func swiftSourceFiles(under root: URL) throws -> [URL] {
         guard let enumerator = FileManager.default.enumerator(
             at: root,

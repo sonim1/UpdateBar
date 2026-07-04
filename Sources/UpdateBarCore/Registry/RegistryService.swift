@@ -214,22 +214,18 @@ public struct RegistryService {
         }
     }
 
-    public func approve(id: String, field: String? = nil) throws -> Recipe {
+    public func approve(id: String, field: String) throws -> Recipe {
         try manifestStore.withExclusiveLock {
             var manifest = try loadValidExistingOrEmpty(now: now())
             guard var recipe = manifest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
             }
             let fingerprints = recipe.commandFingerprints()
-            if let field {
-                guard let fingerprint = fingerprints[field] else {
-                    throw RegistryError.commandFieldNotFound(field)
-                }
-                recipe.trust.approvedCommands[field] = fingerprint
-                recipe.trust.level = .trusted
-            } else {
-                TrustPolicy.approveAllCommands(in: &recipe)
+            guard let fingerprint = fingerprints[field] else {
+                throw RegistryError.commandFieldNotFound(field)
             }
+            recipe.trust.approvedCommands[field] = fingerprint
+            recipe.trust.level = .trusted
             manifest = manifest.replacing(item: recipe)
             manifest.provenance.updatedAt = now()
             try saveValid(manifest)
