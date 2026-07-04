@@ -27,7 +27,7 @@ logic can stay outside the core, and which CLI-only logic should move into
 The Swift CLI should keep command parsing and presentation behavior:
 
 - ArgumentParser command definitions and flag parsing.
-- Human tables, wizard prompts, and terminal copy.
+- Human tables, interactive prompts, and terminal copy.
 - JSON printing helpers and exit-code mapping.
 - CLI-specific stderr diagnostics.
 
