@@ -28,3 +28,18 @@ if ! grep -Fq 'bash Scripts/install-local-smoke-test.sh' "$QUALITY_GATE"; then
   echo "quality-gate.sh must run local installer smoke checks" >&2
   exit 1
 fi
+
+if ! grep -Fq 'bash Scripts/install-release-smoke-test.sh' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must run release installer smoke checks" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'bash Scripts/menubar-smoke-test.sh dist/UpdateBar.app' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must run menu bar launch smoke checks" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must run app archive smoke checks" >&2
+  exit 1
+fi
