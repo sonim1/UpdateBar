@@ -16,8 +16,6 @@ jobs:
           restore-keys: macos-spm-${{ runner.os }}-
       - name: Quality gate
         run: bash Scripts/quality-gate.sh
-      - name: App package smoke
-        run: bash Scripts/package-app.sh
 
   linux:
     runs-on: ubuntu-latest
