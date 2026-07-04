@@ -9,13 +9,16 @@ final class SourceHygieneTests: XCTestCase {
 
         for file in sourceFiles {
             let contents = try String(contentsOf: file, encoding: .utf8)
-            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated()
+            {
                 if line.contains("!.")
                     || line.contains(")!")
                     || line.contains("try!")
                     || line.contains(" as!")
                 {
-                    violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+                    violations.append(
+                        "\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
                 }
             }
         }
@@ -35,10 +38,11 @@ final class SourceHygieneTests: XCTestCase {
 
         for file in sourceFiles {
             let contents = try String(contentsOf: file, encoding: .utf8)
-            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
-                where line.contains("print(")
-            {
-                violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated()
+            where line.contains("print(") {
+                violations.append(
+                    "\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
             }
         }
 
@@ -56,10 +60,11 @@ final class SourceHygieneTests: XCTestCase {
 
         for file in sourceFiles {
             let contents = try String(contentsOf: file, encoding: .utf8)
-            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
-                where line.contains("replacingOccurrences(of: \"'\", with:")
-            {
-                violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated()
+            where line.contains("replacingOccurrences(of: \"'\", with:") {
+                violations.append(
+                    "\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
             }
         }
 
@@ -78,11 +83,13 @@ final class SourceHygieneTests: XCTestCase {
 
         for file in sourceFiles {
             let contents = try String(contentsOf: file, encoding: .utf8)
-            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
-                where line.contains("ItemMutationPayload(ok:")
-                    || line.contains("ApprovalMutationPayload(ok:")
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated()
+            where line.contains("ItemMutationPayload(ok:")
+                || line.contains("ApprovalMutationPayload(ok:")
             {
-                violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+                violations.append(
+                    "\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
             }
         }
 
@@ -100,12 +107,14 @@ final class SourceHygieneTests: XCTestCase {
 
         for file in sourceFiles {
             let contents = try String(contentsOf: file, encoding: .utf8)
-            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
-                where line.contains("writeStdout(")
-                    && (line.contains("\\(recipe.id")
-                        || line.contains("edited \\(id)"))
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated()
+            where line.contains("writeStdout(")
+                && (line.contains("\\(recipe.id")
+                    || line.contains("edited \\(id)"))
             {
-                violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+                violations.append(
+                    "\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
             }
         }
 
@@ -120,13 +129,15 @@ final class SourceHygieneTests: XCTestCase {
         let file = URL(fileURLWithPath: "Sources/UpdateBarCore/Registry/RegistryService.swift")
         let contents = try String(contentsOf: file, encoding: .utf8)
 
-        XCTAssertTrue(contents.contains("public func approve(id: String, field: String) throws -> Recipe"))
+        XCTAssertTrue(
+            contents.contains("public func approve(id: String, field: String) throws -> Recipe"))
         XCTAssertFalse(contents.contains("field: String? = nil"))
         XCTAssertFalse(contents.contains("approveAllCommands(in: &recipe)"))
     }
 
     func testCoreDoesNotExposeLegacyCommandApprovalStore() {
-        let file = URL(fileURLWithPath: "Sources/UpdateBarCore/Execution/CommandApprovalStore.swift")
+        let file = URL(
+            fileURLWithPath: "Sources/UpdateBarCore/Execution/CommandApprovalStore.swift")
 
         XCTAssertFalse(
             FileManager.default.fileExists(atPath: file.path),
@@ -170,10 +181,11 @@ final class SourceHygieneTests: XCTestCase {
 
         for file in sourceFiles {
             let contents = try String(contentsOf: file, encoding: .utf8)
-            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
-                where line.contains("ai-agent, package-manager")
-            {
-                violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated()
+            where line.contains("ai-agent, package-manager") {
+                violations.append(
+                    "\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
             }
         }
 
@@ -215,10 +227,11 @@ final class SourceHygieneTests: XCTestCase {
 
         for file in sourceFiles {
             let contents = try String(contentsOf: file, encoding: .utf8)
-            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
-                where line.contains("$0.category == category")
-            {
-                violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated()
+            where line.contains("$0.category == category") {
+                violations.append(
+                    "\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
             }
         }
 
@@ -243,17 +256,20 @@ final class SourceHygieneTests: XCTestCase {
         let file = URL(fileURLWithPath: "Sources/UpdateBarCLI/CLIDocumentCommands.swift")
         let contents = try String(contentsOf: file, encoding: .utf8)
 
-        XCTAssertTrue(contents.contains("enum TemplateKind: String, CaseIterable, ExpressibleByArgument"))
+        XCTAssertTrue(
+            contents.contains("enum TemplateKind: String, CaseIterable, ExpressibleByArgument"))
         XCTAssertTrue(contents.contains("TemplateKind.helpDescription"))
         XCTAssertFalse(contents.contains("Template kind: github_release, npm, brew"))
     }
 
     private func swiftSourceFiles(under root: URL) throws -> [URL] {
-        guard let enumerator = FileManager.default.enumerator(
-            at: root,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else {
+        guard
+            let enumerator = FileManager.default.enumerator(
+                at: root,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            )
+        else {
             XCTFail("Could not enumerate \(root.path)")
             return []
         }
