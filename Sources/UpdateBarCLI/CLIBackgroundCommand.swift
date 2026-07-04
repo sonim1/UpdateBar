@@ -12,10 +12,11 @@ struct BackgroundCommand: ParsableCommand {
     struct Install: ParsableCommand {
         static let configuration = CommandConfiguration(
             commandName: "install",
-            abstract: "Install the background check LaunchAgent."
+            abstract: "Install the background check LaunchAgent.",
+            usage: "updatebar background install --yes [--json]"
         )
 
-        @Flag(name: .long, help: "Install without prompting for confirmation.")
+        @Flag(name: .long, help: "Required confirmation; install without prompting.")
         var yes = false
 
         @Flag(name: .long, help: "Print machine-readable JSON.")

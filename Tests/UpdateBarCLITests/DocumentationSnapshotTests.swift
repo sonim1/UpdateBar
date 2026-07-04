@@ -447,6 +447,8 @@ final class DocumentationSnapshotTests: XCTestCase {
                 )
             }
             if commandPath == ["background", "install"] {
+                XCTAssertTrue(result.stdout.contains("USAGE: updatebar background install --yes"))
+                XCTAssertTrue(result.stdout.contains("Required confirmation"))
                 XCTAssertFalse(
                     optionHasDescription("--interval-seconds", in: helpLines),
                     "background install should use refresh.interval instead of a separate interval option"
