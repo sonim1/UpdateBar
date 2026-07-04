@@ -34,12 +34,8 @@ func unique(_ values: [String]) -> [String] {
     return results
 }
 
-func printApprovalAndCheckNextSteps(for ids: [String]) {
-    var commands = approvalCommands(for: ids)
-    if let check = batchCheckCommand(for: ids) {
-        commands.append(check)
-    }
-    printNextCommands(commands)
+func printApprovalNextSteps(for ids: [String]) {
+    printNextCommands(approvalCommands(for: ids))
 }
 
 func printEmptyRegistryNextStep() {

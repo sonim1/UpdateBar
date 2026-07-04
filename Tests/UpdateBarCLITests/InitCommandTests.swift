@@ -141,7 +141,7 @@ final class InitCommandTests: XCTestCase {
         XCTAssertEqual(manifest.items.map(\.id), ["brew.jq"])
     }
 
-    func testInitHumanModePrintsApprovalAndCheckNextSteps() throws {
+    func testInitHumanModePrintsApprovalNextStepBeforeCheck() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-init-tests")
         let bin = try fakeManagers(home: home)
 
@@ -156,7 +156,7 @@ final class InitCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("added 1"))
         XCTAssertTrue(result.stdout.contains("Next"))
         XCTAssertTrue(result.stdout.contains("updatebar approvals brew.gh"))
-        XCTAssertTrue(result.stdout.contains("updatebar check brew.gh"))
+        XCTAssertFalse(result.stdout.contains("updatebar check brew.gh"))
     }
 
     func testInitHumanModeExplainsSkippedDuplicates() throws {

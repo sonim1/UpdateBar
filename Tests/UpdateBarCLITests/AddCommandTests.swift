@@ -55,7 +55,7 @@ final class AddCommandTests: XCTestCase {
         XCTAssertEqual(stored.item(id: "manual")?.trust.approvedCommands, [:])
     }
 
-    func testManualAddHumanModePrintsApprovalAndCheckNextSteps() throws {
+    func testManualAddHumanModePrintsApprovalNextStepBeforeCheck() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let paths = AppPaths(homeDirectory: home)
         try ManifestStore(paths: paths).save(manifest(items: []))
@@ -68,7 +68,7 @@ final class AddCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("added manual"))
         XCTAssertTrue(result.stdout.contains("Next"))
         XCTAssertTrue(result.stdout.contains("updatebar approvals manual"))
-        XCTAssertTrue(result.stdout.contains("updatebar check manual"))
+        XCTAssertFalse(result.stdout.contains("updatebar check manual"))
     }
 
     func testAddWithoutInputReportsActionableRecipeInputError() throws {

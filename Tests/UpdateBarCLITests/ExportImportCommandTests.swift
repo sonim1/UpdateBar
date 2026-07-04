@@ -112,7 +112,7 @@ final class ExportImportCommandTests: XCTestCase {
         XCTAssertTrue(payload.errors.contains("document is not valid JSON"))
     }
 
-    func testImportHumanModePrintsApprovalAndCheckNextSteps() throws {
+    func testImportHumanModePrintsApprovalNextStepBeforeCheck() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-import-tests")
         let importFile = try writeImportManifest(home: home, items: [recipe(id: "imported")])
 
@@ -123,7 +123,7 @@ final class ExportImportCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("imported 1 item(s)"))
         XCTAssertTrue(result.stdout.contains("Next"))
         XCTAssertTrue(result.stdout.contains("updatebar approvals imported"))
-        XCTAssertTrue(result.stdout.contains("updatebar check imported"))
+        XCTAssertFalse(result.stdout.contains("updatebar check imported"))
     }
 
     func testExportWritesManifestObjectAndPrintsJSON() throws {

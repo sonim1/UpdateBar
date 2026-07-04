@@ -71,7 +71,7 @@ struct ImportCommand: ParsableCommand {
                 try printJSON(ImportPayload(summary: summary, errors: []))
             } else {
                 writeStdout("imported \(summary.added.count + summary.replaced.count) item(s)")
-                printApprovalAndCheckNextSteps(for: summary.added + summary.replaced)
+                printApprovalNextSteps(for: summary.added + summary.replaced)
             }
         } catch {
             if json {

@@ -239,7 +239,7 @@ struct InitCommand: ParsableCommand {
                 writeStdout("Skipped: \(payload.skipped.joined(separator: ", "))")
                 writeStdout("Pass --replace to overwrite skipped item(s).")
             }
-            printApprovalAndCheckNextSteps(for: payload.added + payload.replaced)
+            printApprovalNextSteps(for: payload.added + payload.replaced)
         } else {
             for error in payload.errors {
                 writeStderr(error)
