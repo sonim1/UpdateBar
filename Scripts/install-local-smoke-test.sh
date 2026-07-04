@@ -59,6 +59,16 @@ if ! grep -Fq "installed $INSTALL_DIR/updatebar" <<<"$output"; then
   echo "$output" >&2
   exit 1
 fi
+if ! grep -Fq "Make sure this directory is on your PATH" <<<"$output"; then
+  echo "install-local output did not include PATH guidance" >&2
+  echo "$output" >&2
+  exit 1
+fi
+if ! grep -Fq "export PATH=\"$INSTALL_DIR:\$PATH\"" <<<"$output"; then
+  echo "install-local output did not include the install directory PATH command" >&2
+  echo "$output" >&2
+  exit 1
+fi
 
 help_output="$(bash "$TEST_ROOT/Scripts/install-local.sh" --help)"
 if ! grep -Fq "UPDATEBAR_INSTALL_PREFIX" <<<"$help_output"; then

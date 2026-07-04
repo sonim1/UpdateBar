@@ -33,4 +33,8 @@ mkdir -p "$INSTALL_DIR"
 cp .build/release/updatebar "$INSTALL_DIR/updatebar"
 chmod 0755 "$INSTALL_DIR/updatebar"
 
-echo "installed $INSTALL_DIR/updatebar"
+cat <<EOF
+installed $INSTALL_DIR/updatebar
+Make sure this directory is on your PATH:
+  export PATH="$INSTALL_DIR:\$PATH"
+EOF
