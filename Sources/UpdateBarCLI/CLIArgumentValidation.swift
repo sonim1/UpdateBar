@@ -125,7 +125,11 @@ extension UpdateBar {
     }
 
     private static func validateLeadingMachineOutputFlag(_ arguments: [String]) throws {
-        guard let flag = arguments.first, isMachineOutputFlag(flag) else { return }
+        guard let argument = arguments.first,
+              let flag = machineOutputFlagName(argument)
+        else {
+            return
+        }
         let usage = suggestedMachineOutputUsage(afterLeadingFlagIn: arguments, flag: flag)
             ?? "updatebar <subcommand> \(flag)"
 
@@ -363,7 +367,17 @@ extension UpdateBar {
     }
 
     private static func isMachineOutputFlag(_ argument: String) -> Bool {
-        argument == "--json" || argument == "--json-stream"
+        machineOutputFlagName(argument) != nil
+    }
+
+    private static func machineOutputFlagName(_ argument: String) -> String? {
+        if argument == "--json" || argument.hasPrefix("--json=") {
+            return "--json"
+        }
+        if argument == "--json-stream" || argument.hasPrefix("--json-stream=") {
+            return "--json-stream"
+        }
+        return nil
     }
 
     private static func hasOption(_ option: String, in arguments: [String]) -> Bool {
