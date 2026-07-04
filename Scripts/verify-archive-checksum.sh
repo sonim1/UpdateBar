@@ -22,6 +22,10 @@ if [[ -z "$EXPECTED" ]]; then
   echo "empty checksum file: $SHA_FILE" >&2
   exit 1
 fi
+if [[ ! "$EXPECTED" =~ ^[0-9a-f]{64}$ ]]; then
+  echo "checksum file did not contain a 64-character lowercase hex SHA: $SHA_FILE" >&2
+  exit 1
+fi
 
 if command -v shasum >/dev/null 2>&1; then
   ACTUAL="$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
