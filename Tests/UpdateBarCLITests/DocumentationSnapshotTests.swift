@@ -473,6 +473,10 @@ final class DocumentationSnapshotTests: XCTestCase {
                     "\(commandPath.joined(separator: " ")) \(option) should have a help description"
                 )
             }
+            if commandPath == ["approve"] {
+                XCTAssertTrue(result.stdout.contains("updatebar approve <id> --field <field>"))
+                XCTAssertFalse(result.stdout.contains("[--field <field>]"))
+            }
         }
 
         for (commandPath, arguments) in expectedArgumentsByCommand {

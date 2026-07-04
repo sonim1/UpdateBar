@@ -135,7 +135,7 @@ struct RemoveCommand: ParsableCommand {
 struct ApprovalCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "approve",
-        abstract: "Approve one or all command fields for an item.",
+        abstract: "Approve one command field for an item.",
         shouldDisplay: false
     )
 
@@ -143,7 +143,7 @@ struct ApprovalCommand: ParsableCommand {
     var id: String
 
     @Option(name: .long, help: "Command field to approve, such as update.cmd.")
-    var field: String?
+    var field: String
 
     @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
@@ -153,11 +153,7 @@ struct ApprovalCommand: ParsableCommand {
         if json {
             try printJSON(redactedApprovalMutationPayload(for: recipe, field: field))
         } else {
-            if let field {
-                writeStdout("approved \(recipe.id) \(field)")
-            } else {
-                writeStdout("approved \(recipe.id) all")
-            }
+            writeStdout("approved \(recipe.id) \(field)")
             printApprovalNextStep(for: recipe)
         }
     }

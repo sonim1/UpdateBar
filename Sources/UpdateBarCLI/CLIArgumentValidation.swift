@@ -1,4 +1,5 @@
 import ArgumentParser
+import UpdateBarCore
 
 extension UpdateBar {
     static var topLevelHelpTargets: Set<String> {
@@ -14,6 +15,7 @@ extension UpdateBar {
         try validateHelpCommandPath(arguments)
         try validateTrailingInlineHelpArguments(arguments)
         try validateTrailingInlineVersionArguments(arguments)
+        try validateApproveRequiresField(arguments)
     }
 
     private static func validateTopLevelTarget(
@@ -149,5 +151,19 @@ extension UpdateBar {
 
     private static func isMachineOutputFlag(_ argument: String) -> Bool {
         argument == "--json" || argument == "--json-stream"
+    }
+
+    private static func validateApproveRequiresField(_ arguments: [String]) throws {
+        guard arguments.first == "approve",
+              !arguments.contains(where: isInlineHelpFlag),
+              !arguments.contains(where: { $0 == "--field" || $0.hasPrefix("--field=") })
+        else {
+            return
+        }
+
+        let id = arguments.dropFirst().first { !$0.hasPrefix("-") } ?? "<id>"
+        throw ValidationError(
+            "approve requires --field. Run updatebar approvals \(SecretRedactor.redact(id)) to review command fields."
+        )
     }
 }

@@ -295,7 +295,7 @@ final class ManageItemCommandTests: XCTestCase {
             ["unpin", "missing", "--json"],
             ["disable", "missing", "--json"],
             ["enable", "missing", "--json"],
-            ["approve", "missing", "--json"],
+            ["approve", "missing", "--field", "update.cmd", "--json"],
             ["revoke", "missing", "--field", "update.cmd", "--json"],
             ["remove", "missing", "--yes", "--json"],
         ]
@@ -335,7 +335,7 @@ final class ManageItemCommandTests: XCTestCase {
             ["unpin", "missing", "--json"],
             ["disable", "missing", "--json"],
             ["enable", "missing", "--json"],
-            ["approve", "missing", "--json"],
+            ["approve", "missing", "--field", "update.cmd", "--json"],
             ["revoke", "missing", "--field", "update.cmd", "--json"],
             ["remove", "missing", "--yes", "--json"],
         ]
@@ -547,7 +547,7 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertFalse(combined.contains(secretID))
     }
 
-    func testApproveAllHumanPrintsCheckNextStep() throws {
+    func testApproveRequiresExplicitField() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)
         var item = recipe()
@@ -561,11 +561,10 @@ final class ManageItemCommandTests: XCTestCase {
 
         let result = try CLIProcess.run(["approve", "tool"], home: home)
 
-        XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stdout.contains("approved tool all"))
-        XCTAssertTrue(result.stdout.contains("Next"))
-        XCTAssertTrue(result.stdout.contains("updatebar check tool"))
-        XCTAssertFalse(result.stdout.contains("updatebar approvals tool"))
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("approve requires --field"))
+        XCTAssertTrue(result.stderr.contains("updatebar approvals tool"))
     }
 
     func testMutatingManageCommandsSupportJSONOutput() throws {

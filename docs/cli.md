@@ -218,9 +218,9 @@ Returns `2` if any selected update fails.
 In machine-readable mode (`--json` or `--json-stream`), prompts are suppressed;
 omit `--yes` to skip execution and receive a `.cancelled` outcome.
 
-### `updatebar approve <id> [--field <command-field>] [--json]`
+### `updatebar approve <id> --field <command-field> [--json]`
 
-Approves all command fields for an item, or one field such as `check.cmd`, `latest.cmd`, or `update.cmd`. Add `--json` for a machine-readable mutation payload.
+Approves one command field such as `check.cmd`, `latest.cmd`, or `update.cmd`. Add `--json` for a machine-readable mutation payload.
 
 ### `updatebar approvals <id> [--json]`
 
