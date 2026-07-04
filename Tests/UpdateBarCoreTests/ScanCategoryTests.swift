@@ -2,11 +2,11 @@ import UpdateBarCore
 import XCTest
 
 final class ScanCategoryTests: XCTestCase {
-    func testScanCategoryNormalizesAliasesAndSeparators() {
-        XCTAssertEqual(ScanCategory.normalizedValue(for: "ai"), "ai-agent")
-        XCTAssertEqual(ScanCategory.normalizedValue(for: "mcp_server"), "mcp-server")
-        XCTAssertEqual(ScanCategory.normalizedValue(for: "package manager"), "package-manager")
-        XCTAssertEqual(ScanCategory.normalizedValue(for: "cloud/devops"), "cloud-devops")
+    func testScanCategoryNormalizesAliasesAndSeparators() throws {
+        XCTAssertEqual(try ScanCategory.filterValue(for: "ai"), "ai-agent")
+        XCTAssertEqual(try ScanCategory.filterValue(for: "mcp_server"), "mcp-server")
+        XCTAssertEqual(try ScanCategory.filterValue(for: "package manager"), "package-manager")
+        XCTAssertEqual(try ScanCategory.filterValue(for: "cloud/devops"), "cloud-devops")
     }
 
     func testScanCategoryFilterValueValidatesInput() throws {

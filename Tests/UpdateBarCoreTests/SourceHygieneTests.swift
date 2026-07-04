@@ -229,6 +229,16 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
+    func testScanCategoryRawNormalizationStaysInternal() throws {
+        let contents = try String(
+            contentsOf: URL(fileURLWithPath: "Sources/UpdateBarCore/Scan/ScanCategory.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(contents.contains("public static func normalizedValue"))
+        XCTAssertTrue(contents.contains("private static func normalizedValue"))
+    }
+
     func testTemplateKindHelpUsesEnumCases() throws {
         let file = URL(fileURLWithPath: "Sources/UpdateBarCLI/CLIDocumentCommands.swift")
         let contents = try String(contentsOf: file, encoding: .utf8)

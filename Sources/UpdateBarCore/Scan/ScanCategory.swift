@@ -18,7 +18,7 @@ public enum ScanCategory {
         "\(supportedValues.joined(separator: ", ")); aliases: ai, mcp"
     }
 
-    public static func normalizedValue(for value: String) -> String {
+    private static func normalizedValue(for value: String) -> String {
         let normalized =
             value
             .trimmingCharacters(in: .whitespacesAndNewlines)
