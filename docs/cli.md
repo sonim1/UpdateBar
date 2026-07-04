@@ -204,6 +204,7 @@ Runs approved check/latest commands and updates `state.json`. Human output is
 tab-separated with `ID`, `STATUS`, `CURRENT`, `LATEST`, and `DETAIL` columns;
 `DETAIL` is used for item errors. Returns `10` when any checked item is outdated
 unless `--exit-zero-on-outdated` is set.
+When no items are registered, human output suggests `updatebar init`.
 
 ### `updatebar status [--json]`
 
@@ -211,6 +212,7 @@ Reads manifest and state without shell or network calls. When no files exist,
 plain `status` does not create the home directory, `manifest.json`, or `state.json`.
 Human output is tab-separated: `ID`, `STATUS`, `CURRENT`, `LATEST`, `NAME`, and
 `DETAIL`. `DETAIL` is currently used for item errors.
+When no items are registered, human output suggests `updatebar init`.
 If an item id is not found in another command, run `updatebar status` to list
 registered item ids.
 

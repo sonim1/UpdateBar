@@ -1130,6 +1130,16 @@ final class DocumentationSnapshotTests: XCTestCase {
 
     func testCliDocsHideDefaultedAllFlagFromUpdateSignature() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let checkSection = try readmeSection(
+            "### `updatebar check",
+            before: "### `updatebar status",
+            in: docs
+        )
+        let statusSection = try readmeSection(
+            "### `updatebar status",
+            before: "### `updatebar update",
+            in: docs
+        )
         let updateSection = try readmeSection(
             "### `updatebar update",
             before: "### `updatebar approve",
@@ -1142,6 +1152,10 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
         XCTAssertTrue(updateSection.contains("`updatebar init`"))
         XCTAssertTrue(updateSection.contains("no items are registered"))
+        for section in [checkSection, statusSection, updateSection] {
+            XCTAssertTrue(section.contains("`updatebar init`"))
+            XCTAssertTrue(section.contains("no items are registered"))
+        }
     }
 
     func testScanInitSpecDocumentsCurrentCategories() throws {
