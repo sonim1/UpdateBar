@@ -51,7 +51,9 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertTrue(docs.contains("`updatebar tui`"))
         XCTAssertTrue(docs.contains("do not forward provider token environment variables"))
+        XCTAssertTrue(docs.contains("Menu Bar CLI subprocess"))
         XCTAssertTrue(docs.contains("GitHub release-check tokens"))
+        XCTAssertTrue(docs.contains("TUI and Menu Bar layers"))
         XCTAssertTrue(docs.contains("absolute `PATH` entries"))
         for field in [
             "id",

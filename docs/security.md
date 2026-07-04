@@ -19,8 +19,8 @@ fingerprint and invalidates the affected approval.
 ## Secrets
 
 Recipe commands run with an allowlisted environment. Common provider and GitHub token values are removed from child process environments and redacted from captured errors.
-The `updatebar tui` launcher and the Ink TUI's Swift CLI subprocess also use allowlisted environments and do not forward provider token environment variables.
-GitHub release-check tokens (`GITHUB_TOKEN` and `GH_TOKEN`) may pass through TUI layers to the Swift CLI, but recipe command subprocesses still do not receive them.
+The `updatebar tui` launcher, the Ink TUI's Swift CLI subprocess, and the Menu Bar CLI subprocess also use allowlisted environments and do not forward provider token environment variables.
+GitHub release-check tokens (`GITHUB_TOKEN` and `GH_TOKEN`) may pass through TUI and Menu Bar layers to the Swift CLI, but recipe command subprocesses still do not receive them.
 Manifest validation rejects literal API keys and token values in recipe fields that are stored, exported, or used by execution:
 
 - `id`, `name`, `category`, `path`, `pin`

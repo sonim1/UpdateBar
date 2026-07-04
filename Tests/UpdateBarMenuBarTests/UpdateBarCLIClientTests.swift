@@ -223,6 +223,38 @@ final class UpdateBarCLIClientTests: XCTestCase {
         XCTAssertEqual(result.stderr, "fedcba09")
     }
 
+    func testProcessRunnerScrubsInheritedEnvironment() throws {
+        try withProcessEnvironment([
+            "OPENROUTER_API_KEY": "sk-or-v1-secret-value",
+            "CUSTOM_SECRET": "custom-secret",
+            "GITHUB_TOKEN": "ghp_release_check_token",
+            "GH_TOKEN": "gh_release_check_token",
+            "UPDATEBAR_HOME": "/tmp/updatebar-home",
+        ]) {
+            let runner = ProcessRunner(timeout: 5)
+
+            let result = try runner.run(
+                executablePath: "/bin/sh",
+                arguments: [
+                    "-c",
+                    """
+                    printf '%s:%s:%s:%s:%s' \
+                    "${OPENROUTER_API_KEY:-missing}" \
+                    "${CUSTOM_SECRET:-missing}" \
+                    "${GITHUB_TOKEN:-missing}" \
+                    "${GH_TOKEN:-missing}" \
+                    "${UPDATEBAR_HOME:-missing}"
+                    """,
+                ]
+            )
+
+            XCTAssertEqual(
+                result.stdout,
+                "missing:missing:ghp_release_check_token:gh_release_check_token:/tmp/updatebar-home"
+            )
+        }
+    }
+
     func testProcessRunnerCancelsRunningProcess() throws {
         let runner = ProcessRunner(timeout: 5)
         let token = CancellationToken()
@@ -249,6 +281,28 @@ final class UpdateBarCLIClientTests: XCTestCase {
         )) { error in
             XCTAssertEqual(error as? UpdateBarCLIClientError, .timedOut)
         }
+    }
+
+    private func withProcessEnvironment(
+        _ values: [String: String],
+        run body: () throws -> Void
+    ) rethrows {
+        let previous = values.keys.reduce(into: [String: String?]()) { result, key in
+            result[key] = ProcessInfo.processInfo.environment[key]
+        }
+        for (key, value) in values {
+            setenv(key, value, 1)
+        }
+        defer {
+            for (key, value) in previous {
+                if let value {
+                    setenv(key, value, 1)
+                } else {
+                    unsetenv(key)
+                }
+            }
+        }
+        try body()
     }
 }
 

@@ -179,6 +179,23 @@ public enum UpdateBarCLIClientError: Error, CustomStringConvertible, Equatable, 
 }
 
 public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
+    private static let subprocessEnvironmentKeys = Set([
+        "PATH",
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "LC_CTYPE",
+        "TMPDIR",
+        "USER",
+        "TERM",
+        "COLORTERM",
+        "NO_COLOR",
+        "FORCE_COLOR",
+        "UPDATEBAR_HOME",
+        "GITHUB_TOKEN",
+        "GH_TOKEN",
+    ])
+
     private let timeout: TimeInterval
     private let maxOutputBytes: Int
 
@@ -199,6 +216,7 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executablePath)
         process.arguments = arguments
+        process.environment = scrubbedEnvironment()
 
         let stdout = Pipe()
         let stderr = Pipe()
@@ -250,6 +268,12 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
             stdout: String(decoding: stdoutData.data(), as: UTF8.self),
             stderr: String(decoding: stderrData.data(), as: UTF8.self)
         )
+    }
+
+    private func scrubbedEnvironment() -> [String: String] {
+        ProcessInfo.processInfo.environment.filter {
+            Self.subprocessEnvironmentKeys.contains($0.key) && !$0.value.isEmpty
+        }
     }
 
     private func terminateProcess(_ process: Process, gracefully: Bool) {
