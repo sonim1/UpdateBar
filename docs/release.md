@@ -119,7 +119,8 @@ Release identity:
 
 - GitHub repo slug: `sonim1/UpdateBar`.
 - Published `v0.2.0` prebuilt CLI archives cover Apple Silicon macOS and Linux
-  x86_64. Release tags also publish an unsigned Apple Silicon macOS app archive.
+  x86_64. Release tags also publish an unsigned macOS app archive for the build
+  host architecture.
 - Homebrew tap target: `sonim1/homebrew-tap`.
 - Formula source lives in `Packaging/homebrew/updatebar.rb`; copy it to the tap as
   `Formula/updatebar.rb` when publishing a Homebrew release. The formula SHA must
