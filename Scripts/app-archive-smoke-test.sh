@@ -9,7 +9,7 @@ if [[ -z "$ARCHIVE" ]]; then
   if [[ ! -d "$ROOT/dist/UpdateBar.app" ]]; then
     UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE=1 "$ROOT/Scripts/package-app.sh" >/dev/null
   fi
-  ARCHIVE="$("$ROOT/Scripts/build-app-archive.sh" | tail -n 1)"
+  ARCHIVE="$("$ROOT/Scripts/build-app-archive.sh")"
 fi
 
 if [[ -f "${ARCHIVE}.sha256" ]]; then

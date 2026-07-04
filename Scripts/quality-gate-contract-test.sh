@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 QUALITY_GATE="$ROOT/Scripts/quality-gate.sh"
+APP_ARCHIVE_SMOKE="$ROOT/Scripts/app-archive-smoke-test.sh"
 CI_WORKFLOW="$ROOT/.github/workflows/ci.yml"
 RELEASE_WORKFLOW="$ROOT/.github/workflows/release.yml"
 
@@ -159,7 +160,8 @@ if ! grep -Fq 'bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"' "$QUALITY_
 fi
 
 if grep -Fq 'build-app-archive.sh | tail -n 1' "$QUALITY_GATE" \
+  || grep -Fq 'build-app-archive.sh" | tail -n 1' "$APP_ARCHIVE_SMOKE" \
   || grep -Fq 'build-app-archive.sh | tail -n 1' "$RELEASE_WORKFLOW"; then
-  echo "quality gate and release workflow must consume build-app-archive.sh output directly" >&2
+  echo "quality gate, app archive smoke, and release workflow must consume build-app-archive.sh output directly" >&2
   exit 1
 fi
