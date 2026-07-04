@@ -34,6 +34,16 @@ if ! grep -Fq 'bash Scripts/install-release-smoke-test.sh' "$QUALITY_GATE"; then
   exit 1
 fi
 
+if ! grep -Fq '"$SWIFT_BIN" build --product updatebar' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must build the debug updatebar CLI before swift tests" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'export UPDATEBAR_TEST_BIN="$ROOT/.build/debug/updatebar"' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must point CLI tests at the freshly built updatebar binary" >&2
+  exit 1
+fi
+
 if ! grep -Fq 'bash Scripts/menubar-smoke-test.sh dist/UpdateBar.app' "$QUALITY_GATE"; then
   echo "quality-gate.sh must run menu bar launch smoke checks" >&2
   exit 1

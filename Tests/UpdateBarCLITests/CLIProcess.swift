@@ -10,7 +10,6 @@ struct CLIProcess {
         timeout: TimeInterval = 60
     ) throws -> Result {
         let process = Process()
-        process.executableURL = try updatebarBinary()
         process.arguments = arguments
         process.currentDirectoryURL = currentDirectory
         var environment = ProcessInfo.processInfo.environment
@@ -19,6 +18,7 @@ struct CLIProcess {
         for (key, value) in overrides {
             environment[key] = value
         }
+        process.executableURL = try updatebarBinary(environment: environment)
         process.environment = environment
 
         let stdout = Pipe()
@@ -56,7 +56,6 @@ struct CLIProcess {
         environment overrides: [String: String?] = [:]
     ) throws -> Result {
         let process = Process()
-        process.executableURL = try updatebarBinary()
         process.arguments = arguments
         var environment = ProcessInfo.processInfo.environment
         environment["HOME"] = home.path
@@ -64,6 +63,7 @@ struct CLIProcess {
         for (key, value) in overrides {
             environment[key] = value
         }
+        process.executableURL = try updatebarBinary(environment: environment)
         process.environment = environment
 
         let stdout = Pipe()
@@ -96,13 +96,13 @@ struct CLIProcess {
     ) throws -> Result? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/script")
-        process.arguments = ["-q", "/dev/null", try updatebarBinary().path] + arguments
         var environment = ProcessInfo.processInfo.environment
         environment["HOME"] = home.path
         environment["UPDATEBAR_HOME"] = home.path
         for (key, value) in overrides {
             environment[key] = value
         }
+        process.arguments = ["-q", "/dev/null", try updatebarBinary(environment: environment).path] + arguments
         process.environment = environment
 
         let stdout = Pipe()
@@ -129,7 +129,15 @@ struct CLIProcess {
     }
 #endif
 
-    private static func updatebarBinary() throws -> URL {
+    private static func updatebarBinary(environment: [String: String]) throws -> URL {
+        if let override = environment["UPDATEBAR_TEST_BIN"], !override.isEmpty {
+            let url = URL(fileURLWithPath: override)
+            guard FileManager.default.isExecutableFile(atPath: url.path) else {
+                throw Error.binaryNotExecutable(override)
+            }
+            return url
+        }
+
         let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let build = root.appendingPathComponent(".build")
         let candidates = [
@@ -168,12 +176,15 @@ struct CLIProcess {
 
     enum Error: Swift.Error, CustomStringConvertible {
         case binaryNotFound
+        case binaryNotExecutable(String)
         case timedOut(arguments: [String])
 
         var description: String {
             switch self {
             case .binaryNotFound:
                 return "updatebar test binary not found"
+            case .binaryNotExecutable(let path):
+                return "updatebar test binary is not executable: \(path)"
             case .timedOut(let arguments):
                 return "CLI process timed out: \(arguments.joined(separator: " "))"
             }

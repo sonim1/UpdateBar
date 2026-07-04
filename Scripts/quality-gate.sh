@@ -15,10 +15,6 @@ if [[ "$(uname -s)" == "Darwin" && -z "${DEVELOPER_DIR:-}" ]]; then
   fi
 fi
 
-if [[ -z "${UPDATEBAR_BIN:-}" && -x .build/debug/updatebar ]]; then
-  export UPDATEBAR_BIN="$ROOT/.build/debug/updatebar"
-fi
-
 echo "running script syntax checks"
 bash Scripts/script-syntax-test.sh
 
@@ -31,6 +27,10 @@ if command -v shellcheck >/dev/null 2>&1; then
 else
   echo "shellcheck not installed; skipping script quality checks"
 fi
+
+echo "building debug updatebar CLI for CLI tests"
+"$SWIFT_BIN" build --product updatebar
+export UPDATEBAR_TEST_BIN="$ROOT/.build/debug/updatebar"
 
 echo "running swift unit tests"
 "$SWIFT_BIN" test

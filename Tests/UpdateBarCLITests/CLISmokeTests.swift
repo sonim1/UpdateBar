@@ -6,6 +6,27 @@ final class CLISmokeTests: XCTestCase {
         XCTAssertTrue(true)
     }
 
+    func testCLIProcessUsesUpdatebarBinOverride() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-process-tests")
+        let fake = home.appendingPathComponent("fake-updatebar")
+        try writeExecutable(
+            fake,
+            """
+            #!/bin/sh
+            printf 'override:%s\\n' "$1"
+            """
+        )
+
+        let result = try CLIProcess.run(
+            ["--version"],
+            home: home,
+            environment: ["UPDATEBAR_TEST_BIN": fake.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stdout, "override:--version\n")
+    }
+
     func testCLIProcessRunTimesOutHungCommand() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-process-tests")
         let paths = AppPaths(homeDirectory: home)
@@ -58,5 +79,10 @@ final class CLISmokeTests: XCTestCase {
             items: [recipe],
             provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
         )
+    }
+
+    private func writeExecutable(_ url: URL, _ body: String) throws {
+        try body.write(to: url, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
     }
 }
