@@ -147,6 +147,15 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
+    func testTemplateKindHelpUsesEnumCases() throws {
+        let file = URL(fileURLWithPath: "Sources/UpdateBarCLI/CLIDocumentCommands.swift")
+        let contents = try String(contentsOf: file, encoding: .utf8)
+
+        XCTAssertTrue(contents.contains("enum TemplateKind: String, CaseIterable, ExpressibleByArgument"))
+        XCTAssertTrue(contents.contains("TemplateKind.helpDescription"))
+        XCTAssertFalse(contents.contains("Template kind: github_release, npm, brew"))
+    }
+
     private func swiftSourceFiles(under root: URL) throws -> [URL] {
         guard let enumerator = FileManager.default.enumerator(
             at: root,

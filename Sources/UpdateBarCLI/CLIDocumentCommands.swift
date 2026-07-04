@@ -235,7 +235,7 @@ struct TemplateCommand: ParsableCommand {
             abstract: "Print a single recipe JSON template."
         )
 
-        @Option(name: .long, help: "Template kind: github_release, npm, brew, git_tags, http_regex, or custom_command.")
+        @Option(name: .long, help: ArgumentHelp("Template kind: \(TemplateKind.helpDescription)."))
         var kind: TemplateKind
 
         @Option(name: .long, help: "Recipe id to use in the template.")
@@ -259,7 +259,7 @@ struct TemplateCommand: ParsableCommand {
             abstract: "Print a manifest JSON template with one recipe."
         )
 
-        @Option(name: .long, help: "Template kind: github_release, npm, brew, git_tags, http_regex, or custom_command.")
+        @Option(name: .long, help: ArgumentHelp("Template kind: \(TemplateKind.helpDescription)."))
         var kind: TemplateKind
 
         @Option(name: .long, help: "Recipe id to use in the template.")
@@ -314,13 +314,17 @@ private func isLowercaseLetterOrDigit(_ scalar: UnicodeScalar) -> Bool {
     }
 }
 
-enum TemplateKind: String, ExpressibleByArgument {
+enum TemplateKind: String, CaseIterable, ExpressibleByArgument {
     case githubRelease = "github_release"
     case npm
     case brew
     case gitTags = "git_tags"
     case httpRegex = "http_regex"
     case customCommand = "custom_command"
+
+    static var helpDescription: String {
+        allCases.map(\.rawValue).joined(separator: ", ")
+    }
 
     func recipe(
         id requestedID: String? = nil,
