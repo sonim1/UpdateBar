@@ -55,20 +55,22 @@ public struct RegistryService {
             func appendResult(for recipe: Recipe, state itemState: ItemState) throws {
                 let result = self.result(for: recipe, state: itemState)
                 results.append(result)
-                try onEvent?(CheckProgressEvent(
-                    phase: .itemFinished,
-                    id: recipe.id,
-                    name: recipe.name,
-                    result: result
-                ))
+                try onEvent?(
+                    CheckProgressEvent(
+                        phase: .itemFinished,
+                        id: recipe.id,
+                        name: recipe.name,
+                        result: result
+                    ))
             }
 
             for recipe in selected {
-                try onEvent?(CheckProgressEvent(
-                    phase: .itemStarted,
-                    id: recipe.id,
-                    name: recipe.name
-                ))
+                try onEvent?(
+                    CheckProgressEvent(
+                        phase: .itemStarted,
+                        id: recipe.id,
+                        name: recipe.name
+                    ))
                 let existing = state.items[recipe.id]
 
                 if !recipe.enabled {
@@ -313,7 +315,8 @@ public struct RegistryService {
         let incoming = Manifest(
             schemaVersion: 1,
             items: [recipe],
-            provenance: Provenance(createdBy: "updatebar", createdAt: validationDate, updatedAt: validationDate)
+            provenance: Provenance(
+                createdBy: "updatebar", createdAt: validationDate, updatedAt: validationDate)
         )
         try validate(incoming)
         return try manifestStore.withExclusiveLock {
@@ -396,19 +399,20 @@ public struct RegistryService {
 
     private func currentVersion(for recipe: Recipe) throws -> String {
         switch recipe.check {
-        case let .command(command):
+        case .command(let command):
             let result = try commandRunner.run(
                 ShellCommand(command: command, cwd: nil),
                 policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)
             )
             guard result.exitCode == 0 else {
-                throw RegistryError.commandFailed("check.cmd exited \(result.exitCode): \(result.stderr)")
+                throw RegistryError.commandFailed(
+                    "check.cmd exited \(result.exitCode): \(result.stderr)")
             }
             return try VersionParser.extract(
                 from: "\(result.stdout)\n\(result.stderr)",
                 using: recipe.versionParse
             )
-        case let .file(path):
+        case .file(let path):
             let resolvedPath = expandedPath(path)
             guard FileManager.default.isReadableFile(atPath: resolvedPath) else {
                 throw RegistryError.checkFileNotReadable(resolvedPath)
@@ -419,7 +423,8 @@ public struct RegistryService {
             } catch {
                 throw RegistryError.checkFileNotReadable(resolvedPath)
             }
-            return try VersionParser.extract(from: String(decoding: data, as: UTF8.self), using: recipe.versionParse)
+            return try VersionParser.extract(
+                from: String(decoding: data, as: UTF8.self), using: recipe.versionParse)
         }
     }
 
@@ -480,19 +485,19 @@ public enum RegistryError: Error, CustomStringConvertible, Equatable {
 
     public var description: String {
         switch self {
-        case let .itemNotFound(id):
+        case .itemNotFound(let id):
             return "\(redacted(id)): item not found"
-        case let .missingCurrentVersion(id):
+        case .missingCurrentVersion(let id):
             return "\(redacted(id)): current version is unavailable"
-        case let .duplicateItem(id):
+        case .duplicateItem(let id):
             return "\(redacted(id)): duplicate item; pass --replace to overwrite"
-        case let .invalidManifest(errors):
+        case .invalidManifest(let errors):
             return "manifest invalid: \(errors.map(redacted).joined(separator: "; "))"
-        case let .commandFailed(message):
+        case .commandFailed(let message):
             return redacted(message)
-        case let .commandFieldNotFound(field):
+        case .commandFieldNotFound(let field):
             return "\(redacted(field)): command field not found"
-        case let .checkFileNotReadable(path):
+        case .checkFileNotReadable(let path):
             return "check.file not readable: \(redacted(path))"
         }
     }

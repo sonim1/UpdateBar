@@ -1,5 +1,5 @@
-import XCTest
 import UpdateBarCore
+import XCTest
 
 final class StateStoreTests: XCTestCase {
     func testStateStoreInitializesEmptyState() throws {
@@ -10,7 +10,8 @@ final class StateStoreTests: XCTestCase {
 
         XCTAssertEqual(state.schemaVersion, 1)
         XCTAssertTrue(state.items.isEmpty)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("state.json").path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent("state.json").path))
     }
 
     func testLoadExistingOrEmptyDoesNotCreateMissingStateFile() throws {
@@ -23,7 +24,8 @@ final class StateStoreTests: XCTestCase {
         XCTAssertEqual(state.schemaVersion, 1)
         XCTAssertEqual(state.generatedAt, now)
         XCTAssertTrue(state.items.isEmpty)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("state.json").path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent("state.json").path))
     }
 
     func testLoadExistingOrEmptyDoesNotCreateMissingHomeDirectory() throws {

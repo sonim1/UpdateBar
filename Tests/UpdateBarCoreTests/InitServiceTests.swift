@@ -1,7 +1,7 @@
 import Foundation
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class InitServiceTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
@@ -9,23 +9,26 @@ final class InitServiceTests: XCTestCase {
     func testRegisterDoesNotPartiallySaveWhenSelectedRecipeIsInvalid() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
-        let service = InitService(registryService: RegistryService(
-            manifestStore: ManifestStore(paths: paths),
-            stateStore: StateStore(paths: paths),
-            now: { self.now }
-        ))
+        let service = InitService(
+            registryService: RegistryService(
+                manifestStore: ManifestStore(paths: paths),
+                stateStore: StateStore(paths: paths),
+                now: { self.now }
+            ))
         let secret = "sk-or-v1-secret-value"
         let good = candidate(recipe(id: "good"))
         var invalidRecipe = recipe(id: "bad")
         invalidRecipe.update.cmd = "OPENROUTER_API_KEY=\(secret) bad update"
         let bad = candidate(invalidRecipe)
 
-        XCTAssertThrowsError(try service.register(
-            candidates: [good, bad],
-            selectedIDs: ["good", "bad"],
-            replace: false
-        )) { error in
-            guard case let RegistryError.invalidManifest(errors) = error else {
+        XCTAssertThrowsError(
+            try service.register(
+                candidates: [good, bad],
+                selectedIDs: ["good", "bad"],
+                replace: false
+            )
+        ) { error in
+            guard case RegistryError.invalidManifest(let errors) = error else {
                 return XCTFail("expected invalid manifest, got \(error)")
             }
             XCTAssertTrue(errors.contains("items[1].update.cmd: must not contain literal secrets"))
@@ -39,7 +42,7 @@ final class InitServiceTests: XCTestCase {
         let secret = "sk-or-v1-secret-value"
         let error = InitServiceError.invalidSelection([
             "\(secret): not found",
-            "tool: not importable (\(secret))"
+            "tool: not importable (\(secret))",
         ])
 
         let message = String(describing: error)

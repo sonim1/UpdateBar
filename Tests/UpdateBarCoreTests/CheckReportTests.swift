@@ -1,12 +1,12 @@
-import XCTest
 import UpdateBarCore
+import XCTest
 
 final class CheckReportTests: XCTestCase {
     func testCheckSummaryCountsDiffersResults() {
         let report = CheckReport(results: [
             checkResult(id: "outdated", status: .outdated),
             checkResult(id: "differs", status: .differs),
-            checkResult(id: "error", status: .error)
+            checkResult(id: "error", status: .error),
         ])
 
         XCTAssertEqual(report.summary.total, 3)
@@ -17,8 +17,8 @@ final class CheckReportTests: XCTestCase {
 
     func testCheckSummaryDecodesOlderPayloadWithoutDiffers() throws {
         let payload = """
-        {"total":1,"outdated":1,"errors":0,"untrusted":0,"disabled":0,"pinned":0}
-        """
+            {"total":1,"outdated":1,"errors":0,"untrusted":0,"disabled":0,"pinned":0}
+            """
 
         let summary = try JSONDecoder().decode(CheckSummary.self, from: Data(payload.utf8))
 

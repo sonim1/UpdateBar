@@ -59,7 +59,8 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertTrue(activeModel.entries.labels.contains("Running: Update [REDACTED]"))
         XCTAssertTrue(finishedModel.entries.labels.contains("Finished: Update [REDACTED]"))
         XCTAssertFalse(activeModel.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
-        XCTAssertFalse(finishedModel.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
+        XCTAssertFalse(
+            finishedModel.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
     }
 
     func testBuildsActionableSectionsForUpdatesApprovalsErrorsAndInstalledItems() {
@@ -207,7 +208,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                     current: "2.0.0",
                     latest: "2.1.0",
                     status: .outdated
-                )
+                ),
             ],
             approvalItems: [],
             errorItems: [],
@@ -221,7 +222,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let runUpdatesItem = model.entries.item(titled: "Run Updates")
 
-        XCTAssertEqual(runUpdatesItem?.toolTip, "Runs 2 approved outdated items after confirmation.")
+        XCTAssertEqual(
+            runUpdatesItem?.toolTip, "Runs 2 approved outdated items after confirmation.")
         XCTAssertEqual(runUpdatesItem?.confirmation?.title, "Run 2 Updates?")
         XCTAssertEqual(
             runUpdatesItem?.confirmation?.message,
@@ -412,7 +414,8 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertNotNil(approvalItem)
         XCTAssertFalse(model.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
         XCTAssertFalse(approvalItem?.toolTip?.contains("sk-or-v1-secret-value") ?? true)
-        XCTAssertFalse(approvalItem?.confirmation?.message.contains("sk-or-v1-secret-value") ?? true)
+        XCTAssertFalse(
+            approvalItem?.confirmation?.message.contains("sk-or-v1-secret-value") ?? true)
     }
 
     func testBuildsErrorRecoveryMenu() {
@@ -442,7 +445,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.openConfig),
                 .menu(.viewLogs),
                 .menu(.quit),
-        ])
+            ])
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 

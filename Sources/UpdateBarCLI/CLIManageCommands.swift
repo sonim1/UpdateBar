@@ -159,7 +159,9 @@ struct ApprovalCommand: ParsableCommand {
     }
 
     private func printApprovalNextStep(for recipe: Recipe) {
-        if recipe.commandFingerprints().keys.allSatisfy({ TrustPolicy.isApproved(recipe, field: $0) }) {
+        if recipe.commandFingerprints().keys.allSatisfy({
+            TrustPolicy.isApproved(recipe, field: $0)
+        }) {
             printNextCommands([checkCommand(for: recipe.id)])
         } else {
             printNextCommands([approvalCommand(for: recipe.id)])
@@ -190,9 +192,10 @@ struct ApprovalsCommand: ParsableCommand {
             }
             let unapprovedRows = rows.filter { !$0.approved }
             if !unapprovedRows.isEmpty {
-                printNextCommands(unapprovedRows.map {
-                    approveFieldCommand(for: id, field: $0.field)
-                })
+                printNextCommands(
+                    unapprovedRows.map {
+                        approveFieldCommand(for: id, field: $0.field)
+                    })
             } else {
                 writeStdout("")
                 writeStdout("All command fields approved.")
@@ -216,7 +219,7 @@ struct ApprovalsCommand: ParsableCommand {
         var parts = [
             row.field,
             row.approved ? "approved" : "unapproved",
-            oneLine(row.command)
+            oneLine(row.command),
         ]
         if let cwd = row.cwd, !cwd.isEmpty {
             parts.append("cwd=\(oneLine(cwd))")

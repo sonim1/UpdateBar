@@ -56,11 +56,11 @@ public enum ConfigError: Error, CustomStringConvertible, Equatable, Sendable {
 
     public var description: String {
         switch self {
-        case let .unknownKey(key):
+        case .unknownKey(let key):
             return "\(redacted(key)): unknown config key"
-        case let .invalidValue(key, value):
+        case .invalidValue(let key, let value):
             return "\(redacted(key)): invalid value \(redacted(value))"
-        case let .corruptConfig(message):
+        case .corruptConfig(let message):
             return "config.toml: \(redacted(message))"
         }
     }

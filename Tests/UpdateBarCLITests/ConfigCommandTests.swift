@@ -1,13 +1,14 @@
 import Foundation
-import XCTest
 import UpdateBarCore
+import XCTest
 
 final class ConfigCommandTests: XCTestCase {
     func testConfigGetDoesNotCreateDefaultConfigFile() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
         let paths = AppPaths(homeDirectory: home)
 
-        let result = try CLIProcess.run(["config", "get", "security.require_https_source"], home: home)
+        let result = try CLIProcess.run(
+            ["config", "get", "security.require_https_source"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "true")
@@ -18,7 +19,8 @@ final class ConfigCommandTests: XCTestCase {
     func testConfigSetSupportsJSONOutput() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
 
-        let result = try CLIProcess.run(["config", "set", "security.require_https_source", "false", "--json"], home: home)
+        let result = try CLIProcess.run(
+            ["config", "set", "security.require_https_source", "false", "--json"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stdout.contains(#""ok":true"#))
@@ -41,7 +43,8 @@ final class ConfigCommandTests: XCTestCase {
     func testConfigSetRejectsRemovedNotifyKey() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
 
-        let result = try CLIProcess.run(["config", "set", "notify.enabled", "false", "--json"], home: home)
+        let result = try CLIProcess.run(
+            ["config", "set", "notify.enabled", "false", "--json"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stdout.contains(#""ok":false"#))
@@ -51,7 +54,8 @@ final class ConfigCommandTests: XCTestCase {
     func testConfigSetInvalidIntervalJSONReportsConfigKey() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
 
-        let result = try CLIProcess.run(["config", "set", "refresh.interval", "never", "--json"], home: home)
+        let result = try CLIProcess.run(
+            ["config", "set", "refresh.interval", "never", "--json"], home: home)
         let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
@@ -64,7 +68,8 @@ final class ConfigCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
         let paths = AppPaths(homeDirectory: home)
 
-        let result = try CLIProcess.run(["config", "set", "missing.key", "value", "--json"], home: home)
+        let result = try CLIProcess.run(
+            ["config", "set", "missing.key", "value", "--json"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))

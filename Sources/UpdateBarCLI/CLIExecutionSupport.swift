@@ -1,9 +1,10 @@
 import Foundation
 import UpdateBarCore
+
 #if os(Linux)
-import Glibc
+    import Glibc
 #else
-import Darwin
+    import Darwin
 #endif
 
 func ensureJSONModeCompatibility(json: Bool, jsonStream: Bool) throws {
@@ -80,11 +81,11 @@ private func closePromptLineForPipedInput() {
 }
 
 func standardInputIsTTY() -> Bool {
-#if os(Linux)
-    Glibc.isatty(STDIN_FILENO) == 1
-#else
-    Darwin.isatty(STDIN_FILENO) == 1
-#endif
+    #if os(Linux)
+        Glibc.isatty(STDIN_FILENO) == 1
+    #else
+        Darwin.isatty(STDIN_FILENO) == 1
+    #endif
 }
 
 private final class SignalCancellationHandler {
@@ -110,10 +111,10 @@ private final class SignalCancellationHandler {
     }
 
     private static func ignore(_ signalNumber: Int32) {
-#if os(Linux)
-        Glibc.signal(signalNumber, SIG_IGN)
-#else
-        Darwin.signal(signalNumber, SIG_IGN)
-#endif
+        #if os(Linux)
+            Glibc.signal(signalNumber, SIG_IGN)
+        #else
+            Darwin.signal(signalNumber, SIG_IGN)
+        #endif
     }
 }

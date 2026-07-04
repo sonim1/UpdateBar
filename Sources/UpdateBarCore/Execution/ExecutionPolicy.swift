@@ -54,13 +54,13 @@ public enum ExecutionError: Error, CustomStringConvertible, Equatable, Sendable 
 
     public var description: String {
         switch self {
-        case let .invalidWorkingDirectory(path):
+        case .invalidWorkingDirectory(let path):
             return "\(redacted(path)): working directory does not exist"
-        case let .timedOut(command):
+        case .timedOut(let command):
             return "\(redacted(command)): timed out"
-        case let .launchFailed(message):
+        case .launchFailed(let message):
             return redacted(message)
-        case let .cancelled(command):
+        case .cancelled(let command):
             return "\(redacted(command)): cancelled"
         }
     }

@@ -310,8 +310,8 @@ public enum UpdateOutcome: String, Codable, Equatable {
     }
 }
 
-private extension UpdatePlanDecision {
-    var outcome: UpdateOutcome {
+extension UpdatePlanDecision {
+    fileprivate var outcome: UpdateOutcome {
         switch self {
         case .willUpdate:
             .updated

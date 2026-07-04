@@ -11,7 +11,8 @@ struct AddCommand: ParsableCommand {
 
     @Option(
         name: .long,
-        help: ArgumentHelp("Recipe or single-item manifest JSON file to add, or '-' for stdin.", valueName: "file")
+        help: ArgumentHelp(
+            "Recipe or single-item manifest JSON file to add, or '-' for stdin.", valueName: "file")
     )
     var from: String?
 
@@ -36,14 +37,17 @@ struct AddCommand: ParsableCommand {
 
         do {
             let outcome = try RegistryService().addRecipe(prepared, replace: replace)
-            try output(AddPayload(valid: true, recipe: prepared, errors: [], outcome: outcome), saved: true)
+            try output(
+                AddPayload(valid: true, recipe: prepared, errors: [], outcome: outcome), saved: true
+            )
         } catch {
             if json {
-                try output(AddPayload(
-                    valid: false,
-                    recipe: prepared,
-                    errors: [sanitizedErrorMessage(for: error)]
-                ), saved: false)
+                try output(
+                    AddPayload(
+                        valid: false,
+                        recipe: prepared,
+                        errors: [sanitizedErrorMessage(for: error)]
+                    ), saved: false)
             }
             throw error
         }
@@ -131,8 +135,11 @@ struct AddCommand: ParsableCommand {
         guard let latestStrategy = LatestStrategyKind(rawValue: latestStrategyText) else {
             throw ValidationError("latest.strategy: unsupported value \(latestStrategyText)")
         }
-        let latestCommand = latestStrategy == .cmd ? try prompt("latest.cmd") : optionalPrompt("latest.cmd")
-        let latestPattern = latestStrategy == .httpRegex ? try prompt("latest.pattern") : optionalPrompt("latest.pattern")
+        let latestCommand =
+            latestStrategy == .cmd ? try prompt("latest.cmd") : optionalPrompt("latest.cmd")
+        let latestPattern =
+            latestStrategy == .httpRegex
+            ? try prompt("latest.pattern") : optionalPrompt("latest.pattern")
         let versionRegex = try prompt("version_parse.regex")
         let updateCommand = try prompt("update.cmd")
         let updateCWD = optionalPrompt("update.cwd")
@@ -145,7 +152,8 @@ struct AddCommand: ParsableCommand {
             source: Source(kind: sourceKind, ref: sourceRef, branch: sourceBranch),
             versionScheme: scheme,
             check: .command(checkCommand),
-            latest: LatestSpec(strategy: latestStrategy, cmd: latestCommand, pattern: latestPattern),
+            latest: LatestSpec(
+                strategy: latestStrategy, cmd: latestCommand, pattern: latestPattern),
             versionParse: .regex(versionRegex),
             update: UpdateSpec(cmd: updateCommand, cwd: updateCWD),
             pin: nil,
@@ -157,7 +165,8 @@ struct AddCommand: ParsableCommand {
     private func prompt(_ label: String) throws -> String {
         guard let line = readManualLine(label) else {
             if label == "id" {
-                throw ValidationError("add requires recipe input; pass --from <file> or pipe wizard answers on stdin")
+                throw ValidationError(
+                    "add requires recipe input; pass --from <file> or pipe wizard answers on stdin")
             }
             throw ValidationError("\(label): required")
         }

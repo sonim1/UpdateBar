@@ -1,5 +1,5 @@
-import XCTest
 import UpdateBarCore
+import XCTest
 
 final class ConfigStoreTests: XCTestCase {
     func testDefaultConfigMatchesV1Decisions() {
@@ -18,7 +18,8 @@ final class ConfigStoreTests: XCTestCase {
         let config = try store.load()
 
         XCTAssertEqual(config, .default)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("config.toml").path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent("config.toml").path))
         let configAttributes = try FileManager.default.attributesOfItem(
             atPath: root.appendingPathComponent("config.toml").path
         )
@@ -132,7 +133,8 @@ final class ConfigStoreTests: XCTestCase {
             """.utf8
         ).write(to: configFile)
 
-        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) { error in
+        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) {
+            error in
             let message = String(describing: error)
             XCTAssertTrue(message.contains("line 2"))
             XCTAssertTrue(message.contains("invalid line concurrency 2"))
@@ -149,7 +151,8 @@ final class ConfigStoreTests: XCTestCase {
             """.utf8
         ).write(to: configFile)
 
-        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) { error in
+        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) {
+            error in
             let message = String(describing: error)
             XCTAssertTrue(message.contains("line 2"))
             XCTAssertTrue(message.contains("security.require_https_source: invalid value maybe"))
@@ -166,7 +169,8 @@ final class ConfigStoreTests: XCTestCase {
             """.utf8
         ).write(to: configFile)
 
-        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) { error in
+        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) {
+            error in
             let message = String(describing: error)
             XCTAssertTrue(message.contains("line 2"))
             XCTAssertTrue(message.contains("refresh.interval: invalid value never"))
@@ -185,7 +189,8 @@ final class ConfigStoreTests: XCTestCase {
             """.utf8
         ).write(to: configFile)
 
-        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) { error in
+        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) {
+            error in
             let message = String(describing: error)
             XCTAssertTrue(message.contains("line 2"))
             XCTAssertTrue(message.contains("invalid line [REDACTED]"))
@@ -204,10 +209,12 @@ final class ConfigStoreTests: XCTestCase {
             """.utf8
         ).write(to: configFile)
 
-        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) { error in
+        XCTAssertThrowsError(try ConfigStore(paths: AppPaths(homeDirectory: root)).load()) {
+            error in
             let message = String(describing: error)
             XCTAssertTrue(message.contains("line 2"))
-            XCTAssertTrue(message.contains("security.require_https_source: invalid value [REDACTED]"))
+            XCTAssertTrue(
+                message.contains("security.require_https_source: invalid value [REDACTED]"))
             XCTAssertFalse(message.contains(secret))
         }
     }

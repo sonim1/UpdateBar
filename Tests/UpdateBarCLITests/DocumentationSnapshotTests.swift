@@ -13,16 +13,27 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertTrue(output.contains(command), "missing \(command)")
         }
         let helpLines = output.split(separator: "\n").map(String.init)
-        for command in ["add", "import", "export", "background", "config", "guide", "schema", "template", "validate", "tui"] {
-            XCTAssertFalse(helpShowsCommand(command, in: helpLines), "support command should be hidden: \(command)")
+        for command in [
+            "add", "import", "export", "background", "config", "guide", "schema", "template",
+            "validate", "tui",
+        ] {
+            XCTAssertFalse(
+                helpShowsCommand(command, in: helpLines),
+                "support command should be hidden: \(command)")
         }
-        for command in ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit"] {
-            XCTAssertFalse(helpShowsCommand(command, in: helpLines), "advanced manage command should be hidden: \(command)")
+        for command in ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit"]
+        {
+            XCTAssertFalse(
+                helpShowsCommand(command, in: helpLines),
+                "advanced manage command should be hidden: \(command)")
         }
-        for section in ["SETUP SUBCOMMANDS:", "CHECK & UPDATE SUBCOMMANDS:", "MANAGE SUBCOMMANDS:"] {
+        for section in ["SETUP SUBCOMMANDS:", "CHECK & UPDATE SUBCOMMANDS:", "MANAGE SUBCOMMANDS:"]
+        {
             XCTAssertTrue(output.contains(section), "missing section \(section)")
         }
-        XCTAssertFalse(output.contains("SYSTEM SUBCOMMANDS:"), "system commands should be hidden from root help")
+        XCTAssertFalse(
+            output.contains("SYSTEM SUBCOMMANDS:"),
+            "system commands should be hidden from root help")
     }
 
     func testRootHelpVisibleCommandsHaveDescriptions() throws {
@@ -34,7 +45,9 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
         for command in commands {
-            XCTAssertTrue(helpHasDescription(for: command, in: helpLines), "visible command should have a root help description: \(command)")
+            XCTAssertTrue(
+                helpHasDescription(for: command, in: helpLines),
+                "visible command should have a root help description: \(command)")
         }
     }
 
@@ -54,7 +67,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("Menu Bar CLI subprocess"))
         XCTAssertTrue(docs.contains("GitHub release-check tokens"))
         XCTAssertTrue(docs.contains("TUI and Menu Bar layers"))
-        XCTAssertTrue(docs.contains("Presentation subprocesses also receive only absolute `PATH` entries"))
+        XCTAssertTrue(
+            docs.contains("Presentation subprocesses also receive only absolute `PATH` entries"))
         XCTAssertTrue(docs.contains("absolute `PATH` entries"))
         for field in [
             "id",
@@ -248,10 +262,12 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertEqual(rootResult.exitCode, 0)
         XCTAssertEqual(rootResult.stderr, "")
-        XCTAssertTrue(rootResult.stdout.contains("Run approved update commands for outdated items."))
+        XCTAssertTrue(
+            rootResult.stdout.contains("Run approved update commands for outdated items."))
         XCTAssertEqual(updateResult.exitCode, 0)
         XCTAssertEqual(updateResult.stderr, "")
-        let normalizedUpdateHelp = updateResult.stdout.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        let normalizedUpdateHelp = updateResult.stdout.split(whereSeparator: \.isWhitespace).joined(
+            separator: " ")
         XCTAssertTrue(normalizedUpdateHelp.contains("Updates every outdated item when omitted."))
     }
 
@@ -347,18 +363,21 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertEqual(result.stderr, "")
             XCTAssertTrue(result.stdout.contains("ai-agent"), "\(command) help missing ai-agent")
             XCTAssertTrue(result.stdout.contains("library"), "\(command) help missing library")
-            XCTAssertTrue(result.stdout.contains("mcp-server"), "\(command) help missing mcp-server")
-            XCTAssertTrue(result.stdout.contains("aliases: ai, mcp"), "\(command) help missing short category aliases")
+            XCTAssertTrue(
+                result.stdout.contains("mcp-server"), "\(command) help missing mcp-server")
+            XCTAssertTrue(
+                result.stdout.contains("aliases: ai, mcp"),
+                "\(command) help missing short category aliases")
         }
     }
 
     func testSystemSubcommandsHaveHelpDescriptions() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         var expectedSubcommandsByCommand: [String: [String]] = [
-            "config": ["get", "set"],
+            "config": ["get", "set"]
         ]
         #if os(macOS)
-        expectedSubcommandsByCommand["background"] = ["install", "status", "uninstall"]
+            expectedSubcommandsByCommand["background"] = ["install", "status", "uninstall"]
         #endif
 
         for (command, subcommands) in expectedSubcommandsByCommand {
@@ -383,9 +402,9 @@ final class DocumentationSnapshotTests: XCTestCase {
             ["config", "set"]: ["--json"],
         ]
         #if os(macOS)
-        expectedOptionsByCommand[["background", "install"]] = ["--yes", "--json"]
-        expectedOptionsByCommand[["background", "status"]] = ["--json"]
-        expectedOptionsByCommand[["background", "uninstall"]] = ["--json"]
+            expectedOptionsByCommand[["background", "install"]] = ["--yes", "--json"]
+            expectedOptionsByCommand[["background", "status"]] = ["--json"]
+            expectedOptionsByCommand[["background", "uninstall"]] = ["--json"]
         #endif
         let expectedArgumentsByCommand: [[String]: [String]] = [
             ["config", "get"]: ["<key>"],
@@ -396,8 +415,11 @@ final class DocumentationSnapshotTests: XCTestCase {
             let result = try CLIProcess.run(commandPath + ["--help"], home: home)
             let helpLines = result.stdout.split(separator: "\n").map(String.init)
 
-            XCTAssertEqual(result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
-            XCTAssertEqual(result.stderr, "", "\(commandPath.joined(separator: " ")) --help should not write stderr")
+            XCTAssertEqual(
+                result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
+            XCTAssertEqual(
+                result.stderr, "",
+                "\(commandPath.joined(separator: " ")) --help should not write stderr")
             for option in options {
                 XCTAssertTrue(
                     optionHasDescription(option, in: helpLines),
@@ -416,8 +438,11 @@ final class DocumentationSnapshotTests: XCTestCase {
             let result = try CLIProcess.run(commandPath + ["--help"], home: home)
             let helpLines = result.stdout.split(separator: "\n").map(String.init)
 
-            XCTAssertEqual(result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
-            XCTAssertEqual(result.stderr, "", "\(commandPath.joined(separator: " ")) --help should not write stderr")
+            XCTAssertEqual(
+                result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
+            XCTAssertEqual(
+                result.stderr, "",
+                "\(commandPath.joined(separator: " ")) --help should not write stderr")
             for argument in arguments {
                 XCTAssertTrue(
                     optionHasDescription(argument, in: helpLines),
@@ -438,8 +463,11 @@ final class DocumentationSnapshotTests: XCTestCase {
             let result = try CLIProcess.run(commandPath + ["--help"], home: home)
             let helpLines = result.stdout.split(separator: "\n").map(String.init)
 
-            XCTAssertEqual(result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
-            XCTAssertEqual(result.stderr, "", "\(commandPath.joined(separator: " ")) --help should not write stderr")
+            XCTAssertEqual(
+                result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
+            XCTAssertEqual(
+                result.stderr, "",
+                "\(commandPath.joined(separator: " ")) --help should not write stderr")
             for subcommand in subcommands {
                 XCTAssertTrue(
                     helpHasDescription(for: subcommand, in: helpLines),
@@ -479,8 +507,11 @@ final class DocumentationSnapshotTests: XCTestCase {
             let result = try CLIProcess.run(commandPath + ["--help"], home: home)
             let helpLines = result.stdout.split(separator: "\n").map(String.init)
 
-            XCTAssertEqual(result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
-            XCTAssertEqual(result.stderr, "", "\(commandPath.joined(separator: " ")) --help should not write stderr")
+            XCTAssertEqual(
+                result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
+            XCTAssertEqual(
+                result.stderr, "",
+                "\(commandPath.joined(separator: " ")) --help should not write stderr")
             for option in options {
                 XCTAssertTrue(
                     optionHasDescription(option, in: helpLines),
@@ -497,8 +528,11 @@ final class DocumentationSnapshotTests: XCTestCase {
             let result = try CLIProcess.run(commandPath + ["--help"], home: home)
             let helpLines = result.stdout.split(separator: "\n").map(String.init)
 
-            XCTAssertEqual(result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
-            XCTAssertEqual(result.stderr, "", "\(commandPath.joined(separator: " ")) --help should not write stderr")
+            XCTAssertEqual(
+                result.exitCode, 0, "\(commandPath.joined(separator: " ")) --help should succeed")
+            XCTAssertEqual(
+                result.stderr, "",
+                "\(commandPath.joined(separator: " ")) --help should not write stderr")
             for argument in arguments {
                 XCTAssertTrue(
                     optionHasDescription(argument, in: helpLines),
@@ -583,9 +617,15 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         for column in ["`STATUS`", "`LABEL`", "`PATH`"] {
             XCTAssertTrue(backgroundDocs.contains(column), "background docs missing \(column)")
-            XCTAssertTrue(backgroundInstallSection.contains(column), "cli docs missing background install \(column)")
-            XCTAssertTrue(backgroundStatusSection.contains(column), "cli docs missing background status \(column)")
-            XCTAssertTrue(backgroundUninstallSection.contains(column), "cli docs missing background uninstall \(column)")
+            XCTAssertTrue(
+                backgroundInstallSection.contains(column),
+                "cli docs missing background install \(column)")
+            XCTAssertTrue(
+                backgroundStatusSection.contains(column),
+                "cli docs missing background status \(column)")
+            XCTAssertTrue(
+                backgroundUninstallSection.contains(column),
+                "cli docs missing background uninstall \(column)")
         }
     }
 
@@ -606,7 +646,9 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(backgroundDocs.contains("launchctl bootstrap gui/$(id -u)"))
         XCTAssertTrue(backgroundDocs.contains("launchctl bootout gui/$(id -u)/com.updatebar.check"))
         XCTAssertTrue(backgroundInstallSection.contains("launchctl bootstrap gui/$(id -u)"))
-        XCTAssertTrue(backgroundUninstallSection.contains("launchctl bootout gui/$(id -u)/com.updatebar.check"))
+        XCTAssertTrue(
+            backgroundUninstallSection.contains(
+                "launchctl bootout gui/$(id -u)/com.updatebar.check"))
     }
 
     func testBackgroundDocsDocumentJSONLabelField() throws {
@@ -644,7 +686,11 @@ final class DocumentationSnapshotTests: XCTestCase {
     func testCompletionScriptsExposePrimaryRootCommandsOnly() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let visibleCommands = ["init", "scan", "status", "check", "update", "approvals", "help"]
-        let hiddenCommands = ["add", "import", "export", "approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit", "background", "config", "guide", "schema", "template", "validate", "tui"]
+        let hiddenCommands = [
+            "add", "import", "export", "approve", "revoke", "pin", "unpin", "enable", "disable",
+            "remove", "edit", "background", "config", "guide", "schema", "template", "validate",
+            "tui",
+        ]
 
         for shell in ["bash", "zsh", "fish"] {
             let result = try CLIProcess.run(["--generate-completion-script", shell], home: home)
@@ -656,7 +702,8 @@ final class DocumentationSnapshotTests: XCTestCase {
                 XCTAssertTrue(commands.contains(command), "\(shell) completion missing \(command)")
             }
             for command in hiddenCommands {
-                XCTAssertFalse(commands.contains(command), "\(shell) completion should hide \(command)")
+                XCTAssertFalse(
+                    commands.contains(command), "\(shell) completion should hide \(command)")
             }
         }
     }
@@ -665,13 +712,22 @@ final class DocumentationSnapshotTests: XCTestCase {
         let docs = try String(contentsOfFile: "docs/completions.md", encoding: .utf8)
 
         for command in ["init", "scan", "status", "check", "update", "approvals", "help"] {
-            XCTAssertTrue(docs.contains("`\(command)`"), "completion docs missing visible command \(command)")
+            XCTAssertTrue(
+                docs.contains("`\(command)`"), "completion docs missing visible command \(command)")
         }
-        for phrase in ["import/export", "advanced item-management", "background/configuration", "support commands"] {
-            XCTAssertTrue(docs.contains(phrase), "completion docs missing hidden command category \(phrase)")
+        for phrase in [
+            "import/export", "advanced item-management", "background/configuration",
+            "support commands",
+        ] {
+            XCTAssertTrue(
+                docs.contains(phrase), "completion docs missing hidden command category \(phrase)")
         }
-        XCTAssertTrue(docs.contains("`--category` values"), "completion docs missing category value completion note")
-        XCTAssertTrue(docs.contains("`init --select` completes `all`"), "completion docs missing init select all note")
+        XCTAssertTrue(
+            docs.contains("`--category` values"),
+            "completion docs missing category value completion note")
+        XCTAssertTrue(
+            docs.contains("`init --select` completes `all`"),
+            "completion docs missing init select all note")
     }
 
     func testFishCompletionsSuggestScanCategoryValues() throws {
@@ -682,12 +738,14 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
         for command in ["scan", "init"] {
-            let values = try fishCompletionValues(for: command, option: "category", in: result.stdout)
+            let values = try fishCompletionValues(
+                for: command, option: "category", in: result.stdout)
             for value in [
                 "ai-agent", "package-manager", "runtime-sdk", "shell-utility",
                 "cloud-devops", "library", "codex-skill", "mcp-server", "ai", "mcp",
             ] {
-                XCTAssertTrue(values.contains(value), "\(command) --category completion missing \(value)")
+                XCTAssertTrue(
+                    values.contains(value), "\(command) --category completion missing \(value)")
             }
         }
     }
@@ -707,18 +765,31 @@ final class DocumentationSnapshotTests: XCTestCase {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let quickStart = try readmeSection("## Quick Start", before: "## Scope", in: readme)
 
-        for command in ["updatebar scan", "updatebar init", "updatebar approvals <id-from-init>", "updatebar status --json", "updatebar check", "updatebar update --yes"] {
+        for command in [
+            "updatebar scan", "updatebar init", "updatebar approvals <id-from-init>",
+            "updatebar status --json", "updatebar check", "updatebar update --yes",
+        ] {
             XCTAssertTrue(quickStart.contains(command), "README Quick Start missing \(command)")
         }
         XCTAssertTrue(quickStart.contains("<candidate-id-from-scan>"))
         XCTAssertTrue(quickStart.contains("Follow the approval commands it prints"))
         XCTAssertFalse(quickStart.contains("number-from-scan"))
 
-        XCTAssertFalse(quickStart.contains("cat > recipe.json"), "README Quick Start should not inline a full recipe")
-        XCTAssertFalse(quickStart.contains("updatebar approve <id-from-init>"), "README Quick Start should not lead with advanced approval commands")
-        XCTAssertFalse(quickStart.contains("--exit-zero-on-outdated"), "README Quick Start should not lead with hidden automation flags")
-        XCTAssertFalse(quickStart.contains("updatebar list"), "README Quick Start should not mention the removed list command")
-        XCTAssertLessThanOrEqual(quickStart.split(separator: "\n").count, 35, "README Quick Start should stay short enough to scan")
+        XCTAssertFalse(
+            quickStart.contains("cat > recipe.json"),
+            "README Quick Start should not inline a full recipe")
+        XCTAssertFalse(
+            quickStart.contains("updatebar approve <id-from-init>"),
+            "README Quick Start should not lead with advanced approval commands")
+        XCTAssertFalse(
+            quickStart.contains("--exit-zero-on-outdated"),
+            "README Quick Start should not lead with hidden automation flags")
+        XCTAssertFalse(
+            quickStart.contains("updatebar list"),
+            "README Quick Start should not mention the removed list command")
+        XCTAssertLessThanOrEqual(
+            quickStart.split(separator: "\n").count, 35,
+            "README Quick Start should stay short enough to scan")
     }
 
     func testCliDocsInitSelectMatchesHeadlessSelectionContract() throws {
@@ -800,7 +871,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         )
 
         XCTAssertTrue(scanSection.contains("`ai-agent`, `package-manager`, `runtime-sdk`"))
-        XCTAssertTrue(scanSection.contains("Aliases: `ai` for `ai-agent` and `mcp` for `mcp-server`."))
+        XCTAssertTrue(
+            scanSection.contains("Aliases: `ai` for `ai-agent` and `mcp` for `mcp-server`."))
         XCTAssertFalse(scanSection.contains("--detectors"))
         XCTAssertTrue(scanSection.contains("`scan` is read-only"))
         XCTAssertTrue(scanSection.contains("choose and register"))
@@ -843,7 +915,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(combined.contains("UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui"))
         XCTAssertTrue(architecture.contains("UPDATEBAR_TUI"))
         XCTAssertTrue(releaseDocs.contains("Scripts/quality-gate.sh"))
-        XCTAssertTrue(releaseDocs.contains("UPDATEBAR_TEST_BIN=$PWD/.build/debug/updatebar swift test"))
+        XCTAssertTrue(
+            releaseDocs.contains("UPDATEBAR_TEST_BIN=$PWD/.build/debug/updatebar swift test"))
         XCTAssertTrue(releaseDocs.contains("npm --prefix tui run build"))
         XCTAssertTrue(releaseDocs.contains("UPDATEBAR_VERIFY_STATIC_ONLY=1"))
         XCTAssertTrue(releaseDocs.contains("Build or install the Ink TUI from source with npm"))
@@ -859,7 +932,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         let troubleshooting = try String(contentsOfFile: "docs/troubleshooting.md", encoding: .utf8)
 
         XCTAssertTrue(troubleshooting.contains("APP=${APP:-/Applications/UpdateBar.app}"))
-        XCTAssertTrue(troubleshooting.contains("UPDATEBAR_BIN=\"$APP/Contents/Resources/updatebar\""))
+        XCTAssertTrue(
+            troubleshooting.contains("UPDATEBAR_BIN=\"$APP/Contents/Resources/updatebar\""))
         XCTAssertTrue(troubleshooting.contains("\"$APP/Contents/MacOS/UpdateBar\""))
         XCTAssertTrue(troubleshooting.contains("~/UpdateBar.app"))
     }
@@ -875,7 +949,8 @@ final class DocumentationSnapshotTests: XCTestCase {
     func testTUISourceDocsRunTheLocalBuiltCLI() throws {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let tuiReadme = try String(contentsOfFile: "tui/README.md", encoding: .utf8)
-        let readmeTUISection = try readmeSection("### Ink TUI", before: "## Quick Start", in: readme)
+        let readmeTUISection = try readmeSection(
+            "### Ink TUI", before: "## Quick Start", in: readme)
         let tuiSourceSection = try readmeSection(
             "## Run From Source",
             before: "## Install Locally",
@@ -921,8 +996,11 @@ final class DocumentationSnapshotTests: XCTestCase {
             in: docs
         )
 
-        XCTAssertFalse(checkSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false)
-        XCTAssertFalse(statusSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false)
+        XCTAssertFalse(
+            checkSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false)
+        XCTAssertFalse(
+            statusSection.split(separator: "\n").first?.contains("--exit-zero-on-outdated") ?? false
+        )
         for column in ["`ID`", "`STATUS`", "`CURRENT`", "`LATEST`", "`DETAIL`"] {
             XCTAssertTrue(checkSection.contains(column), "check docs missing \(column)")
         }
@@ -982,7 +1060,9 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertTrue(categorySection.contains(category), "spec missing \(category)")
         }
         XCTAssertFalse(categorySection.contains("local-service"))
-        XCTAssertTrue(categorySection.contains("Aliases: `ai` maps to `ai-agent`; `mcp` maps to `mcp-server`."))
+        XCTAssertTrue(
+            categorySection.contains(
+                "Aliases: `ai` maps to `ai-agent`; `mcp` maps to `mcp-server`."))
         XCTAssertTrue(categorySection.contains("Unknown category values are rejected"))
     }
 
@@ -1039,7 +1119,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(activeSurface.contains("updatebar version"))
         XCTAssertFalse(architecture.contains("updatebar update <id|--all>"))
         XCTAssertFalse(architecture.contains("thin local wrapper around CLI status/actions"))
-        XCTAssertFalse(architecture.contains("never reads/writes manifest/state/config files directly"))
+        XCTAssertFalse(
+            architecture.contains("never reads/writes manifest/state/config files directly"))
         XCTAssertTrue(architecture.contains("updatebar update [ids]"))
         XCTAssertTrue(architecture.contains("direct UpdateBarCore adapter by default"))
         XCTAssertTrue(architecture.contains("UPDATEBAR_MENUBAR_ADAPTER=cli"))
@@ -1057,7 +1138,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         let releaseDocs = try String(contentsOfFile: "docs/release.md", encoding: .utf8)
         let nextPlan = try String(contentsOfFile: "next-plan.md", encoding: .utf8)
         let menuBarSpec = try String(
-            contentsOfFile: "openspec/changes/add-ink-tui-menubar-architecture/specs/macos-menubar/spec.md",
+            contentsOfFile:
+                "openspec/changes/add-ink-tui-menubar-architecture/specs/macos-menubar/spec.md",
             encoding: .utf8
         )
         let readmeMenuBarSection = try readmeSection(
@@ -1086,7 +1168,8 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertFalse(design.contains("Which package manager will own the Ink workspace"))
         XCTAssertFalse(design.contains("What command name should launch the TUI"))
-        XCTAssertFalse(design.contains("Should JSONL streaming be added to both `check` and `update`"))
+        XCTAssertFalse(
+            design.contains("Should JSONL streaming be added to both `check` and `update`"))
         XCTAssertFalse(design.contains("Which terminal application should Menu Bar prefer"))
         XCTAssertTrue(design.contains("npm"))
         XCTAssertTrue(design.contains("updatebar tui"))
@@ -1122,7 +1205,9 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertTrue(document.contains("UpdateBarCore is the source of truth"))
             XCTAssertTrue(document.contains("direct UpdateBarCore"))
             XCTAssertFalse(document.contains("CLI is the single writer"))
-            XCTAssertFalse(document.contains("App process never writes `manifest.json`, `state.json`, or config directly"))
+            XCTAssertFalse(
+                document.contains(
+                    "App process never writes `manifest.json`, `state.json`, or config directly"))
         }
     }
 
@@ -1147,10 +1232,14 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(prd.contains("[`current-plan.md`](current-plan.md)"))
         XCTAssertTrue(prd.contains("[`current-architecture.md`](current-architecture.md)"))
         XCTAssertTrue(prd.contains("[`next-plan.md`](next-plan.md)"))
-        XCTAssertTrue(prd.contains("Do not use this file as the source of truth for new implementation work."))
+        XCTAssertTrue(
+            prd.contains("Do not use this file as the source of truth for new implementation work.")
+        )
     }
 
-    private func readmeSection(_ heading: String, before nextHeading: String, in readme: String) throws -> String {
+    private func readmeSection(_ heading: String, before nextHeading: String, in readme: String)
+        throws -> String
+    {
         guard
             let start = readme.range(of: heading)?.upperBound,
             let end = readme[start...].range(of: nextHeading)?.lowerBound
@@ -1173,7 +1262,9 @@ final class DocumentationSnapshotTests: XCTestCase {
         switch shell {
         case "bash":
             guard
-                let line = script.split(separator: "\n").first(where: { $0.contains("compgen -W '") }),
+                let line = script.split(separator: "\n").first(where: {
+                    $0.contains("compgen -W '")
+                }),
                 let start = line.range(of: "compgen -W '")?.upperBound,
                 let end = line[start...].range(of: "' --")?.lowerBound
             else {
@@ -1219,7 +1310,9 @@ final class DocumentationSnapshotTests: XCTestCase {
         }
     }
 
-    private func fishCompletionValues(for command: String, option: String, in script: String) throws -> Set<String> {
+    private func fishCompletionValues(for command: String, option: String, in script: String) throws
+        -> Set<String>
+    {
         guard
             let line = script.split(separator: "\n").map(String.init).first(where: {
                 $0.contains(#""updatebar \#(command)""#)

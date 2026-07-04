@@ -6,46 +6,54 @@ struct UpdateBar: ParsableCommand {
         abstract: "Track and update arbitrary registered tools.",
         version: UpdateBarVersion.current,
         groupedSubcommands: [
-            CommandGroup(name: "Setup", subcommands: [
-                InitCommand.self,
-                ScanCommand.self,
-                AddCommand.self,
-                ImportCommand.self,
-                ExportCommand.self,
-            ]),
-            CommandGroup(name: "Check & Update", subcommands: [
-                StatusCommand.self,
-                CheckCommand.self,
-                UpdateCommand.self,
-            ]),
-            CommandGroup(name: "Manage", subcommands: [
-                ApprovalCommand.self,
-                ApprovalsCommand.self,
-                RevokeCommand.self,
-                PinCommand.self,
-                UnpinCommand.self,
-                EnableCommand.self,
-                DisableCommand.self,
-                RemoveCommand.self,
-                EditCommand.self,
-            ]),
+            CommandGroup(
+                name: "Setup",
+                subcommands: [
+                    InitCommand.self,
+                    ScanCommand.self,
+                    AddCommand.self,
+                    ImportCommand.self,
+                    ExportCommand.self,
+                ]),
+            CommandGroup(
+                name: "Check & Update",
+                subcommands: [
+                    StatusCommand.self,
+                    CheckCommand.self,
+                    UpdateCommand.self,
+                ]),
+            CommandGroup(
+                name: "Manage",
+                subcommands: [
+                    ApprovalCommand.self,
+                    ApprovalsCommand.self,
+                    RevokeCommand.self,
+                    PinCommand.self,
+                    UnpinCommand.self,
+                    EnableCommand.self,
+                    DisableCommand.self,
+                    RemoveCommand.self,
+                    EditCommand.self,
+                ]),
             CommandGroup(name: "System", subcommands: systemSubcommands),
-            CommandGroup(name: "Support", subcommands: [
-                GuideCommand.self,
-                TUICommand.self,
-                SchemaCommand.self,
-                TemplateCommand.self,
-                ValidateCommand.self,
-            ]),
+            CommandGroup(
+                name: "Support",
+                subcommands: [
+                    GuideCommand.self,
+                    TUICommand.self,
+                    SchemaCommand.self,
+                    TemplateCommand.self,
+                    ValidateCommand.self,
+                ]),
         ]
     )
 
     private static let systemSubcommands: [ParsableCommand.Type] = {
-#if os(macOS)
-        return [ConfigCommand.self, BackgroundCommand.self]
-#else
-        return [ConfigCommand.self]
-#endif
+        #if os(macOS)
+            return [ConfigCommand.self, BackgroundCommand.self]
+        #else
+            return [ConfigCommand.self]
+        #endif
     }()
 }
 

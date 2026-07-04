@@ -1,10 +1,11 @@
 import ArgumentParser
 import Foundation
 import UpdateBarCore
+
 #if os(Linux)
-import Glibc
+    import Glibc
 #else
-import Darwin
+    import Darwin
 #endif
 
 func handleCLIError(_ error: Error, arguments: [String]) -> Never {
@@ -15,7 +16,8 @@ func handleCLIError(_ error: Error, arguments: [String]) -> Never {
 
     let exitCode = UpdateBar.exitCode(for: error)
     if exitCode == .success {
-        for message in sanitizedErrorMessages(for: error, arguments: arguments) where !message.isEmpty {
+        for message in sanitizedErrorMessages(for: error, arguments: arguments)
+        where !message.isEmpty {
             writeStdout(message)
         }
         terminate(0)
@@ -97,7 +99,7 @@ private func recoveryHint(for error: Error, arguments: [String]) -> String? {
 
 private func approvalCommandID(from arguments: [String]) -> String? {
     guard let command = arguments.first,
-          command == "approve" || command == "revoke"
+        command == "approve" || command == "revoke"
     else {
         return nil
     }
@@ -127,9 +129,9 @@ private func processExitCode(for exitCode: ExitCode) -> Int32 {
 }
 
 private func terminate(_ code: Int32) -> Never {
-#if os(Linux)
-    Glibc.exit(code)
-#else
-    Darwin.exit(code)
-#endif
+    #if os(Linux)
+        Glibc.exit(code)
+    #else
+        Darwin.exit(code)
+    #endif
 }

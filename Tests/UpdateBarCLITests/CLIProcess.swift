@@ -44,8 +44,10 @@ struct CLIProcess {
 
         return Result(
             exitCode: process.terminationStatus,
-            stdout: String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
-            stderr: String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            stdout: String(
+                decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
+            stderr: String(
+                decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         )
     }
 
@@ -82,52 +84,57 @@ struct CLIProcess {
 
         return Result(
             exitCode: process.terminationStatus,
-            stdout: String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
-            stderr: String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            stdout: String(
+                decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
+            stderr: String(
+                decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         )
     }
 
-#if os(macOS)
-    static func runWithOpenTTYUntilExit(
-        _ arguments: [String],
-        home: URL,
-        timeout: TimeInterval,
-        environment overrides: [String: String?] = [:]
-    ) throws -> Result? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/script")
-        var environment = ProcessInfo.processInfo.environment
-        environment["HOME"] = home.path
-        environment["UPDATEBAR_HOME"] = home.path
-        for (key, value) in overrides {
-            environment[key] = value
+    #if os(macOS)
+        static func runWithOpenTTYUntilExit(
+            _ arguments: [String],
+            home: URL,
+            timeout: TimeInterval,
+            environment overrides: [String: String?] = [:]
+        ) throws -> Result? {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/script")
+            var environment = ProcessInfo.processInfo.environment
+            environment["HOME"] = home.path
+            environment["UPDATEBAR_HOME"] = home.path
+            for (key, value) in overrides {
+                environment[key] = value
+            }
+            process.arguments =
+                ["-q", "/dev/null", try updatebarBinary(environment: environment).path] + arguments
+            process.environment = environment
+
+            let stdout = Pipe()
+            let stderr = Pipe()
+            let stdin = Pipe()
+            process.standardOutput = stdout
+            process.standardError = stderr
+            process.standardInput = stdin
+
+            try process.run()
+            let completed = waitForExit(process, timeout: timeout)
+            try stdin.fileHandleForWriting.close()
+            if !completed {
+                process.terminate()
+                _ = waitForExit(process, timeout: 1.0)
+                return nil
+            }
+
+            return Result(
+                exitCode: process.terminationStatus,
+                stdout: String(
+                    decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
+                stderr: String(
+                    decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            )
         }
-        process.arguments = ["-q", "/dev/null", try updatebarBinary(environment: environment).path] + arguments
-        process.environment = environment
-
-        let stdout = Pipe()
-        let stderr = Pipe()
-        let stdin = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
-        process.standardInput = stdin
-
-        try process.run()
-        let completed = waitForExit(process, timeout: timeout)
-        try stdin.fileHandleForWriting.close()
-        if !completed {
-            process.terminate()
-            _ = waitForExit(process, timeout: 1.0)
-            return nil
-        }
-
-        return Result(
-            exitCode: process.terminationStatus,
-            stdout: String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
-            stderr: String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        )
-    }
-#endif
+    #endif
 
     private static func updatebarBinary(environment: [String: String]) throws -> URL {
         if let override = environment["UPDATEBAR_TEST_BIN"], !override.isEmpty {
@@ -143,12 +150,17 @@ struct CLIProcess {
         let candidates = [
             build.appendingPathComponent("debug/updatebar"),
             build.appendingPathComponent("arm64-apple-macosx/debug/updatebar"),
-            build.appendingPathComponent("x86_64-apple-macosx/debug/updatebar")
+            build.appendingPathComponent("x86_64-apple-macosx/debug/updatebar"),
         ]
-        if let candidate = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) {
+        if let candidate = candidates.first(where: {
+            FileManager.default.isExecutableFile(atPath: $0.path)
+        }) {
             return candidate
         }
-        guard let enumerator = FileManager.default.enumerator(at: build, includingPropertiesForKeys: nil) else {
+        guard
+            let enumerator = FileManager.default.enumerator(
+                at: build, includingPropertiesForKeys: nil)
+        else {
             throw Error.binaryNotFound
         }
         for case let url as URL in enumerator where url.lastPathComponent == "updatebar" {

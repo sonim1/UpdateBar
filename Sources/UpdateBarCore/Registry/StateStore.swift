@@ -32,7 +32,8 @@ public struct StateStore {
             let data = try Data(contentsOf: paths.stateFile)
             return try JSONDecoder.updateBar.decode(State.self, from: data)
         } catch {
-            throw StoreError.corruptFile(path: paths.stateFile.path, reason: storeErrorReason(for: error))
+            throw StoreError.corruptFile(
+                path: paths.stateFile.path, reason: storeErrorReason(for: error))
         }
     }
 
@@ -44,7 +45,8 @@ public struct StateStore {
         } catch let error as StoreError {
             throw error
         } catch {
-            throw StoreError.writeFailed(path: paths.stateFile.path, reason: String(describing: error))
+            throw StoreError.writeFailed(
+                path: paths.stateFile.path, reason: String(describing: error))
         }
     }
 

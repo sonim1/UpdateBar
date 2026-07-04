@@ -1,6 +1,6 @@
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class StatusSnapshotTests: XCTestCase {
     func testBuildsMenuBarStatusContractFromManifestAndState() throws {
@@ -198,7 +198,7 @@ final class StatusSnapshotTests: XCTestCase {
                 "pinned": itemState(status: .outdated, now: now),
                 "disabled": itemState(status: .outdated, now: now),
                 "checking": itemState(status: .checking, now: now),
-                "differs": itemState(status: .differs, now: now)
+                "differs": itemState(status: .differs, now: now),
             ]
         )
 
@@ -215,18 +215,19 @@ final class StatusSnapshotTests: XCTestCase {
     }
 
     func testStatusSummaryRejectsNegativeDecodedCounts() throws {
-        let payload = Data("""
-        {
-          "total": 1,
-          "outdated": -1,
-          "errors": 0,
-          "untrusted": 0,
-          "pinned": 0,
-          "disabled": 0,
-          "checking": 0,
-          "differs": 0
-        }
-        """.utf8)
+        let payload = Data(
+            """
+            {
+              "total": 1,
+              "outdated": -1,
+              "errors": 0,
+              "untrusted": 0,
+              "pinned": 0,
+              "disabled": 0,
+              "checking": 0,
+              "differs": 0
+            }
+            """.utf8)
 
         XCTAssertThrowsError(try JSONDecoder.updateBar.decode(StatusSummary.self, from: payload))
     }

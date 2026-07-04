@@ -59,7 +59,9 @@ public struct UpdateBarBinaryResolver {
         {
             return UpdateBarBinaryResolution(path: path, source: .bundled)
         }
-        if let path = pathCandidate(environment: environment, defaultPathEntries: defaultPathEntries) {
+        if let path = pathCandidate(
+            environment: environment, defaultPathEntries: defaultPathEntries)
+        {
             return UpdateBarBinaryResolution(path: path, source: .path)
         }
         if let developmentRoot, let path = developmentCandidate(root: developmentRoot) {
@@ -83,11 +85,13 @@ public struct UpdateBarBinaryResolver {
         environment: [String: String],
         defaultPathEntries: [String]
     ) -> String? {
-        let pathEntries = (environment["PATH"] ?? "")
+        let pathEntries =
+            (environment["PATH"] ?? "")
             .split(separator: ":", omittingEmptySubsequences: false)
             .map(String.init) + defaultPathEntries
         var seen: Set<String> = []
-        for directory in pathEntries where isAbsolutePathEntry(directory)
+        for directory in pathEntries
+        where isAbsolutePathEntry(directory)
             && seen.insert(directory).inserted
         {
             let candidate = URL(fileURLWithPath: directory)

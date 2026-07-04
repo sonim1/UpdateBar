@@ -1,6 +1,6 @@
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class RegistryServiceTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
@@ -9,15 +9,20 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        try stores.manifest.save(manifest(items: [
-            recipe(id: "tool-one", currentCommand: "tool-one current", latestCommand: "tool-one latest"),
-            recipe(id: "tool-two", currentCommand: "tool-two current", latestCommand: "tool-two latest")
-        ]))
+        try stores.manifest.save(
+            manifest(items: [
+                recipe(
+                    id: "tool-one", currentCommand: "tool-one current",
+                    latestCommand: "tool-one latest"),
+                recipe(
+                    id: "tool-two", currentCommand: "tool-two current",
+                    latestCommand: "tool-two latest"),
+            ]))
         let commands = MockCommandExecutor(results: [
             "tool-one current": CommandResult(exitCode: 0, stdout: "tool 1.0.0", stderr: ""),
             "tool-one latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
             "tool-two current": CommandResult(exitCode: 0, stdout: "tool 2.0.0", stderr: ""),
-            "tool-two latest": CommandResult(exitCode: 0, stdout: "tool 2.1.0", stderr: "")
+            "tool-two latest": CommandResult(exitCode: 0, stdout: "tool 2.1.0", stderr: ""),
         ])
         let service = registryService(paths: paths, commands: commands)
 
@@ -36,15 +41,16 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        try stores.manifest.save(manifest(items: [
-            recipe(id: "alpha", currentCommand: "alpha current", latestCommand: "alpha latest"),
-            recipe(id: "beta", currentCommand: "beta current", latestCommand: "beta latest")
-        ]))
+        try stores.manifest.save(
+            manifest(items: [
+                recipe(id: "alpha", currentCommand: "alpha current", latestCommand: "alpha latest"),
+                recipe(id: "beta", currentCommand: "beta current", latestCommand: "beta latest"),
+            ]))
         let commands = MockCommandExecutor(results: [
             "alpha current": CommandResult(exitCode: 0, stdout: "alpha 1.0.0", stderr: ""),
             "alpha latest": CommandResult(exitCode: 0, stdout: "alpha 1.0.0", stderr: ""),
             "beta current": CommandResult(exitCode: 0, stdout: "beta 1.0.0", stderr: ""),
-            "beta latest": CommandResult(exitCode: 0, stdout: "beta 1.2.0", stderr: "")
+            "beta latest": CommandResult(exitCode: 0, stdout: "beta 1.2.0", stderr: ""),
         ])
         let service = registryService(paths: paths, commands: commands)
 
@@ -59,7 +65,8 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        var disabled = recipe(id: "disabled", currentCommand: "disabled current", latestCommand: "disabled latest")
+        var disabled = recipe(
+            id: "disabled", currentCommand: "disabled current", latestCommand: "disabled latest")
         disabled.enabled = false
         try stores.manifest.save(manifest(items: [disabled]))
         let commands = MockCommandExecutor(results: [:])
@@ -77,7 +84,8 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        var pinned = recipe(id: "pinned", currentCommand: "pinned current", latestCommand: "pinned latest")
+        var pinned = recipe(
+            id: "pinned", currentCommand: "pinned current", latestCommand: "pinned latest")
         pinned.pin = "1.0.0"
         try stores.manifest.save(manifest(items: [pinned]))
         let commands = MockCommandExecutor(results: [:])
@@ -95,15 +103,18 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        try stores.manifest.save(manifest(items: [
-            recipe(id: "broken", currentCommand: "broken current", latestCommand: "broken latest"),
-            recipe(id: "good", currentCommand: "good current", latestCommand: "good latest")
-        ]))
+        try stores.manifest.save(
+            manifest(items: [
+                recipe(
+                    id: "broken", currentCommand: "broken current", latestCommand: "broken latest"),
+                recipe(id: "good", currentCommand: "good current", latestCommand: "good latest"),
+            ]))
         let githubToken = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
         let commands = MockCommandExecutor(results: [
-            "broken current": CommandResult(exitCode: 7, stdout: "", stderr: "boom sk-or-v1-secret \(githubToken)"),
+            "broken current": CommandResult(
+                exitCode: 7, stdout: "", stderr: "boom sk-or-v1-secret \(githubToken)"),
             "good current": CommandResult(exitCode: 0, stdout: "good 1.0.0", stderr: ""),
-            "good latest": CommandResult(exitCode: 0, stdout: "good 1.0.0", stderr: "")
+            "good latest": CommandResult(exitCode: 0, stdout: "good 1.0.0", stderr: ""),
         ])
         let service = registryService(paths: paths, commands: commands)
 
@@ -124,7 +135,8 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        var item = recipe(id: "file-tool", currentCommand: "unused", latestCommand: "file-tool latest")
+        var item = recipe(
+            id: "file-tool", currentCommand: "unused", latestCommand: "file-tool latest")
         let missingPath = root.appendingPathComponent("missing-version.txt").path
         item.check = .file(path: missingPath)
         TestApprovals.approveAllCommands(in: &item)
@@ -155,14 +167,16 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        var item = recipe(id: "tool", currentCommand: "unused current", latestCommand: "tool latest")
+        var item = recipe(
+            id: "tool", currentCommand: "unused current", latestCommand: "tool latest")
         item.check = .file(path: "~/.tool-version")
         TestApprovals.approveAllCommands(in: &item)
         try stores.manifest.save(manifest(items: [item]))
         let commands = MockCommandExecutor(results: [
             "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.2.3", stderr: "")
         ])
-        let service = registryService(paths: paths, commands: commands, environment: ["HOME": userHome.path])
+        let service = registryService(
+            paths: paths, commands: commands, environment: ["HOME": userHome.path])
 
         let results = try service.check()
 
@@ -174,9 +188,12 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        try stores.manifest.save(manifest(items: [
-            recipe(id: "parse-tool", currentCommand: "parse-tool current", latestCommand: "parse-tool latest")
-        ]))
+        try stores.manifest.save(
+            manifest(items: [
+                recipe(
+                    id: "parse-tool", currentCommand: "parse-tool current",
+                    latestCommand: "parse-tool latest")
+            ]))
         let commands = MockCommandExecutor(results: [
             "parse-tool current": CommandResult(exitCode: 0, stdout: "no version here", stderr: "")
         ])
@@ -194,12 +211,17 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        try stores.manifest.save(manifest(items: [
-            recipe(id: "partial-tool", currentCommand: "partial-tool current", latestCommand: "partial-tool latest")
-        ]))
+        try stores.manifest.save(
+            manifest(items: [
+                recipe(
+                    id: "partial-tool", currentCommand: "partial-tool current",
+                    latestCommand: "partial-tool latest")
+            ]))
         let commands = MockCommandExecutor(results: [
-            "partial-tool current": CommandResult(exitCode: 0, stdout: "partial-tool 1.0.0", stderr: ""),
-            "partial-tool latest": CommandResult(exitCode: 1, stdout: "", stderr: "latest unavailable")
+            "partial-tool current": CommandResult(
+                exitCode: 0, stdout: "partial-tool 1.0.0", stderr: ""),
+            "partial-tool latest": CommandResult(
+                exitCode: 1, stdout: "", stderr: "latest unavailable"),
         ])
         let service = registryService(paths: paths, commands: commands)
 
@@ -217,22 +239,27 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        try stores.manifest.save(manifest(items: [
-            recipe(id: "cached", currentCommand: "cached current", latestCommand: "cached latest")
-        ]))
-        try stores.state.save(State(schemaVersion: 1, generatedAt: now, items: [
-            "cached": ItemState(
-                current: "1.0.0",
-                latest: "1.1.0",
-                status: .outdated,
-                lastChecked: now.addingTimeInterval(-60),
-                error: nil,
-                backoffUntil: nil
-            )
-        ]))
+        try stores.manifest.save(
+            manifest(items: [
+                recipe(
+                    id: "cached", currentCommand: "cached current", latestCommand: "cached latest")
+            ]))
+        try stores.state.save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "cached": ItemState(
+                        current: "1.0.0",
+                        latest: "1.1.0",
+                        status: .outdated,
+                        lastChecked: now.addingTimeInterval(-60),
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                ]))
         let commands = MockCommandExecutor(results: [
             "cached current": CommandResult(exitCode: 0, stdout: "cached 1.1.0", stderr: ""),
-            "cached latest": CommandResult(exitCode: 0, stdout: "cached 1.1.0", stderr: "")
+            "cached latest": CommandResult(exitCode: 0, stdout: "cached 1.1.0", stderr: ""),
         ])
         let service = registryService(paths: paths, commands: commands)
 
@@ -249,7 +276,8 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        var item = recipe(id: "unsafe", currentCommand: "unsafe current", latestCommand: "unsafe latest")
+        var item = recipe(
+            id: "unsafe", currentCommand: "unsafe current", latestCommand: "unsafe latest")
         item.trust.approvedCommands = [:]
         try stores.manifest.save(manifest(items: [item]))
         let commands = MockCommandExecutor(results: [:])
@@ -293,7 +321,7 @@ final class RegistryServiceTests: XCTestCase {
         let service = registryService(paths: paths, commands: MockCommandExecutor(results: [:]))
 
         XCTAssertThrowsError(try service.approve(id: "tool", field: "update.cmd")) { error in
-            guard case let RegistryError.invalidManifest(errors) = error else {
+            guard case RegistryError.invalidManifest(let errors) = error else {
                 return XCTFail("expected invalid manifest, got \(error)")
             }
             XCTAssertTrue(errors.contains("items[0].update.cmd: must not contain literal secrets"))
@@ -311,7 +339,7 @@ final class RegistryServiceTests: XCTestCase {
             .invalidManifest(["bad value \(secret)"]),
             .commandFailed("stderr \(secret)"),
             .commandFieldNotFound(secret),
-            .checkFileNotReadable("/tmp/\(secret)")
+            .checkFileNotReadable("/tmp/\(secret)"),
         ]
 
         for error in errors {
@@ -325,9 +353,10 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        try stores.manifest.save(manifest(items: [
-            recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
-        ]))
+        try stores.manifest.save(
+            manifest(items: [
+                recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
+            ]))
         let commands = MockCommandExecutor(results: [
             "tool current": CommandResult(exitCode: 0, stdout: "tool 1.0.0", stderr: ""),
             "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
@@ -367,16 +396,19 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        var existing = recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
+        var existing = recipe(
+            id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
         existing.update.cmd = "OPENROUTER_API_KEY=sk-or-v1-secret-value tool update"
         try stores.manifest.save(manifest(items: [existing]))
         let service = registryService(paths: paths, commands: MockCommandExecutor(results: [:]))
 
-        XCTAssertThrowsError(try service.addRecipe(
-            recipe(id: "tool", currentCommand: "new current", latestCommand: "new latest"),
-            replace: false
-        )) { error in
-            guard case let RegistryError.invalidManifest(errors) = error else {
+        XCTAssertThrowsError(
+            try service.addRecipe(
+                recipe(id: "tool", currentCommand: "new current", latestCommand: "new latest"),
+                replace: false
+            )
+        ) { error in
+            guard case RegistryError.invalidManifest(let errors) = error else {
                 return XCTFail("expected invalid manifest, got \(error)")
             }
             XCTAssertTrue(errors.contains("items[0].update.cmd: must not contain literal secrets"))
@@ -406,16 +438,21 @@ final class RegistryServiceTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         let stores = Stores(paths: paths)
-        var existing = recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
+        var existing = recipe(
+            id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
         existing.update.cmd = "OPENROUTER_API_KEY=sk-or-v1-secret-value tool update"
         try stores.manifest.save(manifest(items: [existing]))
         let service = registryService(paths: paths, commands: MockCommandExecutor(results: [:]))
 
-        XCTAssertThrowsError(try service.importManifest(
-            manifest(items: [recipe(id: "tool", currentCommand: "new current", latestCommand: "new latest")]),
-            replace: false
-        )) { error in
-            guard case let RegistryError.invalidManifest(errors) = error else {
+        XCTAssertThrowsError(
+            try service.importManifest(
+                manifest(items: [
+                    recipe(id: "tool", currentCommand: "new current", latestCommand: "new latest")
+                ]),
+                replace: false
+            )
+        ) { error in
+            guard case RegistryError.invalidManifest(let errors) = error else {
                 return XCTFail("expected invalid manifest, got \(error)")
             }
             XCTAssertTrue(errors.contains("items[0].update.cmd: must not contain literal secrets"))

@@ -80,7 +80,7 @@ struct CheckCommand: ParsableCommand {
         let blocked = results.filter { $0.status == .untrusted }
         let updateApprovalNeeded = results.filter { result in
             guard result.status == .outdated,
-                  let recipe = manifest.item(id: result.id)
+                let recipe = manifest.item(id: result.id)
             else {
                 return false
             }
@@ -97,11 +97,12 @@ struct CheckCommand: ParsableCommand {
 
     private func runJSONStream(service: RegistryService, ids: [String]) throws {
         let writer = JSONLWriter()
-        try writer.write(MachineEvent(
-            event: .started,
-            operation: .check,
-            timestamp: Date()
-        ))
+        try writer.write(
+            MachineEvent(
+                event: .started,
+                operation: .check,
+                timestamp: Date()
+            ))
 
         var streamedResults: [CheckResult] = []
         let results: [CheckResult]
@@ -109,61 +110,67 @@ struct CheckCommand: ParsableCommand {
             results = try service.check(ids: ids, force: force) { event in
                 switch event.phase {
                 case .itemStarted:
-                    try writer.write(MachineEvent(
-                        event: .itemStarted,
-                        operation: .check,
-                        timestamp: Date(),
-                        itemId: event.id,
-                        message: event.name
-                    ))
+                    try writer.write(
+                        MachineEvent(
+                            event: .itemStarted,
+                            operation: .check,
+                            timestamp: Date(),
+                            itemId: event.id,
+                            message: event.name
+                        ))
                 case .itemFinished:
                     if let result = event.result {
                         streamedResults.append(result)
                     }
-                    try writer.write(MachineEvent(
-                        event: .itemFinished,
-                        operation: .check,
-                        timestamp: Date(),
-                        itemId: event.id,
-                        checkResult: event.result
-                    ))
+                    try writer.write(
+                        MachineEvent(
+                            event: .itemFinished,
+                            operation: .check,
+                            timestamp: Date(),
+                            itemId: event.id,
+                            checkResult: event.result
+                        ))
                 }
             }
         } catch let error as ExecutionError where error.isCancellation {
             let report = CheckReport(results: streamedResults)
-            try writer.write(MachineEvent(
-                event: .cancelled,
-                operation: .check,
-                timestamp: Date(),
-                checkSummary: report.summary,
-                error: sanitizedErrorMessage(for: error)
-            ))
-            try writer.write(MachineEvent(
+            try writer.write(
+                MachineEvent(
+                    event: .cancelled,
+                    operation: .check,
+                    timestamp: Date(),
+                    checkSummary: report.summary,
+                    error: sanitizedErrorMessage(for: error)
+                ))
+            try writer.write(
+                MachineEvent(
+                    event: .finished,
+                    operation: .check,
+                    timestamp: Date(),
+                    checkResults: report.results,
+                    checkSummary: report.summary
+                ))
+            throw ExitCode(2)
+        } catch {
+            try writer.write(
+                MachineEvent(
+                    event: .failed,
+                    operation: .check,
+                    timestamp: Date(),
+                    error: sanitizedErrorMessage(for: error)
+                ))
+            throw error
+        }
+
+        let report = CheckReport(results: results)
+        try writer.write(
+            MachineEvent(
                 event: .finished,
                 operation: .check,
                 timestamp: Date(),
                 checkResults: report.results,
                 checkSummary: report.summary
             ))
-            throw ExitCode(2)
-        } catch {
-            try writer.write(MachineEvent(
-                event: .failed,
-                operation: .check,
-                timestamp: Date(),
-                error: sanitizedErrorMessage(for: error)
-            ))
-            throw error
-        }
-
-        let report = CheckReport(results: results)
-        try writer.write(MachineEvent(
-            event: .finished,
-            operation: .check,
-            timestamp: Date(),
-            checkResults: report.results,
-            checkSummary: report.summary
-        ))
 
         if !exitZeroOnOutdated, results.contains(where: { $0.status == .outdated }) {
             throw ExitCode(10)

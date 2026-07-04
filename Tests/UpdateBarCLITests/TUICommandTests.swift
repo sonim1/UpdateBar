@@ -9,9 +9,9 @@ final class TUICommandTests: XCTestCase {
         try writeExecutable(
             bin.appendingPathComponent("updatebar-tui"),
             """
-#!/bin/sh
-echo "bin:$UPDATEBAR_BIN"
-"""
+            #!/bin/sh
+            echo "bin:$UPDATEBAR_BIN"
+            """
         )
 
         let result = try CLIProcess.run(
@@ -19,12 +19,14 @@ echo "bin:$UPDATEBAR_BIN"
             home: home,
             environment: [
                 "PATH": bin.path,
-                "UPDATEBAR_BIN": "/tmp/custom-bin-from-env"
+                "UPDATEBAR_BIN": "/tmp/custom-bin-from-env",
             ]
         )
 
         XCTAssertEqual(result.exitCode, 0)
-        XCTAssertEqual(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "bin:/tmp/custom-bin-from-env")
+        XCTAssertEqual(
+            result.stdout.trimmingCharacters(in: .whitespacesAndNewlines),
+            "bin:/tmp/custom-bin-from-env")
     }
 
     func testTUICommandDoesNotForwardSecretEnvironment() throws {
@@ -34,11 +36,11 @@ echo "bin:$UPDATEBAR_BIN"
         try writeExecutable(
             bin.appendingPathComponent("updatebar-tui"),
             """
-#!/bin/sh
-printf 'secret=%s\\n' "${OPENROUTER_API_KEY:-missing}"
-printf 'home=%s\\n' "${UPDATEBAR_HOME:-missing}"
-printf 'term=%s\\n' "${TERM:-missing}"
-"""
+            #!/bin/sh
+            printf 'secret=%s\\n' "${OPENROUTER_API_KEY:-missing}"
+            printf 'home=%s\\n' "${UPDATEBAR_HOME:-missing}"
+            printf 'term=%s\\n' "${TERM:-missing}"
+            """
         )
 
         let result = try CLIProcess.run(
@@ -65,10 +67,10 @@ printf 'term=%s\\n' "${TERM:-missing}"
         try writeExecutable(
             bin.appendingPathComponent("updatebar-tui"),
             """
-#!/bin/sh
-printf 'github=%s\\n' "${GITHUB_TOKEN:-missing}"
-printf 'gh=%s\\n' "${GH_TOKEN:-missing}"
-"""
+            #!/bin/sh
+            printf 'github=%s\\n' "${GITHUB_TOKEN:-missing}"
+            printf 'gh=%s\\n' "${GH_TOKEN:-missing}"
+            """
         )
 
         let result = try CLIProcess.run(
@@ -98,16 +100,16 @@ printf 'gh=%s\\n' "${GH_TOKEN:-missing}"
         try writeExecutable(
             pathBin.appendingPathComponent("updatebar-tui"),
             """
-#!/bin/sh
-echo "path:$UPDATEBAR_BIN"
-"""
+            #!/bin/sh
+            echo "path:$UPDATEBAR_BIN"
+            """
         )
         try writeExecutable(
             overrideBin.appendingPathComponent("updatebar-tui-custom"),
             """
-#!/bin/sh
-echo "override:$UPDATEBAR_BIN"
-"""
+            #!/bin/sh
+            echo "override:$UPDATEBAR_BIN"
+            """
         )
 
         let result = try CLIProcess.run(
@@ -116,12 +118,14 @@ echo "override:$UPDATEBAR_BIN"
             environment: [
                 "PATH": pathBin.path,
                 "UPDATEBAR_TUI": overrideBin.appendingPathComponent("updatebar-tui-custom").path,
-                "UPDATEBAR_BIN": "/tmp/override-bin"
+                "UPDATEBAR_BIN": "/tmp/override-bin",
             ]
         )
 
         XCTAssertEqual(result.exitCode, 0)
-        XCTAssertEqual(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "override:/tmp/override-bin")
+        XCTAssertEqual(
+            result.stdout.trimmingCharacters(in: .whitespacesAndNewlines),
+            "override:/tmp/override-bin")
     }
 
     func testTUICommandRejectsInvalidEnvironmentOverridePath() throws {
@@ -131,9 +135,9 @@ echo "override:$UPDATEBAR_BIN"
         try writeExecutable(
             bin.appendingPathComponent("updatebar-tui"),
             """
-#!/bin/sh
-echo "path:$UPDATEBAR_BIN"
-"""
+            #!/bin/sh
+            echo "path:$UPDATEBAR_BIN"
+            """
         )
 
         let invalid = home.appendingPathComponent("not-an-executable")
@@ -145,7 +149,7 @@ echo "path:$UPDATEBAR_BIN"
             environment: [
                 "PATH": bin.path,
                 "UPDATEBAR_TUI": invalid.path,
-                "UPDATEBAR_BIN": "/tmp/invalid-bin"
+                "UPDATEBAR_BIN": "/tmp/invalid-bin",
             ]
         )
 
@@ -190,9 +194,9 @@ echo "path:$UPDATEBAR_BIN"
         try writeExecutable(
             home.appendingPathComponent("updatebar-tui"),
             """
-#!/bin/sh
-echo "relative-path"
-"""
+            #!/bin/sh
+            echo "relative-path"
+            """
         )
 
         let result = try CLIProcess.run(

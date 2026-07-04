@@ -1,6 +1,6 @@
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class UpdateRunnerTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
@@ -17,13 +17,15 @@ final class UpdateRunnerTests: XCTestCase {
 
         let planner = UpdatePlanner(
             manifest: manifest(items: [ready, pinned, disabled, untrusted, recipe(id: "ok")]),
-            state: State(schemaVersion: 1, generatedAt: now, items: [
-                "ready": itemState(status: .outdated),
-                "pinned": itemState(status: .outdated),
-                "disabled": itemState(status: .outdated),
-                "untrusted": itemState(status: .outdated),
-                "ok": itemState(status: .ok)
-            ])
+            state: State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "ready": itemState(status: .outdated),
+                    "pinned": itemState(status: .outdated),
+                    "disabled": itemState(status: .outdated),
+                    "untrusted": itemState(status: .outdated),
+                    "ok": itemState(status: .ok),
+                ])
         )
 
         let plan = planner.plan(ids: [], all: true)
@@ -39,13 +41,16 @@ final class UpdateRunnerTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "tool")]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
         let commands = MockCommandExecutor(results: [
             "tool update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
             "tool current": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
-            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: "")
+            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
         ])
         let runner = updateRunner(paths: paths, commands: commands)
 
@@ -53,7 +58,8 @@ final class UpdateRunnerTests: XCTestCase {
         let state = try StateStore(paths: paths).load()
 
         XCTAssertEqual(results.map(\.outcome), [.updated])
-        XCTAssertEqual(commands.commands.map(\.command), ["tool update", "tool current", "tool latest"])
+        XCTAssertEqual(
+            commands.commands.map(\.command), ["tool update", "tool current", "tool latest"])
         XCTAssertEqual(state.items["tool"]?.status, .ok)
         XCTAssertEqual(state.items["tool"]?.current, "1.1.0")
     }
@@ -67,35 +73,45 @@ final class UpdateRunnerTests: XCTestCase {
         item.update.cwd = "~/workspace"
         TestApprovals.approveAllCommands(in: &item)
         try ManifestStore(paths: paths).save(manifest(items: [item]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
         let commands = MockCommandExecutor(results: [
             "tool update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
             "tool current": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
-            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: "")
+            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
         ])
-        let runner = updateRunner(paths: paths, commands: commands, environment: ["HOME": userHome.path])
+        let runner = updateRunner(
+            paths: paths, commands: commands, environment: ["HOME": userHome.path])
 
         _ = try runner.update(ids: ["tool"], all: false, assumeYes: true)
 
-        XCTAssertEqual(commands.commands.first?.cwd, userHome.appendingPathComponent("workspace").path)
+        XCTAssertEqual(
+            commands.commands.first?.cwd, userHome.appendingPathComponent("workspace").path)
     }
 
     func testRunnerReturnsPartialFailureAndRedactsErrors() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
-        try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "bad"), recipe(id: "good")]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "bad": itemState(status: .outdated),
-            "good": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [recipe(id: "bad"), recipe(id: "good")]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "bad": itemState(status: .outdated),
+                    "good": itemState(status: .outdated),
+                ]))
         let githubToken = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
         let commands = MockCommandExecutor(results: [
-            "bad update": CommandResult(exitCode: 1, stdout: "", stderr: "failed sk-or-v1-secret \(githubToken)"),
+            "bad update": CommandResult(
+                exitCode: 1, stdout: "", stderr: "failed sk-or-v1-secret \(githubToken)"),
             "good update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
             "good current": CommandResult(exitCode: 0, stdout: "good 1.1.0", stderr: ""),
-            "good latest": CommandResult(exitCode: 0, stdout: "good 1.1.0", stderr: "")
+            "good latest": CommandResult(exitCode: 0, stdout: "good 1.1.0", stderr: ""),
         ])
         let runner = updateRunner(paths: paths, commands: commands)
 
@@ -116,17 +132,22 @@ final class UpdateRunnerTests: XCTestCase {
         var item = recipe(id: "bad")
         item.update.cmd = "OPENROUTER_API_KEY=sk-or-v1-secret-value bad update"
         TestApprovals.approveAllCommands(in: &item)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            item
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "bad": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                item
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "bad": itemState(status: .outdated)
+                ]))
         let commands = MockCommandExecutor(results: [:])
         let runner = updateRunner(paths: paths, commands: commands)
 
-        XCTAssertThrowsError(try runner.update(ids: ["bad"], all: false, assumeYes: true)) { error in
-            guard case let RegistryError.invalidManifest(errors) = error else {
+        XCTAssertThrowsError(try runner.update(ids: ["bad"], all: false, assumeYes: true)) {
+            error in
+            guard case RegistryError.invalidManifest(let errors) = error else {
                 return XCTFail("expected invalid manifest, got \(error)")
             }
             XCTAssertTrue(errors.contains("items[0].update.cmd: must not contain literal secrets"))
@@ -144,13 +165,17 @@ final class UpdateRunnerTests: XCTestCase {
         var untrusted = recipe(id: "untrusted")
         untrusted.trust.level = .untrusted
         untrusted.trust.approvedCommands = [:]
-        try ManifestStore(paths: paths).save(manifest(items: [pinned, disabled, untrusted, recipe(id: "ok")]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "pinned": itemState(status: .outdated),
-            "disabled": itemState(status: .outdated),
-            "untrusted": itemState(status: .outdated),
-            "ok": itemState(status: .ok)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [pinned, disabled, untrusted, recipe(id: "ok")]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "pinned": itemState(status: .outdated),
+                    "disabled": itemState(status: .outdated),
+                    "untrusted": itemState(status: .outdated),
+                    "ok": itemState(status: .ok),
+                ]))
         let commands = MockCommandExecutor(results: [:])
         let runner = updateRunner(paths: paths, commands: commands)
 
@@ -167,9 +192,12 @@ final class UpdateRunnerTests: XCTestCase {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "tool")]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
         let runner = updateRunner(paths: paths, commands: MockCommandExecutor(results: [:]))
 
         let plan = try runner.plan(ids: ["tool"], all: false)
@@ -185,7 +213,7 @@ final class UpdateRunnerTests: XCTestCase {
             updateResult(id: "pinned", outcome: .skippedPinned),
             updateResult(id: "untrusted", outcome: .skippedUntrusted),
             updateResult(id: "missing", outcome: .missing),
-            updateResult(id: "cancelled", outcome: .cancelled)
+            updateResult(id: "cancelled", outcome: .cancelled),
         ]
 
         let report = UpdateReport(results: results)

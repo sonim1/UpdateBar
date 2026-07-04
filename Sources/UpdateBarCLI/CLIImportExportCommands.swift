@@ -75,11 +75,12 @@ struct ImportCommand: ParsableCommand {
             }
         } catch {
             if json {
-                try printJSON(ImportPayload(
-                    added: [],
-                    replaced: [],
-                    errors: [sanitizedErrorMessage(for: error)]
-                ))
+                try printJSON(
+                    ImportPayload(
+                        added: [],
+                        replaced: [],
+                        errors: [sanitizedErrorMessage(for: error)]
+                    ))
             }
             throw error
         }

@@ -84,7 +84,8 @@
             let fallback = MenuBarActionConfirmation.updateAllApprovedOutdated(
                 itemNames: latestState.outdatedItems.map(\.name)
             )
-            guard confirm((sender.representedObject as? MenuBarActionConfirmation) ?? fallback) else {
+            guard confirm((sender.representedObject as? MenuBarActionConfirmation) ?? fallback)
+            else {
                 return
             }
             runAction("Run Updates") { [service] token in
@@ -95,7 +96,8 @@
         @objc private func updateSelected(_ sender: NSMenuItem) {
             guard let action = sender.representedObject as? ItemAction else { return }
             let id = action.id
-            guard confirm(action.confirmation ?? MenuBarActionConfirmation.updateItem(id: id)) else {
+            guard confirm(action.confirmation ?? MenuBarActionConfirmation.updateItem(id: id))
+            else {
                 return
             }
             runAction("Update \(id)") { [service] token in
@@ -171,8 +173,11 @@
 
         @objc private func viewLogs() {
             let logURL = Self.logFileURL
-            let targetURL = FileManager.default.fileExists(atPath: logURL.path) ? logURL : AppPaths().homeDirectory
-            openInFinder(targetURL, failureMessage: MenuBarStartupError.viewLogFailed(path: targetURL.path))
+            let targetURL =
+                FileManager.default.fileExists(atPath: logURL.path)
+                ? logURL : AppPaths().homeDirectory
+            openInFinder(
+                targetURL, failureMessage: MenuBarStartupError.viewLogFailed(path: targetURL.path))
         }
 
         @objc private func quit() {
@@ -514,25 +519,25 @@
         }
     }
 
-        private enum MenuBarStartupError: Error, CustomStringConvertible {
-            case missingStatusBarButton
-            case configOpenFailed(path: String)
-            case viewLogFailed(path: String)
-            case cliResolverFailed
+    private enum MenuBarStartupError: Error, CustomStringConvertible {
+        case missingStatusBarButton
+        case configOpenFailed(path: String)
+        case viewLogFailed(path: String)
+        case cliResolverFailed
 
-            var description: String {
-                switch self {
-                case .missingStatusBarButton:
-                    return "Failed to create menu bar button"
-                case .configOpenFailed(let path):
-                    return "Failed to open config at \(path)"
-                case .viewLogFailed(let path):
-                    return "Failed to open log target at \(path)"
-                case .cliResolverFailed:
-                    return "Unable to resolve updatebar executable for Open TUI"
-                }
+        var description: String {
+            switch self {
+            case .missingStatusBarButton:
+                return "Failed to create menu bar button"
+            case .configOpenFailed(let path):
+                return "Failed to open config at \(path)"
+            case .viewLogFailed(let path):
+                return "Failed to open log target at \(path)"
+            case .cliResolverFailed:
+                return "Unable to resolve updatebar executable for Open TUI"
             }
         }
+    }
 #else
     import Foundation
 

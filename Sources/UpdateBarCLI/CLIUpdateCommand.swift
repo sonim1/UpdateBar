@@ -83,7 +83,8 @@ struct UpdateCommand: ParsableCommand {
         let cancelled = results.filter { $0.outcome == .cancelled }
         let notOutdated = results.filter { $0.outcome == .skippedNotOutdated }
         let missing = results.filter { $0.outcome == .missing }
-        guard !blocked.isEmpty || !cancelled.isEmpty || !notOutdated.isEmpty || !missing.isEmpty else {
+        guard !blocked.isEmpty || !cancelled.isEmpty || !notOutdated.isEmpty || !missing.isEmpty
+        else {
             return
         }
         var commands = approvalCommands(for: blocked.map(\.id))
@@ -101,80 +102,89 @@ struct UpdateCommand: ParsableCommand {
 
     private func runJSONStream(runner: UpdateRunner, ids: [String], all: Bool) throws {
         let writer = JSONLWriter()
-        try writer.write(MachineEvent(
-            event: .started,
-            operation: .update,
-            timestamp: Date()
-        ))
+        try writer.write(
+            MachineEvent(
+                event: .started,
+                operation: .update,
+                timestamp: Date()
+            ))
 
         var results: [UpdateResult] = []
         do {
             let plan = try runner.plan(ids: ids, all: all)
-            try writer.write(MachineEvent(
-                event: .log,
-                operation: .update,
-                timestamp: Date(),
-                message: "planned \(plan.count) item(s)",
-                level: .info
-            ))
+            try writer.write(
+                MachineEvent(
+                    event: .log,
+                    operation: .update,
+                    timestamp: Date(),
+                    message: "planned \(plan.count) item(s)",
+                    level: .info
+                ))
 
             for item in plan {
-                try writer.write(MachineEvent(
-                    event: .itemStarted,
-                    operation: .update,
-                    timestamp: Date(),
-                    itemId: item.id,
-                    message: item.name
-                ))
+                try writer.write(
+                    MachineEvent(
+                        event: .itemStarted,
+                        operation: .update,
+                        timestamp: Date(),
+                        itemId: item.id,
+                        message: item.name
+                    ))
                 let itemResults = try runner.update(ids: [item.id], all: false, assumeYes: yes)
-                let result = itemResults.first ?? UpdateResult(
-                    id: item.id,
-                    name: item.name,
-                    outcome: .missing,
-                    current: item.current,
-                    latest: item.latest,
-                    error: "missing update result",
-                    commandFingerprint: item.commandFingerprint
-                )
+                let result =
+                    itemResults.first
+                    ?? UpdateResult(
+                        id: item.id,
+                        name: item.name,
+                        outcome: .missing,
+                        current: item.current,
+                        latest: item.latest,
+                        error: "missing update result",
+                        commandFingerprint: item.commandFingerprint
+                    )
                 results.append(result)
-                try writer.write(MachineEvent(
-                    event: .itemFinished,
-                    operation: .update,
-                    timestamp: Date(),
-                    itemId: result.id,
-                    result: result
-                ))
+                try writer.write(
+                    MachineEvent(
+                        event: .itemFinished,
+                        operation: .update,
+                        timestamp: Date(),
+                        itemId: result.id,
+                        result: result
+                    ))
                 if result.outcome == .cancelled {
                     break
                 }
             }
         } catch {
-            try writer.write(MachineEvent(
-                event: .failed,
-                operation: .update,
-                timestamp: Date(),
-                error: sanitizedErrorMessage(for: error)
-            ))
+            try writer.write(
+                MachineEvent(
+                    event: .failed,
+                    operation: .update,
+                    timestamp: Date(),
+                    error: sanitizedErrorMessage(for: error)
+                ))
             throw error
         }
 
         let report = UpdateReport(results: results)
         if results.contains(where: { $0.outcome == .cancelled }) {
-            try writer.write(MachineEvent(
-                event: .cancelled,
+            try writer.write(
+                MachineEvent(
+                    event: .cancelled,
+                    operation: .update,
+                    timestamp: Date(),
+                    summary: report.summary,
+                    error: "cancelled"
+                ))
+        }
+        try writer.write(
+            MachineEvent(
+                event: .finished,
                 operation: .update,
                 timestamp: Date(),
-                summary: report.summary,
-                error: "cancelled"
+                results: report.results,
+                summary: report.summary
             ))
-        }
-        try writer.write(MachineEvent(
-            event: .finished,
-            operation: .update,
-            timestamp: Date(),
-            results: report.results,
-            summary: report.summary
-        ))
 
         try enforceExitCodes(results)
     }

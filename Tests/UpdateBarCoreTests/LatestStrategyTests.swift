@@ -9,7 +9,7 @@ final class LatestStrategyTests: XCTestCase {
             .invalidSource("bad source \(secret)"),
             .missingField("missing field \(secret)"),
             .commandFailed("command failed \(secret)"),
-            .parseFailed("parse failed \(secret)")
+            .parseFailed("parse failed \(secret)"),
         ]
 
         for error in errors {
@@ -61,14 +61,17 @@ final class LatestStrategyTests: XCTestCase {
         let context = LatestContext(
             httpClient: emptyHTTP(),
             commandRunner: MockCommandExecutor(results: [
-                command: CommandResult(exitCode: 128, stdout: "", stderr: "fatal: repository not found \(secret)")
+                command: CommandResult(
+                    exitCode: 128, stdout: "", stderr: "fatal: repository not found \(secret)")
             ])
         )
 
         XCTAssertThrowsError(
             try GitLatestStrategy(mode: .head).latest(for: item, context: context)
         ) { error in
-            XCTAssertEqual(String(describing: error), "git ls-remote exited 128: fatal: repository not found [REDACTED]")
+            XCTAssertEqual(
+                String(describing: error),
+                "git ls-remote exited 128: fatal: repository not found [REDACTED]")
             XCTAssertFalse(String(describing: error).contains(secret))
         }
     }
@@ -268,14 +271,16 @@ final class LatestStrategyTests: XCTestCase {
         let context = LatestContext(
             httpClient: emptyHTTP(),
             commandRunner: MockCommandExecutor(results: [
-                command: CommandResult(exitCode: 2, stdout: "", stderr: "No available formula \(secret)")
+                command: CommandResult(
+                    exitCode: 2, stdout: "", stderr: "No available formula \(secret)")
             ])
         )
 
         XCTAssertThrowsError(
             try BrewLatestStrategy().latest(for: item, context: context)
         ) { error in
-            XCTAssertEqual(String(describing: error), "brew info exited 2: No available formula [REDACTED]")
+            XCTAssertEqual(
+                String(describing: error), "brew info exited 2: No available formula [REDACTED]")
             XCTAssertFalse(String(describing: error).contains(secret))
         }
     }

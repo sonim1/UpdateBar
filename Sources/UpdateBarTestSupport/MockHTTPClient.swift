@@ -67,9 +67,9 @@ public final class MockHTTPClient: HTTPClient {
 
         public var description: String {
             switch self {
-            case let .missingResponse(url):
+            case .missingResponse(let url):
                 return "\(url): missing mock response"
-            case let .requestFailed(message):
+            case .requestFailed(let message):
                 return message
             }
         }

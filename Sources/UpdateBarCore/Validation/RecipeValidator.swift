@@ -4,7 +4,7 @@ public enum RecipeValidator {
     private static let sourceKinds = Set(["git", "npm", "github_release", "brew", "http", "custom"])
     private static let versionSchemes = Set(["semver", "commit", "calver", "opaque"])
     private static let latestStrategies = Set([
-        "git_tags", "git_head", "npm_registry", "github_release", "brew", "http_regex", "cmd"
+        "git_tags", "git_head", "npm_registry", "github_release", "brew", "http_regex", "cmd",
     ])
     private static let trustLevels = Set(["trusted", "untrusted"])
 
@@ -201,7 +201,9 @@ public enum RecipeValidator {
         return errors
     }
 
-    private static func validateVersionParse(_ versionParse: [String: Any], path: String) -> [String] {
+    private static func validateVersionParse(_ versionParse: [String: Any], path: String)
+        -> [String]
+    {
         var errors: [String] = []
         let hasRegexField = versionParse.keys.contains("regex")
         let hasJQField = versionParse.keys.contains("jq")
@@ -245,7 +247,8 @@ public enum RecipeValidator {
         }
         if let approvedCommands = trust["approved_commands"] as? [String: Any] {
             if trust["level"] as? String == "untrusted", !approvedCommands.isEmpty {
-                errors.append("\(path).approved_commands: must be empty when trust.level is untrusted")
+                errors.append(
+                    "\(path).approved_commands: must be empty when trust.level is untrusted")
             }
             for (field, fingerprint) in approvedCommands {
                 let fieldPath = "\(path).approved_commands[\(redactedValue(field))]"
@@ -280,7 +283,9 @@ public enum RecipeValidator {
         return fields
     }
 
-    private static func requireString(_ object: [String: Any], _ key: String, path: String) -> [String] {
+    private static func requireString(_ object: [String: Any], _ key: String, path: String)
+        -> [String]
+    {
         guard object.keys.contains(key) else {
             return ["\(path).\(key): required"]
         }
@@ -293,12 +298,16 @@ public enum RecipeValidator {
         return nonEmptyString(value) ? [] : ["\(path).\(key): required"]
     }
 
-    private static func requireBooleanIfPresent(_ object: [String: Any], _ key: String, path: String) -> [String] {
+    private static func requireBooleanIfPresent(
+        _ object: [String: Any], _ key: String, path: String
+    ) -> [String] {
         guard object.keys.contains(key), !(object[key] is Bool) else { return [] }
         return ["\(path).\(key): must be a boolean when provided"]
     }
 
-    private static func requireOptionalStringIfPresent(_ object: [String: Any], _ key: String, path: String) -> [String] {
+    private static func requireOptionalStringIfPresent(
+        _ object: [String: Any], _ key: String, path: String
+    ) -> [String] {
         guard object.keys.contains(key) else { return [] }
         if object[key] is String || object[key] is NSNull { return [] }
         return ["\(path).\(key): must be a string or null when provided"]
@@ -313,7 +322,9 @@ public enum RecipeValidator {
         SecretRedactor.redact(value)
     }
 
-    private static func validateApprovedCommandFingerprint(_ fingerprint: String, path: String) -> [String] {
+    private static func validateApprovedCommandFingerprint(_ fingerprint: String, path: String)
+        -> [String]
+    {
         isSHA256Fingerprint(fingerprint) ? [] : ["\(path): must be a SHA-256 fingerprint"]
     }
 

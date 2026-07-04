@@ -118,10 +118,12 @@ struct ApprovalMutationPayload: Encodable {
 }
 
 func redactedItemMutationPayload(for recipe: Recipe) -> ItemMutationPayload {
-    ItemMutationPayload(ok: true, id: SecretRedactor.redact(recipe.id), item: redactedRecipe(recipe))
+    ItemMutationPayload(
+        ok: true, id: SecretRedactor.redact(recipe.id), item: redactedRecipe(recipe))
 }
 
-func redactedApprovalMutationPayload(for recipe: Recipe, field: String?) -> ApprovalMutationPayload {
+func redactedApprovalMutationPayload(for recipe: Recipe, field: String?) -> ApprovalMutationPayload
+{
     ApprovalMutationPayload(
         ok: true,
         id: SecretRedactor.redact(recipe.id),
@@ -156,16 +158,16 @@ private func redactedRecipe(_ recipe: Recipe) -> Recipe {
 
 private func redactedCheck(_ check: CheckSpec) -> CheckSpec {
     switch check {
-    case let .command(cmd):
+    case .command(let cmd):
         return .command(SecretRedactor.redact(cmd))
-    case let .file(path):
+    case .file(let path):
         return .file(path: SecretRedactor.redact(path))
     }
 }
 
 private func redactedVersionParse(_ versionParse: VersionParse) -> VersionParse {
     switch versionParse {
-    case let .regex(regex):
+    case .regex(let regex):
         return .regex(SecretRedactor.redact(regex))
     }
 }

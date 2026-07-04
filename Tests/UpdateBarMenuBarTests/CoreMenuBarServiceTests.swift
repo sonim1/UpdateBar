@@ -1,7 +1,7 @@
 import Foundation
 import UpdateBarCore
-import UpdateBarTestSupport
 import UpdateBarMenuBar
+import UpdateBarTestSupport
 import XCTest
 
 final class CoreMenuBarServiceTests: XCTestCase {
@@ -10,19 +10,23 @@ final class CoreMenuBarServiceTests: XCTestCase {
     func testCoreServiceReadsStatusApprovalsAndRunsUpdate() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "tool update", currentCommand: "tool current")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": ItemState(
-                current: "1.0.0",
-                latest: "1.1.0",
-                status: .outdated,
-                lastChecked: now,
-                error: nil,
-                backoffUntil: nil
-            )
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(id: "tool", updateCommand: "tool update", currentCommand: "tool current")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": ItemState(
+                        current: "1.0.0",
+                        latest: "1.1.0",
+                        status: .outdated,
+                        lastChecked: now,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                ]))
         let commands = RecordingCommandRunner(results: [
             "tool update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
             "tool current": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
@@ -39,7 +43,8 @@ final class CoreMenuBarServiceTests: XCTestCase {
         XCTAssertEqual(status.summary.outdated, 1)
         XCTAssertEqual(approvals.map(\.field), ["check.cmd", "latest.cmd", "update.cmd"])
         XCTAssertTrue(approvals.allSatisfy(\.approved))
-        XCTAssertEqual(commands.commands.map(\.command), ["tool update", "tool current", "tool latest"])
+        XCTAssertEqual(
+            commands.commands.map(\.command), ["tool update", "tool current", "tool latest"])
         XCTAssertEqual(state.items["tool"]?.status, .ok)
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
     }
@@ -47,19 +52,23 @@ final class CoreMenuBarServiceTests: XCTestCase {
     func testCoreServiceCancelsLongRunningUpdateCommand() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "slow", updateCommand: "sleep 5", currentCommand: "slow current")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "slow": ItemState(
-                current: "1.0.0",
-                latest: "1.1.0",
-                status: .outdated,
-                lastChecked: now,
-                error: nil,
-                backoffUntil: nil
-            )
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(id: "slow", updateCommand: "sleep 5", currentCommand: "slow current")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "slow": ItemState(
+                        current: "1.0.0",
+                        latest: "1.1.0",
+                        status: .outdated,
+                        lastChecked: now,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                ]))
         let service = CoreMenuBarService(paths: paths, now: { self.now })
         let token = CancellationToken()
 

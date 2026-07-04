@@ -132,7 +132,7 @@ final class ScanServiceTests: XCTestCase {
                 exitCode: 0,
                 stdout: "gh 2.74.0\ngh 2.74.0\n",
                 stderr: ""
-            ),
+            )
         ])
         let service = ScanService(commandRunner: commands)
 
@@ -147,7 +147,7 @@ final class ScanServiceTests: XCTestCase {
                 exitCode: 0,
                 stdout: #"{"name":"lib","version":"1.0.0"}"#,
                 stderr: ""
-            ),
+            )
         ])
         let service = ScanService(commandRunner: commands)
 
@@ -163,7 +163,7 @@ final class ScanServiceTests: XCTestCase {
                 exitCode: 0,
                 stdout: "café 1.0.0\n",
                 stderr: ""
-            ),
+            )
         ])
         let service = ScanService(commandRunner: commands)
 
@@ -181,7 +181,8 @@ final class ScanServiceTests: XCTestCase {
                 updatedAt: Date(timeIntervalSince1970: 1_800)
             )
         )
-        let validation = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
+        let validation = try ManifestValidator.validate(
+            data: JSONEncoder.updateBar.encode(manifest))
         XCTAssertTrue(validation.isValid, validation.errors.joined(separator: "\n"))
     }
 

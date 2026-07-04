@@ -231,7 +231,8 @@ final class ScanCommandTests: XCTestCase {
             encoding: .utf8
         )
 
-        let result = try CLIProcess.run(["scan", "--json", "--category", "codex-skill"], home: home)
+        let result = try CLIProcess.run(
+            ["scan", "--json", "--category", "codex-skill"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
         let report = try JSONDecoder.updateBar.decode(
@@ -241,28 +242,28 @@ final class ScanCommandTests: XCTestCase {
     }
 
     #if os(macOS)
-    func testScanCodexSkillsUsesIsolatedTTYProcessHome() throws {
-        let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
-        let skill = home.appendingPathComponent(".codex/skills/tty-local-only")
-        try FileManager.default.createDirectory(at: skill, withIntermediateDirectories: true)
-        try "Skill instructions\n".write(
-            to: skill.appendingPathComponent("SKILL.md"),
-            atomically: true,
-            encoding: .utf8
-        )
-
-        let result = try XCTUnwrap(
-            CLIProcess.runWithOpenTTYUntilExit(
-                ["scan", "--json", "--category", "codex-skill"],
-                home: home,
-                timeout: 5
+        func testScanCodexSkillsUsesIsolatedTTYProcessHome() throws {
+            let home = try makeTemporaryHome(prefix: "updatebar-cli-scan-tests")
+            let skill = home.appendingPathComponent(".codex/skills/tty-local-only")
+            try FileManager.default.createDirectory(at: skill, withIntermediateDirectories: true)
+            try "Skill instructions\n".write(
+                to: skill.appendingPathComponent("SKILL.md"),
+                atomically: true,
+                encoding: .utf8
             )
-        )
 
-        XCTAssertEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stdout.contains("codex_skill.tty-local-only"))
-        XCTAssertFalse(result.stdout.contains("codex_skill.agent-browser"))
-    }
+            let result = try XCTUnwrap(
+                CLIProcess.runWithOpenTTYUntilExit(
+                    ["scan", "--json", "--category", "codex-skill"],
+                    home: home,
+                    timeout: 5
+                )
+            )
+
+            XCTAssertEqual(result.exitCode, 0)
+            XCTAssertTrue(result.stdout.contains("codex_skill.tty-local-only"))
+            XCTAssertFalse(result.stdout.contains("codex_skill.agent-browser"))
+        }
     #endif
 
     func testScanJSONCanScanMCPConfigs() throws {
@@ -273,16 +274,16 @@ final class ScanCommandTests: XCTestCase {
             withIntermediateDirectories: true
         )
         try """
-            {
-              "mcpServers": {
-                "filesystem": {
-                  "command": "npx",
-                  "args": ["-y", "@modelcontextprotocol/server-filesystem"],
-                  "env": { "TOKEN": "secret-token" }
-                }
-              }
+        {
+          "mcpServers": {
+            "filesystem": {
+              "command": "npx",
+              "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+              "env": { "TOKEN": "secret-token" }
             }
-            """.write(to: config, atomically: true, encoding: .utf8)
+          }
+        }
+        """.write(to: config, atomically: true, encoding: .utf8)
 
         let result = try CLIProcess.run(
             ["scan", "--json", "--category", "mcp-server"],
@@ -308,15 +309,15 @@ final class ScanCommandTests: XCTestCase {
             withIntermediateDirectories: true
         )
         try """
-            {
-              "mcpServers": {
-                "filesystem": {
-                  "command": "npx",
-                  "env": { "TOKEN": "secret-token" }
-                }
-              }
+        {
+          "mcpServers": {
+            "filesystem": {
+              "command": "npx",
+              "env": { "TOKEN": "secret-token" }
             }
-            """.write(to: config, atomically: true, encoding: .utf8)
+          }
+        }
+        """.write(to: config, atomically: true, encoding: .utf8)
 
         let result = try CLIProcess.run(
             ["scan", "--category", "mcp-server"],
@@ -352,7 +353,9 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stdout.contains("Needs Review"))
         XCTAssertTrue(result.stdout.contains("not importable yet"))
-        XCTAssertTrue(result.stdout.contains("Run updatebar scan without --category to look for importable candidates."))
+        XCTAssertTrue(
+            result.stdout.contains(
+                "Run updatebar scan without --category to look for importable candidates."))
         XCTAssertFalse(result.stdout.contains("updatebar init --select"))
     }
 
@@ -418,7 +421,8 @@ final class ScanCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("brew.gh"))
         XCTAssertTrue(result.stdout.contains("brew.jq"))
         XCTAssertTrue(result.stdout.contains("[1] gh 2.74.0\tbrew.gh\tcloud-devops\tbrew\tfull"))
-        XCTAssertTrue(result.stdout.contains("Scan is read-only. Use init to choose and register items."))
+        XCTAssertTrue(
+            result.stdout.contains("Scan is read-only. Use init to choose and register items."))
         XCTAssertTrue(result.stdout.contains("updatebar init\n"))
         XCTAssertTrue(result.stdout.contains("updatebar init --select 1,2"))
         XCTAssertTrue(result.stdout.contains("updatebar init --select all"))

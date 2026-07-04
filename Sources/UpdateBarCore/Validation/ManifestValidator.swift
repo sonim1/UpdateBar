@@ -53,7 +53,9 @@ public enum ManifestValidator {
         guard root.keys.contains("schema_version") else {
             return ["schema_version: required"]
         }
-        guard !isJSONBoolean(root["schema_version"]), let schemaVersion = root["schema_version"] as? Int else {
+        guard !isJSONBoolean(root["schema_version"]),
+            let schemaVersion = root["schema_version"] as? Int
+        else {
             return ["schema_version: must be integer 1"]
         }
         if schemaVersion != 1 {
@@ -77,15 +79,19 @@ public enum ManifestValidator {
         return errors
     }
 
-    private static func requireString(_ object: [String: Any], _ key: String, path: String) -> [String] {
+    private static func requireString(_ object: [String: Any], _ key: String, path: String)
+        -> [String]
+    {
         nonEmptyString(object[key]) ? [] : ["\(path).\(key): required"]
     }
 
-    private static func requireISO8601DateString(_ object: [String: Any], _ key: String, path: String) -> [String] {
+    private static func requireISO8601DateString(
+        _ object: [String: Any], _ key: String, path: String
+    ) -> [String] {
         guard object.keys.contains(key),
-              let string = object[key] as? String,
-              nonEmptyString(string),
-              ISO8601DateFormatter().date(from: string) != nil
+            let string = object[key] as? String,
+            nonEmptyString(string),
+            ISO8601DateFormatter().date(from: string) != nil
         else {
             return ["\(path).\(key): must be an ISO-8601 date string"]
         }

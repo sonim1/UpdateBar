@@ -1,6 +1,7 @@
 import Foundation
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+    import FoundationNetworking
 #endif
 
 public protocol HTTPClient {
@@ -104,10 +105,10 @@ public enum LatestError: Error, CustomStringConvertible, Equatable {
 
     public var description: String {
         switch self {
-        case let .invalidSource(message): SecretRedactor.redact(message)
-        case let .missingField(message): SecretRedactor.redact(message)
-        case let .commandFailed(message): SecretRedactor.redact(message)
-        case let .parseFailed(message): SecretRedactor.redact(message)
+        case .invalidSource(let message): SecretRedactor.redact(message)
+        case .missingField(let message): SecretRedactor.redact(message)
+        case .commandFailed(let message): SecretRedactor.redact(message)
+        case .parseFailed(let message): SecretRedactor.redact(message)
         }
     }
 }

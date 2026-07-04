@@ -1,7 +1,7 @@
 import Foundation
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class ExportImportCommandTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
@@ -13,7 +13,8 @@ final class ExportImportCommandTests: XCTestCase {
 
         let result = try CLIProcess.run(["import", importFile.path, "--json"], home: home)
         let manifest = try ManifestStore(paths: paths).load()
-        let payload = try JSONDecoder.updateBar.decode(ImportPayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ImportPayload.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(payload.ok)
@@ -28,23 +29,29 @@ final class ExportImportCommandTests: XCTestCase {
     func testImportRejectsDuplicateUnlessReplaceIsPassed() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-import-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "tool", name: "Original")]))
-        let importFile = try writeImportManifest(home: home, items: [recipe(id: "tool", name: "Replacement")])
+        try ManifestStore(paths: paths).save(
+            manifest(items: [recipe(id: "tool", name: "Original")]))
+        let importFile = try writeImportManifest(
+            home: home, items: [recipe(id: "tool", name: "Replacement")])
 
         let duplicate = try CLIProcess.run(["import", importFile.path, "--json"], home: home)
         var stored = try ManifestStore(paths: paths).load()
-        let duplicatePayload = try JSONDecoder.updateBar.decode(ImportPayload.self, from: Data(duplicate.stdout.utf8))
+        let duplicatePayload = try JSONDecoder.updateBar.decode(
+            ImportPayload.self, from: Data(duplicate.stdout.utf8))
 
         XCTAssertNotEqual(duplicate.exitCode, 0)
         XCTAssertFalse(duplicatePayload.ok)
         XCTAssertEqual(duplicatePayload.added, [])
         XCTAssertEqual(duplicatePayload.replaced, [])
-        XCTAssertTrue(duplicatePayload.errors.contains("tool: duplicate item; pass --replace to overwrite"))
+        XCTAssertTrue(
+            duplicatePayload.errors.contains("tool: duplicate item; pass --replace to overwrite"))
         XCTAssertEqual(stored.item(id: "tool")?.name, "Original")
 
-        let replaced = try CLIProcess.run(["import", importFile.path, "--replace", "--json"], home: home)
+        let replaced = try CLIProcess.run(
+            ["import", importFile.path, "--replace", "--json"], home: home)
         stored = try ManifestStore(paths: paths).load()
-        let replacedPayload = try JSONDecoder.updateBar.decode(ImportPayload.self, from: Data(replaced.stdout.utf8))
+        let replacedPayload = try JSONDecoder.updateBar.decode(
+            ImportPayload.self, from: Data(replaced.stdout.utf8))
 
         XCTAssertEqual(replaced.exitCode, 0)
         XCTAssertTrue(replacedPayload.ok)
@@ -74,7 +81,8 @@ final class ExportImportCommandTests: XCTestCase {
         let file = home.appendingPathComponent("missing-manifest.json")
 
         let result = try CLIProcess.run(["import", file.path, "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorPayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
@@ -93,7 +101,8 @@ final class ExportImportCommandTests: XCTestCase {
             stdin: String(decoding: encoded, as: UTF8.self)
         )
         let stored = try ManifestStore(paths: paths).load()
-        let payload = try JSONDecoder.updateBar.decode(ImportPayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ImportPayload.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(payload.added, ["stdin"])
@@ -105,7 +114,8 @@ final class ExportImportCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-import-tests")
 
         let result = try CLIProcess.run(["import", "-", "--json"], home: home, stdin: "")
-        let payload = try JSONDecoder.updateBar.decode(ErrorPayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
@@ -138,8 +148,12 @@ final class ExportImportCommandTests: XCTestCase {
 
         XCTAssertEqual(fileResult.exitCode, 0)
         XCTAssertEqual(jsonResult.exitCode, 0)
-        XCTAssertEqual(try JSONDecoder.updateBar.decode(Manifest.self, from: Data(contentsOf: output)).items.count, 1)
-        XCTAssertEqual(try JSONDecoder.updateBar.decode(Manifest.self, from: Data(jsonResult.stdout.utf8)).items.count, 1)
+        XCTAssertEqual(
+            try JSONDecoder.updateBar.decode(Manifest.self, from: Data(contentsOf: output)).items
+                .count, 1)
+        XCTAssertEqual(
+            try JSONDecoder.updateBar.decode(Manifest.self, from: Data(jsonResult.stdout.utf8))
+                .items.count, 1)
     }
 
     func testExportHumanOutputRedactsSecretLikeOutputPath() throws {
@@ -167,13 +181,17 @@ final class ExportImportCommandTests: XCTestCase {
         try ManifestStore(paths: paths).save(manifest(items: [item]))
 
         let result = try CLIProcess.run(["export", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorPayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
         let combined = result.stdout + result.stderr
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
         XCTAssertEqual(payload.code, "registry_error")
-        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].update.cmd: must not contain literal secrets") })
+        XCTAssertTrue(
+            payload.errors.contains {
+                $0.contains("items[0].update.cmd: must not contain literal secrets")
+            })
         XCTAssertFalse(combined.contains(secret))
     }
 
@@ -182,7 +200,8 @@ final class ExportImportCommandTests: XCTestCase {
         let paths = AppPaths(homeDirectory: home)
 
         let result = try CLIProcess.run(["export", "--json"], home: home)
-        let exported = try JSONDecoder.updateBar.decode(Manifest.self, from: Data(result.stdout.utf8))
+        let exported = try JSONDecoder.updateBar.decode(
+            Manifest.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(exported.items.isEmpty)

@@ -1,7 +1,7 @@
 import Foundation
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class ValidateCommandTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
@@ -10,10 +10,13 @@ final class ValidateCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-validate-tests")
         let encoded = try JSONEncoder.updateBar.encode(recipe())
 
-        let result = try CLIProcess.run(["validate", "-", "--json"], home: home, stdin: String(decoding: encoded, as: UTF8.self))
+        let result = try CLIProcess.run(
+            ["validate", "-", "--json"], home: home, stdin: String(decoding: encoded, as: UTF8.self)
+        )
 
         XCTAssertEqual(result.exitCode, 0)
-        let payload = try JSONDecoder().decode(ValidationPayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder().decode(
+            ValidationPayload.self, from: Data(result.stdout.utf8))
         XCTAssertTrue(payload.valid)
         XCTAssertEqual(payload.errors, [])
     }
@@ -22,7 +25,8 @@ final class ValidateCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-validate-tests")
 
         let result = try CLIProcess.run(["validate", "-", "--json"], home: home, stdin: "")
-        let payload = try JSONDecoder.updateBar.decode(ErrorPayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
@@ -53,8 +57,11 @@ final class ValidateCommandTests: XCTestCase {
         let result = try CLIProcess.run(["validate", file.path, "--json", "--explain"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
-        let payload = try JSONDecoder().decode(ValidationPayload.self, from: Data(result.stdout.utf8))
-        XCTAssertTrue(payload.errors.contains("$.version_parse.regex: invalid; expected exactly one capture group"))
+        let payload = try JSONDecoder().decode(
+            ValidationPayload.self, from: Data(result.stdout.utf8))
+        XCTAssertTrue(
+            payload.errors.contains(
+                "$.version_parse.regex: invalid; expected exactly one capture group"))
         XCTAssertEqual(
             payload.explanations.first?.hint,
             "Use version_parse.regex with exactly one capture group around the version."
@@ -108,7 +115,8 @@ final class ValidateCommandTests: XCTestCase {
         let file = home.appendingPathComponent("missing-document.json")
 
         let result = try CLIProcess.run(["validate", file.path, "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorPayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorPayload.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
@@ -168,7 +176,9 @@ final class ValidateCommandTests: XCTestCase {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             valid = try container.decode(Bool.self, forKey: .valid)
             errors = try container.decode([String].self, forKey: .errors)
-            explanations = try container.decodeIfPresent([ValidationExplanation].self, forKey: .explanations) ?? []
+            explanations =
+                try container.decodeIfPresent([ValidationExplanation].self, forKey: .explanations)
+                ?? []
         }
     }
 

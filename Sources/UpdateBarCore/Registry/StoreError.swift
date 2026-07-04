@@ -6,9 +6,9 @@ public enum StoreError: Error, CustomStringConvertible, Equatable {
 
     public var description: String {
         switch self {
-        case let .corruptFile(path, reason):
+        case .corruptFile(let path, let reason):
             return "\(SecretRedactor.redact(path)): corrupt file: \(SecretRedactor.redact(reason))"
-        case let .writeFailed(path, reason):
+        case .writeFailed(let path, let reason):
             return "\(SecretRedactor.redact(path)): write failed: \(SecretRedactor.redact(reason))"
         }
     }
@@ -16,13 +16,13 @@ public enum StoreError: Error, CustomStringConvertible, Equatable {
 
 func storeErrorReason(for error: Error) -> String {
     switch error {
-    case let DecodingError.keyNotFound(key, context):
+    case DecodingError.keyNotFound(let key, let context):
         return "missing required key \(pathDescription(context.codingPath + [key]))"
-    case let DecodingError.typeMismatch(type, context):
+    case DecodingError.typeMismatch(let type, let context):
         return "\(pathDescription(context.codingPath)): expected \(type)"
-    case let DecodingError.valueNotFound(type, context):
+    case DecodingError.valueNotFound(let type, let context):
         return "\(pathDescription(context.codingPath)): missing \(type)"
-    case let DecodingError.dataCorrupted(context):
+    case DecodingError.dataCorrupted(let context):
         return context.debugDescription
     default:
         return String(describing: error)

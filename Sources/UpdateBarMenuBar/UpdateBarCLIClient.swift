@@ -36,8 +36,8 @@ public protocol UpdateBarProcessRunning: AnyObject, Sendable {
     ) throws -> CommandResult
 }
 
-public extension UpdateBarProcessRunning {
-    func run(
+extension UpdateBarProcessRunning {
+    public func run(
         executablePath: String,
         arguments: [String],
         cancellationToken: CancellationToken?
@@ -102,7 +102,9 @@ public struct UpdateBarCLIClient: Sendable {
             [CommandApprovalStatus].self, from: Data(result.stdout.utf8))
     }
 
-    public func approve(id: String, field: String, cancellationToken: CancellationToken? = nil) throws {
+    public func approve(id: String, field: String, cancellationToken: CancellationToken? = nil)
+        throws
+    {
         let result = try runner.run(
             executablePath: executablePath,
             arguments: ["approve", id, "--field", field, "--json"],
@@ -111,7 +113,9 @@ public struct UpdateBarCLIClient: Sendable {
         try ensureSuccess(result, allowedExitCodes: [0])
     }
 
-    public func revoke(id: String, field: String, cancellationToken: CancellationToken? = nil) throws {
+    public func revoke(id: String, field: String, cancellationToken: CancellationToken? = nil)
+        throws
+    {
         let result = try runner.run(
             executablePath: executablePath,
             arguments: ["revoke", id, "--field", field, "--json"],
@@ -145,7 +149,7 @@ public struct UpdateBarCLIClient: Sendable {
         }
 
         guard let data = stdout.data(using: .utf8),
-              let payload = try? JSONDecoder.updateBar.decode(ErrorPayload.self, from: data)
+            let payload = try? JSONDecoder.updateBar.decode(ErrorPayload.self, from: data)
         else {
             return nil
         }
@@ -167,7 +171,8 @@ public enum UpdateBarCLIClientError: Error, CustomStringConvertible, Equatable, 
     public var description: String {
         switch self {
         case .failed(let exitCode, let stderr):
-            let detail = SecretRedactor.redact(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
+            let detail = SecretRedactor.redact(
+                stderr.trimmingCharacters(in: .whitespacesAndNewlines))
             return detail.isEmpty
                 ? "updatebar exited \(exitCode)" : "updatebar exited \(exitCode): \(detail)"
         case .timedOut:

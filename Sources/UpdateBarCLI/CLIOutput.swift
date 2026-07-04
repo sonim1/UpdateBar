@@ -29,10 +29,12 @@ func sanitizedErrorMessage(for error: Error) -> String {
     if isJSONSyntaxError(error) {
         return "document is not valid JSON"
     }
-    let rawMessage = UpdateBar.fullMessage(for: error).isEmpty
+    let rawMessage =
+        UpdateBar.fullMessage(for: error).isEmpty
         ? String(describing: error)
         : UpdateBar.fullMessage(for: error)
-    let normalizedMessage = rawMessage.hasPrefix("Error: ")
+    let normalizedMessage =
+        rawMessage.hasPrefix("Error: ")
         ? String(rawMessage.dropFirst("Error: ".count))
         : rawMessage
     return SecretRedactor.redact(normalizedMessage)
@@ -139,7 +141,8 @@ func readInputData(_ path: String) throws -> Data {
     do {
         return try Data(contentsOf: URL(fileURLWithPath: path))
     } catch {
-        throw ValidationError("\(path): input file could not be read (\(error.localizedDescription))")
+        throw ValidationError(
+            "\(path): input file could not be read (\(error.localizedDescription))")
     }
 }
 
@@ -147,6 +150,7 @@ func writeOutputData(_ data: Data, to path: String) throws {
     do {
         try data.write(to: URL(fileURLWithPath: path))
     } catch {
-        throw ValidationError("\(path): output file could not be written (\(error.localizedDescription))")
+        throw ValidationError(
+            "\(path): output file could not be written (\(error.localizedDescription))")
     }
 }

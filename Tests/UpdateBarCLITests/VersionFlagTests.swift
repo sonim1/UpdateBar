@@ -10,7 +10,9 @@ final class VersionFlagTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
         let pattern = #"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?"#
-        XCTAssertTrue(output.range(of: pattern, options: .regularExpression) != nil, "version output: \(output)")
+        XCTAssertTrue(
+            output.range(of: pattern, options: .regularExpression) != nil,
+            "version output: \(output)")
     }
 
     func testVersionCommandWasRemoved() throws {

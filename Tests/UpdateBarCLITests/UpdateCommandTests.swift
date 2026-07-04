@@ -1,7 +1,7 @@
 import Foundation
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class UpdateCommandTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
@@ -9,18 +9,25 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateSelectedItemJSONRunsAndRefreshesState() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.1.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.1.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
 
         let result = try CLIProcess.run(["update", "tool", "--yes", "--json"], home: home)
         let state = try StateStore(paths: paths).load()
 
         XCTAssertEqual(result.exitCode, 0)
-        let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+        let results = try JSONDecoder.updateBar.decode(
+            [UpdateResult].self, from: Data(result.stdout.utf8))
         XCTAssertEqual(results.map(\.outcome), [.updated])
         XCTAssertEqual(state.items["tool"]?.status, .ok)
         XCTAssertEqual(state.items["tool"]?.current, "1.1.0")
@@ -29,19 +36,28 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateWithoutIDsReturnsPartialFailureExitCode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "bad", updateCommand: "printf 'sk-or-v1-%s' 'secret' >&2; exit 3", currentCommand: "printf 'bad 1.0.0'"),
-            recipe(id: "good", updateCommand: "printf updated", currentCommand: "printf 'good 1.1.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "bad": itemState(status: .outdated),
-            "good": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "bad", updateCommand: "printf 'sk-or-v1-%s' 'secret' >&2; exit 3",
+                    currentCommand: "printf 'bad 1.0.0'"),
+                recipe(
+                    id: "good", updateCommand: "printf updated",
+                    currentCommand: "printf 'good 1.1.0'"),
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "bad": itemState(status: .outdated),
+                    "good": itemState(status: .outdated),
+                ]))
 
         let result = try CLIProcess.run(["update", "--yes", "--json"], home: home)
 
         XCTAssertEqual(result.exitCode, 2)
-        let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+        let results = try JSONDecoder.updateBar.decode(
+            [UpdateResult].self, from: Data(result.stdout.utf8))
         XCTAssertEqual(results.map(\.outcome), [.failed, .updated])
         XCTAssertFalse(results[0].error?.contains("sk-or-v1-secret") ?? true)
     }
@@ -49,22 +65,33 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateWithoutIDsDefaultsToAllOutdatedItems() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "one", updateCommand: "printf updated", currentCommand: "printf 'one 1.1.0'"),
-            recipe(id: "two", updateCommand: "printf updated", currentCommand: "printf 'two 1.1.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "one": itemState(status: .outdated),
-            "two": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "one", updateCommand: "printf updated", currentCommand: "printf 'one 1.1.0'"
+                ),
+                recipe(
+                    id: "two", updateCommand: "printf updated", currentCommand: "printf 'two 1.1.0'"
+                ),
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "one": itemState(status: .outdated),
+                    "two": itemState(status: .outdated),
+                ]))
 
         let result = try CLIProcess.run(["update", "--yes", "--json"], home: home)
 
         guard result.exitCode == 0 else {
-            XCTFail("expected update without ids to default to all, got exit \(result.exitCode): \(result.stdout)")
+            XCTFail(
+                "expected update without ids to default to all, got exit \(result.exitCode): \(result.stdout)"
+            )
             return
         }
-        let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+        let results = try JSONDecoder.updateBar.decode(
+            [UpdateResult].self, from: Data(result.stdout.utf8))
         XCTAssertEqual(results.map(\.id), ["one", "two"])
         XCTAssertEqual(results.map(\.outcome), [.updated, .updated])
     }
@@ -89,9 +116,12 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateHumanRegisteredItemsWithoutOutdatedStateDoesNotPrintInitNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.0.0'")
+            ]))
 
         let result = try CLIProcess.run(["update", "--yes"], home: home)
 
@@ -118,9 +148,12 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateHumanSkippedNotOutdatedPrintsCheckNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.0.0'")
+            ]))
 
         let result = try CLIProcess.run(["update", "tool", "--yes"], home: home)
 
@@ -134,31 +167,40 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateBlockedOnApprovalReturnsDistinctExitCode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        var item = recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
+        var item = recipe(
+            id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
         item.trust.level = .untrusted
         item.trust.approvedCommands = [:]
         try ManifestStore(paths: paths).save(manifest(items: [item]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
 
         let result = try CLIProcess.run(["update", "tool", "--yes", "--json"], home: home)
 
         XCTAssertEqual(result.exitCode, 3)
-        let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+        let results = try JSONDecoder.updateBar.decode(
+            [UpdateResult].self, from: Data(result.stdout.utf8))
         XCTAssertEqual(results.map(\.outcome), [.skippedUntrusted])
     }
 
     func testUpdateHumanBlockedOnApprovalPrintsNextSteps() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        var item = recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
+        var item = recipe(
+            id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
         item.trust.level = .untrusted
         item.trust.approvedCommands = [:]
         try ManifestStore(paths: paths).save(manifest(items: [item]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
 
         let result = try CLIProcess.run(["update", "tool", "--yes"], home: home)
 
@@ -172,19 +214,26 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateJSONStreamEmitsLineDelimitedEvents() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.1.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.1.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
 
         let result = try CLIProcess.run(["update", "tool", "--yes", "--json-stream"], home: home)
         let events = try decodeEvents(result.stdout)
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.isEmpty)
-        XCTAssertEqual(events.map(\.event), [.started, .log, .itemStarted, .itemFinished, .finished])
+        XCTAssertEqual(
+            events.map(\.event), [.started, .log, .itemStarted, .itemFinished, .finished])
         XCTAssertEqual(events[2].itemId, "tool")
         XCTAssertEqual(events[3].result?.outcome, .updated)
         XCTAssertEqual(events[4].summary?.updated, 1)
@@ -209,18 +258,25 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateJSONStreamPreservesFailureExitCodeAndFinishedSummary() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "bad", updateCommand: "printf 'sk-or-v1-%s' 'secret' >&2; exit 3", currentCommand: "printf 'bad 1.0.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "bad": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "bad", updateCommand: "printf 'sk-or-v1-%s' 'secret' >&2; exit 3",
+                    currentCommand: "printf 'bad 1.0.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "bad": itemState(status: .outdated)
+                ]))
 
         let result = try CLIProcess.run(["update", "bad", "--yes", "--json-stream"], home: home)
         let events = try decodeEvents(result.stdout)
 
         XCTAssertEqual(result.exitCode, 2)
-        XCTAssertEqual(events.map(\.event), [.started, .log, .itemStarted, .itemFinished, .finished])
+        XCTAssertEqual(
+            events.map(\.event), [.started, .log, .itemStarted, .itemFinished, .finished])
         XCTAssertEqual(events[3].result?.outcome, .failed)
         XCTAssertFalse(events[3].result?.error?.contains("sk-or-v1-secret") ?? true)
         XCTAssertEqual(events[4].summary?.failed, 1)
@@ -230,15 +286,22 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateJSONWithoutYesSkipsExecutionWithoutPrompt() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'"),
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.0.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
 
         let result = try CLIProcess.run(["update", "tool", "--json"], home: home)
-        let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+        let results = try JSONDecoder.updateBar.decode(
+            [UpdateResult].self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 2)
         XCTAssertTrue(result.stderr.isEmpty)
@@ -249,22 +312,29 @@ final class UpdateCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
         let secret = "sk-or-v1-update-secret-value"
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": ItemState(
-                current: secret,
-                latest: secret,
-                status: .outdated,
-                lastChecked: now,
-                error: nil,
-                backoffUntil: nil
-            )
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.0.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": ItemState(
+                        current: secret,
+                        latest: secret,
+                        status: .outdated,
+                        lastChecked: now,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                ]))
 
         let result = try CLIProcess.run(["update", "tool", "--json"], home: home)
-        let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+        let results = try JSONDecoder.updateBar.decode(
+            [UpdateResult].self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 2)
         XCTAssertFalse(result.stdout.contains(secret))
@@ -276,12 +346,18 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateHumanCancelledWithoutYesPrintsYesNextStep() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.0.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
 
         let result = try CLIProcess.run(["update", "tool"], home: home)
 
@@ -296,14 +372,21 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateRejectsJSONAndJSONStreamTogether() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.0.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
 
-        let result = try CLIProcess.run(["update", "tool", "--yes", "--json", "--json-stream"], home: home)
+        let result = try CLIProcess.run(
+            ["update", "tool", "--yes", "--json", "--json-stream"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertFalse(result.stdout.isEmpty)
@@ -315,12 +398,18 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateRejectsRemovedAllFlag() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.1.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.1.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
 
         let result = try CLIProcess.run(
             ["update", "--all", "--yes", "--json"],
@@ -337,15 +426,23 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateDeduplicatesIDs() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.1.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.1.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
 
-        let result = try CLIProcess.run(["update", "tool", "tool", "tool", "--yes", "--json"], home: home)
-        let updated = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+        let result = try CLIProcess.run(
+            ["update", "tool", "tool", "tool", "--yes", "--json"], home: home)
+        let updated = try JSONDecoder.updateBar.decode(
+            [UpdateResult].self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(updated.count, 1)
@@ -355,12 +452,16 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateJSONStreamReportsCancellation() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "slow", updateCommand: "sleep 5", currentCommand: "printf 'slow 1.0.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "slow": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(id: "slow", updateCommand: "sleep 5", currentCommand: "printf 'slow 1.0.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "slow": itemState(status: .outdated)
+                ]))
 
         let result = try CLIProcess.runAndInterrupt(
             ["update", "slow", "--yes", "--json-stream"],
@@ -370,7 +471,9 @@ final class UpdateCommandTests: XCTestCase {
         let events = try decodeEvents(result.stdout)
 
         XCTAssertEqual(result.exitCode, 2)
-        XCTAssertEqual(events.map(\.event), [.started, .log, .itemStarted, .itemFinished, .cancelled, .finished])
+        XCTAssertEqual(
+            events.map(\.event),
+            [.started, .log, .itemStarted, .itemFinished, .cancelled, .finished])
         XCTAssertEqual(events[3].result?.outcome, .cancelled)
         XCTAssertEqual(events[4].summary?.cancelled, 1)
     }
@@ -378,12 +481,18 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateJSONStreamIncludesStableRunIDAcrossEvents() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.1.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.1.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
 
         let result = try CLIProcess.run(["update", "tool", "--yes", "--json-stream"], home: home)
         let rawEvents = try decodeRawEvents(result.stdout)
@@ -397,19 +506,27 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateJSONStreamWithoutYesSkipsExecutionWithoutPrompt() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.0.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.0.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
 
         let result = try CLIProcess.run(["update", "tool", "--json-stream"], home: home)
         let events = try decodeEvents(result.stdout)
 
         XCTAssertEqual(result.exitCode, 2)
         XCTAssertTrue(result.stderr.isEmpty)
-        XCTAssertEqual(events.map(\.event), [.started, .log, .itemStarted, .itemFinished, .cancelled, .finished])
+        XCTAssertEqual(
+            events.map(\.event),
+            [.started, .log, .itemStarted, .itemFinished, .cancelled, .finished])
         XCTAssertEqual(events[3].result?.outcome, .cancelled)
         XCTAssertEqual(events[4].summary?.cancelled, 1)
     }
@@ -417,12 +534,18 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateWithJSONSpaceSeparatedFalseFallsBackToHumanMode() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "tool", updateCommand: "printf updated", currentCommand: "printf 'tool 1.1.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "tool", updateCommand: "printf updated",
+                    currentCommand: "printf 'tool 1.1.0'")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated)
+                ]))
 
         let result = try CLIProcess.run(["update", "tool", "--yes", "--json", "off"], home: home)
 
@@ -436,14 +559,20 @@ final class UpdateCommandTests: XCTestCase {
     func testUpdateJSONStreamStopsAfterCancellation() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [
-            recipe(id: "slow", updateCommand: "sleep 5", currentCommand: "printf 'slow 1.0.0'"),
-            recipe(id: "next", updateCommand: "printf updated", currentCommand: "printf 'next 1.1.0'")
-        ]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "slow": itemState(status: .outdated),
-            "next": itemState(status: .outdated)
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(id: "slow", updateCommand: "sleep 5", currentCommand: "printf 'slow 1.0.0'"),
+                recipe(
+                    id: "next", updateCommand: "printf updated",
+                    currentCommand: "printf 'next 1.1.0'"),
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "slow": itemState(status: .outdated),
+                    "next": itemState(status: .outdated),
+                ]))
 
         let result = try CLIProcess.runAndInterrupt(
             ["update", "--yes", "--json-stream"],

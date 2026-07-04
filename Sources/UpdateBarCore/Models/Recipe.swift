@@ -51,7 +51,7 @@ public struct Recipe: Codable, Equatable {
 
     public func commandTexts() -> [String: String] {
         var commands: [String: String] = [:]
-        if case let .command(cmd) = check {
+        if case .command(let cmd) = check {
             commands["check.cmd"] = cmd
         }
         if latest.strategy == .cmd, let cmd = latest.cmd {
@@ -70,19 +70,21 @@ public struct Recipe: Codable, Equatable {
         var commands: [String: String] = [:]
         let checkMaterial = check.fingerprintMaterial()
         let latestMaterial = latest.fingerprintMaterial(source: source)
-        if case let .command(cmd) = check {
-            commands["check.cmd"] = Fingerprint.sha256(canonicalFingerprintMaterial([
-                "recipe", id,
-                "field", "check.cmd",
-                "cmd", cmd,
-            ]))
+        if case .command(let cmd) = check {
+            commands["check.cmd"] = Fingerprint.sha256(
+                canonicalFingerprintMaterial([
+                    "recipe", id,
+                    "field", "check.cmd",
+                    "cmd", cmd,
+                ]))
         }
         if latest.strategy == .cmd, let cmd = latest.cmd {
-            commands["latest.cmd"] = Fingerprint.sha256(canonicalFingerprintMaterial([
-                "recipe", id,
-                "field", "latest.cmd",
-                "cmd", cmd,
-            ]))
+            commands["latest.cmd"] = Fingerprint.sha256(
+                canonicalFingerprintMaterial([
+                    "recipe", id,
+                    "field", "latest.cmd",
+                    "cmd", cmd,
+                ]))
         }
         let cwd = update.cwd ?? ""
         commands["update.cmd"] = Fingerprint.sha256(
@@ -211,18 +213,18 @@ public enum CheckSpec: Codable, Equatable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case let .command(cmd):
+        case .command(let cmd):
             try container.encode(cmd, forKey: .cmd)
-        case let .file(path):
+        case .file(let path):
             try container.encode(path, forKey: .file)
         }
     }
 
     fileprivate func fingerprintMaterial() -> String {
         switch self {
-        case let .command(cmd):
+        case .command(let cmd):
             return canonicalFingerprintMaterial(["check", "cmd", cmd])
-        case let .file(path):
+        case .file(let path):
             return canonicalFingerprintMaterial(["check", "file", path])
         }
     }
@@ -288,14 +290,16 @@ public enum VersionParse: Codable, Equatable {
         }
         throw DecodingError.keyNotFound(
             CodingKeys.regex,
-            DecodingError.Context(codingPath: container.codingPath, debugDescription: "version_parse.regex is required")
+            DecodingError.Context(
+                codingPath: container.codingPath,
+                debugDescription: "version_parse.regex is required")
         )
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case let .regex(regex):
+        case .regex(let regex):
             try container.encode(regex, forKey: .regex)
         }
     }

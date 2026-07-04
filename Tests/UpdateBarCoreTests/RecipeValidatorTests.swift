@@ -1,15 +1,16 @@
-import XCTest
 import UpdateBarCore
+import XCTest
 
 final class RecipeValidatorTests: XCTestCase {
     func testRejectsMalformedRecipeWithRootPaths() throws {
-        let result = try RecipeValidator.validate(data: Data(
-            """
-            {
-              "id": "tool"
-            }
-            """.utf8
-        ))
+        let result = try RecipeValidator.validate(
+            data: Data(
+                """
+                {
+                  "id": "tool"
+                }
+                """.utf8
+            ))
 
         XCTAssertFalse(result.isValid)
         XCTAssertTrue(result.errors.contains("$.name: required"))

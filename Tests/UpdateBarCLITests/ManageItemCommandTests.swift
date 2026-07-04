@@ -1,7 +1,7 @@
 import Foundation
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class ManageItemCommandTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
@@ -42,20 +42,25 @@ final class ManageItemCommandTests: XCTestCase {
         let secret = "sk-or-v1-secret-value"
         var item = recipe()
         item.update.cmd = "OPENROUTER_API_KEY=\(secret) tool update"
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [item],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
 
         let result = try CLIProcess.run(["pin", "tool", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
         let combined = result.stdout + result.stderr
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
         XCTAssertEqual(payload.code, "registry_error")
-        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].update.cmd: must not contain literal secrets") })
+        XCTAssertTrue(
+            payload.errors.contains {
+                $0.contains("items[0].update.cmd: must not contain literal secrets")
+            })
         XCTAssertFalse(payload.errors.contains { $0.contains("current version is unavailable") })
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
         XCTAssertFalse(combined.contains(secret))
@@ -128,12 +133,15 @@ final class ManageItemCommandTests: XCTestCase {
         try saveLegacySecretIDItem(secretID, paths: paths)
 
         let result = try CLIProcess.run(["remove", secretID, "--yes", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
         XCTAssertEqual(payload.code, "registry_error")
-        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].id: must not contain literal secrets") })
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("items[0].id: must not contain literal secrets") }
+        )
         XCTAssertFalse(result.stdout.contains(secretID))
     }
 
@@ -163,21 +171,24 @@ final class ManageItemCommandTests: XCTestCase {
         invalid.id = "bad"
         invalid.name = "Bad"
         invalid.update.cmd = "tool update --token \(secret)"
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [recipe(), invalid],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [recipe(), invalid],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
 
         let result = try CLIProcess.run(["remove", "tool", "--yes", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
         let stored = try ManifestStore(paths: paths).load()
         let combined = result.stdout + result.stderr
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
         XCTAssertEqual(payload.code, "registry_error")
-        XCTAssertTrue(payload.errors.contains { $0.contains("update.cmd: must not contain literal secrets") })
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("update.cmd: must not contain literal secrets") })
         XCTAssertNotNil(stored.item(id: "tool"))
         XCTAssertNotNil(stored.item(id: "bad"))
         XCTAssertFalse(combined.contains(secret))
@@ -214,7 +225,8 @@ final class ManageItemCommandTests: XCTestCase {
         try saveFixture(paths: paths)
 
         let result = try CLIProcess.run(["remove", "tool", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.isEmpty)
@@ -242,18 +254,20 @@ final class ManageItemCommandTests: XCTestCase {
         let secret = "sk-or-v1-secret-value"
         var item = recipe()
         item.update.cmd = "OPENROUTER_API_KEY=\(secret) tool update"
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [item],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
 
         let result = try CLIProcess.run(["remove", "tool"], home: home)
         let combined = result.stdout + result.stderr
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stdout, "")
-        XCTAssertTrue(result.stderr.contains("items[0].update.cmd: must not contain literal secrets"))
+        XCTAssertTrue(
+            result.stderr.contains("items[0].update.cmd: must not contain literal secrets"))
         XCTAssertFalse(result.stderr.contains("Remove tool?"))
         XCTAssertFalse(result.stderr.contains("remove cancelled"))
         XCTAssertFalse(combined.contains(secret))
@@ -264,7 +278,8 @@ final class ManageItemCommandTests: XCTestCase {
         let paths = AppPaths(homeDirectory: home)
 
         let result = try CLIProcess.run(["remove", "missing", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.isEmpty)
@@ -280,7 +295,8 @@ final class ManageItemCommandTests: XCTestCase {
         let paths = AppPaths(homeDirectory: home)
 
         let result = try CLIProcess.run(["approvals", "missing", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.isEmpty)
@@ -307,25 +323,33 @@ final class ManageItemCommandTests: XCTestCase {
             let secret = "sk-or-v1-secret-value"
             var item = recipe()
             item.update.cmd = "OPENROUTER_API_KEY=\(secret) tool update"
-            try ManifestStore(paths: paths).save(Manifest(
-                schemaVersion: 1,
-                items: [item],
-                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-            ))
+            try ManifestStore(paths: paths).save(
+                Manifest(
+                    schemaVersion: 1,
+                    items: [item],
+                    provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+                ))
 
             let result = try CLIProcess.run(command, home: home)
-            let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+            let payload = try JSONDecoder.updateBar.decode(
+                ErrorEnvelope.self, from: Data(result.stdout.utf8))
             let combined = result.stdout + result.stderr
 
             XCTAssertEqual(result.exitCode, 1, command.joined(separator: " "))
             XCTAssertEqual(result.stderr, "", command.joined(separator: " "))
             XCTAssertEqual(payload.code, "registry_error", command.joined(separator: " "))
             XCTAssertTrue(
-                payload.errors.contains { $0.contains("items[0].update.cmd: must not contain literal secrets") },
+                payload.errors.contains {
+                    $0.contains("items[0].update.cmd: must not contain literal secrets")
+                },
                 command.joined(separator: " ")
             )
-            XCTAssertFalse(payload.errors.contains { $0.contains("missing: item not found") }, command.joined(separator: " "))
-            XCTAssertFalse(payload.errors.contains { $0.contains("updatebar status") }, command.joined(separator: " "))
+            XCTAssertFalse(
+                payload.errors.contains { $0.contains("missing: item not found") },
+                command.joined(separator: " "))
+            XCTAssertFalse(
+                payload.errors.contains { $0.contains("updatebar status") },
+                command.joined(separator: " "))
             XCTAssertFalse(combined.contains(secret), command.joined(separator: " "))
         }
     }
@@ -360,13 +384,16 @@ final class ManageItemCommandTests: XCTestCase {
         let paths = AppPaths(homeDirectory: home)
         try saveFixture(paths: paths)
 
-        let result = try CLIProcess.run(["approve", "tool", "--field", "install.cmd", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let result = try CLIProcess.run(
+            ["approve", "tool", "--field", "install.cmd", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.isEmpty)
         XCTAssertEqual(payload.code, "registry_error")
-        XCTAssertTrue(payload.errors.contains { $0.contains("install.cmd: command field not found") })
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("install.cmd: command field not found") })
         XCTAssertTrue(payload.errors.contains { $0.contains("updatebar approvals tool") })
     }
 
@@ -376,21 +403,28 @@ final class ManageItemCommandTests: XCTestCase {
         let secret = "sk-or-v1-secret-value"
         var item = recipe()
         item.update.cmd = "OPENROUTER_API_KEY=\(secret) tool update"
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [item],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
 
-        let result = try CLIProcess.run(["approve", "tool", "--field", "install.cmd", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let result = try CLIProcess.run(
+            ["approve", "tool", "--field", "install.cmd", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
         let combined = result.stdout + result.stderr
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
         XCTAssertEqual(payload.code, "registry_error")
-        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].update.cmd: must not contain literal secrets") })
-        XCTAssertFalse(payload.errors.contains { $0.contains("install.cmd: command field not found") })
+        XCTAssertTrue(
+            payload.errors.contains {
+                $0.contains("items[0].update.cmd: must not contain literal secrets")
+            })
+        XCTAssertFalse(
+            payload.errors.contains { $0.contains("install.cmd: command field not found") })
         XCTAssertFalse(combined.contains(secret))
     }
 
@@ -400,21 +434,25 @@ final class ManageItemCommandTests: XCTestCase {
         let secretID = "sk-or-v1-secret-value"
         var item = recipe()
         item.id = secretID
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [item],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
 
         let result = try CLIProcess.run(
             ["approve", secretID, "--field", "install.cmd", "--json"],
             home: home
         )
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.isEmpty)
-        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].id: must not contain literal secrets") })
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("items[0].id: must not contain literal secrets") }
+        )
         XCTAssertFalse(payload.errors.contains { $0.contains("updatebar approvals") })
         XCTAssertFalse(result.stdout.contains(secretID))
     }
@@ -438,11 +476,12 @@ final class ManageItemCommandTests: XCTestCase {
         item.update.cwd = "/tmp/tool"
         item.trust.level = .untrusted
         item.trust.approvedCommands = [:]
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [item],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
 
         let approve = try CLIProcess.run(["approve", "tool", "--field", "update.cmd"], home: home)
         var manifest = try ManifestStore(paths: paths).load()
@@ -490,20 +529,25 @@ final class ManageItemCommandTests: XCTestCase {
         let secret = "sk-or-v1-secret-value"
         var item = recipe()
         item.update.cmd = "OPENROUTER_API_KEY=\(secret) tool update"
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [item],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
 
         let json = try CLIProcess.run(["approvals", "tool", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(json.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(json.stdout.utf8))
         let combined = json.stdout + json.stderr
 
         XCTAssertEqual(json.exitCode, 1)
         XCTAssertEqual(json.stderr, "")
         XCTAssertEqual(payload.code, "registry_error")
-        XCTAssertTrue(payload.errors.contains { $0.contains("items[0].update.cmd: must not contain literal secrets") })
+        XCTAssertTrue(
+            payload.errors.contains {
+                $0.contains("items[0].update.cmd: must not contain literal secrets")
+            })
         XCTAssertFalse(combined.contains(secret))
         XCTAssertFalse(combined.contains("OPENROUTER_API_KEY="))
     }
@@ -533,11 +577,12 @@ final class ManageItemCommandTests: XCTestCase {
         var item = recipe()
         item.id = secretID
         TestApprovals.approveAllCommands(in: &item)
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [item],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
 
         let result = try CLIProcess.run(["approvals", secretID], home: home)
         let combined = result.stdout + result.stderr
@@ -554,11 +599,12 @@ final class ManageItemCommandTests: XCTestCase {
         var item = recipe()
         item.trust.level = .untrusted
         item.trust.approvedCommands = [:]
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [item],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
 
         let result = try CLIProcess.run(["approve", "tool"], home: home)
 
@@ -576,8 +622,10 @@ final class ManageItemCommandTests: XCTestCase {
         let pin = try CLIProcess.run(["pin", "tool", "--json"], home: home)
         let disable = try CLIProcess.run(["disable", "tool", "--json"], home: home)
         let enable = try CLIProcess.run(["enable", "tool", "--json"], home: home)
-        let approve = try CLIProcess.run(["approve", "tool", "--field", "update.cmd", "--json"], home: home)
-        let revoke = try CLIProcess.run(["revoke", "tool", "--field", "update.cmd", "--json"], home: home)
+        let approve = try CLIProcess.run(
+            ["approve", "tool", "--field", "update.cmd", "--json"], home: home)
+        let revoke = try CLIProcess.run(
+            ["revoke", "tool", "--field", "update.cmd", "--json"], home: home)
         let unpin = try CLIProcess.run(["unpin", "tool", "--json"], home: home)
         let remove = try CLIProcess.run(["remove", "tool", "--yes", "--json"], home: home)
 
@@ -594,52 +642,62 @@ final class ManageItemCommandTests: XCTestCase {
         let secret = "sk-or-v1-secret-value"
         var item = recipe()
         item.trust.approvedCommands["update.cmd"] = secret
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [item],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
 
         let result = try CLIProcess.run(["disable", "tool", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
         XCTAssertEqual(payload.code, "registry_error")
-        XCTAssertTrue(payload.errors.contains { $0.contains("approved_commands[update.cmd]: must not contain literal secrets") })
+        XCTAssertTrue(
+            payload.errors.contains {
+                $0.contains("approved_commands[update.cmd]: must not contain literal secrets")
+            })
         XCTAssertFalse(result.stdout.contains(secret))
     }
 
     private func saveFixture(paths: AppPaths) throws {
         try saveManifestOnly(paths: paths)
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "tool": ItemState(
-                current: "1.0.0",
-                latest: "1.1.0",
-                status: .outdated,
-                lastChecked: now,
-                error: nil,
-                backoffUntil: nil
-            )
-        ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": ItemState(
+                        current: "1.0.0",
+                        latest: "1.1.0",
+                        status: .outdated,
+                        lastChecked: now,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                ]))
     }
 
     private func saveManifestOnly(paths: AppPaths) throws {
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [recipe()],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [recipe()],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
     }
 
     private func saveLegacySecretIDItem(_ id: String, paths: AppPaths) throws {
         var item = recipe()
         item.id = id
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [item],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
     }
 
     private func recipe() -> Recipe {

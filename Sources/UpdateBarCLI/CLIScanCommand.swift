@@ -21,7 +21,8 @@ struct ScanCommand: ParsableCommand {
         let categoryFilter = try ScanCategory.filterValue(for: category)
         let selectedDetectors = try ScanCategory.defaultDetectors(for: categoryFilter)
         let service = ScanService()
-        let report = try service.scan(detectors: selectedDetectors).filtered(category: categoryFilter)
+        let report = try service.scan(detectors: selectedDetectors).filtered(
+            category: categoryFilter)
 
         if json {
             try printJSON(report)
@@ -42,7 +43,8 @@ struct ScanCommand: ParsableCommand {
             writeStdout("")
         }
         _ = printSection("Needs Review", candidates: needsReview, startIndex: nextIndex)
-        printReviewOnlyNote(recommended: recommended, needsReview: needsReview, categoryFilter: categoryFilter)
+        printReviewOnlyNote(
+            recommended: recommended, needsReview: needsReview, categoryFilter: categoryFilter)
         if !report.errors.isEmpty {
             writeStderr("")
             writeStderr("Errors")
@@ -81,9 +83,10 @@ struct ScanCommand: ParsableCommand {
                 candidate.detector.rawValue,
                 candidate.capability.rawValue,
             ]
-            let visibleFields = metadataSourceRef(for: candidate).map {
-                fields + [$0]
-            } ?? fields
+            let visibleFields =
+                metadataSourceRef(for: candidate).map {
+                    fields + [$0]
+                } ?? fields
             writeStdout(visibleFields.joined(separator: "\t"))
         }
         writeStdout("")
@@ -126,9 +129,10 @@ struct ScanCommand: ParsableCommand {
     private func printNextStep(_ candidates: [ScanCandidate], categoryFilter: String?) {
         let importableCount = candidates.filter { $0.recipe != nil }.count
         guard importableCount > 0 else { return }
-        let baseCommand = categoryFilter.map {
-            "updatebar init --category \($0)"
-        } ?? "updatebar init"
+        let baseCommand =
+            categoryFilter.map {
+                "updatebar init --category \($0)"
+            } ?? "updatebar init"
         var commands = [baseCommand]
         if importableCount >= 2 {
             commands.append("\(baseCommand) --select 1,2")

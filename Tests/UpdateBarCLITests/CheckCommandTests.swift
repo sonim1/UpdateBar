@@ -1,7 +1,7 @@
 import Foundation
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class CheckCommandTests: XCTestCase {
     func testCheckJSONPrintsResultsOnlyAndReturnsOutdatedExit() throws {
@@ -12,7 +12,8 @@ final class CheckCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 10)
         XCTAssertTrue(result.stderr.isEmpty)
-        let results = try JSONDecoder.updateBar.decode([CheckResult].self, from: Data(result.stdout.utf8))
+        let results = try JSONDecoder.updateBar.decode(
+            [CheckResult].self, from: Data(result.stdout.utf8))
         XCTAssertEqual(results.count, 1)
         XCTAssertEqual(results[0].id, "fixture-tool")
         XCTAssertEqual(results[0].status, .outdated)
@@ -35,7 +36,8 @@ final class CheckCommandTests: XCTestCase {
             home: home,
             environment: ["HOME": secret]
         )
-        let results = try JSONDecoder.updateBar.decode([CheckResult].self, from: Data(result.stdout.utf8))
+        let results = try JSONDecoder.updateBar.decode(
+            [CheckResult].self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertFalse(result.stdout.contains(secret))
@@ -51,7 +53,8 @@ final class CheckCommandTests: XCTestCase {
         let result = try CLIProcess.run(["check", "--json", "--exit-zero-on-outdated"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
-        let results = try JSONDecoder.updateBar.decode([CheckResult].self, from: Data(result.stdout.utf8))
+        let results = try JSONDecoder.updateBar.decode(
+            [CheckResult].self, from: Data(result.stdout.utf8))
         XCTAssertEqual(results[0].status, .outdated)
     }
 
@@ -193,7 +196,8 @@ final class CheckCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stdout.contains("ID\tSTATUS\tCURRENT\tLATEST\tDETAIL"))
-        XCTAssertTrue(result.stdout.contains("fixture-tool\tuntrusted\t-\t-\tcommands are not approved"))
+        XCTAssertTrue(
+            result.stdout.contains("fixture-tool\tuntrusted\t-\t-\tcommands are not approved"))
         XCTAssertTrue(result.stdout.contains("updatebar approvals fixture-tool"))
         XCTAssertFalse(result.stdout.contains("updatebar approve fixture-tool"))
     }
@@ -244,8 +248,10 @@ final class CheckCommandTests: XCTestCase {
         let home = try temporaryDirectory()
         try saveManifest(home: home)
 
-        let result = try CLIProcess.run(["check", "fixture-tool", "fixture-tool", "--json"], home: home)
-        let results = try JSONDecoder.updateBar.decode([CheckResult].self, from: Data(result.stdout.utf8))
+        let result = try CLIProcess.run(
+            ["check", "fixture-tool", "fixture-tool", "--json"], home: home)
+        let results = try JSONDecoder.updateBar.decode(
+            [CheckResult].self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 10)
         XCTAssertEqual(results.count, 1)

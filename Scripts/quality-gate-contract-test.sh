@@ -9,6 +9,11 @@ if ! grep -Fq 'bash Scripts/tui-smoke-test.sh' "$QUALITY_GATE"; then
   exit 1
 fi
 
+if ! grep -Fq 'xcrun swift-format lint --strict --recursive Sources Tests Package.swift' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must run Swift format checks in strict mode" >&2
+  exit 1
+fi
+
 if grep -Fq 'skipping tui smoke test on non-macOS' "$QUALITY_GATE"; then
   echo "quality-gate.sh must not skip Node/Ink TUI checks on non-macOS" >&2
   exit 1

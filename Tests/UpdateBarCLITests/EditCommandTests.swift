@@ -1,7 +1,7 @@
 import Foundation
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class EditCommandTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
@@ -10,9 +10,11 @@ final class EditCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
         let paths = AppPaths(homeDirectory: home)
         try saveManifest(paths: paths)
-        let editor = try editorScript(home: home, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Edited Tool"/' "$1""#)
+        let editor = try editorScript(
+            home: home, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Edited Tool"/' "$1""#)
 
-        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
         let manifest = try ManifestStore(paths: paths).load()
 
         XCTAssertEqual(result.exitCode, 0)
@@ -23,7 +25,11 @@ final class EditCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
         let paths = AppPaths(homeDirectory: home)
         try saveManifest(paths: paths)
-        let editor = try editorScript(home: home, body: #"if [ "$1" = "--normalize" ]; then perl -0pi -e 's/"name" : "Tool"/"name" : "Arg Tool"/' "$2"; else exit 1; fi"#)
+        let editor = try editorScript(
+            home: home,
+            body:
+                #"if [ "$1" = "--normalize" ]; then perl -0pi -e 's/"name" : "Tool"/"name" : "Arg Tool"/' "$2"; else exit 1; fi"#
+        )
 
         let result = try CLIProcess.run(
             ["edit", "tool"],
@@ -42,7 +48,8 @@ final class EditCommandTests: XCTestCase {
         try saveManifest(paths: paths)
         let binDir = home.appendingPathComponent("bin")
         try FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
-        let editor = try editorScript(home: binDir, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Path Tool"/' "$1""#)
+        let editor = try editorScript(
+            home: binDir, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Path Tool"/' "$1""#)
         let editorPath = home.appendingPathComponent("bin/updatebar-editor").path
         try FileManager.default.moveItem(at: editor, to: URL(fileURLWithPath: editorPath))
 
@@ -52,7 +59,7 @@ final class EditCommandTests: XCTestCase {
             home: home,
             environment: [
                 "EDITOR": "updatebar-editor",
-                "PATH": "\(binDir.path):\(systemPath)"
+                "PATH": "\(binDir.path):\(systemPath)",
             ]
         )
         let manifest = try ManifestStore(paths: paths).load()
@@ -68,11 +75,14 @@ final class EditCommandTests: XCTestCase {
         let binDir = home.appendingPathComponent("bin")
         try FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
 
-        let safeEditor = try editorScript(home: binDir, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Safe Tool"/' "$1""#)
+        let safeEditor = try editorScript(
+            home: binDir, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Safe Tool"/' "$1""#)
         let safeEditorPath = binDir.appendingPathComponent("updatebar-editor")
         try FileManager.default.moveItem(at: safeEditor, to: safeEditorPath)
-        let relativeEditor = try editorScript(home: home, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Relative Tool"/' "$1""#)
-        try FileManager.default.moveItem(at: relativeEditor, to: home.appendingPathComponent("updatebar-editor"))
+        let relativeEditor = try editorScript(
+            home: home, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Relative Tool"/' "$1""#)
+        try FileManager.default.moveItem(
+            at: relativeEditor, to: home.appendingPathComponent("updatebar-editor"))
 
         let systemPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
         let result = try CLIProcess.run(
@@ -81,7 +91,7 @@ final class EditCommandTests: XCTestCase {
             currentDirectory: home,
             environment: [
                 "EDITOR": "updatebar-editor",
-                "PATH": ".:\(binDir.path):\(systemPath)"
+                "PATH": ".:\(binDir.path):\(systemPath)",
             ]
         )
         let manifest = try ManifestStore(paths: paths).load()
@@ -95,8 +105,11 @@ final class EditCommandTests: XCTestCase {
         let paths = AppPaths(homeDirectory: home)
         try saveManifest(paths: paths)
         let spacedDirectory = home.appendingPathComponent("My Editors")
-        try FileManager.default.createDirectory(at: spacedDirectory, withIntermediateDirectories: true)
-        let editor = try editorScript(home: spacedDirectory, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Spaced Tool"/' "$1""#)
+        try FileManager.default.createDirectory(
+            at: spacedDirectory, withIntermediateDirectories: true)
+        let editor = try editorScript(
+            home: spacedDirectory,
+            body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Spaced Tool"/' "$1""#)
         let quotedEditor = "'\(editor.path)'"
 
         let result = try CLIProcess.run(
@@ -115,7 +128,8 @@ final class EditCommandTests: XCTestCase {
         let paths = AppPaths(homeDirectory: home)
         try saveManifest(paths: paths)
         let spacedDirectory = home.appendingPathComponent("Editor Home")
-        try FileManager.default.createDirectory(at: spacedDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: spacedDirectory, withIntermediateDirectories: true)
         let editor = try editorScript(
             home: spacedDirectory,
             body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Assigned Tool"/' "$1""#
@@ -137,7 +151,8 @@ final class EditCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
         let paths = AppPaths(homeDirectory: home)
         try saveManifest(paths: paths)
-        let editor = try editorScript(home: home, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Editor Tool"/' "$1""#)
+        let editor = try editorScript(
+            home: home, body: #"perl -0pi -e 's/"name" : "Tool"/"name" : "Editor Tool"/' "$1""#)
 
         let result = try CLIProcess.run(
             ["edit", "tool"],
@@ -158,10 +173,12 @@ final class EditCommandTests: XCTestCase {
         let paths = AppPaths(homeDirectory: home)
         try saveManifest(paths: paths)
 
-        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": "no-such-editor"])
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": "no-such-editor"])
 
         XCTAssertNotEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stderr.contains("EDITOR/VISUAL command not found in PATH: no-such-editor"))
+        XCTAssertTrue(
+            result.stderr.contains("EDITOR/VISUAL command not found in PATH: no-such-editor"))
         XCTAssertEqual(try ManifestStore(paths: paths).load().item(id: "tool")?.name, "Tool")
     }
 
@@ -181,10 +198,12 @@ final class EditCommandTests: XCTestCase {
         let paths = AppPaths(homeDirectory: home)
         try saveManifest(paths: paths)
 
-        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": "FOO=1 no-such-editor"])
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": "FOO=1 no-such-editor"])
 
         XCTAssertNotEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stderr.contains("EDITOR/VISUAL command not found in PATH: no-such-editor"))
+        XCTAssertTrue(
+            result.stderr.contains("EDITOR/VISUAL command not found in PATH: no-such-editor"))
         XCTAssertEqual(try ManifestStore(paths: paths).load().item(id: "tool")?.name, "Tool")
     }
 
@@ -193,7 +212,8 @@ final class EditCommandTests: XCTestCase {
         let paths = AppPaths(homeDirectory: home)
         try saveManifest(paths: paths)
 
-        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": "unterminated 'command"])
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": "unterminated 'command"])
 
         XCTAssertNotEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.contains("EDITOR/VISUAL has unmatched quote"))
@@ -206,7 +226,8 @@ final class EditCommandTests: XCTestCase {
         try saveManifest(paths: paths)
         let editor = try editorScript(home: home, body: #"printf '{' > "$1""#)
 
-        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
         let manifest = try ManifestStore(paths: paths).load()
 
         XCTAssertNotEqual(result.exitCode, 0)
@@ -219,7 +240,8 @@ final class EditCommandTests: XCTestCase {
         try saveManifest(paths: paths)
         let editor = try editorScript(home: home, body: #"printf '{ "id": "tool" }' > "$1""#)
 
-        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
         let manifest = try ManifestStore(paths: paths).load()
 
         XCTAssertNotEqual(result.exitCode, 0)
@@ -238,7 +260,8 @@ final class EditCommandTests: XCTestCase {
             body: #"perl -0pi -e 's/printf updated/printf changed/' "$1""#
         )
 
-        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
         let recipe = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
 
         XCTAssertEqual(result.exitCode, 0)
@@ -257,34 +280,35 @@ final class EditCommandTests: XCTestCase {
         let editor = try editorScript(
             home: home,
             body: """
-            cat > "$1" <<'JSON'
-            {
-              "id": "tool",
-              "name": "Tool",
-              "category": "cli",
-              "path": null,
-              "source": { "kind": "custom", "ref": "tool", "branch": null },
-              "version_scheme": "semver",
-              "check": { "cmd": "printf 'tool 2.0.0'" },
-              "latest": { "strategy": "cmd", "cmd": "printf 'tool 2.1.0'", "pattern": null },
-              "version_parse": { "regex": "([0-9]+\\\\.[0-9]+\\\\.[0-9]+)" },
-              "update": { "cmd": "printf changed", "requires_write": true, "cwd": null },
-              "pin": null,
-              "enabled": true,
-              "trust": {
-                "level": "trusted",
-                "approved_commands": {
-                  "check.cmd": "\(checkApproval)",
-                  "latest.cmd": "\(latestApproval)",
-                  "update.cmd": "\(updateApproval)"
+                cat > "$1" <<'JSON'
+                {
+                  "id": "tool",
+                  "name": "Tool",
+                  "category": "cli",
+                  "path": null,
+                  "source": { "kind": "custom", "ref": "tool", "branch": null },
+                  "version_scheme": "semver",
+                  "check": { "cmd": "printf 'tool 2.0.0'" },
+                  "latest": { "strategy": "cmd", "cmd": "printf 'tool 2.1.0'", "pattern": null },
+                  "version_parse": { "regex": "([0-9]+\\\\.[0-9]+\\\\.[0-9]+)" },
+                  "update": { "cmd": "printf changed", "requires_write": true, "cwd": null },
+                  "pin": null,
+                  "enabled": true,
+                  "trust": {
+                    "level": "trusted",
+                    "approved_commands": {
+                      "check.cmd": "\(checkApproval)",
+                      "latest.cmd": "\(latestApproval)",
+                      "update.cmd": "\(updateApproval)"
+                    }
+                  }
                 }
-              }
-            }
-            JSON
-            """
+                JSON
+                """
         )
 
-        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
         let recipe = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
 
         XCTAssertEqual(result.exitCode, 0)
@@ -303,34 +327,35 @@ final class EditCommandTests: XCTestCase {
         let editor = try editorScript(
             home: home,
             body: """
-            cat > "$1" <<'JSON'
-            {
-              "id": "tool",
-              "name": "Tool",
-              "category": "cli",
-              "path": null,
-              "source": { "kind": "custom", "ref": "tool", "branch": null },
-              "version_scheme": "semver",
-              "check": { "cmd": "printf 'tool 1.0.0'" },
-              "latest": { "strategy": "cmd", "cmd": "printf 'tool 1.1.0'", "pattern": null },
-              "version_parse": { "regex": "([0-9]+\\\\.[0-9]+\\\\.[0-9]+)" },
-              "update": { "cmd": "printf updated", "requires_write": true, "cwd": null },
-              "pin": null,
-              "enabled": true,
-              "trust": {
-                "level": "untrusted",
-                "approved_commands": {
-                  "check.cmd": "\(checkApproval)",
-                  "latest.cmd": "\(latestApproval)",
-                  "update.cmd": "\(updateApproval)"
+                cat > "$1" <<'JSON'
+                {
+                  "id": "tool",
+                  "name": "Tool",
+                  "category": "cli",
+                  "path": null,
+                  "source": { "kind": "custom", "ref": "tool", "branch": null },
+                  "version_scheme": "semver",
+                  "check": { "cmd": "printf 'tool 1.0.0'" },
+                  "latest": { "strategy": "cmd", "cmd": "printf 'tool 1.1.0'", "pattern": null },
+                  "version_parse": { "regex": "([0-9]+\\\\.[0-9]+\\\\.[0-9]+)" },
+                  "update": { "cmd": "printf updated", "requires_write": true, "cwd": null },
+                  "pin": null,
+                  "enabled": true,
+                  "trust": {
+                    "level": "untrusted",
+                    "approved_commands": {
+                      "check.cmd": "\(checkApproval)",
+                      "latest.cmd": "\(latestApproval)",
+                      "update.cmd": "\(updateApproval)"
+                    }
+                  }
                 }
-              }
-            }
-            JSON
-            """
+                JSON
+                """
         )
 
-        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
         let recipe = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
 
         XCTAssertEqual(result.exitCode, 0)
@@ -351,34 +376,35 @@ final class EditCommandTests: XCTestCase {
         let editor = try editorScript(
             home: home,
             body: """
-            cat > "$1" <<'JSON'
-            {
-              "id": "tool",
-              "name": "Tool",
-              "category": "cli",
-              "path": null,
-              "source": { "kind": "custom", "ref": "tool", "branch": null },
-              "version_scheme": "semver",
-              "check": { "file": "\(versionFile.path)" },
-              "latest": { "strategy": "cmd", "cmd": "printf 'tool 1.1.0'", "pattern": null },
-              "version_parse": { "regex": "([0-9]+\\\\.[0-9]+\\\\.[0-9]+)" },
-              "update": { "cmd": "printf updated", "requires_write": true, "cwd": null },
-              "pin": null,
-              "enabled": true,
-              "trust": {
-                "level": "trusted",
-                "approved_commands": {
-                  "check.cmd": "\(checkApproval)",
-                  "latest.cmd": "\(latestApproval)",
-                  "update.cmd": "\(updateApproval)"
+                cat > "$1" <<'JSON'
+                {
+                  "id": "tool",
+                  "name": "Tool",
+                  "category": "cli",
+                  "path": null,
+                  "source": { "kind": "custom", "ref": "tool", "branch": null },
+                  "version_scheme": "semver",
+                  "check": { "file": "\(versionFile.path)" },
+                  "latest": { "strategy": "cmd", "cmd": "printf 'tool 1.1.0'", "pattern": null },
+                  "version_parse": { "regex": "([0-9]+\\\\.[0-9]+\\\\.[0-9]+)" },
+                  "update": { "cmd": "printf updated", "requires_write": true, "cwd": null },
+                  "pin": null,
+                  "enabled": true,
+                  "trust": {
+                    "level": "trusted",
+                    "approved_commands": {
+                      "check.cmd": "\(checkApproval)",
+                      "latest.cmd": "\(latestApproval)",
+                      "update.cmd": "\(updateApproval)"
+                    }
+                  }
                 }
-              }
-            }
-            JSON
-            """
+                JSON
+                """
         )
 
-        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
         let recipe = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
 
         XCTAssertEqual(result.exitCode, 0)
@@ -401,48 +427,52 @@ final class EditCommandTests: XCTestCase {
         let editor = try editorScript(
             home: home,
             body: """
-            cat > "$1" <<'JSON'
-            {
-              "id": "tool",
-              "name": "Tool",
-              "category": "cli",
-              "path": null,
-              "source": { "kind": "custom", "ref": "tool", "branch": null },
-              "version_scheme": "semver",
-              "check": { "file": "\(versionFile.path)" },
-              "latest": { "strategy": "cmd", "cmd": "printf 'tool 1.1.0'", "pattern": null },
-              "version_parse": { "regex": "[0-9]+\\\\.[0-9]+\\\\.[0-9]+" },
-              "update": { "cmd": "printf updated", "requires_write": true, "cwd": null },
-              "pin": null,
-              "enabled": true,
-              "trust": {
-                "level": "trusted",
-                "approved_commands": {
-                  "check.cmd": "\(checkApproval)",
-                  "latest.cmd": "\(latestApproval)",
-                  "update.cmd": "\(updateApproval)"
+                cat > "$1" <<'JSON'
+                {
+                  "id": "tool",
+                  "name": "Tool",
+                  "category": "cli",
+                  "path": null,
+                  "source": { "kind": "custom", "ref": "tool", "branch": null },
+                  "version_scheme": "semver",
+                  "check": { "file": "\(versionFile.path)" },
+                  "latest": { "strategy": "cmd", "cmd": "printf 'tool 1.1.0'", "pattern": null },
+                  "version_parse": { "regex": "[0-9]+\\\\.[0-9]+\\\\.[0-9]+" },
+                  "update": { "cmd": "printf updated", "requires_write": true, "cwd": null },
+                  "pin": null,
+                  "enabled": true,
+                  "trust": {
+                    "level": "trusted",
+                    "approved_commands": {
+                      "check.cmd": "\(checkApproval)",
+                      "latest.cmd": "\(latestApproval)",
+                      "update.cmd": "\(updateApproval)"
+                    }
+                  }
                 }
-              }
-            }
-            JSON
-            """
+                JSON
+                """
         )
 
-        let result = try CLIProcess.run(["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
         let recipe = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
 
         XCTAssertEqual(result.exitCode, 1)
-        XCTAssertTrue(result.stderr.contains("version_parse.regex: invalid; expected exactly one capture group"))
+        XCTAssertTrue(
+            result.stderr.contains(
+                "version_parse.regex: invalid; expected exactly one capture group"))
         XCTAssertFalse(result.stderr.contains("approved_commands"))
         XCTAssertEqual(recipe.check, .command("printf 'tool 1.0.0'"))
     }
 
     private func saveManifest(paths: AppPaths) throws {
-        try ManifestStore(paths: paths).save(Manifest(
-            schemaVersion: 1,
-            items: [recipe()],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        ))
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [recipe()],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            ))
     }
 
     private func editorScript(home: URL, body: String) throws -> URL {

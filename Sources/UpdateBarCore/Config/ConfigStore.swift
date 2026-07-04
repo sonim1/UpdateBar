@@ -31,7 +31,8 @@ public struct ConfigStore {
 
     public func save(_ config: Config) throws {
         try ensureHome()
-        try AtomicFileWriter.write(Data(render(config).utf8), to: paths.configFile, fileManager: fileManager)
+        try AtomicFileWriter.write(
+            Data(render(config).utf8), to: paths.configFile, fileManager: fileManager)
     }
 
     public func renderForDisplay(_ config: Config) -> String {
@@ -41,7 +42,9 @@ public struct ConfigStore {
     private func parse(_ text: String) throws -> Config {
         var config = Config.default
         var section = ""
-        for (lineIndex, rawLine) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+        for (lineIndex, rawLine) in text.split(separator: "\n", omittingEmptySubsequences: false)
+            .enumerated()
+        {
             let lineNumber = lineIndex + 1
             let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
             if line.isEmpty || line.hasPrefix("#") { continue }

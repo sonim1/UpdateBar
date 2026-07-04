@@ -57,7 +57,8 @@ struct EditCommand: ParsableCommand {
             throw ValidationError(validation.errors.joined(separator: "\n"))
         }
         let cleaned = invalidateChangedApprovals(original: original, edited: decoded)
-        let cleanedValidation = try RecipeValidator.validate(data: JSONEncoder.updateBar.encode(cleaned))
+        let cleanedValidation = try RecipeValidator.validate(
+            data: JSONEncoder.updateBar.encode(cleaned))
         guard cleanedValidation.isValid else {
             throw ValidationError(cleanedValidation.errors.joined(separator: "\n"))
         }
@@ -66,7 +67,8 @@ struct EditCommand: ParsableCommand {
 
     private func runEditor(file: URL) throws {
         let environment = ProcessInfo.processInfo.environment
-        let editor = nonEmptyEnvironmentValue("VISUAL", in: environment)
+        let editor =
+            nonEmptyEnvironmentValue("VISUAL", in: environment)
             ?? nonEmptyEnvironmentValue("EDITOR", in: environment)
             ?? "vi"
         var editorParts = try parseCommand(editor)
@@ -81,7 +83,8 @@ struct EditCommand: ParsableCommand {
         editorParts[commandIndex] = resolvedCommand
 
         // `env` applies leading assignments while avoiding shell interpolation.
-        let envPath = FileManager.default.isExecutableFile(atPath: "/usr/bin/env")
+        let envPath =
+            FileManager.default.isExecutableFile(atPath: "/usr/bin/env")
             ? "/usr/bin/env"
             : "/bin/env"
         guard FileManager.default.isExecutableFile(atPath: envPath) else {
@@ -101,7 +104,9 @@ struct EditCommand: ParsableCommand {
         }
     }
 
-    private func nonEmptyEnvironmentValue(_ key: String, in environment: [String: String]) -> String? {
+    private func nonEmptyEnvironmentValue(_ key: String, in environment: [String: String])
+        -> String?
+    {
         guard let value = environment[key],
             !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else {
@@ -128,7 +133,8 @@ struct EditCommand: ParsableCommand {
             items: [recipe],
             provenance: Provenance(createdBy: "updatebar", createdAt: Date(), updatedAt: Date())
         )
-        let validation = try ManifestValidator.validate(data: JSONEncoder.updateBar.encode(manifest))
+        let validation = try ManifestValidator.validate(
+            data: JSONEncoder.updateBar.encode(manifest))
         guard validation.isValid else {
             throw ValidationError(validation.errors.joined(separator: "\n"))
         }

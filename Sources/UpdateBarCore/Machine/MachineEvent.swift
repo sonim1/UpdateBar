@@ -92,7 +92,7 @@ public struct MachineEvent: Codable, Equatable {
         checkSummary = try container.decodeIfPresent(CheckSummary.self, forKey: .checkSummary)
         error = try container.decodeIfPresent(String.self, forKey: .error)
         if operation == .check,
-           result != nil || results != nil || summary != nil
+            result != nil || results != nil || summary != nil
         {
             throw DecodingError.dataCorruptedError(
                 forKey: .operation,
@@ -101,7 +101,7 @@ public struct MachineEvent: Codable, Equatable {
             )
         }
         if operation == .update,
-           checkResult != nil || checkResults != nil || checkSummary != nil
+            checkResult != nil || checkResults != nil || checkSummary != nil
         {
             throw DecodingError.dataCorruptedError(
                 forKey: .operation,

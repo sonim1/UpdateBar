@@ -24,13 +24,15 @@ final class MenuBarMenuActionTests: XCTestCase {
     }
 
     func testErrorRecoveryActionsIncludeDiagnostics() {
-        XCTAssertEqual(MenuBarMenuAction.errorRecovery.map(\.title), [
-            "Refresh Status",
-            "Check Now",
-            "Open TUI",
-            "Open Config",
-            "View Logs",
-            "Quit",
-        ])
+        XCTAssertEqual(
+            MenuBarMenuAction.errorRecovery.map(\.title),
+            [
+                "Refresh Status",
+                "Check Now",
+                "Open TUI",
+                "Open Config",
+                "View Logs",
+                "Quit",
+            ])
     }
 }

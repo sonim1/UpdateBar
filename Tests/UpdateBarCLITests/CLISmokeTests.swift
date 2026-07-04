@@ -1,6 +1,6 @@
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class CLISmokeTests: XCTestCase {
     func testTargetIsDiscoverable() {
@@ -32,20 +32,21 @@ final class CLISmokeTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-process-tests")
         let paths = AppPaths(homeDirectory: home)
         try ManifestStore(paths: paths).save(manifest())
-        try StateStore(paths: paths).save(State(
-            schemaVersion: 1,
-            generatedAt: Date(timeIntervalSince1970: 1_800),
-            items: [
-                "slow": ItemState(
-                    current: "1.0.0",
-                    latest: "1.1.0",
-                    status: .outdated,
-                    lastChecked: nil,
-                    error: nil,
-                    backoffUntil: nil
-                )
-            ]
-        ))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1,
+                generatedAt: Date(timeIntervalSince1970: 1_800),
+                items: [
+                    "slow": ItemState(
+                        current: "1.0.0",
+                        latest: "1.1.0",
+                        status: .outdated,
+                        lastChecked: nil,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                ]
+            ))
 
         XCTAssertThrowsError(
             try CLIProcess.run(["update", "slow", "--yes"], home: home, timeout: 0.1)

@@ -22,12 +22,14 @@ struct ValidateCommand: ParsableCommand {
         let data = try readInputData(file)
         let result = try validateRecipeDocument(data)
         if json {
-            try printJSON(ValidationPayload(
-                ok: result.isValid,
-                valid: result.isValid,
-                errors: result.errors,
-                explanations: explain ? result.errors.map(ValidationExplanation.init(error:)) : nil
-            ))
+            try printJSON(
+                ValidationPayload(
+                    ok: result.isValid,
+                    valid: result.isValid,
+                    errors: result.errors,
+                    explanations: explain
+                        ? result.errors.map(ValidationExplanation.init(error:)) : nil
+                ))
         } else if result.isValid {
             writeStdout("valid")
         } else {

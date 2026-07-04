@@ -325,16 +325,17 @@ public struct ScanService {
     private func dedupe(_ candidates: [ScanCandidate]) -> [ScanCandidate] {
         let managerOwnedNames =
             candidates
-                .filter { $0.detector != .known && $0.capability == .full }
-                .reduce(into: Set<String>()) { names, candidate in
-                    names.formUnion(managerOwnedKnownToolNames(for: candidate))
-                }
+            .filter { $0.detector != .known && $0.capability == .full }
+            .reduce(into: Set<String>()) { names, candidate in
+                names.formUnion(managerOwnedKnownToolNames(for: candidate))
+            }
         var seenIDs = Set<String>()
         return candidates.filter { candidate in
             guard seenIDs.insert(candidate.id).inserted else {
                 return false
             }
-            return !(candidate.detector == .known
+            return
+                !(candidate.detector == .known
                 && managerOwnedNames.contains(candidate.name.lowercased()))
         }
     }
@@ -542,10 +543,11 @@ public struct ScanService {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            dependencies = try container.decodeIfPresent(
-                [String: Package].self,
-                forKey: .dependencies
-            ) ?? [:]
+            dependencies =
+                try container.decodeIfPresent(
+                    [String: Package].self,
+                    forKey: .dependencies
+                ) ?? [:]
         }
 
         struct Package: Decodable {
@@ -570,7 +572,8 @@ public enum ScanServiceError: Error, CustomStringConvertible {
 
     private static func normalizedStderr(_ stderr: String) -> String {
         var seen = Set<String>()
-        let normalized = stderr
+        let normalized =
+            stderr
             .split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty && seen.insert($0).inserted }

@@ -101,124 +101,124 @@ struct SchemaCommand: ParsableCommand {
     }
 
     private static let recipeSchema = """
-    {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "title": "UpdateBar manifest",
-      "type": "object",
-      "required": ["schema_version", "items", "provenance"],
-      "properties": {
-        "schema_version": { "const": 1 },
-        "items": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/recipe" }
-        },
-        "provenance": {
+        {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "title": "UpdateBar manifest",
           "type": "object",
-          "required": ["created_by", "created_at", "updated_at"],
+          "required": ["schema_version", "items", "provenance"],
           "properties": {
-            "created_by": { "type": "string", "minLength": 1 },
-            "created_at": { "type": "string", "format": "date-time" },
-            "updated_at": { "type": "string", "format": "date-time" }
-          }
-        }
-      },
-      "$defs": {
-        "recipe": {
-          "type": "object",
-          "required": ["id", "name", "category", "source", "version_scheme", "check", "latest", "version_parse", "update", "trust"],
-          "properties": {
-            "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
-            "name": { "type": "string", "minLength": 1 },
-            "category": { "type": "string", "minLength": 1 },
-            "path": { "type": ["string", "null"] },
-            "source": {
+            "schema_version": { "const": 1 },
+            "items": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/recipe" }
+            },
+            "provenance": {
               "type": "object",
-              "required": ["kind", "ref"],
+              "required": ["created_by", "created_at", "updated_at"],
               "properties": {
-                "kind": { "enum": ["git", "npm", "github_release", "brew", "http", "custom"] },
-                "ref": { "type": "string", "minLength": 1 },
-                "branch": { "type": ["string", "null"] }
+                "created_by": { "type": "string", "minLength": 1 },
+                "created_at": { "type": "string", "format": "date-time" },
+                "updated_at": { "type": "string", "format": "date-time" }
               }
-            },
-            "version_scheme": { "enum": ["semver", "commit", "calver", "opaque"] },
-            "check": {
+            }
+          },
+          "$defs": {
+            "recipe": {
               "type": "object",
-              "oneOf": [
-                { "required": ["cmd"] },
-                { "required": ["file"] }
-              ],
+              "required": ["id", "name", "category", "source", "version_scheme", "check", "latest", "version_parse", "update", "trust"],
               "properties": {
-                "cmd": { "type": "string", "minLength": 1 },
-                "file": { "type": "string", "minLength": 1 }
-              }
-            },
-            "latest": {
-              "type": "object",
-              "required": ["strategy"],
-              "properties": {
-                "strategy": { "enum": ["git_tags", "git_head", "npm_registry", "github_release", "brew", "http_regex", "cmd"] },
-                "cmd": { "type": ["string", "null"] },
-                "pattern": { "type": ["string", "null"] }
-              }
-            },
-            "version_parse": {
-              "type": "object",
-              "required": ["regex"],
-              "properties": {
-                "regex": { "type": "string", "minLength": 1 }
-              },
-              "additionalProperties": false
-            },
-            "update": {
-              "type": "object",
-              "required": ["cmd"],
-              "properties": {
-                "cmd": { "type": "string", "minLength": 1 },
-                "requires_write": { "type": "boolean", "default": true },
-                "cwd": { "type": ["string", "null"] }
-              }
-            },
-            "pin": { "type": ["string", "null"] },
-            "enabled": { "type": "boolean", "default": true },
-            "trust": {
-              "type": "object",
-              "required": ["level", "approved_commands"],
-              "properties": {
-                "level": { "enum": ["trusted", "untrusted"] },
-                "approved_commands": {
+                "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+                "name": { "type": "string", "minLength": 1 },
+                "category": { "type": "string", "minLength": 1 },
+                "path": { "type": ["string", "null"] },
+                "source": {
                   "type": "object",
-                  "propertyNames": {
-                    "enum": ["check.cmd", "latest.cmd", "update.cmd"]
-                  },
-                  "additionalProperties": {
-                    "type": "string",
-                    "minLength": 71,
-                    "maxLength": 71,
-                    "pattern": "^sha256:[a-f0-9]{64}$"
+                  "required": ["kind", "ref"],
+                  "properties": {
+                    "kind": { "enum": ["git", "npm", "github_release", "brew", "http", "custom"] },
+                    "ref": { "type": "string", "minLength": 1 },
+                    "branch": { "type": ["string", "null"] }
                   }
-                }
-              },
-              "allOf": [
-                {
-                  "if": {
-                    "required": ["level"],
-                    "properties": {
-                      "level": { "const": "untrusted" }
+                },
+                "version_scheme": { "enum": ["semver", "commit", "calver", "opaque"] },
+                "check": {
+                  "type": "object",
+                  "oneOf": [
+                    { "required": ["cmd"] },
+                    { "required": ["file"] }
+                  ],
+                  "properties": {
+                    "cmd": { "type": "string", "minLength": 1 },
+                    "file": { "type": "string", "minLength": 1 }
+                  }
+                },
+                "latest": {
+                  "type": "object",
+                  "required": ["strategy"],
+                  "properties": {
+                    "strategy": { "enum": ["git_tags", "git_head", "npm_registry", "github_release", "brew", "http_regex", "cmd"] },
+                    "cmd": { "type": ["string", "null"] },
+                    "pattern": { "type": ["string", "null"] }
+                  }
+                },
+                "version_parse": {
+                  "type": "object",
+                  "required": ["regex"],
+                  "properties": {
+                    "regex": { "type": "string", "minLength": 1 }
+                  },
+                  "additionalProperties": false
+                },
+                "update": {
+                  "type": "object",
+                  "required": ["cmd"],
+                  "properties": {
+                    "cmd": { "type": "string", "minLength": 1 },
+                    "requires_write": { "type": "boolean", "default": true },
+                    "cwd": { "type": ["string", "null"] }
+                  }
+                },
+                "pin": { "type": ["string", "null"] },
+                "enabled": { "type": "boolean", "default": true },
+                "trust": {
+                  "type": "object",
+                  "required": ["level", "approved_commands"],
+                  "properties": {
+                    "level": { "enum": ["trusted", "untrusted"] },
+                    "approved_commands": {
+                      "type": "object",
+                      "propertyNames": {
+                        "enum": ["check.cmd", "latest.cmd", "update.cmd"]
+                      },
+                      "additionalProperties": {
+                        "type": "string",
+                        "minLength": 71,
+                        "maxLength": 71,
+                        "pattern": "^sha256:[a-f0-9]{64}$"
+                      }
                     }
                   },
-                  "then": {
-                    "properties": {
-                      "approved_commands": { "maxProperties": 0 }
+                  "allOf": [
+                    {
+                      "if": {
+                        "required": ["level"],
+                        "properties": {
+                          "level": { "const": "untrusted" }
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "approved_commands": { "maxProperties": 0 }
+                        }
+                      }
                     }
-                  }
+                  ]
                 }
-              ]
+              }
             }
           }
         }
-      }
-    }
-    """
+        """
 }
 
 struct TemplateCommand: ParsableCommand {
@@ -296,7 +296,7 @@ private func validateTemplateOverrides(id: String?, name: String?, source: Strin
 
 private func isValidTemplateID(_ id: String) -> Bool {
     guard let first = id.unicodeScalars.first,
-          isLowercaseLetterOrDigit(first)
+        isLowercaseLetterOrDigit(first)
     else {
         return false
     }
@@ -336,7 +336,8 @@ enum TemplateKind: String, CaseIterable, ExpressibleByArgument {
             return base(
                 id: requestedID ?? "example-github-tool",
                 name: requestedName,
-                source: Source(kind: .githubRelease, ref: requestedSourceRef ?? "owner/repo", branch: nil),
+                source: Source(
+                    kind: .githubRelease, ref: requestedSourceRef ?? "owner/repo", branch: nil),
                 latest: LatestSpec(strategy: .githubRelease, cmd: nil, pattern: nil),
                 update: "brew upgrade \(ShellQuote.single(requestedID ?? "example-github-tool"))"
             )
@@ -362,7 +363,9 @@ enum TemplateKind: String, CaseIterable, ExpressibleByArgument {
             return base(
                 id: requestedID ?? "example-git-tool",
                 name: requestedName,
-                source: Source(kind: .git, ref: requestedSourceRef ?? "https://github.com/owner/repo.git", branch: nil),
+                source: Source(
+                    kind: .git, ref: requestedSourceRef ?? "https://github.com/owner/repo.git",
+                    branch: nil),
                 latest: LatestSpec(strategy: .gitTags, cmd: nil, pattern: nil),
                 update: "git -C /path/to/repo pull --ff-only"
             )
@@ -370,7 +373,9 @@ enum TemplateKind: String, CaseIterable, ExpressibleByArgument {
             return base(
                 id: requestedID ?? "example-http-tool",
                 name: requestedName,
-                source: Source(kind: .http, ref: requestedSourceRef ?? "https://example.com/releases", branch: nil),
+                source: Source(
+                    kind: .http, ref: requestedSourceRef ?? "https://example.com/releases",
+                    branch: nil),
                 latest: LatestSpec(
                     strategy: .httpRegex,
                     cmd: nil,
@@ -382,14 +387,20 @@ enum TemplateKind: String, CaseIterable, ExpressibleByArgument {
             return base(
                 id: requestedID ?? "example-command-tool",
                 name: requestedName,
-                source: Source(kind: .custom, ref: requestedSourceRef ?? requestedID ?? "example-command-tool", branch: nil),
-                latest: LatestSpec(strategy: .cmd, cmd: "\(requestedID ?? "example-tool") --latest-version", pattern: nil),
+                source: Source(
+                    kind: .custom, ref: requestedSourceRef ?? requestedID ?? "example-command-tool",
+                    branch: nil),
+                latest: LatestSpec(
+                    strategy: .cmd, cmd: "\(requestedID ?? "example-tool") --latest-version",
+                    pattern: nil),
                 update: "\(requestedID ?? "example-tool") self-update"
             )
         }
     }
 
-    private func base(id: String, name: String?, source: Source, latest: LatestSpec, update: String) -> Recipe {
+    private func base(id: String, name: String?, source: Source, latest: LatestSpec, update: String)
+        -> Recipe
+    {
         Recipe(
             id: id,
             name: name ?? id.replacingOccurrences(of: "-", with: " ").capitalized,

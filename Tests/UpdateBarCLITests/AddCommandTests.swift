@@ -1,7 +1,7 @@
 import Foundation
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class AddCommandTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
@@ -12,12 +12,14 @@ final class AddCommandTests: XCTestCase {
         try ManifestStore(paths: paths).save(manifest(items: []))
         let file = try writeRecipe(home: home, recipe: recipe(id: "dry-run"))
 
-        let result = try CLIProcess.run(["add", "--from", file.path, "--dry-run", "--json"], home: home)
+        let result = try CLIProcess.run(
+            ["add", "--from", file.path, "--dry-run", "--json"], home: home)
         let stored = try ManifestStore(paths: paths).load()
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(stored.items.isEmpty)
-        let payload = try JSONDecoder.updateBar.decode(AddPayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            AddPayload.self, from: Data(result.stdout.utf8))
         XCTAssertTrue(payload.valid)
         XCTAssertEqual(payload.recipe?.id, "dry-run")
         XCTAssertEqual(payload.recipe?.trust.level, .untrusted)
@@ -50,7 +52,8 @@ final class AddCommandTests: XCTestCase {
         let stored = try ManifestStore(paths: paths).load()
 
         XCTAssertEqual(result.exitCode, 0)
-        let payload = try JSONDecoder.updateBar.decode(AddPayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            AddPayload.self, from: Data(result.stdout.utf8))
         XCTAssertEqual(payload.outcome, .added)
         XCTAssertEqual(stored.item(id: "manual")?.trust.level, .untrusted)
         XCTAssertEqual(stored.item(id: "manual")?.trust.approvedCommands, [:])
@@ -79,37 +82,42 @@ final class AddCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stdout, "")
-        XCTAssertEqual(result.stderr, "add requires recipe input; pass --from <file> or pipe wizard answers on stdin\n")
+        XCTAssertEqual(
+            result.stderr,
+            "add requires recipe input; pass --from <file> or pipe wizard answers on stdin\n")
     }
 
     func testAddJSONWithoutInputDoesNotWritePromptToStderr() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
 
         let result = try CLIProcess.run(["add", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
         XCTAssertEqual(payload.code, "usage_error")
-        XCTAssertTrue(payload.errors.contains("add requires recipe input; pass --from <file> or pipe wizard answers on stdin"))
+        XCTAssertTrue(
+            payload.errors.contains(
+                "add requires recipe input; pass --from <file> or pipe wizard answers on stdin"))
     }
 
-#if os(macOS)
-    func testAddJSONWithTTYDoesNotWaitForWizardInput() throws {
-        let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
+    #if os(macOS)
+        func testAddJSONWithTTYDoesNotWaitForWizardInput() throws {
+            let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
 
-        let result = try CLIProcess.runWithOpenTTYUntilExit(
-            ["add", "--json"],
-            home: home,
-            timeout: 0.5
-        )
+            let result = try CLIProcess.runWithOpenTTYUntilExit(
+                ["add", "--json"],
+                home: home,
+                timeout: 0.5
+            )
 
-        let finished = try XCTUnwrap(result, "add --json should not wait for TTY wizard input")
-        XCTAssertEqual(finished.exitCode, 1)
-        XCTAssertTrue(finished.stdout.contains("usage_error"))
-        XCTAssertFalse(finished.stderr.contains("id"))
-    }
-#endif
+            let finished = try XCTUnwrap(result, "add --json should not wait for TTY wizard input")
+            XCTAssertEqual(finished.exitCode, 1)
+            XCTAssertTrue(finished.stdout.contains("usage_error"))
+            XCTAssertFalse(finished.stderr.contains("id"))
+        }
+    #endif
 
     func testManualAddRejectsMalformedManifestWithValidationErrors() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
@@ -158,7 +166,8 @@ final class AddCommandTests: XCTestCase {
         let file = home.appendingPathComponent("missing-recipe.json")
 
         let result = try CLIProcess.run(["add", "--from", file.path, "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
@@ -181,14 +190,17 @@ final class AddCommandTests: XCTestCase {
     func testManualAddReplaceUpdatesExistingRecipe() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "tool", name: "Original")]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [recipe(id: "tool", name: "Original")]))
         let file = try writeRecipe(home: home, recipe: recipe(id: "tool", name: "Replacement"))
 
-        let result = try CLIProcess.run(["add", "--from", file.path, "--replace", "--json"], home: home)
+        let result = try CLIProcess.run(
+            ["add", "--from", file.path, "--replace", "--json"], home: home)
         let stored = try ManifestStore(paths: paths).load()
 
         XCTAssertEqual(result.exitCode, 0)
-        let payload = try JSONDecoder.updateBar.decode(AddPayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            AddPayload.self, from: Data(result.stdout.utf8))
         XCTAssertEqual(payload.outcome, .replaced)
         XCTAssertEqual(stored.item(id: "tool")?.name, "Replacement")
         XCTAssertEqual(stored.item(id: "tool")?.trust.level, .untrusted)
@@ -197,7 +209,8 @@ final class AddCommandTests: XCTestCase {
     func testManualAddReplaceHumanModeSaysReplaced() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "tool", name: "Original")]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [recipe(id: "tool", name: "Original")]))
         let file = try writeRecipe(home: home, recipe: recipe(id: "tool", name: "Replacement"))
 
         let result = try CLIProcess.run(["add", "--from", file.path, "--replace"], home: home)
@@ -220,7 +233,8 @@ final class AddCommandTests: XCTestCase {
 
     func testAddProviderFlagIsRemovedFromCLI() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
-        let result = try CLIProcess.run(["add", "--provider", "openrouter", "--from", "anything"], home: home)
+        let result = try CLIProcess.run(
+            ["add", "--provider", "openrouter", "--from", "anything"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.contains("add --provider was removed"))
@@ -256,7 +270,8 @@ final class AddCommandTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-add-tests")
 
         let result = try CLIProcess.run(["add", "--manual", "--json"], home: home)
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.isEmpty)

@@ -21,6 +21,13 @@ bash Scripts/script-syntax-test.sh
 echo "running quality gate contract checks"
 bash Scripts/quality-gate-contract-test.sh
 
+if command -v xcrun >/dev/null 2>&1 && xcrun --find swift-format >/dev/null 2>&1; then
+  echo "running Swift format checks"
+  xcrun swift-format lint --strict --recursive Sources Tests Package.swift
+else
+  echo "swift-format not available; skipping Swift format checks"
+fi
+
 if command -v shellcheck >/dev/null 2>&1; then
   echo "running script quality checks"
   shellcheck Scripts/*.sh

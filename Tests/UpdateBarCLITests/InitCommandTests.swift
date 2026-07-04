@@ -210,8 +210,12 @@ final class InitCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stdout.contains("[1] gh"))
-        XCTAssertTrue(result.stderr.contains("Select items to add (numbers, ids, or all): \nselection required"))
-        XCTAssertFalse(result.stderr.contains("Select items to add (numbers, ids, or all): selection required"))
+        XCTAssertTrue(
+            result.stderr.contains(
+                "Select items to add (numbers, ids, or all): \nselection required"))
+        XCTAssertFalse(
+            result.stderr.contains("Select items to add (numbers, ids, or all): selection required")
+        )
         XCTAssertTrue(result.stderr.contains("selection required"))
         XCTAssertTrue(result.stderr.contains("--select"))
         XCTAssertTrue(result.stderr.contains("all"))
@@ -285,7 +289,8 @@ final class InitCommandTests: XCTestCase {
             InitPayload.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
         XCTAssertTrue(payload.errors.contains { $0.contains("brew.missing: not found") })
-        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar scan --category cloud-devops") })
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("updatebar scan --category cloud-devops") })
     }
 
     func testInitJSONRequiresHeadlessSelection() throws {
@@ -534,7 +539,8 @@ final class InitCommandTests: XCTestCase {
         XCTAssertFalse(payload.ok)
         XCTAssertTrue(payload.errors.contains { $0.contains("No importable candidates found") })
         XCTAssertTrue(payload.errors.contains { $0.contains("review-only") })
-        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar scan --category mcp-server") })
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("updatebar scan --category mcp-server") })
         XCTAssertTrue(payload.errors.contains { $0.contains("updatebar scan without --category") })
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
     }
@@ -644,7 +650,8 @@ final class InitCommandTests: XCTestCase {
             ErrorPayload.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
         XCTAssertTrue(payload.errors.contains { $0.contains("No importable candidates found") })
-        XCTAssertTrue(payload.errors.contains { $0.contains("brew") && $0.contains("brew exploded") })
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("brew") && $0.contains("brew exploded") })
         XCTAssertFalse(payload.errors.contains { $0.contains("if command -v brew") })
     }
 

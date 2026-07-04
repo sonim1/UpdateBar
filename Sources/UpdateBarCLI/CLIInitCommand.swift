@@ -7,9 +7,9 @@ struct InitCommand: ParsableCommand {
         commandName: "init",
         abstract: "Scan installed local tools and register selected recipes.",
         discussion: """
-        Without --select, init prints numbered importable candidates and prompts for numbers, ids, or all.
-        Use ids copied from `updatebar scan` when running headless setup with --select.
-        """
+            Without --select, init prints numbered importable candidates and prompts for numbers, ids, or all.
+            Use ids copied from `updatebar scan` when running headless setup with --select.
+            """
     )
 
     @Flag(name: .long, help: "Print machine-readable JSON.")
@@ -20,7 +20,8 @@ struct InitCommand: ParsableCommand {
 
     @Option(
         name: .long,
-        help: ArgumentHelp("Comma-separated candidate ids, numbers, or all.", valueName: "selection"),
+        help: ArgumentHelp(
+            "Comma-separated candidate ids, numbers, or all.", valueName: "selection"),
         completion: .list(["all"])
     )
     var select: String?
@@ -80,13 +81,15 @@ struct InitCommand: ParsableCommand {
     }
 
     private func scanCandidateIDHint(categoryFilter: String?) -> String {
-        let command = categoryFilter.map {
-            "updatebar scan --category \($0)"
-        } ?? "updatebar scan"
+        let command =
+            categoryFilter.map {
+                "updatebar scan --category \($0)"
+            } ?? "updatebar scan"
         return "Run \(command) to review candidate ids."
     }
 
-    private func parseSelection(from report: ScanReport, categoryFilter: String?) throws -> [String] {
+    private func parseSelection(from report: ScanReport, categoryFilter: String?) throws -> [String]
+    {
         if let select {
             let values = parseSelectionTokens(select)
             guard !values.isEmpty else {
@@ -118,11 +121,13 @@ struct InitCommand: ParsableCommand {
             throw noImportableCandidatesError(for: report, categoryFilter: categoryFilter)
         }
         printImportable(importable)
-        guard let line = readPromptedLine(
-            "Select items to add (numbers, ids, or all):",
-            trailingSpace: true
-        ),
-            !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard
+            let line = readPromptedLine(
+                "Select items to add (numbers, ids, or all):",
+                trailingSpace: true
+            ),
+            !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
             throw selectionRequiredError()
         }
         return try parseInteractiveSelection(line, candidates: importable)
@@ -134,18 +139,23 @@ struct InitCommand: ParsableCommand {
         }
     }
 
-    private func noImportableCandidatesError(for report: ScanReport, categoryFilter: String?) -> ValidationError {
+    private func noImportableCandidatesError(for report: ScanReport, categoryFilter: String?)
+        -> ValidationError
+    {
         let message: String
         if report.candidates.isEmpty {
-            message = "No importable candidates found. "
+            message =
+                "No importable candidates found. "
                 + "Check that the tool is installed and ensure any category filter is not too strict."
         } else if let categoryFilter {
-            message = "No importable candidates found. "
+            message =
+                "No importable candidates found. "
                 + "Detected candidates are review-only and cannot be imported yet. "
                 + "Run updatebar scan --category \(categoryFilter) to review them, "
                 + "or run updatebar scan without --category to look for importable candidates."
         } else {
-            message = "No importable candidates found. "
+            message =
+                "No importable candidates found. "
                 + "Detected candidates are review-only and cannot be imported yet."
         }
         return ValidationError(message + scanErrorSuffix(for: report.errors))
@@ -155,7 +165,8 @@ struct InitCommand: ParsableCommand {
         guard !errors.isEmpty else {
             return ""
         }
-        let details = errors
+        let details =
+            errors
             .map { "\($0.detector.rawValue): \(SecretRedactor.redact($0.message))" }
             .joined(separator: "; ")
         return " Scan errors: \(details)"

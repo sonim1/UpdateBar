@@ -42,10 +42,11 @@ final class ManifestStoreTests: XCTestCase {
 
     func testDecodeRejectsUnsupportedCheckFileQuery() throws {
         let data = try validManifestDataUpdatingFirstItem {
-            $0["check"] = [
-                "file": "/tmp/version.json",
-                "query": "$.version",
-            ] as [String: Any]
+            $0["check"] =
+                [
+                    "file": "/tmp/version.json",
+                    "query": "$.version",
+                ] as [String: Any]
         }
 
         XCTAssertThrowsError(try JSONDecoder.updateBar.decode(Manifest.self, from: data))
@@ -138,26 +139,32 @@ final class ManifestStoreTests: XCTestCase {
 
         XCTAssertEqual(manifest.schemaVersion, 1)
         XCTAssertTrue(manifest.items.isEmpty)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("manifest.json").path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: root.appendingPathComponent("manifest.json").path))
     }
 
     func testLoadExistingOrEmptyDoesNotCreateMissingManifestFile() throws {
         let root = try temporaryDirectory()
         let store = ManifestStore(paths: AppPaths(homeDirectory: root))
 
-        let manifest = try store.loadExistingOrEmpty(now: Date(timeIntervalSince1970: 1_812_499_200))
+        let manifest = try store.loadExistingOrEmpty(
+            now: Date(timeIntervalSince1970: 1_812_499_200))
 
         XCTAssertEqual(manifest.schemaVersion, 1)
         XCTAssertTrue(manifest.items.isEmpty)
         XCTAssertEqual(manifest.provenance.createdBy, "updatebar")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("manifest.json").path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: root.appendingPathComponent("manifest.json").path))
     }
 
     func testLoadExistingOrEmptyDoesNotCreateMissingHomeDirectory() throws {
         let root = try temporaryDirectory().appendingPathComponent("missing-home")
         let store = ManifestStore(paths: AppPaths(homeDirectory: root))
 
-        let manifest = try store.loadExistingOrEmpty(now: Date(timeIntervalSince1970: 1_812_499_200))
+        let manifest = try store.loadExistingOrEmpty(
+            now: Date(timeIntervalSince1970: 1_812_499_200))
 
         XCTAssertTrue(manifest.items.isEmpty)
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
@@ -167,7 +174,8 @@ final class ManifestStoreTests: XCTestCase {
         let root = try temporaryDirectory()
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
         let manifestURL = root.appendingPathComponent("manifest.json")
-        try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json")).write(to: manifestURL)
+        try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json")).write(
+            to: manifestURL)
         let store = ManifestStore(paths: AppPaths(homeDirectory: root))
 
         _ = try store.loadExistingOrEmpty()
@@ -222,7 +230,8 @@ final class ManifestStoreTests: XCTestCase {
         }
 
         XCTAssertTrue(
-            FileManager.default.fileExists(atPath: root.appendingPathComponent("manifest.lock").path)
+            FileManager.default.fileExists(
+                atPath: root.appendingPathComponent("manifest.lock").path)
         )
         XCTAssertEqual(try store.load(), manifest)
     }
@@ -317,7 +326,9 @@ final class ManifestStoreTests: XCTestCase {
         return url
     }
 
-    private func validManifestDataUpdatingFirstItem(_ update: (inout [String: Any]) throws -> Void) throws -> Data {
+    private func validManifestDataUpdatingFirstItem(_ update: (inout [String: Any]) throws -> Void)
+        throws -> Data
+    {
         let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
         let object = try JSONSerialization.jsonObject(with: data)
         var manifest = try XCTUnwrap(object as? [String: Any])

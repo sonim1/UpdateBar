@@ -1,5 +1,5 @@
-import XCTest
 import UpdateBarCore
+import XCTest
 
 final class ExecutionPolicyTests: XCTestCase {
     func testCommandExecutorCapturesSuccessfulOutput() throws {
@@ -77,7 +77,7 @@ final class ExecutionPolicyTests: XCTestCase {
             .invalidWorkingDirectory("/tmp/\(secret)"),
             .timedOut(command: "printf \(secret)"),
             .launchFailed("launch \(secret)"),
-            .cancelled(command: "printf \(secret)")
+            .cancelled(command: "printf \(secret)"),
         ]
 
         for error in errors {
@@ -102,9 +102,12 @@ final class ExecutionPolicyTests: XCTestCase {
     }
 
     func testCommandExecutorScrubsProviderSecretsFromEnvironment() throws {
-        let executor = CommandExecutor(environment: ["OPENROUTER_API_KEY": "sk-or-v1-secret", "SAFE": "ok"])
+        let executor = CommandExecutor(environment: [
+            "OPENROUTER_API_KEY": "sk-or-v1-secret", "SAFE": "ok",
+        ])
         let result = try executor.run(
-            ShellCommand(command: "printf ${OPENROUTER_API_KEY:-missing}:${SAFE:-missing}", cwd: nil),
+            ShellCommand(
+                command: "printf ${OPENROUTER_API_KEY:-missing}:${SAFE:-missing}", cwd: nil),
             policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 1024)
         )
 
@@ -120,12 +123,13 @@ final class ExecutionPolicyTests: XCTestCase {
             "HOME": home.path,
             "ZDOTDIR": home.path,
             "GITHUB_TOKEN": "from-env",
-            "CUSTOM_SECRET": "custom-secret"
+            "CUSTOM_SECRET": "custom-secret",
         ])
 
         let result = try executor.run(
             ShellCommand(
-                command: "printf ${GITHUB_TOKEN:-missing}:${CUSTOM_SECRET:-missing}:${ZDOTDIR:-missing}:${PATH:+path}",
+                command:
+                    "printf ${GITHUB_TOKEN:-missing}:${CUSTOM_SECRET:-missing}:${ZDOTDIR:-missing}:${PATH:+path}",
                 cwd: nil
             ),
             policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 1024)
@@ -178,7 +182,8 @@ final class ExecutionPolicyTests: XCTestCase {
     func testSecretRedactorMasksGitHubTokenPatternsWithoutEnvironmentKeyName() {
         for prefix in ["ghp", "gho", "ghu", "ghs", "ghr"] {
             XCTAssertEqual(
-                SecretRedactor.redact("Authorization: Bearer \(prefix)_1234567890abcdefghijklmnopqrstuvwxyz"),
+                SecretRedactor.redact(
+                    "Authorization: Bearer \(prefix)_1234567890abcdefghijklmnopqrstuvwxyz"),
                 "Authorization: Bearer [REDACTED]"
             )
         }

@@ -253,9 +253,10 @@ final class UpdateBarCLIClientTests: XCTestCase {
                 ]
             )
 
-            XCTAssertTrue(result.stdout.contains(
-                "missing:missing:ghp_release_check_token:gh_release_check_token:/tmp/updatebar-home"
-            ))
+            XCTAssertTrue(
+                result.stdout.contains(
+                    "missing:missing:ghp_release_check_token:gh_release_check_token:/tmp/updatebar-home"
+                ))
             XCTAssertTrue(result.stdout.contains("path=\(bin.path)"))
             XCTAssertFalse(result.stdout.contains("path=.:"))
         }
@@ -269,11 +270,13 @@ final class UpdateBarCLIClientTests: XCTestCase {
             token.cancel()
         }
 
-        XCTAssertThrowsError(try runner.run(
-            executablePath: "/bin/sh",
-            arguments: ["-c", "sleep 5"],
-            cancellationToken: token
-        )) { error in
+        XCTAssertThrowsError(
+            try runner.run(
+                executablePath: "/bin/sh",
+                arguments: ["-c", "sleep 5"],
+                cancellationToken: token
+            )
+        ) { error in
             XCTAssertEqual(error as? UpdateBarCLIClientError, .cancelled)
         }
     }
@@ -285,11 +288,13 @@ final class UpdateBarCLIClientTests: XCTestCase {
         let token = CancellationToken()
         token.cancel()
 
-        XCTAssertThrowsError(try runner.run(
-            executablePath: "/bin/sh",
-            arguments: ["-c", "touch \(ShellQuote.single(marker.path))"],
-            cancellationToken: token
-        )) { error in
+        XCTAssertThrowsError(
+            try runner.run(
+                executablePath: "/bin/sh",
+                arguments: ["-c", "touch \(ShellQuote.single(marker.path))"],
+                cancellationToken: token
+            )
+        ) { error in
             XCTAssertEqual(error as? UpdateBarCLIClientError, .cancelled)
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
@@ -298,10 +303,12 @@ final class UpdateBarCLIClientTests: XCTestCase {
     func testProcessRunnerTimesOut() throws {
         let runner = ProcessRunner(timeout: 0.2)
 
-        XCTAssertThrowsError(try runner.run(
-            executablePath: "/bin/sh",
-            arguments: ["-c", "sleep 5"]
-        )) { error in
+        XCTAssertThrowsError(
+            try runner.run(
+                executablePath: "/bin/sh",
+                arguments: ["-c", "sleep 5"]
+            )
+        ) { error in
             XCTAssertEqual(error as? UpdateBarCLIClientError, .timedOut)
         }
     }

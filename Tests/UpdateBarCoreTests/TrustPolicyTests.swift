@@ -1,6 +1,6 @@
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class TrustPolicyTests: XCTestCase {
     func testCmdLatestStrategyRequiresLatestCommandApproval() throws {

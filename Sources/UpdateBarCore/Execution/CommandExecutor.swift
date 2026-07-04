@@ -1,8 +1,9 @@
 import Foundation
+
 #if os(Linux)
-import Glibc
+    import Glibc
 #else
-import Darwin
+    import Darwin
 #endif
 
 public protocol CommandRunning {
@@ -28,7 +29,7 @@ public struct CommandExecutor: CommandRunning {
         if let cwd = command.cwd {
             var isDirectory: ObjCBool = false
             guard fileManager.fileExists(atPath: cwd, isDirectory: &isDirectory),
-                  isDirectory.boolValue
+                isDirectory.boolValue
             else {
                 throw ExecutionError.invalidWorkingDirectory(cwd)
             }
@@ -98,7 +99,8 @@ public struct CommandExecutor: CommandRunning {
         let allowedKeys = Set(["PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "USER"])
         var scrubbed = environment.filter { allowedKeys.contains($0.key) }
         if let path = scrubbed["PATH"] {
-            scrubbed["PATH"] = path
+            scrubbed["PATH"] =
+                path
                 .split(separator: ":", omittingEmptySubsequences: false)
                 .map(String.init)
                 .filter { $0.hasPrefix("/") }

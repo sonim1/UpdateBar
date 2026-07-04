@@ -1,6 +1,6 @@
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class CLIOutputTests: XCTestCase {
     func testInvalidArgsReturnUserErrorExitCode() throws {
@@ -207,7 +207,8 @@ final class CLIOutputTests: XCTestCase {
             check: .command("printf 'tool 1.0.0'"),
             latest: LatestSpec(strategy: .cmd, cmd: "printf 'tool 1.1.0'", pattern: nil),
             versionParse: .regex("([0-9]+\\.[0-9]+\\.[0-9]+)"),
-            update: UpdateSpec(cmd: "printf '%s%s' 'sk-or-v1-' 'super-secret-value' >&2; exit 3", cwd: nil),
+            update: UpdateSpec(
+                cmd: "printf '%s%s' 'sk-or-v1-' 'super-secret-value' >&2; exit 3", cwd: nil),
             pin: nil,
             enabled: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
@@ -215,15 +216,18 @@ final class CLIOutputTests: XCTestCase {
         TestApprovals.approveAllCommands(in: &recipe)
         try ManifestStore(paths: paths).save(manifest([recipe]))
         try StateStore(paths: paths).save(
-            State(schemaVersion: 1, generatedAt: Date(timeIntervalSince1970: 1_800), items: [
-                "tool": itemState(status: .outdated, current: "1.0.0", latest: "1.1.0")
-            ])
+            State(
+                schemaVersion: 1, generatedAt: Date(timeIntervalSince1970: 1_800),
+                items: [
+                    "tool": itemState(status: .outdated, current: "1.0.0", latest: "1.1.0")
+                ])
         )
 
         let result = try CLIProcess.run(["update", "tool", "--yes", "--json"], home: home)
 
         XCTAssertEqual(result.exitCode, 2)
-        let results = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+        let results = try JSONDecoder.updateBar.decode(
+            [UpdateResult].self, from: Data(result.stdout.utf8))
         XCTAssertEqual(results.map(\.outcome), [.failed])
         XCTAssertFalse(result.stdout.contains(secret))
         XCTAssertFalse(results.first?.error?.contains(secret) ?? false)
@@ -233,7 +237,9 @@ final class CLIOutputTests: XCTestCase {
         Manifest(
             schemaVersion: 1,
             items: items,
-            provenance: Provenance(createdBy: "test", createdAt: Date(timeIntervalSince1970: 1_800), updatedAt: Date(timeIntervalSince1970: 1_800))
+            provenance: Provenance(
+                createdBy: "test", createdAt: Date(timeIntervalSince1970: 1_800),
+                updatedAt: Date(timeIntervalSince1970: 1_800))
         )
     }
 
@@ -255,7 +261,8 @@ final class CLIOutputTests: XCTestCase {
         let result = try CLIProcess.run(["validate", fixture.path, "--json"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
-        let payload = try JSONDecoder().decode(ValidationPayload.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder().decode(
+            ValidationPayload.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.valid)
         XCTAssertFalse(payload.errors.isEmpty)
     }
@@ -263,8 +270,10 @@ final class CLIOutputTests: XCTestCase {
     func testVersionJSONMatchesVersionEnv() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
         let versionEnv = try String(contentsOfFile: "version.env", encoding: .utf8)
-        let expected = try XCTUnwrap(versionEnv.split(separator: "\n").first { $0.hasPrefix("UPDATEBAR_VERSION=") })
-            .replacingOccurrences(of: "UPDATEBAR_VERSION=", with: "")
+        let expected = try XCTUnwrap(
+            versionEnv.split(separator: "\n").first { $0.hasPrefix("UPDATEBAR_VERSION=") }
+        )
+        .replacingOccurrences(of: "UPDATEBAR_VERSION=", with: "")
 
         let result = try CLIProcess.run(["--version"], home: home)
 
@@ -278,8 +287,10 @@ final class CLIOutputTests: XCTestCase {
 
     func testChangelogHasCurrentVersionEntry() throws {
         let versionEnv = try String(contentsOfFile: "version.env", encoding: .utf8)
-        let expected = try XCTUnwrap(versionEnv.split(separator: "\n").first { $0.hasPrefix("UPDATEBAR_VERSION=") })
-            .replacingOccurrences(of: "UPDATEBAR_VERSION=", with: "")
+        let expected = try XCTUnwrap(
+            versionEnv.split(separator: "\n").first { $0.hasPrefix("UPDATEBAR_VERSION=") }
+        )
+        .replacingOccurrences(of: "UPDATEBAR_VERSION=", with: "")
         let changelog = try String(contentsOfFile: "CHANGELOG.md", encoding: .utf8)
 
         XCTAssertTrue(changelog.contains("## \(expected)"))
@@ -347,7 +358,8 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertFalse(payload.ok)
         XCTAssertEqual(payload.code, "usage_error")
         XCTAssertTrue(payload.errors.contains(where: { $0.contains("not-a-command") }))
-        XCTAssertFalse(payload.errors.contains(where: { $0.contains("Unknown option '--json-stream'") }))
+        XCTAssertFalse(
+            payload.errors.contains(where: { $0.contains("Unknown option '--json-stream'") }))
     }
 
     func testLeadingMachineOutputFlagsProducePlacementGuidance() throws {
@@ -355,18 +367,31 @@ final class CLIOutputTests: XCTestCase {
         let cases = [
             (["--json", "status"], "Run updatebar status --json"),
             (["--json-stream", "check"], "Run updatebar check --json-stream"),
-            (["--json-stream", "update", "tool", "--yes"], "Run updatebar update tool --yes --json-stream"),
-            (["--json-stream", "validate", "document.json"], "Run updatebar validate document.json --json"),
-            (["--json-stream", "add", "--from", "recipe.json"], "Run updatebar add --from recipe.json --json")
+            (
+                ["--json-stream", "update", "tool", "--yes"],
+                "Run updatebar update tool --yes --json-stream"
+            ),
+            (
+                ["--json-stream", "validate", "document.json"],
+                "Run updatebar validate document.json --json"
+            ),
+            (
+                ["--json-stream", "add", "--from", "recipe.json"],
+                "Run updatebar add --from recipe.json --json"
+            ),
         ]
 
         for (arguments, guidance) in cases {
             let result = try CLIProcess.run(arguments, home: home)
-            let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+            let payload = try JSONDecoder().decode(
+                ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
             XCTAssertEqual(result.exitCode, 1, arguments.joined(separator: " "))
             XCTAssertEqual(payload.code, "usage_error", arguments.joined(separator: " "))
-            XCTAssertTrue(payload.errors.contains { $0.contains("machine output flags must follow a subcommand") })
+            XCTAssertTrue(
+                payload.errors.contains {
+                    $0.contains("machine output flags must follow a subcommand")
+                })
             XCTAssertTrue(payload.errors.contains { $0.contains(guidance) })
             XCTAssertFalse(payload.errors.contains { $0.contains("Unknown option") })
         }
@@ -379,17 +404,24 @@ final class CLIOutputTests: XCTestCase {
             (["check", "--json-stream=maybe"], "--json-stream", "maybe"),
             (["--json=maybe", "status"], "--json", "maybe"),
             (["status", "--json", "maybe"], "--json", "maybe"),
-            (["scan", "--json", "maybe"], "--json", "maybe")
+            (["scan", "--json", "maybe"], "--json", "maybe"),
         ]
 
         for (arguments, flag, value) in cases {
             let result = try CLIProcess.run(arguments, home: home)
-            let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+            let payload = try JSONDecoder().decode(
+                ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
             XCTAssertEqual(result.exitCode, 1, arguments.joined(separator: " "))
             XCTAssertEqual(payload.code, "usage_error", arguments.joined(separator: " "))
-            XCTAssertTrue(payload.errors.contains { $0.contains("invalid boolean value for \(flag): \(value)") })
-            XCTAssertTrue(payload.errors.contains { $0.contains("Use \(flag), \(flag)=true, or \(flag)=false") })
+            XCTAssertTrue(
+                payload.errors.contains {
+                    $0.contains("invalid boolean value for \(flag): \(value)")
+                })
+            XCTAssertTrue(
+                payload.errors.contains {
+                    $0.contains("Use \(flag), \(flag)=true, or \(flag)=false")
+                })
             XCTAssertFalse(payload.errors.contains { $0.contains("does not take any value") })
             XCTAssertFalse(payload.errors.contains { $0.contains("Unknown option") })
         }
@@ -402,10 +434,12 @@ final class CLIOutputTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertEqual(result.stderr, "")
-        let payload = try JSONDecoder.updateBar.decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
         XCTAssertFalse(payload.ok)
         XCTAssertEqual(payload.code, "usage_error")
-        XCTAssertTrue(payload.errors.contains(where: { $0.contains("Missing expected argument '<id>'") }))
+        XCTAssertTrue(
+            payload.errors.contains(where: { $0.contains("Missing expected argument '<id>'") }))
         XCTAssertFalse(payload.errors.contains(where: { $0.contains("approve requires --field") }))
     }
 
@@ -415,7 +449,8 @@ final class CLIOutputTests: XCTestCase {
         let result = try CLIProcess.run(["status", "--json=true"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
-        let snapshot = try JSONDecoder.updateBar.decode(StatusSnapshot.self, from: Data(result.stdout.utf8))
+        let snapshot = try JSONDecoder.updateBar.decode(
+            StatusSnapshot.self, from: Data(result.stdout.utf8))
         XCTAssertEqual(snapshot.summary.total, 0)
     }
 
@@ -425,7 +460,8 @@ final class CLIOutputTests: XCTestCase {
         let result = try CLIProcess.run(["status", "--json", "true"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
-        let snapshot = try JSONDecoder.updateBar.decode(StatusSnapshot.self, from: Data(result.stdout.utf8))
+        let snapshot = try JSONDecoder.updateBar.decode(
+            StatusSnapshot.self, from: Data(result.stdout.utf8))
         XCTAssertEqual(snapshot.summary.total, 0)
     }
 
@@ -457,7 +493,8 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
         let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
         XCTAssertEqual(payload.code, "usage_error")
-        XCTAssertTrue(payload.errors.contains { $0.contains("status does not support JSONL streaming") })
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("status does not support JSONL streaming") })
         XCTAssertTrue(payload.errors.contains { $0.contains("Run updatebar status --json") })
     }
 
@@ -469,7 +506,8 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
         let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
         XCTAssertEqual(payload.code, "usage_error")
-        XCTAssertTrue(payload.errors.contains { $0.contains("scan does not support JSONL streaming") })
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("scan does not support JSONL streaming") })
         XCTAssertTrue(payload.errors.contains { $0.contains("Run updatebar scan --json") })
     }
 
@@ -481,8 +519,10 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
         let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
         XCTAssertEqual(payload.code, "usage_error")
-        XCTAssertTrue(payload.errors.contains { $0.contains("init does not support JSONL streaming") })
-        XCTAssertTrue(payload.errors.contains { $0.contains("Run updatebar init --select all --json") })
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("init does not support JSONL streaming") })
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("Run updatebar init --select all --json") })
         XCTAssertTrue(payload.errors.contains { $0.contains("updatebar scan --json") })
     }
 
@@ -494,7 +534,8 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 1)
         let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
         XCTAssertEqual(payload.code, "usage_error")
-        XCTAssertTrue(payload.errors.contains { $0.contains("export does not support JSONL streaming") })
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("export does not support JSONL streaming") })
         XCTAssertTrue(payload.errors.contains { $0.contains("Run updatebar export --json") })
     }
 
@@ -503,40 +544,66 @@ final class CLIOutputTests: XCTestCase {
         let cases = [
             ("add", ["add", "--json-stream=true"], "Run updatebar add --json"),
             ("import", ["import", "--json-stream=true"], "Run updatebar import <file> --json"),
-            ("approvals", ["approvals", "tool", "--json-stream=true"], "Run updatebar approvals <id> --json")
+            (
+                "approvals", ["approvals", "tool", "--json-stream=true"],
+                "Run updatebar approvals <id> --json"
+            ),
         ]
 
         for (command, arguments, guidance) in cases {
             let result = try CLIProcess.run(arguments, home: home)
-            let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+            let payload = try JSONDecoder().decode(
+                ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
             XCTAssertEqual(result.exitCode, 1, command)
             XCTAssertEqual(payload.code, "usage_error", command)
-            XCTAssertTrue(payload.errors.contains { $0.contains("\(command) does not support JSONL streaming") }, command)
+            XCTAssertTrue(
+                payload.errors.contains {
+                    $0.contains("\(command) does not support JSONL streaming")
+                }, command)
             XCTAssertTrue(payload.errors.contains { $0.contains(guidance) }, command)
-            XCTAssertFalse(payload.errors.contains { $0.contains("Unknown option '--json-stream'") }, command)
+            XCTAssertFalse(
+                payload.errors.contains { $0.contains("Unknown option '--json-stream'") }, command)
         }
     }
 
     func testMutationJSONCommandsWithJSONStreamEqualsProduceGuidance() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
         let cases = [
-            ("approve", ["approve", "tool", "--field", "update.cmd", "--json-stream=true"], "Run updatebar approve <id> --field <field> --json"),
-            ("remove", ["remove", "tool", "--json-stream=true"], "Run updatebar remove <id> --json"),
-            ("config get", ["config", "get", "--json-stream=true"], "Run updatebar config get --json"),
-            ("validate", ["validate", "--json-stream=true"], "Run updatebar validate <file> --json")
+            (
+                "approve", ["approve", "tool", "--field", "update.cmd", "--json-stream=true"],
+                "Run updatebar approve <id> --field <field> --json"
+            ),
+            (
+                "remove", ["remove", "tool", "--json-stream=true"],
+                "Run updatebar remove <id> --json"
+            ),
+            (
+                "config get", ["config", "get", "--json-stream=true"],
+                "Run updatebar config get --json"
+            ),
+            (
+                "validate", ["validate", "--json-stream=true"],
+                "Run updatebar validate <file> --json"
+            ),
         ]
 
         for (command, arguments, guidance) in cases {
             let result = try CLIProcess.run(arguments, home: home)
-            let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))
+            let payload = try JSONDecoder().decode(
+                ErrorEnvelope.self, from: Data(result.stdout.utf8))
 
             XCTAssertEqual(result.exitCode, 1, command)
             XCTAssertEqual(payload.code, "usage_error", command)
-            XCTAssertTrue(payload.errors.contains { $0.contains("\(command) does not support JSONL streaming") }, command)
+            XCTAssertTrue(
+                payload.errors.contains {
+                    $0.contains("\(command) does not support JSONL streaming")
+                }, command)
             XCTAssertTrue(payload.errors.contains { $0.contains(guidance) }, command)
-            XCTAssertFalse(payload.errors.contains { $0.contains("Unknown option '--json-stream'") }, command)
-            XCTAssertFalse(payload.errors.contains { $0.contains("Missing expected argument") }, command)
+            XCTAssertFalse(
+                payload.errors.contains { $0.contains("Unknown option '--json-stream'") }, command)
+            XCTAssertFalse(
+                payload.errors.contains { $0.contains("Missing expected argument") }, command)
         }
     }
 
@@ -546,7 +613,8 @@ final class CLIOutputTests: XCTestCase {
         let result = try CLIProcess.run(["check", "--json=true"], home: home)
 
         XCTAssertEqual(result.exitCode, 0)
-        let payload = try JSONDecoder.updateBar.decode([CheckResult].self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            [CheckResult].self, from: Data(result.stdout.utf8))
         XCTAssertTrue(payload.isEmpty)
     }
 
@@ -567,7 +635,8 @@ final class CLIOutputTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(result.stderr.isEmpty)
-        let payload = try JSONDecoder.updateBar.decode([UpdateResult].self, from: Data(result.stdout.utf8))
+        let payload = try JSONDecoder.updateBar.decode(
+            [UpdateResult].self, from: Data(result.stdout.utf8))
         XCTAssertTrue(payload.isEmpty)
     }
 
@@ -599,7 +668,8 @@ final class CLIOutputTests: XCTestCase {
     func testRuntimeErrorWithJSONReturnsErrorEnvelope() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 
-        let result = try CLIProcess.run(["config", "set", "missing.key", "value", "--json"], home: home)
+        let result = try CLIProcess.run(
+            ["config", "set", "missing.key", "value", "--json"], home: home)
 
         XCTAssertEqual(result.exitCode, 1)
         let payload = try JSONDecoder().decode(ErrorEnvelope.self, from: Data(result.stdout.utf8))

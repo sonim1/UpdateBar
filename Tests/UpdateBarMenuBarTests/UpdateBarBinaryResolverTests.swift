@@ -10,7 +10,9 @@ final class UpdateBarBinaryResolverTests: XCTestCase {
         let pathBin = try executable(at: root.appendingPathComponent("bin/updatebar"))
 
         let resolution = try UpdateBarBinaryResolver().resolve(
-            environment: ["UPDATEBAR_BIN": override.path, "PATH": pathBin.deletingLastPathComponent().path],
+            environment: [
+                "UPDATEBAR_BIN": override.path, "PATH": pathBin.deletingLastPathComponent().path,
+            ],
             bundledDirectory: bundled.deletingLastPathComponent(),
             developmentRoot: nil
         )
@@ -69,11 +71,13 @@ final class UpdateBarBinaryResolverTests: XCTestCase {
         defer { FileManager.default.changeCurrentDirectoryPath(originalDirectory) }
         XCTAssertTrue(FileManager.default.changeCurrentDirectoryPath(root.path))
 
-        XCTAssertThrowsError(try UpdateBarBinaryResolver().resolve(
-            environment: ["PATH": "."],
-            developmentRoot: nil,
-            defaultPathEntries: []
-        )) { error in
+        XCTAssertThrowsError(
+            try UpdateBarBinaryResolver().resolve(
+                environment: ["PATH": "."],
+                developmentRoot: nil,
+                defaultPathEntries: []
+            )
+        ) { error in
             XCTAssertEqual(error as? UpdateBarBinaryResolverError, .notFound)
         }
     }
@@ -96,10 +100,12 @@ final class UpdateBarBinaryResolverTests: XCTestCase {
         let root = try temporaryDirectory()
         let invalid = root.appendingPathComponent("missing-updatebar").path
 
-        XCTAssertThrowsError(try UpdateBarBinaryResolver().resolve(
-            environment: ["UPDATEBAR_BIN": invalid],
-            developmentRoot: nil
-        )) { error in
+        XCTAssertThrowsError(
+            try UpdateBarBinaryResolver().resolve(
+                environment: ["UPDATEBAR_BIN": invalid],
+                developmentRoot: nil
+            )
+        ) { error in
             XCTAssertEqual(
                 error as? UpdateBarBinaryResolverError,
                 .invalidPath(source: .updateBarBin, path: invalid)
@@ -110,10 +116,12 @@ final class UpdateBarBinaryResolverTests: XCTestCase {
     func testInvalidExplicitPathDescriptionRedactsSecretLikePath() throws {
         let invalid = "/tmp/sk-or-v1-secret-value/updatebar"
 
-        XCTAssertThrowsError(try UpdateBarBinaryResolver().resolve(
-            environment: ["UPDATEBAR_BIN": invalid],
-            developmentRoot: nil
-        )) { error in
+        XCTAssertThrowsError(
+            try UpdateBarBinaryResolver().resolve(
+                environment: ["UPDATEBAR_BIN": invalid],
+                developmentRoot: nil
+            )
+        ) { error in
             let message = String(describing: error)
             XCTAssertFalse(message.contains("sk-or-v1-secret-value"))
             XCTAssertTrue(message.contains("/tmp/[REDACTED]/updatebar"))

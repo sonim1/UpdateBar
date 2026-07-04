@@ -19,7 +19,8 @@ public enum SubprocessEnvironment {
     public static func presentation(from source: [String: String]) -> [String: String] {
         var environment = source.filter { presentationKeys.contains($0.key) && !$0.value.isEmpty }
         if let path = environment["PATH"] {
-            environment["PATH"] = path
+            environment["PATH"] =
+                path
                 .split(separator: ":", omittingEmptySubsequences: false)
                 .map(String.init)
                 .filter { $0.hasPrefix("/") }

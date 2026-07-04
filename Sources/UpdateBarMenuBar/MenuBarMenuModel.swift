@@ -75,7 +75,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
         }
         appendSeparator(to: &entries)
         appendAction(MenuBarMenuAction.checkNow.title, action: .menu(.checkNow), to: &entries)
-        appendAction(MenuBarMenuAction.refreshStatus.title, action: .menu(.refreshStatus), to: &entries)
+        appendAction(
+            MenuBarMenuAction.refreshStatus.title, action: .menu(.refreshStatus), to: &entries)
         let updateAllAction = MenuBarMenuAction.updateAllApprovedOutdated
         if state.outdatedItems.isEmpty {
             appendDisabled(updateAllAction.title, toolTip: "No updates available.", to: &entries)
@@ -173,7 +174,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
                 if addedItems >= Self.maxApprovalItems {
                     break
                 }
-                appendDisabled("  \(SecretRedactor.redact(item.name)): no command fields", to: &entries)
+                appendDisabled(
+                    "  \(SecretRedactor.redact(item.name)): no command fields", to: &entries)
                 addedItems += 1
                 continue
             }
@@ -215,7 +217,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
                         MenuBarMenuItem(
                             title: label,
                             action: action,
-                            toolTip: "\(confirmation.toolTip)\n\(approval.field): \(redactedCommand)\(cwd)",
+                            toolTip:
+                                "\(confirmation.toolTip)\n\(approval.field): \(redactedCommand)\(cwd)",
                             confirmation: confirmation
                         )))
                 addedItems += 1

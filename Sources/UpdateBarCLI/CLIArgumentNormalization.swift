@@ -4,12 +4,13 @@ func normalizeCLIArguments(_ arguments: [String]) -> [String] {
 
     while index < arguments.count {
         let argument = arguments[index]
-        let next: String? = index + 1 < arguments.count
+        let next: String? =
+            index + 1 < arguments.count
             ? arguments[index + 1]
             : nil
 
         if let next,
-           let normalizedPair = normalizeBooleanFlagValuePair(flag: argument, value: next)
+            let normalizedPair = normalizeBooleanFlagValuePair(flag: argument, value: next)
         {
             normalized.append(contentsOf: normalizedPair)
             index += 2
@@ -36,25 +37,26 @@ func normalizeCLIArguments(_ arguments: [String]) -> [String] {
 
 func validateHelpTarget(_ arguments: [String], knownTopLevelHelpTargets: Set<String>) throws {
     guard arguments.contains(where: isHelpFlag),
-          let first = arguments.first,
-          !isHelpFlag(first),
-          !first.hasPrefix("-")
+        let first = arguments.first,
+        !isHelpFlag(first),
+        !first.hasPrefix("-")
     else {
         return
     }
 
     guard knownTopLevelHelpTargets.contains(first) else {
-        throw ValidationError("""
-        Unexpected argument '\(first)'
-        Usage: updatebar <subcommand>
-          See 'updatebar --help' for more information.
-        """)
+        throw ValidationError(
+            """
+            Unexpected argument '\(first)'
+            Usage: updatebar <subcommand>
+              See 'updatebar --help' for more information.
+            """)
     }
 }
 
 private func normalizeBooleanFlagValuePair(flag: String, value: String) -> [String]? {
     guard isBooleanFlag(flag),
-          let boolValue = parseBooleanValue(value)
+        let boolValue = parseBooleanValue(value)
     else {
         return nil
     }
@@ -110,7 +112,7 @@ private func parseBooleanValue(_ value: String) -> Bool? {
 
 private let jsonBooleanFlags: Set<String> = [
     "--json",
-    "--json-stream"
+    "--json-stream",
 ]
 
 private let trueBooleanValues: Set<String> = [
@@ -118,7 +120,7 @@ private let trueBooleanValues: Set<String> = [
     "true",
     "t",
     "yes",
-    "on"
+    "on",
 ]
 
 private let falseBooleanValues: Set<String> = [
@@ -126,5 +128,5 @@ private let falseBooleanValues: Set<String> = [
     "false",
     "f",
     "no",
-    "off"
+    "off",
 ]
