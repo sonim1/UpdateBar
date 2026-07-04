@@ -1001,6 +1001,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(releaseDocs.contains("UPDATEBAR_TUI"))
         XCTAssertTrue(nextPlan.contains("Refresh Status"))
         XCTAssertTrue(menuBarSpec.contains("Refresh Status"))
+        XCTAssertTrue(menuBarSpec.contains("Update Selected"))
+        XCTAssertTrue(menuBarSpec.contains("Update All Approved Outdated"))
     }
 
     func testTroubleshootingDocsExplainManualCorruptStoreRecovery() throws {

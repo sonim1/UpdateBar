@@ -39,7 +39,7 @@
 
 - [x] 5.1 Define a Menu Bar service adapter that prefers direct `UpdateBarCore` calls for status, check, update, config, approvals, and logs.
 - [x] 5.2 Keep or add a CLI subprocess fallback adapter that consumes only documented JSON/JSONL contracts and never parses human output.
-- [x] 5.3 Add native Menu Bar actions for Check Now, Refresh Status, Run Updates, Open TUI, Open Config, View Logs, and Quit.
+- [x] 5.3 Add native Menu Bar actions for Check Now, Refresh Status, Update Selected, Update All Approved Outdated, approve/revoke command fields, Open TUI, Open Config, View Logs, and Quit.
 - [x] 5.4 Implement non-blocking in-progress, success, failure, and cancellation UI states for Menu Bar actions.
 - [x] 5.5 Implement Open TUI by launching a terminal with the configured TUI command and required environment such as `UPDATEBAR_BIN` and `UPDATEBAR_HOME`.
 - [x] 5.6 Add Menu Bar tests under `Tests/UpdateBarMenuBarTests` for status formatting, action availability, direct-core adapter behavior, CLI fallback behavior, and Open TUI command construction.
