@@ -87,6 +87,7 @@ export class SubprocessRunner implements CommandRunner {
   constructor(private readonly executablePath: string) {}
 
   async run(args: string[], options: RunOptions = {}): Promise<CommandResult> {
+    throwIfAborted(options.signal);
     const child = spawn(this.executablePath, args, {
       env: subprocessEnvironment(process.env),
       stdio: ['ignore', 'pipe', 'pipe']
@@ -102,6 +103,7 @@ export class SubprocessRunner implements CommandRunner {
   }
 
   async stream(args: string[], options: StreamOptions): Promise<CommandResult> {
+    throwIfAborted(options.signal);
     const child = spawn(this.executablePath, args, {
       env: subprocessEnvironment(process.env),
       stdio: ['ignore', 'pipe', 'pipe']
@@ -219,6 +221,12 @@ export class CLIUpdateBarClient implements UpdateBarClient {
     });
     ensureExit(result, [0, 2, 3], streamError);
     return result;
+  }
+}
+
+function throwIfAborted(signal: AbortSignal | undefined) {
+  if (signal?.aborted) {
+    throw new Error('updatebar command cancelled');
   }
 }
 

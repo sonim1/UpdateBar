@@ -451,6 +451,23 @@ describe('CLIUpdateBarClient', () => {
     expect(result.exitCode).not.toBe(0);
   });
 
+  it('does not launch subprocesses when AbortSignal is already aborted', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'updatebar-tui-aborted-'));
+    const marker = path.join(root, 'started');
+    const runner = new SubprocessRunner('/bin/sh');
+    const controller = new AbortController();
+    controller.abort();
+
+    try {
+      await expect(
+        runner.run(['-c', `touch ${shellQuote(marker)}`], {signal: controller.signal})
+      ).rejects.toThrow('updatebar command cancelled');
+      await expect(pathExists(marker)).resolves.toBe(false);
+    } finally {
+      await rm(root, {recursive: true, force: true});
+    }
+  });
+
   it('terminates streaming subprocesses when JSONL parsing fails', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'updatebar-tui-stream-'));
     const marker = path.join(root, 'marker');
