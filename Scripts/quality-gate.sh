@@ -65,12 +65,12 @@ else
   echo "shellcheck not installed; skipping script quality checks"
 fi
 
+echo "checking Swift XCTest availability"
+require_swift_xctest
+
 echo "building debug updatebar CLI for CLI tests"
 "$SWIFT_BIN" build --product updatebar
 export UPDATEBAR_TEST_BIN="$ROOT/.build/debug/updatebar"
-
-echo "checking Swift XCTest availability"
-require_swift_xctest
 
 echo "running swift unit tests"
 "$SWIFT_BIN" test
