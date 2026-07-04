@@ -43,6 +43,18 @@ validate_release_url() {
   fi
 }
 
+validate_release_asset() {
+  local label="$1"
+  local value="$2"
+  local expected_asset="$3"
+  local actual_asset
+  actual_asset="$(basename "$value")"
+  if [[ "$actual_asset" != "$expected_asset" ]]; then
+    echo "$label URL must end with $expected_asset" >&2
+    exit 1
+  fi
+}
+
 hash_file() {
   local path="$1"
   if command -v shasum >/dev/null 2>&1; then
@@ -65,6 +77,7 @@ if [[ "$FORMULA_VERSION" != "$UPDATEBAR_VERSION" ]]; then
   exit 1
 fi
 validate_release_url "formula" "$FORMULA_URL"
+validate_release_asset "formula" "$FORMULA_URL" "updatebar-${UPDATEBAR_VERSION}-macos-arm64.tar.gz"
 
 FORMULA_ASSET="$(basename "$FORMULA_URL")"
 FORMULA_SHA_FILE="$DIST_DIR/$FORMULA_ASSET.sha256"
@@ -124,8 +137,9 @@ if [[ "$CASK_VERSION" != "$UPDATEBAR_VERSION" ]]; then
   echo "cask version ($CASK_VERSION) does not match version.env ($UPDATEBAR_VERSION)" >&2
   exit 1
 fi
-CASK_RESOLVED_URL="${CASK_URL/\#\{version\}/$CASK_VERSION}"
+CASK_RESOLVED_URL="${CASK_URL//\#\{version\}/$CASK_VERSION}"
 validate_release_url "cask" "$CASK_RESOLVED_URL"
+validate_release_asset "cask" "$CASK_RESOLVED_URL" "UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.app.tar.gz"
 
 CASK_ASSET="$(basename "$CASK_RESOLVED_URL")"
 CASK_ARCHIVE="$DIST_DIR/$CASK_ASSET"

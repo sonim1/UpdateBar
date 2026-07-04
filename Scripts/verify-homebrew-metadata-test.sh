@@ -147,4 +147,60 @@ if ! grep -Fq "cask URL must use https://github.com/sonim1/UpdateBar/releases/do
   exit 1
 fi
 
+cat > "$TMP_DIR/bad-formula-asset.rb" <<EOF
+class Updatebar < Formula
+  version "$UPDATEBAR_VERSION"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/$cask_asset"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+end
+EOF
+
+BAD_FORMULA_ASSET_OUTPUT="$TMP_DIR/bad-formula-asset.out"
+set +e
+UPDATEBAR_VERIFY_STATIC_ONLY=1 \
+UPDATEBAR_HOMEBREW_FORMULA_PATH="$TMP_DIR/bad-formula-asset.rb" \
+bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" > "$BAD_FORMULA_ASSET_OUTPUT" 2>&1
+bad_formula_asset_status=$?
+set -e
+
+if [[ "$bad_formula_asset_status" -eq 0 ]]; then
+  echo "invalid Homebrew formula asset name was accepted" >&2
+  cat "$BAD_FORMULA_ASSET_OUTPUT" >&2
+  exit 1
+fi
+
+if ! grep -Fq "formula URL must end with $formula_asset" "$BAD_FORMULA_ASSET_OUTPUT"; then
+  echo "invalid Homebrew formula asset name did not report the expected error" >&2
+  cat "$BAD_FORMULA_ASSET_OUTPUT" >&2
+  exit 1
+fi
+
+cat > "$TMP_DIR/bad-cask-asset.rb" <<EOF
+cask "updatebar-app" do
+  version "$UPDATEBAR_VERSION"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v#{version}/$formula_asset"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+end
+EOF
+
+BAD_CASK_ASSET_OUTPUT="$TMP_DIR/bad-cask-asset.out"
+set +e
+UPDATEBAR_VERIFY_STATIC_ONLY=1 \
+UPDATEBAR_HOMEBREW_CASK_PATH="$TMP_DIR/bad-cask-asset.rb" \
+bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" > "$BAD_CASK_ASSET_OUTPUT" 2>&1
+bad_cask_asset_status=$?
+set -e
+
+if [[ "$bad_cask_asset_status" -eq 0 ]]; then
+  echo "invalid Homebrew cask asset name was accepted" >&2
+  cat "$BAD_CASK_ASSET_OUTPUT" >&2
+  exit 1
+fi
+
+if ! grep -Fq "cask URL must end with $cask_asset" "$BAD_CASK_ASSET_OUTPUT"; then
+  echo "invalid Homebrew cask asset name did not report the expected error" >&2
+  cat "$BAD_CASK_ASSET_OUTPUT" >&2
+  exit 1
+fi
+
 echo "homebrew metadata behavior ok"
