@@ -182,6 +182,50 @@ run_piped_install() {
   assert_installed "$prefix" "$output"
 }
 
+run_release_api_error_fails_clearly() {
+  local output="$TMP_DIR/install-release-api-error.out"
+  local saved_release="$TMP_DIR/release.json.saved"
+  cp "$FIXTURES/release.json" "$saved_release"
+  cat > "$FIXTURES/release.json" <<'JSON'
+{
+  "message": "API rate limit exceeded for 203.0.113.10",
+  "documentation_url": "https://docs.github.com/rest/overview/resources-in-the-rest-api#rate-limiting"
+}
+JSON
+
+  set +e
+  env \
+    PATH="$FAKE_BIN:$PATH" \
+    UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+    UPDATEBAR_INSTALL_PREFIX="$TMP_DIR/install-release-api-error" \
+    UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+    bash Scripts/install-release.sh > "$output" 2>&1
+  local rc=$?
+  set -e
+  mv "$saved_release" "$FIXTURES/release.json"
+
+  if [[ "$rc" -eq 0 ]]; then
+    echo "install-release accepted a GitHub API error payload" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "GitHub release lookup failed" "$output"; then
+    echo "install-release GitHub API error was not clear" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "API rate limit exceeded" "$output"; then
+    echo "install-release GitHub API error omitted the API message" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if grep -Fq "No prebuilt UpdateBar archive found" "$output"; then
+    echo "install-release misreported a GitHub API error as a missing asset" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
 run_missing_checksum_tool_fails_clearly() {
   local limited_bin="$TMP_DIR/no-checksum-bin"
   local output="$TMP_DIR/install-no-checksum.out"
@@ -282,6 +326,7 @@ run_install "" "$TMP_DIR/install-latest"
 run_install "v9.9.9" "$TMP_DIR/install-tag"
 run_piped_install "" "$TMP_DIR/install-piped-latest"
 run_piped_install "v9.9.9" "$TMP_DIR/install-piped-tag"
+run_release_api_error_fails_clearly
 run_missing_checksum_tool_fails_clearly
 run_invalid_checksum_file_fails_clearly
 run_missing_archive_binary_fails_clearly

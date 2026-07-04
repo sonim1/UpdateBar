@@ -59,6 +59,12 @@ trap cleanup EXIT
 
 curl -fsSL "$RELEASE_URL" > "$RELEASE_JSON"
 
+RELEASE_ERROR_MESSAGE="$(awk -F'"' '$2 == "message" { print $4; exit }' "$RELEASE_JSON")"
+if [[ -n "$RELEASE_ERROR_MESSAGE" ]] && ! grep -Fq '"browser_download_url"' "$RELEASE_JSON"; then
+  echo "GitHub release lookup failed for $RELEASE_URL: $RELEASE_ERROR_MESSAGE" >&2
+  exit 1
+fi
+
 ASSET_URL=$(awk -F'"' -v platform="$PLATFORM" -v arch="$ARCH" \
   '$2=="browser_download_url" && $4 ~ "/updatebar-[0-9][^\\\"]*-" platform "-" arch "\\.tar\\.gz$" { print $4; exit }' \
   "$RELEASE_JSON")
