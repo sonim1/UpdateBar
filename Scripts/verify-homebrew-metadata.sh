@@ -19,10 +19,19 @@ fi
 source version.env
 
 DIST_DIR="${1:-dist}"
-FORMULA_PATH="Packaging/homebrew/updatebar.rb"
-CASK_PATH="Packaging/homebrew/Casks/updatebar-app.rb"
+FORMULA_PATH="${UPDATEBAR_HOMEBREW_FORMULA_PATH:-Packaging/homebrew/updatebar.rb}"
+CASK_PATH="${UPDATEBAR_HOMEBREW_CASK_PATH:-Packaging/homebrew/Casks/updatebar-app.rb}"
 STRICT="${UPDATEBAR_VERIFY_STRICT:-0}"
 STATIC_ONLY="${UPDATEBAR_VERIFY_STATIC_ONLY:-0}"
+
+validate_sha256() {
+  local label="$1"
+  local value="$2"
+  if [[ ! "$value" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "$label sha256 is not a 64-character lowercase hex value" >&2
+    exit 1
+  fi
+}
 
 hash_file() {
   local path="$1"
@@ -39,6 +48,7 @@ hash_file() {
 FORMULA_VERSION="$(awk '$1 == "version" { gsub(/"/, "", $2); print $2; exit }' "$FORMULA_PATH")"
 FORMULA_URL="$(awk '$1 == "url" { gsub(/"/, "", $2); print $2; exit }' "$FORMULA_PATH")"
 FORMULA_SHA="$(awk '$1 == "sha256" { gsub(/"/, "", $2); print $2; exit }' "$FORMULA_PATH")"
+validate_sha256 "formula" "$FORMULA_SHA"
 
 if [[ "$FORMULA_VERSION" != "$UPDATEBAR_VERSION" ]]; then
   echo "formula version ($FORMULA_VERSION) does not match version.env ($UPDATEBAR_VERSION)" >&2
@@ -67,6 +77,7 @@ fi
 if [[ "$FORMULA_VERIFIED" -eq 1 ]]; then
   FORMULA_CALC_SHA="$(hash_file "$FORMULA_ARCHIVE")"
   FORMULA_RECORDED_SHA="$(awk '{print $1}' "$FORMULA_SHA_FILE")"
+  validate_sha256 "CLI archive checksum" "$FORMULA_RECORDED_SHA"
 
   if [[ "$FORMULA_CALC_SHA" != "$FORMULA_RECORDED_SHA" ]]; then
     if [[ "$STRICT" == "1" ]]; then
@@ -96,6 +107,7 @@ fi
 CASK_VERSION="$(awk '$1 == "version" { gsub(/"/, "", $2); print $2; exit }' "$CASK_PATH")"
 CASK_URL="$(awk '$1 == "url" { gsub(/"/, "", $2); print $2; exit }' "$CASK_PATH")"
 CASK_SHA="$(awk '$1 == "sha256" { gsub(/"/, "", $2); print $2; exit }' "$CASK_PATH")"
+validate_sha256 "cask" "$CASK_SHA"
 
 if [[ "$CASK_VERSION" != "$UPDATEBAR_VERSION" ]]; then
   echo "cask version ($CASK_VERSION) does not match version.env ($UPDATEBAR_VERSION)" >&2
@@ -117,6 +129,7 @@ elif [[ -f "$CASK_ARCHIVE" ]]; then
 
   CASK_CALC_SHA="$(hash_file "$CASK_ARCHIVE")"
   CASK_RECORDED_SHA="$(awk '{print $1}' "$CASK_SHA_FILE")"
+  validate_sha256 "app archive checksum" "$CASK_RECORDED_SHA"
 
   if [[ "$CASK_CALC_SHA" != "$CASK_RECORDED_SHA" ]]; then
     if [[ "$STRICT" == "1" ]]; then
