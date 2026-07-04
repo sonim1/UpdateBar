@@ -10,6 +10,7 @@ extension UpdateBar {
 
     static func validatePreflightArguments(_ arguments: [String]) throws {
         try validateRemovedListCommand(arguments)
+        try validateRemovedVersionCommand(arguments)
         try validateRemovedAddOptions(arguments)
         try validateRemovedUpdateOptions(arguments)
         try validateRemovedScanOptions(arguments)
@@ -28,6 +29,14 @@ extension UpdateBar {
         throw ValidationError("""
         updatebar list was removed.
         Run updatebar status to list registered item ids.
+        """)
+    }
+
+    private static func validateRemovedVersionCommand(_ arguments: [String]) throws {
+        guard arguments.first == "version" else { return }
+        throw ValidationError("""
+        updatebar version was removed.
+        Run updatebar --version.
         """)
     }
 
