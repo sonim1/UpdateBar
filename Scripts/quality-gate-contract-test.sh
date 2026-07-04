@@ -112,8 +112,8 @@ if grep -Fq 'Scripts/quality-gate-contract-test.sh must not assign grep pipeline
   exit 1
 fi
 
-if ! grep -Fq '="?\$\(.*(grep|sed|awk).*\|.*head' "$ROOT/Scripts/script-syntax-test.sh"; then
-  echo "script-syntax-test.sh must catch grep/sed/awk pipelines assigned through head" >&2
+if ! grep -Fq '="?\$\(.*\|.*(head|tail)' "$ROOT/Scripts/script-syntax-test.sh"; then
+  echo "script-syntax-test.sh must catch assigned command substitutions piped to head or tail" >&2
   exit 1
 fi
 

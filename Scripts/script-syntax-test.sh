@@ -17,7 +17,7 @@ for script in Scripts/*.sh; do
   fi
 done
 
-if grep -Eq '="?\$\(.*(grep|sed|awk).*\|.*head' Scripts/*.sh; then
-  echo "Scripts/*.sh must not assign grep/sed/awk pipelines to head under set -euo pipefail" >&2
+if grep -Eq '="?\$\(.*\|.*(head|tail)' Scripts/*.sh; then
+  echo "Scripts/*.sh must not assign pipelines to head/tail under set -euo pipefail" >&2
   exit 1
 fi
