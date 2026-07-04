@@ -688,8 +688,13 @@ final class DocumentationSnapshotTests: XCTestCase {
             "init docs should scope numeric --select values"
         )
         XCTAssertTrue(
-            initSection.contains("use ids when copying from `updatebar scan`"),
-            "init docs should prefer ids for scan output"
+            initSection.contains("`updatebar init --select 1,2` Next command"),
+            "init docs should explain scan's numbered Next example"
+        )
+        XCTAssertTrue(
+            initSection.contains("Prefer ids when composing custom")
+                && initSection.contains("older scan output"),
+            "init docs should prefer ids for custom scan-output selections"
         )
         XCTAssertTrue(
             initSection.contains("`updatebar init --select all --json`"),

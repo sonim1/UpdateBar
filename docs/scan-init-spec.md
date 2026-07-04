@@ -191,6 +191,10 @@ updatebar init --replace --select npm.typescript
 
 `all` must be used by itself and cannot be combined with explicit ids or numbers.
 `init --json` requires `--select` so stdout remains a single JSON payload.
+Candidate numbers refer to the current `updatebar init` list. The scan's
+printed `updatebar init --select 1,2` Next command is meant to be run
+immediately for that same scan/category. Prefer ids when composing custom
+selections from older scan output.
 
 Duplicate ids are skipped by default. `--replace` overwrites existing recipes.
 Unsupported `check-only` and `metadata-only` candidates are visible in `scan`
