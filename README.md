@@ -98,7 +98,7 @@ updatebar init
 # Or register candidates directly with stable ids from scan output.
 updatebar init --select <candidate-id-from-scan>
 
-# Review command fields before running checks or updates that need approval.
+# Review command fields before running checks or updates. Follow the approval commands it prints.
 updatebar approvals <id-from-init>
 
 # Inspect state without running checks.

@@ -662,6 +662,7 @@ final class DocumentationSnapshotTests: XCTestCase {
             XCTAssertTrue(quickStart.contains(command), "README Quick Start missing \(command)")
         }
         XCTAssertTrue(quickStart.contains("<candidate-id-from-scan>"))
+        XCTAssertTrue(quickStart.contains("Follow the approval commands it prints"))
         XCTAssertFalse(quickStart.contains("number-from-scan"))
 
         XCTAssertFalse(quickStart.contains("cat > recipe.json"), "README Quick Start should not inline a full recipe")
