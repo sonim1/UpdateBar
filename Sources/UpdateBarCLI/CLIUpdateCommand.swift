@@ -163,7 +163,7 @@ struct UpdateCommand: ParsableCommand {
                     timestamp: Date(),
                     error: sanitizedErrorMessage(for: error)
                 ))
-            throw error
+            throw UpdateBar.exitCode(for: error)
         }
 
         let report = UpdateReport(results: results)

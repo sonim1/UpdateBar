@@ -184,6 +184,18 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("updatebar status"))
     }
 
+    func testCheckJSONStreamMissingItemWritesFailedEventWithoutStderr() throws {
+        let home = try temporaryDirectory()
+
+        let result = try CLIProcess.run(["check", "missing", "--json-stream"], home: home)
+        let events = try decodeEvents(result.stdout)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(events.map(\.event), [.started, .failed])
+        XCTAssertEqual(events.last?.error, "missing: item not found")
+    }
+
     func testCheckHumanUntrustedPrintsApprovalNextSteps() throws {
         let home = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: home)

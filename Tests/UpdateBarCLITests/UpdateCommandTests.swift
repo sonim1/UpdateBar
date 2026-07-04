@@ -255,6 +255,22 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
     }
 
+    func testUpdateJSONStreamInvalidManifestWritesFailedEventWithoutStderr() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try Data("{".utf8).write(to: paths.manifestFile)
+
+        let result = try CLIProcess.run(["update", "--yes", "--json-stream"], home: home)
+        let events = try decodeEvents(result.stdout)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(events.map(\.event), [.started, .failed])
+        XCTAssertEqual(
+            events.last?.error,
+            "\(paths.manifestFile.path): corrupt file: The given data was not valid JSON.")
+    }
+
     func testUpdateJSONStreamPreservesFailureExitCodeAndFinishedSummary() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-update-tests")
         let paths = AppPaths(homeDirectory: home)
