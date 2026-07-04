@@ -17,6 +17,7 @@ GZIP_LOG="$TMP_DIR/gzip.log"
 
 cat >"$BIN_DIR/swift" <<'SH'
 #!/usr/bin/env bash
+echo "fixture swift build log"
 mkdir -p .build/release
 cat >.build/release/updatebar <<'BIN'
 #!/usr/bin/env bash
@@ -76,7 +77,7 @@ chmod +x "$BIN_DIR/gzip"
 
 archive="$(
   TAR_LOG="$TAR_LOG" GZIP_LOG="$GZIP_LOG" PATH="$BIN_DIR:$PATH" SWIFT_BIN="$BIN_DIR/swift" \
-    bash Scripts/build-release.sh | tail -n 1
+    bash Scripts/build-release.sh
 )"
 
 case "$(uname -s)" in

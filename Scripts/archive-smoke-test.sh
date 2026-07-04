@@ -6,7 +6,7 @@ source "$ROOT/version.env"
 ARCHIVE="${1:-}"
 
 if [[ -z "$ARCHIVE" ]]; then
-  ARCHIVE="$("$ROOT/Scripts/build-release.sh" | tail -n 1)"
+  ARCHIVE="$("$ROOT/Scripts/build-release.sh")"
 fi
 
 if [[ -f "${ARCHIVE}.sha256" ]]; then

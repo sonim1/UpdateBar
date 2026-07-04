@@ -25,7 +25,7 @@ esac
 BUILD_ROOT="$(pwd -P)"
 "$SWIFT_BIN" build -c release --product updatebar \
   -Xswiftc -debug-prefix-map -Xswiftc "${BUILD_ROOT}=." \
-  -Xswiftc -file-prefix-map -Xswiftc "${BUILD_ROOT}=."
+  -Xswiftc -file-prefix-map -Xswiftc "${BUILD_ROOT}=." >&2
 
 rm -rf dist
 mkdir -p "dist/stage/updatebar-${VERSION}"
