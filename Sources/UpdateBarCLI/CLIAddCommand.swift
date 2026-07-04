@@ -49,6 +49,7 @@ struct AddCommand: ParsableCommand {
                         recipe: prepared,
                         errors: [sanitizedErrorMessage(for: error)]
                     ), saved: false)
+                throw ExitCode.failure
             }
             throw error
         }

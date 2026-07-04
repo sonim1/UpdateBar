@@ -184,6 +184,7 @@ final class AddCommandTests: XCTestCase {
         let result = try CLIProcess.run(["add", "--from", file.path, "--json"], home: home)
 
         XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
         XCTAssertEqual(try ManifestStore(paths: paths).load().items.count, 1)
     }
 

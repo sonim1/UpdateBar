@@ -81,6 +81,7 @@ struct ImportCommand: ParsableCommand {
                         replaced: [],
                         errors: [sanitizedErrorMessage(for: error)]
                     ))
+                throw ExitCode.failure
             }
             throw error
         }

@@ -40,6 +40,7 @@ final class ExportImportCommandTests: XCTestCase {
             ImportPayload.self, from: Data(duplicate.stdout.utf8))
 
         XCTAssertNotEqual(duplicate.exitCode, 0)
+        XCTAssertEqual(duplicate.stderr, "")
         XCTAssertFalse(duplicatePayload.ok)
         XCTAssertEqual(duplicatePayload.added, [])
         XCTAssertEqual(duplicatePayload.replaced, [])
