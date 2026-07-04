@@ -5,6 +5,8 @@
 ### Changed
 
 - Removed the hidden prompt-based `updatebar add` wizard; use `updatebar add --from <file>` or `updatebar add --from -` for explicit recipe input.
+- Clarified CLI help for required recipe input, headless JSON confirmations,
+  hidden automation exit behavior, and background install confirmation.
 
 ### Fixed
 
