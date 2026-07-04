@@ -22,6 +22,9 @@ fi
 echo "running script syntax checks"
 bash Scripts/script-syntax-test.sh
 
+echo "running quality gate contract checks"
+bash Scripts/quality-gate-contract-test.sh
+
 if command -v shellcheck >/dev/null 2>&1; then
   echo "running script quality checks"
   shellcheck Scripts/*.sh
@@ -65,12 +68,8 @@ bash Scripts/install-release-smoke-test.sh
 echo "running homebrew packaging check"
 bash Scripts/homebrew-packaging-test.sh
 
-if [[ "$(uname -s)" == "Darwin" ]]; then
-  echo "running tui smoke test"
-  bash Scripts/tui-smoke-test.sh
-else
-  echo "skipping tui smoke test on non-macOS"
-fi
+echo "running tui smoke test"
+bash Scripts/tui-smoke-test.sh
 
 if [[ "$SKIP_MENUBAR_SMOKE" != "1" ]]; then
   if [[ "$(uname -s)" == "Darwin" ]]; then
