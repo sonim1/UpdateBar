@@ -56,6 +56,8 @@ struct TUICommand: ParsableCommand {
             "NO_COLOR",
             "FORCE_COLOR",
             "UPDATEBAR_HOME",
+            "GITHUB_TOKEN",
+            "GH_TOKEN",
         ]
         var environment: [String: String] = [:]
         for key in allowedKeys {

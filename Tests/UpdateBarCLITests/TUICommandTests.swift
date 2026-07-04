@@ -58,6 +58,34 @@ printf 'term=%s\\n' "${TERM:-missing}"
         XCTAssertFalse(result.stdout.contains("sk-or-v1-secret-value"))
     }
 
+    func testTUICommandForwardsGitHubTokensForReleaseChecks() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-tui-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try writeExecutable(
+            bin.appendingPathComponent("updatebar-tui"),
+            """
+#!/bin/sh
+printf 'github=%s\\n' "${GITHUB_TOKEN:-missing}"
+printf 'gh=%s\\n' "${GH_TOKEN:-missing}"
+"""
+        )
+
+        let result = try CLIProcess.run(
+            ["tui"],
+            home: home,
+            environment: [
+                "PATH": bin.path,
+                "GITHUB_TOKEN": "ghp_release_check_token",
+                "GH_TOKEN": "gh_release_check_token",
+            ]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("github=ghp_release_check_token"))
+        XCTAssertTrue(result.stdout.contains("gh=gh_release_check_token"))
+    }
+
     func testTUICommandResolvesFromEnvironmentOverride() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-tui-tests")
         let bin = home.appendingPathComponent("bin")
