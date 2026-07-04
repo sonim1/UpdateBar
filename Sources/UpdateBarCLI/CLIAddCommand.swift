@@ -31,19 +31,20 @@ struct AddCommand: ParsableCommand {
         let prepared = TrustPolicy.untrustedCopy(validated)
 
         if dryRun {
-            try output(AddPayload(valid: true, recipe: prepared, errors: []), saved: false)
+            try output(redactedAddPayload(valid: true, recipe: prepared, errors: []), saved: false)
             return
         }
 
         do {
             let outcome = try RegistryService().addRecipe(prepared, replace: replace)
             try output(
-                AddPayload(valid: true, recipe: prepared, errors: [], outcome: outcome), saved: true
+                redactedAddPayload(valid: true, recipe: prepared, errors: [], outcome: outcome),
+                saved: true
             )
         } catch {
             if json {
                 try output(
-                    AddPayload(
+                    redactedAddPayload(
                         valid: false,
                         recipe: prepared,
                         errors: [sanitizedErrorMessage(for: error)]

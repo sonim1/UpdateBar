@@ -100,6 +100,29 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
+    func testCLIAddJSONPayloadsUseRedactedHelper() throws {
+        let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCLI")
+        let sourceFiles = try swiftSourceFiles(under: sourceRoot)
+            .filter { $0.lastPathComponent != "CLIPayloads.swift" }
+        var violations: [String] = []
+
+        for file in sourceFiles {
+            let contents = try String(contentsOf: file, encoding: .utf8)
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated()
+            where line.contains("AddPayload(") && !line.contains("redactedAddPayload(") {
+                violations.append(
+                    "\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+
+        XCTAssertEqual(
+            violations,
+            [],
+            "CLI add JSON should use a redacted payload helper instead of embedding Recipe values directly:\n\(violations.joined(separator: "\n"))"
+        )
+    }
+
     func testCLIMutationHumanOutputDoesNotPrintRawRecipeIDs() throws {
         let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCLI")
         let sourceFiles = try swiftSourceFiles(under: sourceRoot)

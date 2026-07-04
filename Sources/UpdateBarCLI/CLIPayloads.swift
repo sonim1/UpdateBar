@@ -214,3 +214,17 @@ struct AddPayload: Encodable {
         self.outcome = outcome
     }
 }
+
+func redactedAddPayload(
+    valid: Bool,
+    recipe: Recipe?,
+    errors: [String],
+    outcome: AddRecipeOutcome? = nil
+) -> AddPayload {
+    AddPayload(
+        valid: valid,
+        recipe: recipe.map(redactedRecipe),
+        errors: errors.map(SecretRedactor.redact),
+        outcome: outcome
+    )
+}
