@@ -87,6 +87,9 @@ private func recoveryHint(for error: Error, arguments: [String]) -> String? {
     switch error {
     case RegistryError.itemNotFound:
         return "Run updatebar status to list registered item ids."
+    case RegistryError.missingCurrentVersion(let id):
+        return
+            "Run updatebar check \(id) to refresh the stored current version, or pass an explicit version to updatebar pin \(id) <version>."
     case RegistryError.commandFieldNotFound:
         guard let id = approvalCommandID(from: arguments) else {
             return nil

@@ -1203,6 +1203,18 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(enableSection.contains("`updatebar update <id> --yes`"))
     }
 
+    func testCliDocsExplainPinWithoutCurrentVersionRecovery() throws {
+        let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
+        let pinSection = try readmeSection(
+            "### `updatebar pin",
+            before: "### `updatebar unpin",
+            in: docs
+        )
+
+        XCTAssertTrue(pinSection.contains("`updatebar check <id>`"))
+        XCTAssertTrue(pinSection.contains("explicit version"))
+    }
+
     func testScanInitSpecDocumentsCurrentCategories() throws {
         let spec = try String(contentsOfFile: "docs/scan-init-spec.md", encoding: .utf8)
         let categorySection = try readmeSection(

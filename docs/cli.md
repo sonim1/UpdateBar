@@ -271,6 +271,8 @@ Removes approval for one command field.
 ### `updatebar pin <id> [version] [--json]`
 
 Pins an item to an explicit version or its current state version.
+If the current state version is unavailable, run `updatebar check <id>` first or
+pass an explicit version.
 
 ### `updatebar unpin <id> [--json]`
 

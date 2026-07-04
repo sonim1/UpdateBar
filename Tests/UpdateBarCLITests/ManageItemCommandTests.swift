@@ -35,6 +35,27 @@ final class ManageItemCommandTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 1)
         XCTAssertTrue(result.stderr.contains("tool: current version is unavailable"))
+        XCTAssertTrue(result.stderr.contains("updatebar check tool"))
+        XCTAssertTrue(result.stderr.contains("pass an explicit version"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+    }
+
+    func testPinWithoutStoredCurrentVersionJSONSuggestsCheckOrExplicitVersion() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifestOnly(paths: paths)
+
+        let result = try CLIProcess.run(["pin", "tool", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "registry_error")
+        XCTAssertTrue(
+            payload.errors.contains { $0.contains("tool: current version is unavailable") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar check tool") })
+        XCTAssertTrue(payload.errors.contains { $0.contains("pass an explicit version") })
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
     }
 
