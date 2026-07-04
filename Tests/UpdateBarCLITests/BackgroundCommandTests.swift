@@ -198,6 +198,26 @@ final class BackgroundCommandTests: XCTestCase {
         }
     }
 
+    func testBackgroundJSONCommandsWithJSONStreamEqualsProduceGuidance() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-background-tests")
+        let cases = [
+            ("background install", ["background", "install", "--json-stream=true"], "Run updatebar background install --yes --json"),
+            ("background status", ["background", "status", "--json-stream=true"], "Run updatebar background status --json"),
+            ("background uninstall", ["background", "uninstall", "--json-stream=true"], "Run updatebar background uninstall --json")
+        ]
+
+        for (command, arguments, guidance) in cases {
+            let result = try CLIProcess.run(arguments, home: home, environment: ["HOME": home.path])
+            let payload = try jsonObject(in: result.stdout)
+
+            XCTAssertEqual(result.exitCode, 1, command)
+            XCTAssertEqual(payload["code"] as? String, "usage_error", command)
+            XCTAssertTrue(result.stdout.contains("\(command) does not support JSONL streaming"), command)
+            XCTAssertTrue(result.stdout.contains(guidance), command)
+            XCTAssertFalse(result.stdout.contains("Unknown option '--json-stream'"), command)
+        }
+    }
+
     private func plistURL(home: URL) -> URL {
         home
             .appendingPathComponent("Library")
