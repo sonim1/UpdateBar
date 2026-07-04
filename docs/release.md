@@ -3,28 +3,13 @@
 Release checklist:
 
 ```bash
-swift build
-swift build --product updatebar
-UPDATEBAR_TEST_BIN=$PWD/.build/debug/updatebar swift test
-swift build -c release --product updatebar
-swift build -c release --product updatebar-menubar
-npm --prefix tui test
-npm --prefix tui run typecheck
-npm --prefix tui run lint
-npm --prefix tui run build
 bash Scripts/quality-gate.sh
-bash Scripts/smoke-test.sh
 rm -f dist/*.tar.gz dist/*.sha256
 Scripts/build-release.sh
-bash Scripts/archive-version-smoke-test.sh
-bash Scripts/archive-smoke-test.sh
-bash Scripts/install-release-smoke-test.sh
-bash Scripts/homebrew-packaging-test.sh
 Scripts/package-app.sh
 bash Scripts/build-app-archive.sh
-bash Scripts/app-archive-smoke-test.sh
 bash Scripts/install-release.sh --help
-bash Scripts/verify-homebrew-metadata.sh
+UPDATEBAR_VERIFY_STRICT=1 bash Scripts/verify-homebrew-metadata.sh
 ```
 
 On macOS, `Scripts/quality-gate.sh` prefers `/Applications/Xcode.app` when it is
@@ -141,7 +126,11 @@ Release identity:
   the tap as `Casks/updatebar-app.rb`. The cask installs `UpdateBar.app` only and
   must not link the bundled CLI. The CLI remains owned by the `updatebar` formula.
 - Build or install the Ink TUI from source with npm until a published package or
-  dedicated formula is justified.
+  dedicated formula is justified:
+
+```bash
+npm --prefix tui run build
+```
 
 Before tagging:
 

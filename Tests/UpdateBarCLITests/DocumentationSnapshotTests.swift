@@ -928,6 +928,28 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertFalse(combined.contains("npm link"))
     }
 
+    func testReleaseChecklistDoesNotDuplicateQualityGateCommands() throws {
+        let releaseDocs = try String(contentsOfFile: "docs/release.md", encoding: .utf8)
+        let checklist = try readmeSection(
+            "Release checklist:",
+            before: "On macOS, `Scripts/quality-gate.sh`",
+            in: releaseDocs
+        )
+
+        XCTAssertTrue(checklist.contains("bash Scripts/quality-gate.sh"))
+        for command in [
+            "swift build",
+            "swift test",
+            "npm --prefix tui test",
+            "bash Scripts/smoke-test.sh",
+            "bash Scripts/archive-smoke-test.sh",
+            "bash Scripts/homebrew-packaging-test.sh",
+            "bash Scripts/app-archive-smoke-test.sh",
+        ] {
+            XCTAssertFalse(checklist.contains(command), "release checklist duplicates \(command)")
+        }
+    }
+
     func testMenuBarTroubleshootingDocumentsInstalledAppDebugCommand() throws {
         let troubleshooting = try String(contentsOfFile: "docs/troubleshooting.md", encoding: .utf8)
 
