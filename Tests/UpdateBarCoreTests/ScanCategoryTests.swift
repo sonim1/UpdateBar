@@ -30,4 +30,43 @@ final class ScanCategoryTests: XCTestCase {
         XCTAssertEqual(ScanCategory.defaultDetectors(for: "mcp"), [.mcpConfig])
         XCTAssertEqual(ScanCategory.defaultDetectors(for: "ai-agent"), ScanDetector.allCases)
     }
+
+    func testScanReportFiltersCandidatesByNormalizedCategoryWithoutDroppingErrors() {
+        let report = ScanReport(
+            candidates: [
+                scanCandidate(id: "skill", category: "codex-skill"),
+                scanCandidate(id: "server", category: "mcp-server"),
+                scanCandidate(id: "agent", category: "ai-agent"),
+            ],
+            errors: [ScanError(detector: .known, message: "known failed")]
+        )
+
+        let filtered = report.filtered(category: "mcp")
+
+        XCTAssertEqual(filtered.candidates.map(\.id), ["server"])
+        XCTAssertEqual(filtered.errors, report.errors)
+    }
+
+    func testScanReportNilCategoryFilterReturnsOriginalReport() {
+        let report = ScanReport(
+            candidates: [scanCandidate(id: "agent", category: "ai-agent")],
+            errors: [ScanError(detector: .known, message: "known failed")]
+        )
+
+        XCTAssertEqual(report.filtered(category: nil as String?), report)
+    }
+
+    private func scanCandidate(id: String, category: String) -> ScanCandidate {
+        ScanCandidate(
+            id: id,
+            name: id,
+            detector: .known,
+            category: category,
+            capability: .metadataOnly,
+            confidence: .medium,
+            installedVersion: nil,
+            sourceRef: nil,
+            recipe: nil
+        )
+    }
 }

@@ -65,11 +65,7 @@ struct InitCommand: ParsableCommand {
         detectors: [ScanDetector],
         categoryFilter: String?
     ) throws -> ScanReport {
-        var report = try ScanService().scan(detectors: detectors)
-        if let category = categoryFilter {
-            report.candidates = report.candidates.filter { $0.category == category }
-        }
-        return report
+        try ScanService().scan(detectors: detectors).filtered(category: categoryFilter)
     }
 
     private func invalidSelectionMessages(

@@ -194,6 +194,27 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(contents.contains("ScanCategory."))
     }
 
+    func testCLIScanCategoryFilteringUsesCoreReportHelper() throws {
+        let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCLI")
+        let sourceFiles = try swiftSourceFiles(under: sourceRoot)
+        var violations: [String] = []
+
+        for file in sourceFiles {
+            let contents = try String(contentsOf: file, encoding: .utf8)
+            for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
+                where line.contains("$0.category == category")
+            {
+                violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+
+        XCTAssertEqual(
+            violations,
+            [],
+            "CLI should use ScanReport.filtered(category:) instead of duplicating category filtering:\n\(violations.joined(separator: "\n"))"
+        )
+    }
+
     func testTemplateKindHelpUsesEnumCases() throws {
         let file = URL(fileURLWithPath: "Sources/UpdateBarCLI/CLIDocumentCommands.swift")
         let contents = try String(contentsOf: file, encoding: .utf8)

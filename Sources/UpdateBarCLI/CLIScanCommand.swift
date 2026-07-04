@@ -21,10 +21,7 @@ struct ScanCommand: ParsableCommand {
         let categoryFilter = try parseCategoryFilter(category)
         let selectedDetectors = ScanCategory.defaultDetectors(for: categoryFilter)
         let service = ScanService()
-        var report = try service.scan(detectors: selectedDetectors)
-        if let category = categoryFilter {
-            report.candidates = report.candidates.filter { $0.category == category }
-        }
+        let report = try service.scan(detectors: selectedDetectors).filtered(category: categoryFilter)
 
         if json {
             try printJSON(report)
