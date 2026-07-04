@@ -56,6 +56,28 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("status"))
     }
 
+    func testHelpCanDescribeHelpCommand() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["help", "help"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("Show subcommand help information."))
+        XCTAssertTrue(result.stdout.contains("USAGE: updatebar help"))
+    }
+
+    func testHelpRejectsExtraPathAfterHelpCommand() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
+
+        let result = try CLIProcess.run(["help", "help", "extra"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("extra"))
+        XCTAssertTrue(result.stderr.contains("updatebar help help"))
+    }
+
     func testRootHelpRejectsTrailingCommandTarget() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-output-tests")
 

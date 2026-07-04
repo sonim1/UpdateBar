@@ -335,6 +335,15 @@ extension UpdateBar {
             guard !target.hasPrefix("-") else {
                 return
             }
+            if path.isEmpty, target == "help" {
+                if let extra = arguments.dropFirst(2).first(where: { !$0.hasPrefix("-") }) {
+                    throw ValidationError("""
+                    Unexpected help target '\(extra)' after updatebar help help
+                    Usage: updatebar help help
+                    """)
+                }
+                return
+            }
             guard let next = command.configuration.subcommands.first(where: { subcommand in
                 subcommand._commandName == target || subcommand.configuration.aliases.contains(target)
             }) else {
