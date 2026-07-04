@@ -1178,6 +1178,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(updateSection.contains("`updatebar init`"))
         XCTAssertTrue(updateSection.contains("no items are registered"))
         for section in [checkSection, statusSection, updateSection] {
+            XCTAssertTrue(section.contains("`updatebar scan`"))
             XCTAssertTrue(section.contains("`updatebar init`"))
             XCTAssertTrue(section.contains("no items are registered"))
         }

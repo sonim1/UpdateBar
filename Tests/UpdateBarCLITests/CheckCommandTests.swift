@@ -168,6 +168,7 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertEqual(result.stderr, "")
         XCTAssertTrue(result.stdout.contains("No items registered."))
         XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar scan"))
         XCTAssertTrue(result.stdout.contains("updatebar init"))
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))

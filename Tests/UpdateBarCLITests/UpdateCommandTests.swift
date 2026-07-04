@@ -106,6 +106,7 @@ final class UpdateCommandTests: XCTestCase {
         XCTAssertEqual(result.stderr, "")
         XCTAssertTrue(result.stdout.contains("No items registered."))
         XCTAssertTrue(result.stdout.contains("Next"))
+        XCTAssertTrue(result.stdout.contains("updatebar scan"))
         XCTAssertTrue(result.stdout.contains("updatebar init"))
         XCTAssertFalse(result.stdout.contains("No approved outdated items to update."))
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))

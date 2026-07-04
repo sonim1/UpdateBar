@@ -29,7 +29,7 @@ func printApprovalNextSteps(for ids: [String]) {
 
 func printEmptyRegistryNextStep() {
     writeStdout("No items registered.")
-    printNextCommands(["updatebar init"])
+    printNextCommands(["updatebar scan", "updatebar init"])
 }
 
 func printNextCommands(_ commands: [String], leadingBlank: Bool = true) {
