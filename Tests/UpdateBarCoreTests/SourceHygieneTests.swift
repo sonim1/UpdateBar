@@ -101,7 +101,9 @@ final class SourceHygieneTests: XCTestCase {
         for file in sourceFiles {
             let contents = try String(contentsOf: file, encoding: .utf8)
             for (index, line) in contents.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
-                where line.contains("writeStdout(") && line.contains("\\(recipe.id")
+                where line.contains("writeStdout(")
+                    && (line.contains("\\(recipe.id")
+                        || line.contains("edited \\(id)"))
             {
                 violations.append("\(file.path):\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
             }

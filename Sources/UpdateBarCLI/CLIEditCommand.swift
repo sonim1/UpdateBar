@@ -41,7 +41,7 @@ struct EditCommand: ParsableCommand {
             latest.provenance.updatedAt = Date()
             try store.save(latest)
         }
-        writeStdout("edited \(id)")
+        writeStdout("edited \(SecretRedactor.redact(id))")
     }
 
     private func loadEditedRecipe(data: Data, original: Recipe) throws -> Recipe {
