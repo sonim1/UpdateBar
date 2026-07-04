@@ -153,6 +153,15 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
+    func testPackageDoesNotPublishInternalMenuBarLibraryProduct() throws {
+        let contents = try String(contentsOfFile: "Package.swift", encoding: .utf8)
+
+        XCTAssertFalse(
+            contents.contains(#".library(name: "UpdateBarMenuBar""#),
+            "UpdateBarMenuBar should stay an internal target behind the updatebar-menubar executable product."
+        )
+    }
+
     func testCLICategoryHelpUsesSharedDescription() throws {
         let sourceRoot = URL(fileURLWithPath: "Sources/UpdateBarCLI")
         let sourceFiles = try swiftSourceFiles(under: sourceRoot)
