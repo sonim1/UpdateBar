@@ -89,6 +89,7 @@ export class SubprocessRunner implements CommandRunner {
   async run(args: string[], options: RunOptions = {}): Promise<CommandResult> {
     throwIfAborted(options.signal);
     const child = spawn(this.executablePath, args, {
+      detached: useProcessGroup(),
       env: subprocessEnvironment(process.env),
       stdio: ['ignore', 'pipe', 'pipe']
     });
@@ -109,6 +110,7 @@ export class SubprocessRunner implements CommandRunner {
   async stream(args: string[], options: StreamOptions): Promise<CommandResult> {
     throwIfAborted(options.signal);
     const child = spawn(this.executablePath, args, {
+      detached: useProcessGroup(),
       env: subprocessEnvironment(process.env),
       stdio: ['ignore', 'pipe', 'pipe']
     });
@@ -296,11 +298,28 @@ function stopChild(
   terminateAfterMs = 2000
 ) {
   if (isExited()) return;
-  child.kill('SIGINT');
+  signalChild(child, 'SIGINT');
   const timer = setTimeout(() => {
-    if (!isExited()) child.kill('SIGTERM');
+    if (!isExited()) signalChild(child, 'SIGTERM');
   }, terminateAfterMs);
   timer.unref();
+}
+
+function useProcessGroup() {
+  return process.platform !== 'win32';
+}
+
+function signalChild(child: ReturnType<typeof spawn>, signal: NodeJS.Signals) {
+  const pid = child.pid;
+  if (pid && useProcessGroup()) {
+    try {
+      process.kill(-pid, signal);
+      return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ESRCH') return;
+    }
+  }
+  child.kill(signal);
 }
 
 async function collect(stream: Readable | null): Promise<string> {
