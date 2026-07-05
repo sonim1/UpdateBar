@@ -1,6 +1,6 @@
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class StatusSnapshotTests: XCTestCase {
     func testBuildsMenuBarStatusContractFromManifestAndState() throws {
@@ -26,13 +26,215 @@ final class StatusSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.summary.total, 1)
         XCTAssertEqual(snapshot.summary.outdated, 1)
         XCTAssertEqual(snapshot.summary.errors, 0)
+        XCTAssertEqual(snapshot.summary.untrusted, 0)
+        XCTAssertEqual(snapshot.summary.pinned, 0)
         XCTAssertEqual(snapshot.items.first?.id, "claude-code")
         XCTAssertEqual(snapshot.items.first?.status, .outdated)
         XCTAssertEqual(snapshot.items.first?.pinned, false)
     }
 
+    func testUnapprovedCommandFingerprintOverridesStoredOutdatedState() throws {
+        let manifest = try loadManifest(approved: false)
+        let now = Date(timeIntervalSince1970: 1_812_499_200)
+        let state = State(
+            schemaVersion: 1,
+            generatedAt: now,
+            items: [
+                "claude-code": ItemState(
+                    current: "1.4.2",
+                    latest: "1.5.0",
+                    status: .outdated,
+                    lastChecked: now,
+                    error: nil,
+                    backoffUntil: nil
+                )
+            ]
+        )
+
+        let snapshot = StatusSnapshot.from(manifest: manifest, state: state, now: now)
+
+        XCTAssertEqual(snapshot.summary.outdated, 0)
+        XCTAssertEqual(snapshot.summary.untrusted, 1)
+        XCTAssertEqual(snapshot.items.first?.status, .untrusted)
+    }
+
+    func testStatusSnapshotRedactsStoredErrorSecrets() throws {
+        let manifest = try loadManifest()
+        let now = Date(timeIntervalSince1970: 1_812_499_200)
+        let secret = "sk-or-v1-secret-value"
+        let state = State(
+            schemaVersion: 1,
+            generatedAt: now,
+            items: [
+                "claude-code": ItemState(
+                    current: "1.4.2",
+                    latest: nil,
+                    status: .error,
+                    lastChecked: now,
+                    error: "failed with OPENROUTER_API_KEY=\(secret)",
+                    backoffUntil: nil
+                )
+            ]
+        )
+
+        let snapshot = StatusSnapshot.from(manifest: manifest, state: state, now: now)
+
+        XCTAssertEqual(snapshot.items.first?.status, .error)
+        XCTAssertTrue(snapshot.items.first?.error?.contains("[REDACTED]") ?? false)
+        XCTAssertFalse(snapshot.items.first?.error?.contains(secret) ?? true)
+        XCTAssertFalse(snapshot.items.first?.error?.contains("OPENROUTER_API_KEY=") ?? true)
+    }
+
+    func testStatusSnapshotRedactsStoredVersionSecrets() throws {
+        let manifest = try loadManifest()
+        let now = Date(timeIntervalSince1970: 1_812_499_200)
+        let secret = "sk-or-v1-status-secret-value"
+        let state = State(
+            schemaVersion: 1,
+            generatedAt: now,
+            items: [
+                "claude-code": ItemState(
+                    current: secret,
+                    latest: secret,
+                    status: .ok,
+                    lastChecked: now,
+                    error: nil,
+                    backoffUntil: nil
+                )
+            ]
+        )
+
+        let snapshot = StatusSnapshot.from(manifest: manifest, state: state, now: now)
+
+        XCTAssertEqual(snapshot.items.first?.current, "[REDACTED]")
+        XCTAssertEqual(snapshot.items.first?.latest, "[REDACTED]")
+    }
+
+    func testStatusSnapshotRedactsLegacyMetadataSecrets() throws {
+        var manifest = try loadManifest()
+        let now = Date(timeIntervalSince1970: 1_812_499_200)
+        let secret = "sk-or-v1-status-secret-value"
+        manifest.items[0].id = secret
+        manifest.items[0].name = "Tool \(secret)"
+        manifest.items[0].category = secret
+        let state = State(
+            schemaVersion: 1,
+            generatedAt: now,
+            items: [
+                secret: ItemState(
+                    current: "1.4.2",
+                    latest: "1.5.0",
+                    status: .ok,
+                    lastChecked: now,
+                    error: nil,
+                    backoffUntil: nil
+                )
+            ]
+        )
+
+        let snapshot = StatusSnapshot.from(manifest: manifest, state: state, now: now)
+
+        XCTAssertEqual(snapshot.items.first?.id, "[REDACTED]")
+        XCTAssertEqual(snapshot.items.first?.name, "Tool [REDACTED]")
+        XCTAssertEqual(snapshot.items.first?.category, "[REDACTED]")
+        XCTAssertFalse(String(describing: snapshot).contains(secret))
+    }
+
+    func testStatusItemRedactsSecretsAtInitializationBoundary() {
+        let secret = "sk-or-v1-status-secret-value"
+
+        let item = StatusItem(
+            id: secret,
+            name: "Tool \(secret)",
+            category: secret,
+            current: secret,
+            latest: secret,
+            status: .error,
+            pinned: false,
+            lastChecked: nil,
+            error: "failed \(secret)"
+        )
+
+        XCTAssertEqual(item.id, "[REDACTED]")
+        XCTAssertEqual(item.name, "Tool [REDACTED]")
+        XCTAssertEqual(item.category, "[REDACTED]")
+        XCTAssertEqual(item.current, "[REDACTED]")
+        XCTAssertEqual(item.latest, "[REDACTED]")
+        XCTAssertEqual(item.error, "failed [REDACTED]")
+        XCTAssertFalse(String(describing: item).contains(secret))
+    }
+
+    func testStatusSummaryCountsAttentionStates() throws {
+        let outdated = try recipe(id: "outdated", name: "Outdated")
+
+        var untrusted = outdated
+        untrusted.id = "untrusted"
+        untrusted.name = "Untrusted"
+        untrusted.trust.level = .untrusted
+        untrusted.trust.approvedCommands = [:]
+
+        var pinned = try recipe(id: "pinned", name: "Pinned")
+        pinned.pin = "1.4.2"
+
+        var disabled = try recipe(id: "disabled", name: "Disabled")
+        disabled.enabled = false
+
+        let checking = try recipe(id: "checking", name: "Checking")
+
+        let differs = try recipe(id: "differs", name: "Differs")
+
+        let now = Date(timeIntervalSince1970: 1_812_499_200)
+        let manifest = Manifest(
+            schemaVersion: 1,
+            items: [outdated, untrusted, pinned, disabled, checking, differs],
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        )
+        let state = State(
+            schemaVersion: 1,
+            generatedAt: now,
+            items: [
+                "outdated": itemState(status: .outdated, now: now),
+                "untrusted": itemState(status: .outdated, now: now),
+                "pinned": itemState(status: .outdated, now: now),
+                "disabled": itemState(status: .outdated, now: now),
+                "checking": itemState(status: .checking, now: now),
+                "differs": itemState(status: .differs, now: now),
+            ]
+        )
+
+        let snapshot = StatusSnapshot.from(manifest: manifest, state: state, now: now)
+
+        XCTAssertEqual(snapshot.summary.total, 6)
+        XCTAssertEqual(snapshot.summary.outdated, 1)
+        XCTAssertEqual(snapshot.summary.errors, 0)
+        XCTAssertEqual(snapshot.summary.untrusted, 1)
+        XCTAssertEqual(snapshot.summary.pinned, 1)
+        XCTAssertEqual(snapshot.summary.disabled, 1)
+        XCTAssertEqual(snapshot.summary.checking, 1)
+        XCTAssertEqual(snapshot.summary.differs, 1)
+    }
+
+    func testStatusSummaryRejectsNegativeDecodedCounts() throws {
+        let payload = Data(
+            """
+            {
+              "total": 1,
+              "outdated": -1,
+              "errors": 0,
+              "untrusted": 0,
+              "pinned": 0,
+              "disabled": 0,
+              "checking": 0,
+              "differs": 0
+            }
+            """.utf8)
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(StatusSummary.self, from: payload))
+    }
+
     func testStatusPriorityUsesOverridesBeforeVersionStatus() throws {
         var manifest = try loadManifest()
+        let approvedCommands = manifest.items[0].trust.approvedCommands
         let now = Date(timeIntervalSince1970: 1_812_499_200)
         let base = ItemState(
             current: "1.4.2",
@@ -52,9 +254,11 @@ final class StatusSnapshotTests: XCTestCase {
 
         manifest.items[0].pin = nil
         manifest.items[0].trust.level = .untrusted
+        manifest.items[0].trust.approvedCommands = [:]
         XCTAssertEqual(status(for: manifest, itemState: base), .untrusted)
 
         manifest.items[0].trust.level = .trusted
+        manifest.items[0].trust.approvedCommands = approvedCommands
         var errored = base
         errored.status = .error
         errored.error = "command failed"
@@ -78,8 +282,33 @@ final class StatusSnapshotTests: XCTestCase {
         ).items[0].status
     }
 
-    private func loadManifest() throws -> Manifest {
+    private func itemState(status: ItemStatus, now: Date) -> ItemState {
+        ItemState(
+            current: "1.4.2",
+            latest: "1.5.0",
+            status: status,
+            lastChecked: now,
+            error: nil,
+            backoffUntil: nil
+        )
+    }
+
+    private func recipe(id: String, name: String) throws -> Recipe {
+        var item = try loadManifest().items[0]
+        item.id = id
+        item.name = name
+        TestApprovals.approveAllCommands(in: &item)
+        return item
+    }
+
+    private func loadManifest(approved: Bool = true) throws -> Manifest {
         let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
-        return try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        var manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        if approved {
+            for index in manifest.items.indices {
+                TestApprovals.approveAllCommands(in: &manifest.items[index])
+            }
+        }
+        return manifest
     }
 }

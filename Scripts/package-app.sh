@@ -8,10 +8,84 @@ source version.env
 
 SWIFT_BIN="${SWIFT_BIN:-swift}"
 VERSION="${UPDATEBAR_VERSION:?UPDATEBAR_VERSION is required}"
+case "$(uname -m)" in
+  arm64|aarch64) ARCH="arm64" ;;
+  x86_64|amd64) ARCH="x86_64" ;;
+  *) echo "unsupported arch: $(uname -m)" >&2; exit 1 ;;
+esac
 APP_DIR="dist/UpdateBar.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+TMP_DIR=""
+
+log() {
+  printf "[package-app] %s\n" "$*" >&2
+}
+
+sign_app_if_requested() {
+  if [[ "${UPDATEBAR_SIGN_APP:-0}" != "1" ]]; then
+    return 0
+  fi
+
+  local identity="${UPDATEBAR_SIGN_IDENTITY:-}"
+  if [[ -z "$identity" ]]; then
+    echo "UPDATEBAR_SIGN_APP=1 requires UPDATEBAR_SIGN_IDENTITY" >&2
+    exit 1
+  fi
+  if ! command -v codesign >/dev/null 2>&1; then
+    echo "codesign is required for UPDATEBAR_SIGN_APP=1" >&2
+    exit 1
+  fi
+
+  local options=(
+    --force
+    --options runtime
+    --timestamp
+  )
+  local entitlements="${UPDATEBAR_SIGN_ENTITLEMENTS_FILE:-}"
+  if [[ -n "$entitlements" ]]; then
+    options+=(--entitlements "$entitlements")
+  fi
+
+  log "signing app inside-out with identity: ${identity}"
+  codesign "${options[@]}" --sign "$identity" "$RESOURCES_DIR/updatebar"
+  codesign "${options[@]}" --sign "$identity" "$MACOS_DIR/UpdateBar"
+  codesign "${options[@]}" --sign "$identity" "$APP_DIR"
+}
+
+notarize_app_if_requested() {
+  if [[ "${UPDATEBAR_NOTARIZE_APP:-0}" != "1" ]]; then
+    return 0
+  fi
+
+  if ! command -v xcrun >/dev/null 2>&1; then
+    echo "xcrun is required for UPDATEBAR_NOTARIZE_APP=1" >&2
+    exit 1
+  fi
+  if ! command -v ditto >/dev/null 2>&1; then
+    echo "ditto is required for UPDATEBAR_NOTARIZE_APP=1" >&2
+    exit 1
+  fi
+
+  local keychain_profile="${UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE:-}"
+  if [[ -z "$keychain_profile" ]]; then
+    echo "UPDATEBAR_NOTARIZE_APP=1 requires UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE" >&2
+    exit 1
+  fi
+
+  TMP_DIR="$(mktemp -d)"
+  trap 'rm -rf "$TMP_DIR"' EXIT
+  local zip_path="$TMP_DIR/UpdateBar-${VERSION}-macos-${ARCH}.app.zip"
+
+  log "creating notarization archive at $zip_path"
+  ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$zip_path"
+
+  log "submitting app for notarization (profile: $keychain_profile)"
+  xcrun notarytool submit "$zip_path" --keychain-profile "$keychain_profile" --wait
+  log "stapling notarization ticket"
+  xcrun stapler staple "$APP_DIR"
+}
 
 Scripts/generate-version-source.sh
 "$SWIFT_BIN" build -c release --product updatebar
@@ -56,38 +130,14 @@ cat >"$CONTENTS_DIR/Info.plist" <<PLIST
 PLIST
 
 plutil -lint "$CONTENTS_DIR/Info.plist" >/dev/null
-"$RESOURCES_DIR/updatebar" version --json >/dev/null
+"$RESOURCES_DIR/updatebar" --version >/dev/null
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  sign_app_if_requested
+  notarize_app_if_requested
+fi
 
 if [[ "$(uname -s)" == "Darwin" && "${UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE:-0}" != "1" ]]; then
-  launch_log="$(mktemp)"
-  "$MACOS_DIR/UpdateBar" >"$launch_log" 2>&1 &
-  app_pid=$!
-  sleep 2
-  if ! kill -0 "$app_pid" 2>/dev/null; then
-    echo "Packaged menu bar app failed to stay running" >&2
-    cat "$launch_log" >&2
-    rm -f "$launch_log"
-    exit 1
-  fi
-  if ! grep -F "using bundled updatebar:" "$launch_log" >/dev/null; then
-    echo "Packaged menu bar app did not resolve the bundled CLI" >&2
-    cat "$launch_log" >&2
-    kill "$app_pid" 2>/dev/null || true
-    wait "$app_pid" 2>/dev/null || true
-    rm -f "$launch_log"
-    exit 1
-  fi
-  if grep -F "showing error:" "$launch_log" >/dev/null; then
-    echo "Packaged menu bar app reported a startup error" >&2
-    cat "$launch_log" >&2
-    kill "$app_pid" 2>/dev/null || true
-    wait "$app_pid" 2>/dev/null || true
-    rm -f "$launch_log"
-    exit 1
-  fi
-  kill "$app_pid" 2>/dev/null || true
-  wait "$app_pid" 2>/dev/null || true
-  rm -f "$launch_log"
+  Scripts/menubar-smoke-test.sh "$APP_DIR"
 fi
 
 echo "$APP_DIR"

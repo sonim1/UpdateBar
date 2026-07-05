@@ -10,7 +10,9 @@ final class UpdateBarBinaryResolverTests: XCTestCase {
         let pathBin = try executable(at: root.appendingPathComponent("bin/updatebar"))
 
         let resolution = try UpdateBarBinaryResolver().resolve(
-            environment: ["UPDATEBAR_BIN": override.path, "PATH": pathBin.deletingLastPathComponent().path],
+            environment: [
+                "UPDATEBAR_BIN": override.path, "PATH": pathBin.deletingLastPathComponent().path,
+            ],
             bundledDirectory: bundled.deletingLastPathComponent(),
             developmentRoot: nil
         )
@@ -31,19 +33,6 @@ final class UpdateBarBinaryResolverTests: XCTestCase {
 
         XCTAssertEqual(resolution.path, configured.path)
         XCTAssertEqual(resolution.source, .configured)
-    }
-
-    func testLegacyUpdateBarCLIOverrideStillWorks() throws {
-        let root = try temporaryDirectory()
-        let legacy = try executable(at: root.appendingPathComponent("legacy-updatebar"))
-
-        let resolution = try UpdateBarBinaryResolver().resolve(
-            environment: ["UPDATEBAR_CLI": legacy.path],
-            developmentRoot: nil
-        )
-
-        XCTAssertEqual(resolution.path, legacy.path)
-        XCTAssertEqual(resolution.source, .updateBarCLI)
     }
 
     func testBundledBinaryWinsBeforePath() throws {
@@ -75,6 +64,24 @@ final class UpdateBarBinaryResolverTests: XCTestCase {
         XCTAssertEqual(resolution.source, .path)
     }
 
+    func testPathResolutionIgnoresRelativeEntries() throws {
+        let root = try temporaryDirectory()
+        _ = try executable(at: root.appendingPathComponent("updatebar"))
+        let originalDirectory = FileManager.default.currentDirectoryPath
+        defer { FileManager.default.changeCurrentDirectoryPath(originalDirectory) }
+        XCTAssertTrue(FileManager.default.changeCurrentDirectoryPath(root.path))
+
+        XCTAssertThrowsError(
+            try UpdateBarBinaryResolver().resolve(
+                environment: ["PATH": "."],
+                developmentRoot: nil,
+                defaultPathEntries: []
+            )
+        ) { error in
+            XCTAssertEqual(error as? UpdateBarBinaryResolverError, .notFound)
+        }
+    }
+
     func testDevelopmentFallbackUsesSwiftPMDebugBinary() throws {
         let root = try temporaryDirectory()
         let devBinary = try executable(at: root.appendingPathComponent(".build/debug/updatebar"))
@@ -93,14 +100,31 @@ final class UpdateBarBinaryResolverTests: XCTestCase {
         let root = try temporaryDirectory()
         let invalid = root.appendingPathComponent("missing-updatebar").path
 
-        XCTAssertThrowsError(try UpdateBarBinaryResolver().resolve(
-            environment: ["UPDATEBAR_BIN": invalid],
-            developmentRoot: nil
-        )) { error in
+        XCTAssertThrowsError(
+            try UpdateBarBinaryResolver().resolve(
+                environment: ["UPDATEBAR_BIN": invalid],
+                developmentRoot: nil
+            )
+        ) { error in
             XCTAssertEqual(
                 error as? UpdateBarBinaryResolverError,
                 .invalidPath(source: .updateBarBin, path: invalid)
             )
+        }
+    }
+
+    func testInvalidExplicitPathDescriptionRedactsSecretLikePath() throws {
+        let invalid = "/tmp/sk-or-v1-secret-value/updatebar"
+
+        XCTAssertThrowsError(
+            try UpdateBarBinaryResolver().resolve(
+                environment: ["UPDATEBAR_BIN": invalid],
+                developmentRoot: nil
+            )
+        ) { error in
+            let message = String(describing: error)
+            XCTAssertFalse(message.contains("sk-or-v1-secret-value"))
+            XCTAssertTrue(message.contains("/tmp/[REDACTED]/updatebar"))
         }
     }
 

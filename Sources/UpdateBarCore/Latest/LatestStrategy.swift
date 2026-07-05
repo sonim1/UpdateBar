@@ -1,6 +1,7 @@
 import Foundation
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+    import FoundationNetworking
 #endif
 
 public protocol HTTPClient {
@@ -62,7 +63,10 @@ public struct URLSessionHTTPClient: HTTPClient {
             semaphore.signal()
         }.resume()
         semaphore.wait()
-        return try box.result!.get()
+        guard let result = box.result else {
+            throw LatestError.parseFailed("http response missing")
+        }
+        return try result.get()
     }
 }
 
@@ -101,10 +105,10 @@ public enum LatestError: Error, CustomStringConvertible, Equatable {
 
     public var description: String {
         switch self {
-        case let .invalidSource(message): message
-        case let .missingField(message): message
-        case let .commandFailed(message): message
-        case let .parseFailed(message): message
+        case .invalidSource(let message): SecretRedactor.redact(message)
+        case .missingField(let message): SecretRedactor.redact(message)
+        case .commandFailed(let message): SecretRedactor.redact(message)
+        case .parseFailed(let message): SecretRedactor.redact(message)
         }
     }
 }

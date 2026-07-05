@@ -1,18 +1,24 @@
 import Foundation
 
 public enum VersionParser {
-    public enum ParseError: Error, Equatable {
-        case unsupportedJQ
+    public enum ParseError: Error, CustomStringConvertible, Equatable {
         case invalidRegex(String)
         case missingMatch(String)
+
+        public var description: String {
+            switch self {
+            case .invalidRegex(let pattern):
+                return "version_parse.regex invalid: \(SecretRedactor.redact(pattern))"
+            case .missingMatch(let pattern):
+                return "version_parse.regex did not match output: \(SecretRedactor.redact(pattern))"
+            }
+        }
     }
 
     public static func extract(from raw: String, using parser: VersionParse) throws -> String {
         switch parser {
-        case let .regex(pattern):
+        case .regex(let pattern):
             return try extractRegex(pattern: pattern, raw: raw)
-        case .jq:
-            throw ParseError.unsupportedJQ
         }
     }
 
@@ -27,7 +33,8 @@ public enum VersionParser {
             throw ParseError.invalidRegex(pattern)
         }
         let range = NSRange(raw.startIndex..<raw.endIndex, in: raw)
-        guard let match = regex.firstMatch(in: raw, range: range), match.range(at: 1).location != NSNotFound,
+        guard let match = regex.firstMatch(in: raw, range: range),
+            match.range(at: 1).location != NSNotFound,
             let capture = Range(match.range(at: 1), in: raw)
         else {
             throw ParseError.missingMatch(pattern)

@@ -1,9 +1,18 @@
 # Shell Completions
 
 UpdateBar uses Swift Argument Parser's built-in completion generator.
-Recipe-authoring support commands such as `guide`, `schema`, `template`,
-`validate`, and `version` are direct commands but intentionally omitted from
-default completions.
+Default root completions include only the primary workflow commands: `init`,
+`scan`, `status`, `check`, `update`, `approvals`, and `help`.
+
+Hidden-but-callable commands are intentionally omitted to keep the day-to-day
+surface small. This includes import/export commands, advanced item-management
+commands, background/configuration commands, and support commands such as
+`guide`, `schema`, `template`, `validate`, and `tui`.
+
+`scan` and `init` complete `--category` values, including the short aliases
+`ai` and `mcp`.
+`init --select` completes `all`; candidate ids and numbers come from the current
+`updatebar scan` output.
 
 Bash:
 

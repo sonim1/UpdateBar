@@ -6,7 +6,9 @@ public enum VersionComparator {
         case invalidCalVer(String)
     }
 
-    public static func status(current: String, latest: String, scheme: VersionScheme) throws -> ItemStatus {
+    public static func status(current: String, latest: String, scheme: VersionScheme) throws
+        -> ItemStatus
+    {
         switch scheme {
         case .semver:
             return try compareSemVer(current, latest) == .orderedAscending ? .outdated : .ok
@@ -60,8 +62,10 @@ private struct SemVer {
             throw VersionComparator.VersionError.invalidSemVer(raw)
         }
 
-        let parts = coreAndPrerelease.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
-            .map(String.init)
+        let parts = coreAndPrerelease.split(
+            separator: "-", maxSplits: 1, omittingEmptySubsequences: false
+        )
+        .map(String.init)
         guard !parts[0].isEmpty else {
             throw VersionComparator.VersionError.invalidSemVer(raw)
         }
@@ -78,8 +82,11 @@ private struct SemVer {
         self.minor = minor
         self.patch = patch
         if parts.count == 2 {
-            let identifiers = parts[1].split(separator: ".", omittingEmptySubsequences: false).map(String.init)
-            try identifiers.forEach { try Self.validatePrereleaseIdentifier($0, raw: raw) }
+            let identifiers = parts[1].split(separator: ".", omittingEmptySubsequences: false).map(
+                String.init)
+            for identifier in identifiers {
+                try Self.validatePrereleaseIdentifier(identifier, raw: raw)
+            }
             self.prerelease = identifiers
         } else {
             self.prerelease = []
@@ -105,7 +112,7 @@ private struct SemVer {
             let leftNumber = Int(left)
             let rightNumber = Int(right)
             switch (leftNumber, rightNumber) {
-            case let (.some(leftValue), .some(rightValue)):
+            case (.some(let leftValue), .some(let rightValue)):
                 if leftValue < rightValue { return .orderedAscending }
                 if leftValue > rightValue { return .orderedDescending }
             case (.some, .none):
@@ -120,7 +127,9 @@ private struct SemVer {
     }
 
     private static func parseCoreIdentifier(_ value: String, raw: String) throws -> Int {
-        guard isASCIIDigits(value), !(value.count > 1 && value.first == "0"), let parsed = Int(value) else {
+        guard isASCIIDigits(value), !(value.count > 1 && value.first == "0"),
+            let parsed = Int(value)
+        else {
             throw VersionComparator.VersionError.invalidSemVer(raw)
         }
         return parsed

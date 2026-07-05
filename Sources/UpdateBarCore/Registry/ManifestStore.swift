@@ -16,11 +16,25 @@ public struct ManifestStore {
             try save(manifest)
             return manifest
         }
+        return try readExistingManifest()
+    }
+
+    public func loadExistingOrEmpty(now: Date = Date()) throws -> Manifest {
+        if !fileManager.fileExists(atPath: paths.manifestFile.path) {
+            try AppHomeDirectory.ensureIfExists(paths.homeDirectory, fileManager: fileManager)
+            return emptyManifest(now: now)
+        }
+        try ensureHome()
+        return try readExistingManifest()
+    }
+
+    private func readExistingManifest() throws -> Manifest {
         do {
             let data = try Data(contentsOf: paths.manifestFile)
             return try JSONDecoder.updateBar.decode(Manifest.self, from: data)
         } catch {
-            throw StoreError.corruptFile(path: paths.manifestFile.path, reason: String(describing: error))
+            throw StoreError.corruptFile(
+                path: paths.manifestFile.path, reason: storeErrorReason(for: error))
         }
     }
 
@@ -32,19 +46,21 @@ public struct ManifestStore {
         } catch let error as StoreError {
             throw error
         } catch {
-            throw StoreError.writeFailed(path: paths.manifestFile.path, reason: String(describing: error))
+            throw StoreError.writeFailed(
+                path: paths.manifestFile.path, reason: String(describing: error))
         }
     }
 
     public func withExclusiveLock<T>(_ body: () throws -> T) throws -> T {
-        try FileLock(
+        try ensureHome()
+        return try FileLock(
             url: paths.homeDirectory.appendingPathComponent("manifest.lock"),
             fileManager: fileManager
         ).withExclusiveLock(body)
     }
 
     private func ensureHome() throws {
-        try fileManager.createDirectory(at: paths.homeDirectory, withIntermediateDirectories: true)
+        try AppHomeDirectory.ensure(paths.homeDirectory, fileManager: fileManager)
     }
 
     private func emptyManifest(now: Date) -> Manifest {

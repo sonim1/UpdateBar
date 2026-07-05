@@ -29,7 +29,12 @@ public struct StatusSnapshot: Codable, Equatable {
             summary: StatusSummary(
                 total: items.count,
                 outdated: items.filter { $0.status == .outdated }.count,
-                errors: items.filter { $0.status == .error }.count
+                errors: items.filter { $0.status == .error }.count,
+                untrusted: items.filter { $0.status == .untrusted }.count,
+                pinned: items.filter { $0.status == .pinned }.count,
+                disabled: items.filter { $0.status == .disabled }.count,
+                checking: items.filter { $0.status == .checking }.count,
+                differs: items.filter { $0.status == .differs }.count
             ),
             items: items
         )
@@ -38,7 +43,7 @@ public struct StatusSnapshot: Codable, Equatable {
     private static func resolvedStatus(recipe: Recipe, itemState: ItemState?) -> ItemStatus {
         if !recipe.enabled { return .disabled }
         if recipe.pin != nil { return .pinned }
-        if recipe.trust.level == .untrusted || recipe.trust.level == .elevated {
+        if !TrustPolicy.hasApprovedCommandFingerprints(recipe) {
             return .untrusted
         }
         guard let itemState else { return .checking }
@@ -58,11 +63,61 @@ public struct StatusSummary: Codable, Equatable {
     public var total: Int
     public var outdated: Int
     public var errors: Int
+    public var untrusted: Int
+    public var pinned: Int
+    public var disabled: Int
+    public var checking: Int
+    public var differs: Int
 
-    public init(total: Int, outdated: Int, errors: Int) {
+    public init(
+        total: Int,
+        outdated: Int,
+        errors: Int,
+        untrusted: Int = 0,
+        pinned: Int = 0,
+        disabled: Int = 0,
+        checking: Int = 0,
+        differs: Int = 0
+    ) {
         self.total = total
         self.outdated = outdated
         self.errors = errors
+        self.untrusted = untrusted
+        self.pinned = pinned
+        self.disabled = disabled
+        self.checking = checking
+        self.differs = differs
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case total
+        case outdated
+        case errors
+        case untrusted
+        case pinned
+        case disabled
+        case checking
+        case differs
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        total = try container.decode(Int.self, forKey: .total)
+        outdated = try container.decode(Int.self, forKey: .outdated)
+        errors = try container.decode(Int.self, forKey: .errors)
+        untrusted = try container.decodeIfPresent(Int.self, forKey: .untrusted) ?? 0
+        pinned = try container.decodeIfPresent(Int.self, forKey: .pinned) ?? 0
+        disabled = try container.decodeIfPresent(Int.self, forKey: .disabled) ?? 0
+        checking = try container.decodeIfPresent(Int.self, forKey: .checking) ?? 0
+        differs = try container.decodeIfPresent(Int.self, forKey: .differs) ?? 0
+        try validateNonNegativeDecoded(total, forKey: .total, in: container)
+        try validateNonNegativeDecoded(outdated, forKey: .outdated, in: container)
+        try validateNonNegativeDecoded(errors, forKey: .errors, in: container)
+        try validateNonNegativeDecoded(untrusted, forKey: .untrusted, in: container)
+        try validateNonNegativeDecoded(pinned, forKey: .pinned, in: container)
+        try validateNonNegativeDecoded(disabled, forKey: .disabled, in: container)
+        try validateNonNegativeDecoded(checking, forKey: .checking, in: container)
+        try validateNonNegativeDecoded(differs, forKey: .differs, in: container)
     }
 }
 
@@ -88,15 +143,15 @@ public struct StatusItem: Codable, Equatable {
         lastChecked: Date?,
         error: String?
     ) {
-        self.id = id
-        self.name = name
-        self.category = category
-        self.current = current
-        self.latest = latest
+        self.id = SecretRedactor.redact(id)
+        self.name = SecretRedactor.redact(name)
+        self.category = SecretRedactor.redact(category)
+        self.current = current.map(SecretRedactor.redact)
+        self.latest = latest.map(SecretRedactor.redact)
         self.status = status
         self.pinned = pinned
         self.lastChecked = lastChecked
-        self.error = error
+        self.error = error.map(SecretRedactor.redact)
     }
 
     enum CodingKeys: String, CodingKey {

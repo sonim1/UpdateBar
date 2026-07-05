@@ -1,0 +1,549 @@
+import ArgumentParser
+import UpdateBarCore
+
+extension UpdateBar {
+    static var topLevelHelpTargets: Set<String> {
+        Set(
+            configuration.subcommands.flatMap { subcommand in
+                [subcommand._commandName] + subcommand.configuration.aliases
+            }
+        ).union(["help"])
+    }
+
+    static func validatePreflightArguments(_ arguments: [String]) throws {
+        try validateRemovedListCommand(arguments)
+        try validateRemovedVersionCommand(arguments)
+        try validateRemovedAddOptions(arguments)
+        try validateRemovedUpdateOptions(arguments)
+        try validateRemovedScanOptions(arguments)
+        try validateMachineOutputBooleanAssignments(arguments)
+        try validateMachineOutputBooleanValuePairs(arguments)
+        try validateIntrinsicJSONFlags(arguments)
+        try validateLeadingMachineOutputFlag(arguments)
+        try validateUnsupportedJSONStreamFlags(arguments)
+        try validateHelpTarget(arguments, knownTopLevelHelpTargets: topLevelHelpTargets)
+        try validateTopLevelTarget(
+            arguments, knownTopLevelTargets: topLevelHelpTargets, when: isInlineVersionFlag)
+        try validateTopLevelTarget(
+            arguments, knownTopLevelTargets: topLevelHelpTargets, when: isMachineOutputFlag)
+        try validateHelpCommandPath(arguments)
+        try validateHelpCommandTrailingInlineHelpArguments(arguments)
+        try validateTrailingInlineHelpArguments(arguments)
+        try validateTrailingInlineVersionArguments(arguments)
+        try validateApproveRequiresField(arguments)
+    }
+
+    private static func validateRemovedListCommand(_ arguments: [String]) throws {
+        guard isRemovedCommand("list", in: arguments) else { return }
+        throw ValidationError(
+            """
+            updatebar list was removed.
+            Run updatebar status to list registered item ids.
+            """)
+    }
+
+    private static func validateRemovedVersionCommand(_ arguments: [String]) throws {
+        guard isRemovedCommand("version", in: arguments) else { return }
+        throw ValidationError(
+            """
+            updatebar version was removed.
+            Run updatebar --version.
+            """)
+    }
+
+    private static func isRemovedCommand(_ command: String, in arguments: [String]) -> Bool {
+        arguments.first == command
+            || (arguments.first == "help" && arguments.dropFirst().first == command)
+    }
+
+    private static func validateRemovedAddOptions(_ arguments: [String]) throws {
+        guard arguments.first == "add" else { return }
+        if hasOption("--ai", in: arguments) {
+            throw ValidationError(
+                """
+                add --ai was removed.
+                Run updatebar template recipe to draft recipe JSON, or use an external agent, then run updatebar add --from <file>.
+                """)
+        }
+        if hasOption("--provider", in: arguments) {
+            throw ValidationError(
+                """
+                add --provider was removed.
+                Recipe authoring belongs to external agents. Save generated recipe JSON, then run updatebar add --from <file>.
+                """)
+        }
+        if hasOption("--manual", in: arguments) {
+            throw ValidationError(
+                """
+                add --manual was removed.
+                Run updatebar add --from <file>, or updatebar add --from - for stdin.
+                """)
+        }
+        if hasOption("--trust", in: arguments) {
+            throw ValidationError(
+                """
+                add --trust was removed.
+                New recipes are saved untrusted. Run updatebar approvals <id> to review command fields.
+                """)
+        }
+    }
+
+    private static func validateRemovedUpdateOptions(_ arguments: [String]) throws {
+        guard arguments.first == "update" else { return }
+        if hasOption("--all", in: arguments) {
+            throw ValidationError(
+                """
+                update --all was removed.
+                Run updatebar update without ids to update every approved outdated item.
+                """)
+        }
+    }
+
+    private static func validateRemovedScanOptions(_ arguments: [String]) throws {
+        guard let command = arguments.first,
+            command == "scan" || command == "init",
+            hasOption("--detectors", in: arguments)
+        else {
+            return
+        }
+        throw ValidationError(
+            """
+            \(command) --detectors was removed.
+            Run updatebar \(command) --category <category> to filter results. Default scan sources are selected automatically.
+            """)
+    }
+
+    private static func validateIntrinsicJSONFlags(_ arguments: [String]) throws {
+        guard let command = intrinsicJSONCommand(in: arguments) else { return }
+        if hasOption("--json-stream", in: arguments) {
+            throw ValidationError(
+                """
+                \(command) does not support JSONL streaming.
+                Run updatebar \(command) without --json-stream.
+                Usage: updatebar \(command)
+                """)
+        }
+        if hasOption("--json", in: arguments) {
+            throw ValidationError(
+                """
+                \(command) already prints JSON.
+                Run updatebar \(command) without --json.
+                Usage: updatebar \(command)
+                """)
+        }
+    }
+
+    private static func intrinsicJSONCommand(in arguments: [String]) -> String? {
+        if arguments.first == "schema" {
+            return "schema"
+        }
+        guard arguments.first == "template",
+            let subcommand = arguments.dropFirst().first(where: { !$0.hasPrefix("-") }),
+            subcommand == "recipe" || subcommand == "manifest"
+        else {
+            return nil
+        }
+        return "template \(subcommand)"
+    }
+
+    private static func validateMachineOutputBooleanAssignments(_ arguments: [String]) throws {
+        for argument in arguments {
+            guard let assignment = machineOutputAssignment(argument) else { continue }
+            throw ValidationError(
+                invalidMachineOutputBooleanMessage(flag: assignment.flag, value: assignment.value))
+        }
+    }
+
+    private static func validateMachineOutputBooleanValuePairs(_ arguments: [String]) throws {
+        guard noPositionalMachineOutputCommands.contains(commandPath(in: arguments)) else { return }
+
+        for index in arguments.indices {
+            guard let flag = machineOutputFlagName(arguments[index]),
+                !arguments[index].contains("=")
+            else {
+                continue
+            }
+
+            let valueIndex = arguments.index(after: index)
+            guard valueIndex < arguments.endIndex,
+                !arguments[valueIndex].hasPrefix("-")
+            else {
+                continue
+            }
+
+            throw ValidationError(
+                invalidMachineOutputBooleanMessage(flag: flag, value: arguments[valueIndex]))
+        }
+    }
+
+    private static func invalidMachineOutputBooleanMessage(flag: String, value: String) -> String {
+        """
+        invalid boolean value for \(flag): \(value).
+        Use \(flag), \(flag)=true, or \(flag)=false.
+        """
+    }
+
+    private static func machineOutputAssignment(_ argument: String) -> (
+        flag: String, value: String
+    )? {
+        if let value = assignmentValue(in: argument, for: "--json") {
+            return ("--json", value)
+        }
+        if let value = assignmentValue(in: argument, for: "--json-stream") {
+            return ("--json-stream", value)
+        }
+        return nil
+    }
+
+    private static func assignmentValue(in argument: String, for flag: String) -> String? {
+        let prefix = "\(flag)="
+        guard argument.hasPrefix(prefix) else { return nil }
+        return String(argument.dropFirst(prefix.count))
+    }
+
+    private static func validateLeadingMachineOutputFlag(_ arguments: [String]) throws {
+        guard let argument = arguments.first,
+            let flag = machineOutputFlagName(argument)
+        else {
+            return
+        }
+        let usage =
+            suggestedMachineOutputUsage(afterLeadingFlagIn: arguments, flag: flag)
+            ?? "updatebar <subcommand> \(flag)"
+
+        throw ValidationError(
+            """
+            machine output flags must follow a subcommand.
+            Run \(usage).
+            """)
+    }
+
+    private static func suggestedMachineOutputUsage(
+        afterLeadingFlagIn arguments: [String], flag: String
+    ) -> String? {
+        let remaining = Array(arguments.dropFirst())
+        guard let first = remaining.first, !first.hasPrefix("-") else { return nil }
+
+        let commandTokens: [String]
+        if remaining.count >= 2 {
+            let nested = remaining.prefix(2).joined(separator: " ")
+            commandTokens = jsonOutputUsage[nested] == nil ? [first] : Array(remaining.prefix(2))
+        } else {
+            commandTokens = [first]
+        }
+        let command = commandTokens.joined(separator: " ")
+        let reordered = (commandTokens + remaining.dropFirst(commandTokens.count) + [flag]).joined(
+            separator: " ")
+        let jsonFallback = (commandTokens + remaining.dropFirst(commandTokens.count) + ["--json"])
+            .joined(separator: " ")
+
+        if flag == "--json-stream" {
+            if jsonStreamCommands.contains(command) {
+                return "updatebar \(reordered)"
+            }
+            if remaining.count > commandTokens.count {
+                return "updatebar \(jsonFallback)"
+            }
+            return jsonOutputUsage[command]
+        }
+        if remaining.count > commandTokens.count {
+            return "updatebar \(reordered)"
+        }
+        return jsonOutputUsage[command] ?? "updatebar \(reordered)"
+    }
+
+    private static func validateUnsupportedJSONStreamFlags(_ arguments: [String]) throws {
+        guard hasOption("--json-stream", in: arguments),
+            let command = unsupportedJSONStreamCommand(in: arguments)
+        else {
+            return
+        }
+        throw ValidationError(unsupportedJSONStreamMessage(for: command))
+    }
+
+    private static func unsupportedJSONStreamMessage(for command: String) -> String {
+        if command == "init" {
+            return """
+                init does not support JSONL streaming.
+                Run updatebar init --select all --json for headless setup, or updatebar scan --json to preview candidates.
+                """
+        }
+        if let usage = jsonOutputUsage[command] {
+            return """
+                \(command) does not support JSONL streaming.
+                Run \(usage) for machine-readable output, or updatebar check --json-stream to stream refresh progress.
+                """
+        }
+        return """
+            \(command) does not support JSONL streaming.
+            Run updatebar \(command) --json for a snapshot, or updatebar check --json-stream to stream refresh progress.
+            """
+    }
+
+    private static func unsupportedJSONStreamCommand(in arguments: [String]) -> String? {
+        guard let first = arguments.first, !first.hasPrefix("-") else { return nil }
+
+        let commandPath = commandPath(in: arguments)
+        if commandPath.contains(" "),
+            jsonOutputUsage[commandPath] != nil
+        {
+            return commandPath
+        }
+        return jsonOutputUsage[first] == nil ? nil : first
+    }
+
+    private static func commandPath(in arguments: [String]) -> String {
+        let tokens = arguments.prefix(while: { !$0.hasPrefix("-") })
+        if tokens.count >= 2 {
+            let nested = tokens.prefix(2).joined(separator: " ")
+            if jsonOutputUsage[nested] != nil {
+                return nested
+            }
+        }
+        return tokens.first ?? ""
+    }
+
+    private static let jsonOutputUsage = [
+        "add": "updatebar add --json",
+        "approve": "updatebar approve <id> --field <field> --json",
+        "approvals": "updatebar approvals <id> --json",
+        "background install": "updatebar background install --yes --json",
+        "background status": "updatebar background status --json",
+        "background uninstall": "updatebar background uninstall --json",
+        "config get": "updatebar config get --json",
+        "config set": "updatebar config set <key> <value> --json",
+        "disable": "updatebar disable <id> --json",
+        "doctor": "updatebar doctor --json",
+        "enable": "updatebar enable <id> --json",
+        "export": "updatebar export --json",
+        "import": "updatebar import <file> --json",
+        "init": "updatebar init --select all --json",
+        "pin": "updatebar pin <id> [version] --json",
+        "remove": "updatebar remove <id> --json",
+        "revoke": "updatebar revoke <id> --field <field> --json",
+        "scan": "updatebar scan --json",
+        "status": "updatebar status --json",
+        "unpin": "updatebar unpin <id> --json",
+        "validate": "updatebar validate <file> --json",
+    ]
+
+    private static let jsonStreamCommands: Set<String> = ["check", "update"]
+
+    private static let noPositionalMachineOutputCommands: Set<String> = [
+        "doctor",
+        "scan",
+        "status",
+    ]
+
+    private static func validateTopLevelTarget(
+        _ arguments: [String],
+        knownTopLevelTargets: Set<String>,
+        when isFlag: (String) -> Bool
+    ) throws {
+        guard arguments.contains(where: isFlag),
+            let first = arguments.first,
+            !isFlag(first),
+            !first.hasPrefix("-")
+        else {
+            return
+        }
+
+        guard knownTopLevelTargets.contains(first) else {
+            throw ValidationError(
+                """
+                Unexpected argument '\(first)'
+                Usage: updatebar <subcommand>
+                  See 'updatebar --help' for more information.
+                """)
+        }
+    }
+
+    private static func validateHelpCommandPath(_ arguments: [String]) throws {
+        guard arguments.first == "help", arguments.count > 1 else {
+            return
+        }
+
+        var command: ParsableCommand.Type = Self.self
+        var path: [String] = []
+        for target in arguments.dropFirst() {
+            guard !target.hasPrefix("-") else {
+                return
+            }
+            if path.isEmpty, target == "help" {
+                if let extra = arguments.dropFirst(2).first(where: { !$0.hasPrefix("-") }) {
+                    throw ValidationError(
+                        """
+                        Unexpected help target '\(extra)' after updatebar help help
+                        Usage: updatebar help help
+                        """)
+                }
+                return
+            }
+            guard
+                let next = command.configuration.subcommands.first(where: { subcommand in
+                    subcommand._commandName == target
+                        || subcommand.configuration.aliases.contains(target)
+                })
+            else {
+                let parent =
+                    path.isEmpty ? "updatebar" : "updatebar help \(path.joined(separator: " "))"
+                throw ValidationError(
+                    """
+                    Unexpected help target '\(target)' after \(parent)
+                    Usage: updatebar help <subcommand>
+                      See 'updatebar --help' for more information.
+                    """)
+            }
+            path.append(target)
+            command = next
+        }
+    }
+
+    private static func validateTrailingInlineHelpArguments(_ arguments: [String]) throws {
+        try validateTrailingInlineArguments(
+            arguments,
+            matching: isInlineHelpFlag,
+            flagSynopsis: "--help",
+            skipHelpCommand: true
+        ) { command, trailing in
+            command == "updatebar --help" && !trailing.hasPrefix("-")
+                ? """
+                Unexpected argument '\(trailing)' after \(command)
+                Usage: updatebar --help
+                  Use 'updatebar help \(trailing)' for subcommand help.
+                """
+                : """
+                Unexpected argument '\(trailing)' after \(command)
+                Usage: \(command)
+                """
+        }
+    }
+
+    private static func validateHelpCommandTrailingInlineHelpArguments(_ arguments: [String]) throws
+    {
+        guard arguments.first == "help",
+            let flagIndex = arguments.firstIndex(where: isInlineHelpFlag)
+        else {
+            return
+        }
+
+        let afterFlagIndex = arguments.index(after: flagIndex)
+        guard afterFlagIndex < arguments.endIndex,
+            let trailing = arguments[afterFlagIndex...].first
+        else {
+            return
+        }
+
+        let commandTokens = arguments[..<flagIndex].joined(separator: " ")
+        throw ValidationError(
+            """
+            Unexpected argument '\(trailing)' after updatebar \(commandTokens) --help
+            Usage: updatebar \(commandTokens) --help
+            """)
+    }
+
+    private static func validateTrailingInlineVersionArguments(_ arguments: [String]) throws {
+        try validateTrailingInlineArguments(
+            arguments,
+            matching: isInlineVersionFlag,
+            flagSynopsis: "--version",
+            skipHelpCommand: false
+        ) { command, trailing in
+            """
+            Unexpected argument '\(trailing)' after \(command)
+            Usage: \(command)
+            """
+        }
+    }
+
+    private static func validateTrailingInlineArguments(
+        _ arguments: [String],
+        matching isFlag: (String) -> Bool,
+        flagSynopsis: String,
+        skipHelpCommand: Bool,
+        message: (String, String) -> String
+    ) throws {
+        guard !skipHelpCommand || arguments.first != "help",
+            let flagIndex = arguments.firstIndex(where: isFlag)
+        else {
+            return
+        }
+
+        let afterFlagIndex = arguments.index(after: flagIndex)
+        guard afterFlagIndex < arguments.endIndex,
+            let trailing = arguments[afterFlagIndex...].first
+        else {
+            return
+        }
+
+        let command = inlineCommand(
+            argumentsBeforeFlag: arguments[..<flagIndex], flagSynopsis: flagSynopsis)
+        throw ValidationError(message(command, trailing))
+    }
+
+    private static func inlineCommand(argumentsBeforeFlag: ArraySlice<String>, flagSynopsis: String)
+        -> String
+    {
+        var command: ParsableCommand.Type = Self.self
+        var path: [String] = []
+        for target in argumentsBeforeFlag {
+            guard !target.hasPrefix("-"),
+                let next = command.configuration.subcommands.first(where: { subcommand in
+                    subcommand._commandName == target
+                        || subcommand.configuration.aliases.contains(target)
+                })
+            else {
+                break
+            }
+            path.append(target)
+            command = next
+        }
+        return path.isEmpty
+            ? "updatebar \(flagSynopsis)"
+            : "updatebar \(path.joined(separator: " ")) \(flagSynopsis)"
+    }
+
+    private static func isInlineHelpFlag(_ argument: String) -> Bool {
+        argument == "--help" || argument == "-h"
+    }
+
+    private static func isInlineVersionFlag(_ argument: String) -> Bool {
+        argument == "--version"
+    }
+
+    private static func isMachineOutputFlag(_ argument: String) -> Bool {
+        machineOutputFlagName(argument) != nil
+    }
+
+    private static func machineOutputFlagName(_ argument: String) -> String? {
+        if argument == "--json" || argument.hasPrefix("--json=") {
+            return "--json"
+        }
+        if argument == "--json-stream" || argument.hasPrefix("--json-stream=") {
+            return "--json-stream"
+        }
+        return nil
+    }
+
+    private static func hasOption(_ option: String, in arguments: [String]) -> Bool {
+        arguments.contains { argument in
+            argument == option || argument.hasPrefix("\(option)=")
+        }
+    }
+
+    private static func validateApproveRequiresField(_ arguments: [String]) throws {
+        guard arguments.first == "approve",
+            !arguments.contains(where: isInlineHelpFlag),
+            !hasOption("--field", in: arguments)
+        else {
+            return
+        }
+
+        guard let id = arguments.dropFirst().first(where: { !$0.hasPrefix("-") }) else {
+            return
+        }
+        throw ValidationError(
+            "approve requires --field. Run updatebar approvals \(SecretRedactor.redact(id)) to review command fields."
+        )
+    }
+}

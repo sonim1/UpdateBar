@@ -1,11 +1,11 @@
 import {constants} from 'node:fs';
-import {access} from 'node:fs/promises';
+import {access, stat} from 'node:fs/promises';
 import path from 'node:path';
+import {redactSecrets} from './secrets.js';
 
 export type BinarySource =
   | 'UPDATEBAR_BIN'
   | 'configured'
-  | 'UPDATEBAR_CLI'
   | 'bundled'
   | 'PATH'
   | 'development_fallback';
@@ -37,14 +37,11 @@ export async function resolveUpdateBarBinary(
   const cwd = options.cwd ?? process.cwd();
   const defaultPathEntries = options.defaultPathEntries ?? ['/opt/homebrew/bin', '/usr/local/bin'];
 
-  const updateBarBin = await explicitPath(env.UPDATEBAR_BIN, 'UPDATEBAR_BIN');
+  const updateBarBin = await explicitPath(env.UPDATEBAR_BIN, 'UPDATEBAR_BIN', cwd);
   if (updateBarBin) return updateBarBin;
 
-  const configured = await explicitPath(options.configuredPath, 'configured');
+  const configured = await explicitPath(options.configuredPath, 'configured', cwd);
   if (configured) return configured;
-
-  const legacy = await explicitPath(env.UPDATEBAR_CLI, 'UPDATEBAR_CLI');
-  if (legacy) return legacy;
 
   if (options.bundledDirectory) {
     const bundled = path.join(options.bundledDirectory, 'updatebar');
@@ -57,19 +54,24 @@ export async function resolveUpdateBarBinary(
   const development = await developmentFallback(cwd);
   if (development) return {path: development, source: 'development_fallback'};
 
-  throw new BinaryResolutionError('updatebar binary not found');
+  throw new BinaryResolutionError(
+    'updatebar binary not found; install updatebar on PATH, run swift build from the UpdateBar project, or set UPDATEBAR_BIN=/path/to/updatebar'
+  );
 }
 
-async function explicitPath(value: string | undefined, source: BinarySource) {
+async function explicitPath(value: string | undefined, source: BinarySource, cwd: string) {
   if (!value) return undefined;
-  if (!(await isExecutable(value))) {
-    throw new BinaryResolutionError(`${source} path is not executable: ${value}`);
+  const candidate = path.isAbsolute(value) ? value : path.resolve(cwd, value);
+  if (!(await isExecutable(candidate))) {
+    throw new BinaryResolutionError(`${source} path is not executable: ${redactSecrets(candidate)}`);
   }
-  return {path: value, source};
+  return {path: candidate, source};
 }
 
 async function findOnPath(pathValue: string, defaultEntries: string[]) {
-  const entries = [...pathValue.split(path.delimiter).filter(Boolean), ...defaultEntries];
+  const entries = [...pathValue.split(path.delimiter), ...defaultEntries].filter(entry =>
+    path.isAbsolute(entry)
+  );
   const seen = new Set<string>();
   for (const entry of entries) {
     if (seen.has(entry)) continue;
@@ -95,6 +97,8 @@ async function developmentFallback(cwd: string) {
 
 async function isExecutable(candidate: string) {
   try {
+    const file = await stat(candidate);
+    if (!file.isFile()) return false;
     await access(candidate, constants.X_OK);
     return true;
   } catch {

@@ -20,6 +20,14 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Verify tag matches version
+        run: |
+          source version.env
+          expected="v${UPDATEBAR_VERSION}"
+          if [[ "$GITHUB_REF_NAME" != "$expected" ]]; then
+            echo "release tag must match version.env: expected $expected, got $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
       - uses: swift-actions/setup-swift@7591e4f04c00624cb043783da51a7fd6ee0a6bf6
         if: runner.os == 'Linux'
         with:
@@ -39,11 +47,12 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           bash Scripts/package-app.sh
-          . version.env
-          APP_ARCHIVE="dist/UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.app.tar.gz"
-          COPYFILE_DISABLE=1 tar -C dist -czf "$APP_ARCHIVE" UpdateBar.app
-          shasum -a 256 "$APP_ARCHIVE" >"${APP_ARCHIVE}.sha256"
+          APP_ARCHIVE="$(bash Scripts/build-app-archive.sh)"
           shasum -a 256 -c "${APP_ARCHIVE}.sha256"
+          bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"
+      - name: Verify release metadata
+        if: runner.os == 'macOS'
+        run: UPDATEBAR_VERIFY_STRICT=1 Scripts/verify-homebrew-metadata.sh dist
       - name: Upload archive
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

@@ -10,20 +10,21 @@ final class StatusServiceTests: XCTestCase {
         let paths = AppPaths(homeDirectory: root)
         let manifest = try loadManifest()
         try ManifestStore(paths: paths).save(manifest)
-        try StateStore(paths: paths).save(State(
-            schemaVersion: 1,
-            generatedAt: now,
-            items: [
-                "claude-code": ItemState(
-                    current: "1.4.2",
-                    latest: "1.5.0",
-                    status: .outdated,
-                    lastChecked: now,
-                    error: nil,
-                    backoffUntil: nil
-                )
-            ]
-        ))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1,
+                generatedAt: now,
+                items: [
+                    "claude-code": ItemState(
+                        current: "1.4.2",
+                        latest: "1.5.0",
+                        status: .outdated,
+                        lastChecked: now,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                ]
+            ))
 
         let snapshot = try statusService(paths: paths).snapshot()
 
@@ -31,6 +32,30 @@ final class StatusServiceTests: XCTestCase {
         XCTAssertEqual(snapshot.summary.outdated, 1)
         XCTAssertEqual(snapshot.items.map(\.id), ["claude-code"])
         XCTAssertEqual(snapshot.items.first?.status, .outdated)
+    }
+
+    func testSnapshotWithoutRefreshDoesNotCreateMissingStateFile() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        try ManifestStore(paths: paths).save(manifest(items: [try recipe(id: "tool")]))
+
+        let snapshot = try statusService(paths: paths).snapshot()
+
+        XCTAssertEqual(snapshot.summary.total, 1)
+        XCTAssertEqual(snapshot.items.first?.status, .checking)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+    }
+
+    func testSnapshotWithoutRefreshDoesNotCreateMissingManifestOrStateFiles() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+
+        let snapshot = try statusService(paths: paths).snapshot()
+
+        XCTAssertEqual(snapshot.summary.total, 0)
+        XCTAssertTrue(snapshot.items.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.manifestFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
     }
 
     func testRefreshMarksOnlyStaleTrustedEnabledUnpinnedItemsChecking() throws {
@@ -44,29 +69,32 @@ final class StatusServiceTests: XCTestCase {
         disabled.enabled = false
         var untrusted = try recipe(id: "untrusted")
         untrusted.trust.level = .untrusted
-        try ManifestStore(paths: paths).save(manifest(items: [
-            stale,
-            fresh,
-            pinned,
-            disabled,
-            untrusted
-        ]))
+        untrusted.trust.approvedCommands = [:]
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                stale,
+                fresh,
+                pinned,
+                disabled,
+                untrusted,
+            ]))
         var config = Config.default
         config.refresh.interval = Duration(hours: 1)
         try ConfigStore(paths: paths).save(config)
         let staleChecked = now.addingTimeInterval(-7_200)
         let freshChecked = now.addingTimeInterval(-60)
-        try StateStore(paths: paths).save(State(
-            schemaVersion: 1,
-            generatedAt: staleChecked,
-            items: [
-                "stale": itemState(lastChecked: staleChecked, error: "old error"),
-                "fresh": itemState(lastChecked: freshChecked),
-                "pinned": itemState(lastChecked: staleChecked),
-                "disabled": itemState(lastChecked: staleChecked),
-                "untrusted": itemState(lastChecked: staleChecked)
-            ]
-        ))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1,
+                generatedAt: staleChecked,
+                items: [
+                    "stale": itemState(lastChecked: staleChecked, error: "old error"),
+                    "fresh": itemState(lastChecked: freshChecked),
+                    "pinned": itemState(lastChecked: staleChecked),
+                    "disabled": itemState(lastChecked: staleChecked),
+                    "untrusted": itemState(lastChecked: staleChecked),
+                ]
+            ))
 
         let snapshot = try statusService(paths: paths).snapshot(refresh: true)
         let persisted = try StateStore(paths: paths).load()
@@ -84,6 +112,30 @@ final class StatusServiceTests: XCTestCase {
         XCTAssertEqual(persisted.items["fresh"]?.status, .ok)
     }
 
+    func testRefreshDoesNotMarkStaleItemCheckingWhenCheckCommandIsUnapproved() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        var item = try recipe(id: "partial")
+        item.trust.approvedCommands.removeValue(forKey: "check.cmd")
+        try ManifestStore(paths: paths).save(manifest(items: [item]))
+        var config = Config.default
+        config.refresh.interval = Duration(hours: 1)
+        try ConfigStore(paths: paths).save(config)
+        let staleChecked = now.addingTimeInterval(-7_200)
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1,
+                generatedAt: staleChecked,
+                items: ["partial": itemState(lastChecked: staleChecked)]
+            ))
+
+        let snapshot = try statusService(paths: paths).snapshot(refresh: true)
+        let persisted = try StateStore(paths: paths).load()
+
+        XCTAssertEqual(snapshot.items.first?.status, .untrusted)
+        XCTAssertEqual(persisted.items["partial"]?.status, .ok)
+    }
+
     private func statusService(paths: AppPaths) -> StatusService {
         StatusService(
             manifestStore: ManifestStore(paths: paths),
@@ -95,7 +147,11 @@ final class StatusServiceTests: XCTestCase {
 
     private func loadManifest() throws -> Manifest {
         let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
-        return try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        var manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        for index in manifest.items.indices {
+            TestApprovals.approveAllCommands(in: &manifest.items[index])
+        }
+        return manifest
     }
 
     private func manifest(items: [Recipe]) -> Manifest {
@@ -110,6 +166,7 @@ final class StatusServiceTests: XCTestCase {
         var item = try XCTUnwrap(loadManifest().items.first)
         item.id = id
         item.name = id
+        TestApprovals.approveAllCommands(in: &item)
         return item
     }
 

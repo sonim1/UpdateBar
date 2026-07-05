@@ -1,4 +1,5 @@
 public enum MenuBarMenuAction: Equatable, Sendable {
+    case refreshStatus
     case checkNow
     case updateAllApprovedOutdated
     case openTUI
@@ -8,10 +9,12 @@ public enum MenuBarMenuAction: Equatable, Sendable {
 
     public var title: String {
         switch self {
+        case .refreshStatus:
+            return "Refresh Status"
         case .checkNow:
             return "Check Now"
         case .updateAllApprovedOutdated:
-            return "Update All Approved Outdated"
+            return "Run Updates"
         case .openTUI:
             return "Open TUI"
         case .openConfig:
@@ -31,6 +34,7 @@ public enum MenuBarMenuAction: Equatable, Sendable {
     ]
 
     public static let errorRecovery: [MenuBarMenuAction] = [
+        .refreshStatus,
         .checkNow,
         .openTUI,
         .openConfig,

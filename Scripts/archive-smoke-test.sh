@@ -2,10 +2,15 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/version.env"
 ARCHIVE="${1:-}"
 
 if [[ -z "$ARCHIVE" ]]; then
-  ARCHIVE="$("$ROOT/Scripts/build-release.sh" | tail -n 1)"
+  ARCHIVE="$("$ROOT/Scripts/build-release.sh")"
+fi
+
+if [[ -f "${ARCHIVE}.sha256" ]]; then
+  "$ROOT/Scripts/verify-archive-checksum.sh" "$ARCHIVE"
 fi
 
 TMP_DIR="$(mktemp -d)"
@@ -16,8 +21,14 @@ BIN="$TMP_DIR/updatebar"
 HOME_DIR="$TMP_DIR/home"
 mkdir -p "$HOME_DIR"
 
-UPDATEBAR_HOME="$HOME_DIR" "$BIN" version --json >/dev/null
-UPDATEBAR_HOME="$HOME_DIR" "$BIN" schema --json >/dev/null
+CLI_VERSION="$(UPDATEBAR_HOME="$HOME_DIR" "$BIN" --version)"
+if [[ "$CLI_VERSION" != "$UPDATEBAR_VERSION" ]]; then
+  echo "archive CLI version mismatch for $ARCHIVE" >&2
+  echo "  expected: $UPDATEBAR_VERSION" >&2
+  echo "  actual:   $CLI_VERSION" >&2
+  exit 1
+fi
+UPDATEBAR_HOME="$HOME_DIR" "$BIN" schema >/dev/null
 UPDATEBAR_HOME="$HOME_DIR" "$BIN" guide agent >/dev/null
 UPDATEBAR_HOME="$HOME_DIR" "$BIN" guide recipe >/dev/null
 UPDATEBAR_HOME="$HOME_DIR" "$BIN" template recipe --kind npm --id archive-tool --source archive-tool >/dev/null

@@ -18,11 +18,18 @@ public struct MenuBarMenuItem: Equatable, Sendable {
     public var title: String
     public var action: MenuBarMenuItemAction?
     public var toolTip: String?
+    public var confirmation: MenuBarActionConfirmation?
 
-    public init(title: String, action: MenuBarMenuItemAction? = nil, toolTip: String? = nil) {
+    public init(
+        title: String,
+        action: MenuBarMenuItemAction? = nil,
+        toolTip: String? = nil,
+        confirmation: MenuBarActionConfirmation? = nil
+    ) {
         self.title = title
         self.action = action
         self.toolTip = toolTip
+        self.confirmation = confirmation
     }
 }
 
@@ -37,6 +44,10 @@ public enum MenuBarMenuItemAction: Equatable, Sendable {
 public struct MenuBarMenuModelBuilder: Sendable {
     public init() {}
 
+    private static let maxSectionItems = 6
+    private static let maxApprovalItems = 8
+    private static let maxApprovalRowsPerItem = 2
+
     public func makeMenu(
         state: MenuBarState,
         approvalStatuses: [String: [CommandApprovalStatus]],
@@ -46,7 +57,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
         var entries: [MenuBarMenuEntry] = []
 
         if let activeActionTitle {
-            appendDisabled("Running: \(activeActionTitle)", to: &entries)
+            appendDisabled("Running: \(SecretRedactor.redact(activeActionTitle))", to: &entries)
             appendAction(
                 "Cancel Current Action",
                 action: .cancelCurrentAction,
@@ -54,7 +65,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
             )
             appendSeparator(to: &entries)
         } else if let lastActionNotice {
-            appendDisabled(lastActionNotice, to: &entries)
+            appendDisabled(SecretRedactor.redact(lastActionNotice), to: &entries)
             appendSeparator(to: &entries)
         }
 
@@ -65,13 +76,29 @@ public struct MenuBarMenuModelBuilder: Sendable {
         appendSeparator(to: &entries)
         appendAction(MenuBarMenuAction.checkNow.title, action: .menu(.checkNow), to: &entries)
         appendAction(
-            MenuBarMenuAction.updateAllApprovedOutdated.title,
-            action: .menu(.updateAllApprovedOutdated),
-            to: &entries
-        )
+            MenuBarMenuAction.refreshStatus.title, action: .menu(.refreshStatus), to: &entries)
+        let updateAllAction = MenuBarMenuAction.updateAllApprovedOutdated
+        if state.outdatedItems.isEmpty {
+            appendDisabled(updateAllAction.title, toolTip: "No updates available.", to: &entries)
+        } else {
+            let confirmation = MenuBarActionConfirmation.updateAllApprovedOutdated(
+                itemNames: state.outdatedItems.map { SecretRedactor.redact($0.name) }
+            )
+            appendAction(
+                updateAllAction.title,
+                action: .menu(updateAllAction),
+                toolTip: confirmation.toolTip,
+                confirmation: confirmation,
+                to: &entries
+            )
+        }
         appendSeparator(to: &entries)
 
-        appendUpdates(state.outdatedItems, to: &entries)
+        appendUpdates(
+            state.outdatedItems,
+            approvalStatuses: approvalStatuses,
+            to: &entries
+        )
         appendApprovals(
             state.approvalItems,
             approvalStatuses: approvalStatuses,
@@ -91,7 +118,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
     public func makeErrorMenu(errorDescription: String) -> MenuBarMenuModel {
         var entries: [MenuBarMenuEntry] = []
         appendDisabled("UpdateBar Error", to: &entries)
-        appendDisabled(errorDescription, to: &entries)
+        appendDisabled(SecretRedactor.redact(errorDescription), to: &entries)
         appendSeparator(to: &entries)
         for action in MenuBarMenuAction.errorRecovery {
             appendAction(action.title, action: .menu(action), to: &entries)
@@ -99,11 +126,26 @@ public struct MenuBarMenuModelBuilder: Sendable {
         return MenuBarMenuModel(entries: entries)
     }
 
-    private func appendUpdates(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
-        appendSection("Updates", items: items, to: &entries) { item in
-            MenuBarMenuItem(
-                title: "\(item.name) \(item.current ?? "?") -> \(item.latest ?? "?")",
-                action: .update(id: item.id)
+    private func appendUpdates(
+        _ items: [StatusItem],
+        approvalStatuses: [String: [CommandApprovalStatus]],
+        to entries: inout [MenuBarMenuEntry]
+    ) {
+        appendSection("Updates (\(items.count))", items: items, to: &entries) { item in
+            let updateCommand = approvalStatuses[item.id]?.first { $0.field == "update.cmd" }
+            let name = SecretRedactor.redact(item.name)
+            let current = item.current.map(SecretRedactor.redact) ?? "?"
+            let latest = item.latest.map(SecretRedactor.redact) ?? "?"
+            let confirmation = MenuBarActionConfirmation.updateItem(
+                id: SecretRedactor.redact(item.id),
+                command: updateCommand.map { SecretRedactor.redact($0.command) },
+                cwd: updateCommand?.cwd.map(SecretRedactor.redact)
+            )
+            return MenuBarMenuItem(
+                title: "\(name) \(current) -> \(latest)",
+                action: .update(id: item.id),
+                toolTip: confirmation.toolTip,
+                confirmation: confirmation
             )
         }
     }
@@ -114,42 +156,108 @@ public struct MenuBarMenuModelBuilder: Sendable {
         to entries: inout [MenuBarMenuEntry]
     ) {
         guard !items.isEmpty else { return }
-        appendDisabled("Needs Approval", to: &entries)
+        appendDisabled("Needs Approval (\(items.count))", to: &entries)
+        var addedItems = 0
+        let totalApprovalRows = items.reduce(0) { total, item in
+            let approvals = approvalStatuses[item.id] ?? []
+            let header = 1
+            if approvals.isEmpty {
+                return total + header
+            }
+            let shown = min(approvals.count, Self.maxApprovalRowsPerItem)
+            let overflow = approvals.count > shown ? 1 : 0
+            return total + header + shown + overflow
+        }
         for item in items {
             let approvals = approvalStatuses[item.id] ?? []
             if approvals.isEmpty {
-                appendDisabled("\(item.name): no command fields", to: &entries)
+                if addedItems >= Self.maxApprovalItems {
+                    break
+                }
+                appendDisabled(
+                    "  \(SecretRedactor.redact(item.name)): no command fields", to: &entries)
+                addedItems += 1
                 continue
             }
-            for approval in approvals {
+
+            if addedItems >= Self.maxApprovalItems {
+                break
+            }
+
+            let plural = approvals.count == 1 ? "" : "s"
+            appendDisabled(
+                "  \(SecretRedactor.redact(item.name)) (\(approvals.count) command\(plural))",
+                to: &entries
+            )
+            addedItems += 1
+
+            let remaining = Self.maxApprovalItems - addedItems
+            let showCount = min(approvals.count, min(Self.maxApprovalRowsPerItem, remaining))
+            for approval in approvals.prefix(showCount) {
                 let verb = approval.approved ? "Revoke" : "Approve"
-                let command = collapseWhitespace(in: approval.command)
-                let cwd = approval.cwd.map { " [cwd: \($0)]" } ?? ""
+                let redactedCommand = SecretRedactor.redact(approval.command)
+                let redactedCwd = approval.cwd.map(SecretRedactor.redact)
+                let command = collapseWhitespace(in: redactedCommand)
+                let cwd = redactedCwd.map { " [cwd: \($0)]" } ?? ""
                 let action: MenuBarMenuItemAction =
                     approval.approved
                     ? .revoke(id: item.id, field: approval.field)
                     : .approve(id: item.id, field: approval.field)
+                let confirmation = MenuBarActionConfirmation.commandApproval(
+                    id: SecretRedactor.redact(item.id),
+                    field: approval.field,
+                    approving: !approval.approved,
+                    command: redactedCommand,
+                    cwd: redactedCwd
+                )
+                guard showCount > 0 else { break }
+                let label = "      \(verb) \(approval.field): \(command)\(cwd)"
                 entries.append(
                     .item(
                         MenuBarMenuItem(
-                            title: "\(verb) \(approval.field) for \(item.name): \(command)\(cwd)",
+                            title: label,
                             action: action,
-                            toolTip: "\(approval.field): \(approval.command)\(cwd)"
+                            toolTip:
+                                "\(confirmation.toolTip)\n\(approval.field): \(redactedCommand)\(cwd)",
+                            confirmation: confirmation
                         )))
+                addedItems += 1
+                if addedItems >= Self.maxApprovalItems {
+                    break
+                }
+            }
+
+            let hidden = approvals.count - showCount
+            if hidden > 0, addedItems < Self.maxApprovalItems {
+                appendDisabled("    + and \(hidden) more", to: &entries)
+                addedItems += 1
+            }
+            if addedItems >= Self.maxApprovalItems {
+                break
+            }
+        }
+        if addedItems < totalApprovalRows {
+            let overflow = totalApprovalRows - addedItems
+            if overflow > 0 {
+                appendDisabled("and \(overflow) more actions", to: &entries)
             }
         }
         appendSeparator(to: &entries)
     }
 
     private func appendErrors(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
-        appendSection("Errors", items: items, to: &entries) { item in
-            MenuBarMenuItem(title: "\(item.name): \(item.error ?? "error")")
+        appendSection("Errors (\(items.count))", items: items, to: &entries) { item in
+            let name = SecretRedactor.redact(item.name)
+            let error = SecretRedactor.redact(item.error ?? "error")
+            return MenuBarMenuItem(title: "\(name): \(error)")
         }
     }
 
     private func appendInstalled(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
-        appendSection("Installed", items: items, to: &entries) { item in
-            MenuBarMenuItem(title: "\(item.name) \(item.current ?? "")")
+        appendSection("Installed (\(items.count))", items: items, to: &entries) { item in
+            let name = SecretRedactor.redact(item.name)
+            let current = item.current.map { " \(SecretRedactor.redact($0))" } ?? ""
+            return MenuBarMenuItem(title: "\(name)\(current)")
         }
     }
 
@@ -161,22 +269,39 @@ public struct MenuBarMenuModelBuilder: Sendable {
     ) {
         guard !items.isEmpty else { return }
         appendDisabled(title, to: &entries)
-        for item in items {
+        for item in items.prefix(Self.maxSectionItems) {
             entries.append(.item(makeItem(item)))
+        }
+        let overflow = items.count - Self.maxSectionItems
+        if overflow > 0 {
+            appendDisabled("and \(overflow) more", to: &entries)
         }
         appendSeparator(to: &entries)
     }
 
-    private func appendDisabled(_ title: String, to entries: inout [MenuBarMenuEntry]) {
-        entries.append(.item(MenuBarMenuItem(title: title)))
+    private func appendDisabled(
+        _ title: String,
+        toolTip: String? = nil,
+        to entries: inout [MenuBarMenuEntry]
+    ) {
+        entries.append(.item(MenuBarMenuItem(title: title, toolTip: toolTip)))
     }
 
     private func appendAction(
         _ title: String,
         action: MenuBarMenuItemAction,
+        toolTip: String? = nil,
+        confirmation: MenuBarActionConfirmation? = nil,
         to entries: inout [MenuBarMenuEntry]
     ) {
-        entries.append(.item(MenuBarMenuItem(title: title, action: action)))
+        entries.append(
+            .item(
+                MenuBarMenuItem(
+                    title: title,
+                    action: action,
+                    toolTip: toolTip,
+                    confirmation: confirmation
+                )))
     }
 
     private func appendSeparator(to entries: inout [MenuBarMenuEntry]) {

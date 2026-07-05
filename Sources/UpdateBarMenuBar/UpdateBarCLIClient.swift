@@ -36,8 +36,8 @@ public protocol UpdateBarProcessRunning: AnyObject, Sendable {
     ) throws -> CommandResult
 }
 
-public extension UpdateBarProcessRunning {
-    func run(
+extension UpdateBarProcessRunning {
+    public func run(
         executablePath: String,
         arguments: [String],
         cancellationToken: CancellationToken?
@@ -80,16 +80,16 @@ public struct UpdateBarCLIClient: Sendable {
             arguments: ["update", id, "--yes", "--json"],
             cancellationToken: cancellationToken
         )
-        try ensureSuccess(result, allowedExitCodes: [0, 2])
+        try ensureSuccess(result, allowedExitCodes: [0, 2, 3])
     }
 
     public func updateAllApproved(cancellationToken: CancellationToken? = nil) throws {
         let result = try runner.run(
             executablePath: executablePath,
-            arguments: ["update", "--all", "--yes", "--json"],
+            arguments: ["update", "--yes", "--json"],
             cancellationToken: cancellationToken
         )
-        try ensureSuccess(result, allowedExitCodes: [0, 2])
+        try ensureSuccess(result, allowedExitCodes: [0, 2, 3])
     }
 
     public func approvals(id: String) throws -> [CommandApprovalStatus] {
@@ -102,7 +102,9 @@ public struct UpdateBarCLIClient: Sendable {
             [CommandApprovalStatus].self, from: Data(result.stdout.utf8))
     }
 
-    public func approve(id: String, field: String, cancellationToken: CancellationToken? = nil) throws {
+    public func approve(id: String, field: String, cancellationToken: CancellationToken? = nil)
+        throws
+    {
         let result = try runner.run(
             executablePath: executablePath,
             arguments: ["approve", id, "--field", field, "--json"],
@@ -111,7 +113,9 @@ public struct UpdateBarCLIClient: Sendable {
         try ensureSuccess(result, allowedExitCodes: [0])
     }
 
-    public func revoke(id: String, field: String, cancellationToken: CancellationToken? = nil) throws {
+    public func revoke(id: String, field: String, cancellationToken: CancellationToken? = nil)
+        throws
+    {
         let result = try runner.run(
             executablePath: executablePath,
             arguments: ["revoke", id, "--field", field, "--json"],
@@ -128,11 +132,14 @@ public struct UpdateBarCLIClient: Sendable {
     }
 
     private static func errorDetail(from result: CommandResult) -> String {
+        if let detail = jsonErrorDetail(from: result.stdout) {
+            return SecretRedactor.redact(detail)
+        }
         let stderr = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
         if !stderr.isEmpty {
-            return stderr
+            return SecretRedactor.redact(stderr)
         }
-        return jsonErrorDetail(from: result.stdout) ?? ""
+        return ""
     }
 
     private static func jsonErrorDetail(from stdout: String) -> String? {
@@ -142,7 +149,7 @@ public struct UpdateBarCLIClient: Sendable {
         }
 
         guard let data = stdout.data(using: .utf8),
-              let payload = try? JSONDecoder.updateBar.decode(ErrorPayload.self, from: data)
+            let payload = try? JSONDecoder.updateBar.decode(ErrorPayload.self, from: data)
         else {
             return nil
         }
@@ -164,7 +171,8 @@ public enum UpdateBarCLIClientError: Error, CustomStringConvertible, Equatable, 
     public var description: String {
         switch self {
         case .failed(let exitCode, let stderr):
-            let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            let detail = SecretRedactor.redact(
+                stderr.trimmingCharacters(in: .whitespacesAndNewlines))
             return detail.isEmpty
                 ? "updatebar exited \(exitCode)" : "updatebar exited \(exitCode): \(detail)"
         case .timedOut:
@@ -193,9 +201,13 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
         arguments: [String],
         cancellationToken: CancellationToken?
     ) throws -> CommandResult {
+        if cancellationToken?.isCancelled == true {
+            throw UpdateBarCLIClientError.cancelled
+        }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executablePath)
         process.arguments = arguments
+        process.environment = scrubbedEnvironment()
 
         let stdout = Pipe()
         let stderr = Pipe()
@@ -203,6 +215,10 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
         process.standardError = stderr
         let stdoutData = LockedData(maxBytes: maxOutputBytes)
         let stderrData = LockedData(maxBytes: maxOutputBytes)
+        let finished = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in
+            finished.signal()
+        }
 
         try process.run()
         let readersFinished = DispatchGroup()
@@ -217,17 +233,11 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
             readersFinished.leave()
         }
 
-        let finished = DispatchSemaphore(value: 0)
-        DispatchQueue.global(qos: .userInitiated).async {
-            process.waitUntilExit()
-            finished.signal()
-        }
-
         let deadline = Date().addingTimeInterval(timeout)
         while true {
             let remaining = deadline.timeIntervalSinceNow
             if remaining <= 0 {
-                process.terminate()
+                terminateProcess(process, gracefully: true)
                 _ = finished.wait(timeout: .now() + 2)
                 _ = readersFinished.wait(timeout: .now() + 2)
                 throw UpdateBarCLIClientError.timedOut
@@ -236,7 +246,7 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
                 break
             }
             if cancellationToken?.isCancelled == true {
-                process.terminate()
+                terminateProcess(process, gracefully: true)
                 _ = finished.wait(timeout: .now() + 2)
                 _ = readersFinished.wait(timeout: .now() + 2)
                 throw UpdateBarCLIClientError.cancelled
@@ -249,6 +259,30 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
             stdout: String(decoding: stdoutData.data(), as: UTF8.self),
             stderr: String(decoding: stderrData.data(), as: UTF8.self)
         )
+    }
+
+    private func scrubbedEnvironment() -> [String: String] {
+        SubprocessEnvironment.presentation(from: ProcessInfo.processInfo.environment)
+    }
+
+    private func terminateProcess(_ process: Process, gracefully: Bool) {
+        if !gracefully {
+            process.terminate()
+            return
+        }
+
+        process.interrupt()
+        let softDeadline = Date().addingTimeInterval(0.5)
+        while process.isRunning {
+            if Date() >= softDeadline {
+                break
+            }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+
+        if process.isRunning {
+            process.terminate()
+        }
     }
 
     private static func drain(_ handle: FileHandle, into output: LockedData) {

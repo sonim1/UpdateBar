@@ -12,15 +12,29 @@ public struct StateStore {
     public func load(now: Date = Date()) throws -> State {
         try ensureHome()
         if !fileManager.fileExists(atPath: paths.stateFile.path) {
-            let state = State(schemaVersion: 1, generatedAt: now, items: [:])
+            let state = emptyState(now: now)
             try save(state)
             return state
         }
+        return try readExistingState()
+    }
+
+    public func loadExistingOrEmpty(now: Date = Date()) throws -> State {
+        if !fileManager.fileExists(atPath: paths.stateFile.path) {
+            try AppHomeDirectory.ensureIfExists(paths.homeDirectory, fileManager: fileManager)
+            return emptyState(now: now)
+        }
+        try ensureHome()
+        return try readExistingState()
+    }
+
+    private func readExistingState() throws -> State {
         do {
             let data = try Data(contentsOf: paths.stateFile)
             return try JSONDecoder.updateBar.decode(State.self, from: data)
         } catch {
-            throw StoreError.corruptFile(path: paths.stateFile.path, reason: String(describing: error))
+            throw StoreError.corruptFile(
+                path: paths.stateFile.path, reason: storeErrorReason(for: error))
         }
     }
 
@@ -32,18 +46,24 @@ public struct StateStore {
         } catch let error as StoreError {
             throw error
         } catch {
-            throw StoreError.writeFailed(path: paths.stateFile.path, reason: String(describing: error))
+            throw StoreError.writeFailed(
+                path: paths.stateFile.path, reason: String(describing: error))
         }
     }
 
     public func withExclusiveLock<T>(_ body: () throws -> T) throws -> T {
-        try FileLock(
+        try ensureHome()
+        return try FileLock(
             url: paths.homeDirectory.appendingPathComponent("state.lock"),
             fileManager: fileManager
         ).withExclusiveLock(body)
     }
 
     private func ensureHome() throws {
-        try fileManager.createDirectory(at: paths.homeDirectory, withIntermediateDirectories: true)
+        try AppHomeDirectory.ensure(paths.homeDirectory, fileManager: fileManager)
+    }
+
+    private func emptyState(now: Date) -> State {
+        State(schemaVersion: 1, generatedAt: now, items: [:])
     }
 }

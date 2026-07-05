@@ -4,14 +4,10 @@ public struct GitHubReleaseLatestStrategy: LatestStrategy {
     public init() {}
 
     public func latest(for recipe: Recipe, context: LatestContext) throws -> String {
-        let ref = recipe.source.ref
-        let url: URL
-        if ref.contains("github.com") {
-            let parts = ref.split(separator: "/").suffix(2).map(String.init)
-            guard parts.count == 2 else { throw LatestError.invalidSource(ref) }
-            url = URL(string: "https://api.github.com/repos/\(parts[0])/\(parts[1])/releases")!
-        } else {
-            url = URL(string: "https://api.github.com/repos/\(ref)/releases")!
+        guard let repository = GitHubRepositoryRef.parse(recipe.source.ref),
+            let url = repository.releasesAPIURL
+        else {
+            throw invalidRepositoryRef(recipe.source.ref)
         }
         var headers: [String: String] = ["Accept": "application/vnd.github+json"]
         if let token = context.githubToken {
@@ -30,6 +26,10 @@ public struct GitHubReleaseLatestStrategy: LatestStrategy {
             return String(release.tagName.dropFirst())
         }
         return release.tagName
+    }
+
+    private func invalidRepositoryRef(_ ref: String) -> LatestError {
+        LatestError.invalidSource("\(ref): invalid GitHub repository ref")
     }
 
     private struct Release: Decodable {

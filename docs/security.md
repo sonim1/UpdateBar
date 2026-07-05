@@ -11,23 +11,38 @@ Imported recipes are saved with:
 ```
 
 `check` refuses unapproved `check.cmd` and `latest.cmd`. `update` refuses unapproved `update.cmd`.
+Untrusted recipes must keep `approved_commands` empty.
 
-Changing a command string or `update.cwd` changes its fingerprint and invalidates the affected approval.
+Changing a command string or `update.cwd` changes its `sha256:<64 lowercase hex>`
+fingerprint and invalidates the affected approval.
 
 ## Secrets
 
 Recipe commands run with an allowlisted environment. Common provider and GitHub token values are removed from child process environments and redacted from captured errors.
+The `updatebar tui` launcher, the Ink TUI's Swift CLI subprocess, and the Menu Bar CLI subprocess also use allowlisted environments and do not forward provider token environment variables.
+Presentation subprocesses also receive only absolute `PATH` entries.
+GitHub release-check tokens (`GITHUB_TOKEN` and `GH_TOKEN`) may pass through TUI and Menu Bar layers to the Swift CLI, but recipe command subprocesses still do not receive them.
+Manifest validation rejects literal API keys and token values in recipe fields that are stored, exported, or used by execution:
+
+- `id`, `name`, `category`, `path`, `pin`
+- `source.ref`, `source.branch`
+- `check.cmd`, `check.file`
+- `latest.cmd`, `latest.pattern`
+- `version_parse.regex`
+- `update.cmd`, `update.cwd`
+
+Recipes should reference environment variables instead of storing secret values.
 
 ## Command Boundaries
 
-`status` and `list` do not execute shell commands or network calls. `import` validates and writes manifest data only. `check` is the state refresh path. `update` only runs approved update commands.
+`status` does not execute shell commands or network calls. `import` validates and writes manifest data only. `check` is the state refresh path. `update` only runs approved update commands.
 
 ## Execution Boundary (Honest Statement)
 
 Approved recipe commands are **not sandboxed**. The current guarantees are:
 
 - approval-gated: a command runs only while its exact fingerprint is approved
-- environment-allowlisted: child processes see only `PATH`, `HOME`, `LANG`, `LC_ALL`, `LC_CTYPE`, `TMPDIR`, `USER`
+- environment-allowlisted: child processes see only `PATH`, `HOME`, `LANG`, `LC_ALL`, `LC_CTYPE`, `TMPDIR`, `USER`; relative entries are removed so recipe commands receive only absolute `PATH` entries
 - no login shell: commands run via `/bin/sh -c`; shell startup files are not sourced
 - timeout-capped and output-capped
 - secrets redacted from captured output and errors

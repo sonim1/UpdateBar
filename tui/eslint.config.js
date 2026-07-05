@@ -4,11 +4,5 @@ export default tseslint.config(
   {
     ignores: ['dist/**', 'node_modules/**']
   },
-  ...tseslint.configs.recommended,
-  {
-    files: ['src/**/*.ts', 'src/**/*.tsx'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'off'
-    }
-  }
+  ...tseslint.configs.recommended
 );

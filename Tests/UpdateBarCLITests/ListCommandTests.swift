@@ -1,48 +1,48 @@
 import Foundation
 import XCTest
-import UpdateBarCore
 
 final class ListCommandTests: XCTestCase {
-    func testListJSONReturnsManifestItemsWithoutStateMutation() throws {
+    func testListCommandPointsToStatusRecovery() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-list-tests")
-        let paths = AppPaths(homeDirectory: home)
-        let now = Date(timeIntervalSince1970: 1_800)
-        let manifest = Manifest(
-            schemaVersion: 1,
-            items: [
-                recipe(id: "bravo", name: "Bravo Tool"),
-                recipe(id: "alpha", name: "Alpha Tool")
-            ],
-            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
-        )
-        try ManifestStore(paths: paths).save(manifest)
 
-        let result = try CLIProcess.run(["list", "--json"], home: home)
+        let result = try CLIProcess.run(["list"], home: home)
 
-        XCTAssertEqual(result.exitCode, 0)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
-        let items = try JSONDecoder.updateBar.decode([Recipe].self, from: Data(result.stdout.utf8))
-        XCTAssertEqual(items.map(\.id), ["alpha", "bravo"])
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("updatebar list was removed"))
+        XCTAssertTrue(result.stderr.contains("Run updatebar status to list registered item ids."))
     }
 
-    private func recipe(id: String, name: String) -> Recipe {
-        var item = Recipe(
-            id: id,
-            name: name,
-            category: "cli",
-            path: nil,
-            source: Source(kind: .custom, ref: id, branch: nil),
-            versionScheme: .semver,
-            check: .command("exit 42"),
-            latest: LatestSpec(strategy: .cmd, cmd: "exit 43", pattern: nil),
-            versionParse: .regex("([0-9]+\\.[0-9]+\\.[0-9]+)"),
-            update: UpdateSpec(cmd: "exit 44", cwd: nil),
-            pin: nil,
-            enabled: true,
-            notify: true,
-            trust: Trust(level: .trusted, approvedCommands: [:])
-        )
-        TrustPolicy.approveAllCommands(in: &item)
-        return item
+    func testListCommandJSONPointsToStatusRecovery() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-list-tests")
+
+        let result = try CLIProcess.run(["list", "--json"], home: home)
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "usage_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("updatebar list was removed.") })
+        XCTAssertTrue(
+            payload.errors.contains {
+                $0.contains("Run updatebar status to list registered item ids.")
+            })
+    }
+
+    func testHelpListCommandPointsToStatusRecovery() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-list-tests")
+
+        let result = try CLIProcess.run(["help", "list"], home: home)
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stdout, "")
+        XCTAssertTrue(result.stderr.contains("updatebar list was removed"))
+        XCTAssertTrue(result.stderr.contains("Run updatebar status to list registered item ids."))
+    }
+
+    private struct ErrorEnvelope: Decodable {
+        var code: String
+        var errors: [String]
     }
 }

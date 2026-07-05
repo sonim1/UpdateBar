@@ -1,5 +1,5 @@
-import XCTest
 import UpdateBarCore
+import XCTest
 
 final class StateStoreTests: XCTestCase {
     func testStateStoreInitializesEmptyState() throws {
@@ -10,11 +10,68 @@ final class StateStoreTests: XCTestCase {
 
         XCTAssertEqual(state.schemaVersion, 1)
         XCTAssertTrue(state.items.isEmpty)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("state.json").path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent("state.json").path))
+    }
+
+    func testLoadExistingOrEmptyDoesNotCreateMissingStateFile() throws {
+        let root = try temporaryDirectory()
+        let store = StateStore(paths: AppPaths(homeDirectory: root))
+        let now = Date(timeIntervalSince1970: 1_812_499_200)
+
+        let state = try store.loadExistingOrEmpty(now: now)
+
+        XCTAssertEqual(state.schemaVersion, 1)
+        XCTAssertEqual(state.generatedAt, now)
+        XCTAssertTrue(state.items.isEmpty)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent("state.json").path))
+    }
+
+    func testLoadExistingOrEmptyDoesNotCreateMissingHomeDirectory() throws {
+        let root = try temporaryDirectory().appendingPathComponent("missing-home")
+        let store = StateStore(paths: AppPaths(homeDirectory: root))
+
+        let state = try store.loadExistingOrEmpty(now: Date(timeIntervalSince1970: 1_812_499_200))
+
+        XCTAssertTrue(state.items.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
+    }
+
+    func testLoadExistingOrEmptyRepairsExistingHomePermissionsWhenStateIsMissing() throws {
+        let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
+        let store = StateStore(paths: AppPaths(homeDirectory: root))
+
+        let state = try store.loadExistingOrEmpty(now: Date(timeIntervalSince1970: 1_812_499_200))
+
+        XCTAssertTrue(state.items.isEmpty)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent("state.json").path))
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
+    }
+
+    func testLoadExistingOrEmptyRepairsExistingHomePermissions() throws {
+        let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
+        let state = State(
+            schemaVersion: 1,
+            generatedAt: Date(timeIntervalSince1970: 1_812_499_200),
+            items: [:]
+        )
+        try JSONEncoder.updateBar.encode(state).write(to: root.appendingPathComponent("state.json"))
+        let store = StateStore(paths: AppPaths(homeDirectory: root))
+
+        _ = try store.loadExistingOrEmpty()
+
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
     }
 
     func testStateStoreWritesAndReadsPrivateFile() throws {
         let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
         let store = StateStore(paths: AppPaths(homeDirectory: root))
         let now = Date(timeIntervalSince1970: 1_812_499_200)
         let state = State(
@@ -40,6 +97,8 @@ final class StateStoreTests: XCTestCase {
             atPath: root.appendingPathComponent("state.json").path
         )
         XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
     }
 
     func testStateStoreOverwritesExistingFile() throws {
@@ -85,6 +144,29 @@ final class StateStoreTests: XCTestCase {
             FileManager.default.fileExists(atPath: root.appendingPathComponent("state.lock").path)
         )
         XCTAssertEqual(try store.load(), state)
+    }
+
+    func testStateStoreReportsDecodingFailureWithoutSwiftInternals() throws {
+        let root = try temporaryDirectory()
+        let stateURL = root.appendingPathComponent("state.json")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(
+            """
+            {
+              "schema_version": 1,
+              "generated_at": "2026-06-09T00:00:00Z"
+            }
+            """.utf8
+        ).write(to: stateURL)
+        let store = StateStore(paths: AppPaths(homeDirectory: root))
+
+        XCTAssertThrowsError(try store.load()) { error in
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("state.json"))
+            XCTAssertTrue(message.contains("missing required key items"))
+            XCTAssertFalse(message.contains("CodingKeys"))
+            XCTAssertFalse(message.contains("keyNotFound"))
+        }
     }
 
     private func temporaryDirectory() throws -> URL {

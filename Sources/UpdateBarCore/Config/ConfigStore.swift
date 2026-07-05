@@ -10,7 +10,7 @@ public struct ConfigStore {
     }
 
     public func load() throws -> Config {
-        try fileManager.createDirectory(at: paths.homeDirectory, withIntermediateDirectories: true)
+        try ensureHome()
         if !fileManager.fileExists(atPath: paths.configFile.path) {
             let config = Config.default
             try save(config)
@@ -20,9 +20,27 @@ public struct ConfigStore {
         return try parse(text)
     }
 
+    public func loadExistingOrDefault() throws -> Config {
+        if !fileManager.fileExists(atPath: paths.configFile.path) {
+            try AppHomeDirectory.ensureIfExists(paths.homeDirectory, fileManager: fileManager)
+            return .default
+        }
+        try ensureHome()
+        let text = try String(contentsOf: paths.configFile, encoding: .utf8)
+        return try parse(text)
+    }
+
     public func save(_ config: Config) throws {
-        try fileManager.createDirectory(at: paths.homeDirectory, withIntermediateDirectories: true)
-        try AtomicFileWriter.write(Data(render(config).utf8), to: paths.configFile, fileManager: fileManager)
+        do {
+            try ensureHome()
+            try AtomicFileWriter.write(
+                Data(render(config).utf8), to: paths.configFile, fileManager: fileManager)
+        } catch let error as ConfigError {
+            throw error
+        } catch {
+            throw ConfigError.writeFailed(
+                path: paths.configFile.path, reason: String(describing: error))
+        }
     }
 
     public func renderForDisplay(_ config: Config) -> String {
@@ -32,7 +50,10 @@ public struct ConfigStore {
     private func parse(_ text: String) throws -> Config {
         var config = Config.default
         var section = ""
-        for rawLine in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        for (lineIndex, rawLine) in text.split(separator: "\n", omittingEmptySubsequences: false)
+            .enumerated()
+        {
+            let lineNumber = lineIndex + 1
             let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
             if line.isEmpty || line.hasPrefix("#") { continue }
             if line.hasPrefix("[") && line.hasSuffix("]") {
@@ -43,17 +64,25 @@ public struct ConfigStore {
                 $0.trimmingCharacters(in: .whitespaces)
             }
             guard parts.count == 2, !section.isEmpty else {
-                throw ConfigError.corruptConfig("invalid line \(line)")
+                throw ConfigError.corruptConfig("line \(lineNumber): invalid line \(line)")
             }
             if section == "provider" {
                 continue
             }
             let key = "\(section).\(parts[0])"
-            if key == "security.allow_plaintext_secret_file" {
+            if key == "refresh.concurrency"
+                || key == "security.allow_import_exec"
+                || key == "security.allow_plaintext_secret_file"
+                || key == "notify.enabled"
+            {
                 continue
             }
             let value = unquote(parts[1])
-            try config.set(key, value: value)
+            do {
+                try config.set(key, value: value)
+            } catch {
+                throw ConfigError.corruptConfig("line \(lineNumber): \(error)")
+            }
         }
         return config
     }
@@ -62,14 +91,9 @@ public struct ConfigStore {
         """
         [refresh]
         interval = "\(config.refresh.interval)"
-        concurrency = \(config.refresh.concurrency)
 
         [security]
-        allow_import_exec = \(config.security.allowImportExec)
         require_https_source = \(config.security.requireHTTPSSource)
-
-        [notify]
-        enabled = \(config.notify.enabled)
 
         """
     }
@@ -79,5 +103,9 @@ public struct ConfigStore {
             return String(value.dropFirst().dropLast())
         }
         return value
+    }
+
+    private func ensureHome() throws {
+        try AppHomeDirectory.ensure(paths.homeDirectory, fileManager: fileManager)
     }
 }

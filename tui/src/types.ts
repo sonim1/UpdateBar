@@ -14,6 +14,11 @@ export interface StatusSnapshot {
     total: number;
     outdated: number;
     errors: number;
+    untrusted: number;
+    pinned: number;
+    disabled: number;
+    checking: number;
+    differs: number;
   };
   items: StatusItem[];
 }
@@ -38,7 +43,7 @@ export interface ScanReport {
 export interface ScanCandidate {
   id: string;
   name: string;
-  detector: 'brew' | 'npm_global' | 'known';
+  detector: 'brew' | 'npm_global' | 'known' | 'codex_skill' | 'mcp_config';
   category: string;
   capability: 'full' | 'check-only' | 'metadata-only' | 'unsupported';
   confidence: 'high' | 'medium' | 'low';
@@ -48,7 +53,7 @@ export interface ScanCandidate {
 }
 
 export interface ScanError {
-  detector: 'brew' | 'npm_global' | 'known';
+  detector: 'brew' | 'npm_global' | 'known' | 'codex_skill' | 'mcp_config';
   message: string;
 }
 
@@ -128,6 +133,11 @@ export interface CheckResult {
   error?: string;
 }
 
+export interface CheckReport {
+  items: CheckResult[];
+  summary: CheckSummary;
+}
+
 export interface CheckSummary {
   total: number;
   outdated: number;
@@ -135,4 +145,5 @@ export interface CheckSummary {
   untrusted: number;
   disabled: number;
   pinned: number;
+  differs: number;
 }

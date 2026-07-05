@@ -18,13 +18,13 @@ public struct CheckResult: Codable, Equatable {
         lastChecked: Date?,
         error: String?
     ) {
-        self.id = id
-        self.name = name
-        self.current = current
-        self.latest = latest
+        self.id = SecretRedactor.redact(id)
+        self.name = SecretRedactor.redact(name)
+        self.current = current.map(SecretRedactor.redact)
+        self.latest = latest.map(SecretRedactor.redact)
         self.status = status
         self.lastChecked = lastChecked
-        self.error = error
+        self.error = error.map(SecretRedactor.redact)
     }
 
     enum CodingKeys: String, CodingKey {

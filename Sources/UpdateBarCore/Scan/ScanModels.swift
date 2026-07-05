@@ -8,6 +8,15 @@ public struct ScanReport: Codable, Equatable {
         self.candidates = candidates
         self.errors = errors
     }
+
+    public func filtered(category: String?) throws -> ScanReport {
+        guard let normalizedCategory = try ScanCategory.filterValue(for: category) else {
+            return self
+        }
+        var report = self
+        report.candidates = candidates.filter { $0.category == normalizedCategory }
+        return report
+    }
 }
 
 public struct ScanCandidate: Codable, Equatable {
@@ -60,6 +69,8 @@ public enum ScanDetector: String, Codable, Equatable, CaseIterable {
     case brew
     case npmGlobal = "npm_global"
     case known
+    case codexSkill = "codex_skill"
+    case mcpConfig = "mcp_config"
 }
 
 public enum ScanCapability: String, Codable, Equatable {

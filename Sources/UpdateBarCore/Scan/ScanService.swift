@@ -4,7 +4,17 @@ public struct ScanService {
     public static let brewListCommand =
         [
             "if command -v brew >/dev/null 2>&1; then",
-            "leaves=$(brew leaves --installed-on-request 2>/dev/null || brew leaves 2>/dev/null || true);",
+            "leaves=$(brew leaves --installed-on-request 2>&1);",
+            "status=$?;",
+            "if [ $status -ne 0 ]; then",
+            "fallback=$(brew leaves 2>&1);",
+            "fallback_status=$?;",
+            "if [ $fallback_status -ne 0 ]; then",
+            "printf \"%s\\n%s\\n\" \"$leaves\" \"$fallback\" >&2;",
+            "exit $fallback_status;",
+            "fi;",
+            "leaves=$fallback;",
+            "fi;",
             "if [ -n \"$leaves\" ]; then brew list --formula --versions $leaves; fi;",
             "fi",
         ].joined(separator: " ")
@@ -14,9 +24,15 @@ public struct ScanService {
         #"for tool in rtk gstack gh claude codex node swift brew npm; do if command -v "$tool" >/dev/null 2>&1; then version=$("$tool" --version 2>/dev/null | head -n 1 || true); printf "%s\t%s\n" "$tool" "$version"; fi; done"#
 
     private let commandRunner: CommandRunning
+    private let homeDirectory: URL
 
-    public init(commandRunner: CommandRunning = CommandExecutor()) {
+    public init(
+        commandRunner: CommandRunning = CommandExecutor(),
+        homeDirectory: URL? = nil,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) {
         self.commandRunner = commandRunner
+        self.homeDirectory = homeDirectory ?? Self.defaultHomeDirectory(environment: environment)
     }
 
     public func scan(detectors: [ScanDetector] = ScanDetector.allCases) throws -> ScanReport {
@@ -27,7 +43,8 @@ public struct ScanService {
             do {
                 candidates.append(contentsOf: try scan(detector: detector))
             } catch {
-                errors.append(ScanError(detector: detector, message: String(describing: error)))
+                let message = SecretRedactor.redact(String(describing: error))
+                errors.append(ScanError(detector: detector, message: message))
             }
         }
 
@@ -42,6 +59,10 @@ public struct ScanService {
             return try npmGlobalCandidates()
         case .known:
             return try knownCandidates()
+        case .codexSkill:
+            return try codexSkillCandidates()
+        case .mcpConfig:
+            return try mcpConfigCandidates()
         }
     }
 
@@ -64,7 +85,6 @@ public struct ScanService {
                 update: UpdateSpec(cmd: "brew upgrade \(ShellQuote.single(name))", cwd: nil),
                 pin: nil,
                 enabled: true,
-                notify: true,
                 trust: Trust(level: .untrusted, approvedCommands: [:])
             )
             return ScanCandidate(
@@ -102,7 +122,6 @@ public struct ScanService {
                     cmd: "npm install -g \(ShellQuote.single(package))@latest", cwd: nil),
                 pin: nil,
                 enabled: true,
-                notify: true,
                 trust: Trust(level: .untrusted, approvedCommands: [:])
             )
             return ScanCandidate(
@@ -143,6 +162,154 @@ public struct ScanService {
             }
     }
 
+    private func codexSkillCandidates() throws -> [ScanCandidate] {
+        try [
+            ".codex/skills",
+            ".agents/skills",
+        ].flatMap { root in
+            try codexSkillCandidates(in: homeDirectory.appendingPathComponent(root), root: root)
+        }
+    }
+
+    private func codexSkillCandidates(in directory: URL, root: String) throws -> [ScanCandidate] {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory),
+            isDirectory.boolValue
+        else {
+            return []
+        }
+
+        let children = try FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )
+        return children.compactMap { url in
+            guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true,
+                FileManager.default.fileExists(
+                    atPath: url.appendingPathComponent("SKILL.md").path
+                )
+            else {
+                return nil
+            }
+            let name = SecretRedactor.redact(url.lastPathComponent)
+            return ScanCandidate(
+                id: "codex_skill.\(idComponent(name))",
+                name: name,
+                detector: .codexSkill,
+                category: "codex-skill",
+                capability: .metadataOnly,
+                confidence: .high,
+                installedVersion: nil,
+                sourceRef: SecretRedactor.redact("~/\(root)/\(url.lastPathComponent)"),
+                recipe: nil
+            )
+        }
+    }
+
+    private func mcpConfigCandidates() throws -> [ScanCandidate] {
+        try Self.mcpConfigSources.flatMap { source in
+            let url = homeRelativeURL(source.path)
+            switch source.kind {
+            case .json:
+                return try mcpConfigCandidatesFromJSON(url: url, displayPath: source.path)
+            case .codexTOML:
+                return try mcpConfigCandidatesFromCodexTOML(url: url, displayPath: source.path)
+            }
+        }
+    }
+
+    private func mcpConfigCandidatesFromJSON(
+        url: URL,
+        displayPath: String
+    ) throws -> [ScanCandidate] {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return []
+        }
+        let data = try Data(contentsOf: url)
+        guard !data.isEmpty,
+            let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let servers = object["mcpServers"] as? [String: Any]
+                ?? object["mcp_servers"] as? [String: Any]
+        else {
+            return []
+        }
+
+        return servers.compactMap { name, value in
+            let server = value as? [String: Any]
+            return mcpConfigCandidate(
+                name: name,
+                command: server?["command"] as? String,
+                displayPath: displayPath
+            )
+        }
+    }
+
+    private func mcpConfigCandidatesFromCodexTOML(
+        url: URL,
+        displayPath: String
+    ) throws -> [ScanCandidate] {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return []
+        }
+        let text = try String(contentsOf: url, encoding: .utf8)
+        var names = Set<String>()
+        var commands: [String: String] = [:]
+        var currentName: String?
+
+        for rawLine in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            if line.isEmpty || line.hasPrefix("#") { continue }
+            if line.hasPrefix("[") && line.hasSuffix("]") {
+                currentName = mcpServerName(fromTOMLSection: String(line.dropFirst().dropLast()))
+                if let currentName {
+                    names.insert(currentName)
+                }
+                continue
+            }
+            guard let currentName else { continue }
+            let parts = line.split(separator: "=", maxSplits: 1).map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }
+            guard parts.count == 2, parts[0] == "command" else { continue }
+            commands[currentName] = unquoteTOMLValue(parts[1])
+        }
+
+        return names.compactMap { name in
+            mcpConfigCandidate(name: name, command: commands[name], displayPath: displayPath)
+        }
+    }
+
+    private func mcpConfigCandidate(
+        name: String,
+        command: String?,
+        displayPath: String
+    ) -> ScanCandidate? {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            return nil
+        }
+        let command = command?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = SecretRedactor.redact(name)
+        let sourceRef: String
+        if let command, !command.isEmpty {
+            sourceRef = SecretRedactor.redact(command)
+        } else {
+            sourceRef = SecretRedactor.redact("~/\(displayPath)#\(name)")
+        }
+        return ScanCandidate(
+            id: "mcp_config.\(idComponent(displayName))",
+            name: displayName,
+            detector: .mcpConfig,
+            category: "mcp-server",
+            capability: .metadataOnly,
+            confidence: .medium,
+            installedVersion: nil,
+            sourceRef: sourceRef,
+            recipe: nil
+        )
+    }
+
     private func run(_ command: String) throws -> String {
         let result = try commandRunner.run(
             ShellCommand(command: command, cwd: nil),
@@ -156,14 +323,64 @@ public struct ScanService {
     }
 
     private func dedupe(_ candidates: [ScanCandidate]) -> [ScanCandidate] {
-        let managerOwnedNames = Set(
+        let managerOwnedNames =
             candidates
-                .filter { $0.detector != .known && $0.capability == .full }
-                .map { $0.name.lowercased() }
-        )
+            .filter { $0.detector != .known && $0.capability == .full }
+            .reduce(into: Set<String>()) { names, candidate in
+                names.formUnion(managerOwnedKnownToolNames(for: candidate))
+            }
+        var seenIDs = Set<String>()
         return candidates.filter { candidate in
-            !(candidate.detector == .known
+            guard seenIDs.insert(candidate.id).inserted else {
+                return false
+            }
+            return
+                !(candidate.detector == .known
                 && managerOwnedNames.contains(candidate.name.lowercased()))
+        }
+    }
+
+    private func managerOwnedKnownToolNames(for candidate: ScanCandidate) -> Set<String> {
+        var names = Set([candidate.name.lowercased()])
+        if candidate.detector == .brew, let versionlessName = versionlessBrewName(candidate.name) {
+            names.insert(versionlessName)
+        }
+        if candidate.detector == .npmGlobal,
+            candidate.category == "ai-agent",
+            let packageLeafName = scopedPackageLeafName(candidate.name)
+        {
+            names.insert(packageLeafName)
+        }
+        if candidate.detector == .npmGlobal {
+            names.formUnion(scopedPackageCommandAliases(candidate.name))
+        }
+        return names
+    }
+
+    private func versionlessBrewName(_ name: String) -> String? {
+        let normalized = name.lowercased()
+        guard let suffixStart = normalized.firstIndex(of: "@") else { return nil }
+        let versionlessName = normalized[..<suffixStart]
+        return versionlessName.isEmpty ? nil : String(versionlessName)
+    }
+
+    private func scopedPackageLeafName(_ name: String) -> String? {
+        let normalized = name.lowercased()
+        guard normalized.hasPrefix("@"),
+            let slashIndex = normalized.firstIndex(of: "/")
+        else {
+            return nil
+        }
+        let leafName = normalized[normalized.index(after: slashIndex)...]
+        return leafName.isEmpty ? nil : String(leafName)
+    }
+
+    private func scopedPackageCommandAliases(_ name: String) -> Set<String> {
+        switch name.lowercased() {
+        case "@anthropic-ai/claude-code":
+            return ["claude"]
+        default:
+            return []
         }
     }
 
@@ -185,14 +402,22 @@ public struct ScanService {
             .replacingOccurrences(of: "/", with: ".")
             .unicodeScalars
             .map { scalar in
-                CharacterSet.alphanumerics.contains(scalar) || scalar == "." || scalar == "_"
-                    || scalar == "-"
+                isASCIIIDComponentScalar(scalar)
                     ? String(scalar)
                     : "-"
             }
             .joined()
             .trimmingCharacters(in: CharacterSet(charactersIn: ".-_"))
         return cleaned.isEmpty ? "tool" : cleaned
+    }
+
+    private func isASCIIIDComponentScalar(_ scalar: UnicodeScalar) -> Bool {
+        switch scalar.value {
+        case 48...57, 97...122:
+            return true
+        default:
+            return scalar == "." || scalar == "_" || scalar == "-"
+        }
     }
 
     private func category(for name: String, detector: ScanDetector) -> String {
@@ -252,8 +477,78 @@ public struct ScanService {
         return String(line[range])
     }
 
+    private func homeRelativeURL(_ relativePath: String) -> URL {
+        relativePath.split(separator: "/").reduce(homeDirectory) { partial, component in
+            partial.appendingPathComponent(String(component))
+        }
+    }
+
+    private func mcpServerName(fromTOMLSection section: String) -> String? {
+        let prefix = "mcp_servers."
+        guard section.hasPrefix(prefix) else {
+            return nil
+        }
+        let rawName = String(section.dropFirst(prefix.count))
+        if rawName.contains(".") && !rawName.hasPrefix("\"") && !rawName.hasPrefix("'") {
+            return nil
+        }
+        let name = unquoteTOMLValue(rawName)
+        return name.isEmpty ? nil : name
+    }
+
+    private func unquoteTOMLValue(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count >= 2,
+            (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\""))
+                || (trimmed.hasPrefix("'") && trimmed.hasSuffix("'"))
+        {
+            return String(trimmed.dropFirst().dropLast())
+        }
+        return trimmed
+    }
+
+    private static func defaultHomeDirectory(environment: [String: String]) -> URL {
+        if let home = environment["HOME"], !home.isEmpty {
+            return URL(fileURLWithPath: home, isDirectory: true).standardizedFileURL
+        }
+        return FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+    }
+
+    private static let mcpConfigSources: [MCPConfigSource] = [
+        MCPConfigSource(path: ".cursor/mcp.json", kind: .json),
+        MCPConfigSource(path: ".claude.json", kind: .json),
+        MCPConfigSource(
+            path: "Library/Application Support/Claude/claude_desktop_config.json",
+            kind: .json
+        ),
+        MCPConfigSource(path: ".codex/config.toml", kind: .codexTOML),
+    ]
+
+    private struct MCPConfigSource {
+        var path: String
+        var kind: MCPConfigKind
+    }
+
+    private enum MCPConfigKind {
+        case json
+        case codexTOML
+    }
+
     private struct NPMGlobalList: Decodable {
         var dependencies: [String: Package]
+
+        enum CodingKeys: String, CodingKey {
+            case dependencies
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            dependencies =
+                try container.decodeIfPresent(
+                    [String: Package].self,
+                    forKey: .dependencies
+                ) ?? [:]
+        }
 
         struct Package: Decodable {
             var version: String?
@@ -266,8 +561,23 @@ public enum ScanServiceError: Error, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .commandFailed(let command, let exitCode, let stderr):
-            return "\(command): exited \(exitCode): \(stderr)"
+        case .commandFailed(_, let exitCode, let stderr):
+            let detail = Self.normalizedStderr(stderr)
+            guard !detail.isEmpty else {
+                return "exited \(exitCode)"
+            }
+            return "exited \(exitCode): \(detail)"
         }
+    }
+
+    private static func normalizedStderr(_ stderr: String) -> String {
+        var seen = Set<String>()
+        let normalized =
+            stderr
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && seen.insert($0).inserted }
+            .joined(separator: "\n")
+        return SecretRedactor.redact(normalized)
     }
 }

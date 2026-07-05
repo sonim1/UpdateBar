@@ -1,8 +1,9 @@
 import Foundation
+
 #if os(Linux)
-import Glibc
+    import Glibc
 #else
-import Darwin
+    import Darwin
 #endif
 
 struct FileLock {
@@ -15,7 +16,8 @@ struct FileLock {
     }
 
     func withExclusiveLock<T>(_ body: () throws -> T) throws -> T {
-        try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let fd = open(url.path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
         guard fd >= 0 else {
             throw StoreError.writeFailed(path: url.path, reason: "failed to open lock file")

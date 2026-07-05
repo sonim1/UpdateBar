@@ -4,59 +4,45 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   macos:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tui/package-lock.json
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .build
           key: macos-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
           restore-keys: macos-spm-${{ runner.os }}-
-      - name: Build
-        run: swift build
-      - name: Test
-        run: swift test
-      - name: Smoke
-        run: bash Scripts/smoke-test.sh
-      - name: E2E edgecases
-        run: UPDATEBAR_BIN=.build/debug/updatebar bash Scripts/e2e-edgecases.sh
-      - name: Release script smoke
-        run: bash Scripts/release-tar-args-test.sh
-      - name: Homebrew packaging smoke
-        run: bash Scripts/homebrew-packaging-test.sh
-      - name: Archive smoke
-        run: bash Scripts/archive-smoke-test.sh
-      - name: App package smoke
-        run: bash Scripts/package-app.sh
-      - name: TUI smoke
-        run: bash Scripts/tui-smoke-test.sh
-      - name: Format
-        run: |
-          if command -v swift-format >/dev/null 2>&1; then
-            swift-format lint --recursive Sources Tests
-          else
-            xcrun swift-format lint --recursive Sources Tests
-          fi
+      - name: Quality gate
+        run: bash Scripts/quality-gate.sh
 
   linux:
     runs-on: ubuntu-latest
     container: swift:6.0
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tui/package-lock.json
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .build
           key: linux-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
           restore-keys: linux-spm-${{ runner.os }}-
-      - name: Build
-        run: swift build
-      - name: Test
-        run: swift test
-      - name: E2E edgecases
-        run: UPDATEBAR_BIN=.build/debug/updatebar bash Scripts/e2e-edgecases.sh
-      - name: Release script smoke
-        run: bash Scripts/release-tar-args-test.sh
-      - name: Homebrew packaging smoke
-        run: bash Scripts/homebrew-packaging-test.sh
+      - name: Quality gate
+        run: SKIP_MENUBAR_SMOKE=1 bash Scripts/quality-gate.sh

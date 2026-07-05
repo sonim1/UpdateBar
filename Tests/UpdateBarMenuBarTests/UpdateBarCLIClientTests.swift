@@ -54,6 +54,64 @@ final class UpdateBarCLIClientTests: XCTestCase {
         }
     }
 
+    func testPrefersStructuredJSONErrorOverStderrFallback() {
+        let runner = RecordingRunner(
+            result: CommandResult(
+                exitCode: 1,
+                stdout: #"{"ok":false,"code":"usage_error","errors":["structured failure"]}"#,
+                stderr: "human fallback"
+            )
+        )
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        XCTAssertThrowsError(try client.approve(id: "tool", field: "update.cmd")) { error in
+            XCTAssertEqual(
+                String(describing: error),
+                "updatebar exited 1: structured failure"
+            )
+        }
+    }
+
+    func testRedactsStructuredJSONErrorDetails() {
+        let runner = RecordingRunner(
+            result: CommandResult(
+                exitCode: 1,
+                stdout: #"{"ok":false,"errors":["failed sk-or-v1-secret-value"]}"#,
+                stderr: ""
+            )
+        )
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        XCTAssertThrowsError(try client.status(refresh: false)) { error in
+            let message = String(describing: error)
+            XCTAssertFalse(message.contains("sk-or-v1-secret-value"))
+            XCTAssertTrue(message.contains("[REDACTED]"))
+        }
+    }
+
+    func testRedactsStderrFallbackErrorDetails() {
+        let runner = RecordingRunner(
+            result: CommandResult(exitCode: 1, stdout: "", stderr: "failed sk-or-v1-secret-value")
+        )
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        XCTAssertThrowsError(try client.status(refresh: false)) { error in
+            let message = String(describing: error)
+            XCTAssertFalse(message.contains("sk-or-v1-secret-value"))
+            XCTAssertTrue(message.contains("[REDACTED]"))
+        }
+    }
+
+    func testClientErrorDescriptionRedactsSecretLikeValues() {
+        let secret = "sk-or-v1-secret-value"
+        let error = UpdateBarCLIClientError.failed(exitCode: 1, stderr: "failed \(secret)")
+
+        let message = String(describing: error)
+
+        XCTAssertTrue(message.contains("[REDACTED]"))
+        XCTAssertFalse(message.contains(secret))
+    }
+
     func testUpdateActionsUseHeadlessJSONFlags() throws {
         let runner = RecordingRunner(result: CommandResult(exitCode: 0, stdout: "[]", stderr: ""))
         let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
@@ -73,7 +131,7 @@ final class UpdateBarCLIClientTests: XCTestCase {
                     arguments: ["update", "tool", "--yes", "--json"]),
                 CommandCall(
                     executablePath: "/tmp/updatebar",
-                    arguments: ["update", "--all", "--yes", "--json"]),
+                    arguments: ["update", "--yes", "--json"]),
             ])
     }
 
@@ -92,7 +150,26 @@ final class UpdateBarCLIClientTests: XCTestCase {
                     arguments: ["update", "tool", "--yes", "--json"]),
                 CommandCall(
                     executablePath: "/tmp/updatebar",
-                    arguments: ["update", "--all", "--yes", "--json"]),
+                    arguments: ["update", "--yes", "--json"]),
+            ])
+    }
+
+    func testUpdateActionsAllowApprovalBlockedExitCode() throws {
+        let runner = RecordingRunner(result: CommandResult(exitCode: 3, stdout: "[]", stderr: ""))
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        try client.update(id: "tool")
+        try client.updateAllApproved()
+
+        XCTAssertEqual(
+            runner.calls,
+            [
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["update", "tool", "--yes", "--json"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["update", "--yes", "--json"]),
             ])
     }
 
@@ -146,6 +223,45 @@ final class UpdateBarCLIClientTests: XCTestCase {
         XCTAssertEqual(result.stderr, "fedcba09")
     }
 
+    func testProcessRunnerScrubsInheritedEnvironment() throws {
+        let home = try temporaryDirectory(prefix: "updatebar-menubar-client-tests")
+        let bin = home.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try withProcessEnvironment([
+            "OPENROUTER_API_KEY": "sk-or-v1-secret-value",
+            "CUSTOM_SECRET": "custom-secret",
+            "GITHUB_TOKEN": "ghp_release_check_token",
+            "GH_TOKEN": "gh_release_check_token",
+            "UPDATEBAR_HOME": "/tmp/updatebar-home",
+            "PATH": ".:\(bin.path)",
+        ]) {
+            let runner = ProcessRunner(timeout: 5)
+
+            let result = try runner.run(
+                executablePath: "/bin/sh",
+                arguments: [
+                    "-c",
+                    """
+                    printf '%s:%s:%s:%s:%s' \
+                    "${OPENROUTER_API_KEY:-missing}" \
+                    "${CUSTOM_SECRET:-missing}" \
+                    "${GITHUB_TOKEN:-missing}" \
+                    "${GH_TOKEN:-missing}" \
+                    "${UPDATEBAR_HOME:-missing}"
+                    printf '\npath=%s' "${PATH:-missing}"
+                    """,
+                ]
+            )
+
+            XCTAssertTrue(
+                result.stdout.contains(
+                    "missing:missing:ghp_release_check_token:gh_release_check_token:/tmp/updatebar-home"
+                ))
+            XCTAssertTrue(result.stdout.contains("path=\(bin.path)"))
+            XCTAssertFalse(result.stdout.contains("path=.:"))
+        }
+    }
+
     func testProcessRunnerCancelsRunningProcess() throws {
         let runner = ProcessRunner(timeout: 5)
         let token = CancellationToken()
@@ -154,13 +270,76 @@ final class UpdateBarCLIClientTests: XCTestCase {
             token.cancel()
         }
 
-        XCTAssertThrowsError(try runner.run(
-            executablePath: "/bin/sh",
-            arguments: ["-c", "sleep 5"],
-            cancellationToken: token
-        )) { error in
+        XCTAssertThrowsError(
+            try runner.run(
+                executablePath: "/bin/sh",
+                arguments: ["-c", "sleep 5"],
+                cancellationToken: token
+            )
+        ) { error in
             XCTAssertEqual(error as? UpdateBarCLIClientError, .cancelled)
         }
+    }
+
+    func testProcessRunnerDoesNotLaunchWhenTokenIsAlreadyCancelled() throws {
+        let home = try temporaryDirectory(prefix: "updatebar-menubar-client-tests")
+        let marker = home.appendingPathComponent("started")
+        let runner = ProcessRunner(timeout: 5)
+        let token = CancellationToken()
+        token.cancel()
+
+        XCTAssertThrowsError(
+            try runner.run(
+                executablePath: "/bin/sh",
+                arguments: ["-c", "touch \(ShellQuote.single(marker.path))"],
+                cancellationToken: token
+            )
+        ) { error in
+            XCTAssertEqual(error as? UpdateBarCLIClientError, .cancelled)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
+    func testProcessRunnerTimesOut() throws {
+        let runner = ProcessRunner(timeout: 0.2)
+
+        XCTAssertThrowsError(
+            try runner.run(
+                executablePath: "/bin/sh",
+                arguments: ["-c", "sleep 5"]
+            )
+        ) { error in
+            XCTAssertEqual(error as? UpdateBarCLIClientError, .timedOut)
+        }
+    }
+
+    private func withProcessEnvironment(
+        _ values: [String: String],
+        run body: () throws -> Void
+    ) rethrows {
+        let previous = values.keys.reduce(into: [String: String?]()) { result, key in
+            result[key] = ProcessInfo.processInfo.environment[key]
+        }
+        for (key, value) in values {
+            setenv(key, value, 1)
+        }
+        defer {
+            for (key, value) in previous {
+                if let value {
+                    setenv(key, value, 1)
+                } else {
+                    unsetenv(key)
+                }
+            }
+        }
+        try body()
+    }
+
+    private func temporaryDirectory(prefix: String) throws -> URL {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        return root
     }
 }
 

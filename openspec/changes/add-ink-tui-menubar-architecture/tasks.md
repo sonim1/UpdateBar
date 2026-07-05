@@ -29,16 +29,17 @@
 - [x] 4.2 Add pinned Node dependencies for Ink, React, TypeScript, test runner, and lint/format tooling.
 - [x] 4.3 Implement a subprocess adapter that runs `updatebar status --json`, parses JSON, and maps known exit codes to typed TUI states.
 - [x] 4.4 Implement a JSONL stream reader that consumes CLI progress/log/result events without parsing human text.
-- [x] 4.5 Implement TUI screens for main menu, status, selectable update list, operation progress, logs, config entry points, and exit.
-- [x] 4.6 Implement keyboard navigation and cancellation that sends SIGINT to the active Swift CLI child process, then SIGTERM after a grace period.
-- [x] 4.7 Add Node/Ink tests for rendering states, subprocess adapter parsing, JSONL stream parsing, missing binary errors, invalid JSON errors, and cancellation behavior.
-- [x] 4.8 Verify TUI work with the selected package manager commands such as `npm test`, `npm run typecheck`, and `npm run lint` after the package manager is chosen.
+- [x] 4.5 Implement TUI screens for main menu, status, scan/select registration, operation progress, logs, config entry points, and exit.
+- [x] 4.6 Add an optional selectable update-target screen if product direction still wants item-by-item TUI updates; the current TUI runs selected approved outdated updates after confirmation.
+- [x] 4.7 Implement keyboard navigation and cancellation that sends SIGINT to the active Swift CLI child process, then SIGTERM after a grace period.
+- [x] 4.8 Add Node/Ink tests for rendering states, subprocess adapter parsing, JSONL stream parsing, missing binary errors, invalid JSON errors, and cancellation behavior.
+- [x] 4.9 Verify TUI work with the selected package manager commands such as `npm test`, `npm run typecheck`, and `npm run lint` after the package manager is chosen.
 
 ## 5. macOS Menu Bar Architecture
 
 - [x] 5.1 Define a Menu Bar service adapter that prefers direct `UpdateBarCore` calls for status, check, update, config, approvals, and logs.
 - [x] 5.2 Keep or add a CLI subprocess fallback adapter that consumes only documented JSON/JSONL contracts and never parses human output.
-- [x] 5.3 Add native Menu Bar actions for Check Now, Run Updates, Open TUI, Open Config, View Logs, and Quit.
+- [x] 5.3 Add native Menu Bar actions for Check Now, Refresh Status, Update Selected, Update All Approved Outdated, approve/revoke command fields, Open TUI, Open Config, View Logs, and Quit.
 - [x] 5.4 Implement non-blocking in-progress, success, failure, and cancellation UI states for Menu Bar actions.
 - [x] 5.5 Implement Open TUI by launching a terminal with the configured TUI command and required environment such as `UPDATEBAR_BIN` and `UPDATEBAR_HOME`.
 - [x] 5.6 Add Menu Bar tests under `Tests/UpdateBarMenuBarTests` for status formatting, action availability, direct-core adapter behavior, CLI fallback behavior, and Open TUI command construction.

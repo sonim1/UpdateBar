@@ -1,0 +1,217 @@
+import ArgumentParser
+import Foundation
+import UpdateBarCore
+
+struct UpdateCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "update",
+        abstract: "Run approved update commands for outdated items."
+    )
+
+    @Argument(help: "Item ids to update. Updates every outdated item when omitted.")
+    var ids: [String] = []
+
+    @Flag(
+        name: .long,
+        help:
+            "Run without an interactive prompt; required with --json/--json-stream to execute updates."
+    )
+    var yes = false
+
+    @Flag(name: .long, help: "Print machine-readable JSON.")
+    var json = false
+
+    @Flag(name: .long, help: "Print newline-delimited JSON progress events.")
+    var jsonStream = false
+
+    func run() throws {
+        try ensureJSONModeCompatibility(json: json, jsonStream: jsonStream)
+
+        let config = try ConfigStore().loadExistingOrDefault()
+        let itemIDs = unique(ids)
+        let updateAll = itemIDs.isEmpty
+        let results: [UpdateResult] = try withCancellationToken { cancellationToken in
+            let runner = UpdateRunner(
+                config: config,
+                commandRunner: CommandExecutor(cancellationToken: cancellationToken),
+                githubToken: ProcessInfo.processInfo.environment["GITHUB_TOKEN"]
+                    ?? ProcessInfo.processInfo.environment["GH_TOKEN"],
+                confirm: confirmUpdate
+            )
+
+            if jsonStream {
+                try runJSONStream(runner: runner, ids: itemIDs, all: updateAll)
+                return []
+            }
+
+            return try runner.update(ids: itemIDs, all: updateAll, assumeYes: yes)
+        }
+
+        if jsonStream {
+            return
+        }
+
+        if json {
+            try printJSON(results)
+        } else {
+            let registryIsEmpty = try ManifestStore().loadExistingOrEmpty().items.isEmpty
+            printHuman(results, registryIsEmpty: registryIsEmpty)
+        }
+
+        try enforceExitCodes(results)
+    }
+
+    private func printHuman(_ results: [UpdateResult], registryIsEmpty: Bool) {
+        if results.isEmpty {
+            if registryIsEmpty {
+                printEmptyRegistryNextStep()
+                return
+            }
+            writeStdout("No approved outdated items to update.")
+            return
+        }
+
+        writeStdout("ID\tOUTCOME\tCURRENT\tLATEST\tDETAIL")
+        for result in results {
+            let fields = [
+                result.id,
+                result.outcome.rawValue,
+                result.current ?? "-",
+                result.latest ?? "-",
+                result.error ?? "",
+            ]
+            writeStdout(fields.joined(separator: "\t"))
+        }
+
+        let blocked = results.filter { $0.outcome == .skippedUntrusted }
+        let cancelled = results.filter { $0.outcome == .cancelled }
+        let notOutdated = results.filter { $0.outcome == .skippedNotOutdated }
+        let missing = results.filter { $0.outcome == .missing }
+        let pinned = results.filter { $0.outcome == .skippedPinned }
+        let disabled = results.filter { $0.outcome == .skippedDisabled }
+        guard
+            !blocked.isEmpty || !cancelled.isEmpty || !notOutdated.isEmpty || !missing.isEmpty
+                || !pinned.isEmpty || !disabled.isEmpty
+        else {
+            return
+        }
+        var commands = approvalCommands(for: blocked.map(\.id))
+        if let retry = batchUpdateYesCommand(for: cancelled.map(\.id)) {
+            commands.append(retry)
+        }
+        if let check = batchCheckCommand(for: notOutdated.map(\.id)) {
+            commands.append(check)
+        }
+        commands.append(contentsOf: unpinCommands(for: pinned.map(\.id)))
+        commands.append(contentsOf: enableCommands(for: disabled.map(\.id)))
+        if !missing.isEmpty {
+            commands.append("updatebar status")
+        }
+        printNextCommands(commands)
+    }
+
+    private func runJSONStream(runner: UpdateRunner, ids: [String], all: Bool) throws {
+        let writer = JSONLWriter()
+        try writer.write(
+            MachineEvent(
+                event: .started,
+                operation: .update,
+                timestamp: Date()
+            ))
+
+        var results: [UpdateResult] = []
+        do {
+            let plan = try runner.plan(ids: ids, all: all)
+            try writer.write(
+                MachineEvent(
+                    event: .log,
+                    operation: .update,
+                    timestamp: Date(),
+                    message: "planned \(plan.count) item(s)",
+                    level: .info
+                ))
+
+            for item in plan {
+                try writer.write(
+                    MachineEvent(
+                        event: .itemStarted,
+                        operation: .update,
+                        timestamp: Date(),
+                        itemId: item.id,
+                        message: item.name
+                    ))
+                let itemResults = try runner.update(ids: [item.id], all: false, assumeYes: yes)
+                let result =
+                    itemResults.first
+                    ?? UpdateResult(
+                        id: item.id,
+                        name: item.name,
+                        outcome: .missing,
+                        current: item.current,
+                        latest: item.latest,
+                        error: "missing update result",
+                        commandFingerprint: item.commandFingerprint
+                    )
+                results.append(result)
+                try writer.write(
+                    MachineEvent(
+                        event: .itemFinished,
+                        operation: .update,
+                        timestamp: Date(),
+                        itemId: result.id,
+                        result: result
+                    ))
+                if result.outcome == .cancelled {
+                    break
+                }
+            }
+        } catch {
+            try writer.write(
+                MachineEvent(
+                    event: .failed,
+                    operation: .update,
+                    timestamp: Date(),
+                    error: sanitizedErrorMessage(for: error)
+                ))
+            throw UpdateBar.exitCode(for: error)
+        }
+
+        let report = UpdateReport(results: results)
+        if results.contains(where: { $0.outcome == .cancelled }) {
+            try writer.write(
+                MachineEvent(
+                    event: .cancelled,
+                    operation: .update,
+                    timestamp: Date(),
+                    summary: report.summary,
+                    error: "cancelled"
+                ))
+        }
+        try writer.write(
+            MachineEvent(
+                event: .finished,
+                operation: .update,
+                timestamp: Date(),
+                results: report.results,
+                summary: report.summary
+            ))
+
+        try enforceExitCodes(results)
+    }
+
+    private func enforceExitCodes(_ results: [UpdateResult]) throws {
+        if results.contains(where: { $0.outcome.isHardFailure }) {
+            throw ExitCode(2)
+        }
+        if results.contains(where: { $0.outcome == .skippedUntrusted }) {
+            throw ExitCode(3)
+        }
+    }
+
+    private func confirmUpdate(_ item: UpdatePlanItem) -> Bool {
+        if json || jsonStream {
+            return false
+        }
+        return readYes("Update \(item.id)? Type yes to continue:")
+    }
+}

@@ -8,6 +8,8 @@ public struct UpdateRunner {
     private let commandRunner: CommandRunning
     private let now: () -> Date
     private let githubToken: String?
+    private let environment: [String: String]
+    private let userHomeDirectory: URL
     private let confirm: (UpdatePlanItem) -> Bool
 
     public init(
@@ -18,6 +20,7 @@ public struct UpdateRunner {
         commandRunner: CommandRunning = CommandExecutor(),
         now: @escaping () -> Date = { Date() },
         githubToken: String? = nil,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
         confirm: @escaping (UpdatePlanItem) -> Bool = { _ in false }
     ) {
         self.manifestStore = manifestStore
@@ -27,12 +30,16 @@ public struct UpdateRunner {
         self.commandRunner = commandRunner
         self.now = now
         self.githubToken = githubToken
+        self.environment = environment
+        self.userHomeDirectory = UserPathExpander.homeDirectory(environment: environment)
         self.confirm = confirm
     }
 
     public func update(ids: [String], all: Bool, assumeYes: Bool) throws -> [UpdateResult] {
-        let manifest = try manifestStore.load()
-        let state = try stateStore.load(now: now())
+        let planDate = now()
+        let manifest = try manifestStore.loadExistingOrEmpty(now: planDate)
+        try validate(manifest)
+        let state = try stateStore.loadExistingOrEmpty(now: planDate)
         let plan = UpdatePlanner(manifest: manifest, state: state).plan(ids: ids, all: all)
         var results: [UpdateResult] = []
 
@@ -61,8 +68,10 @@ public struct UpdateRunner {
     }
 
     public func plan(ids: [String], all: Bool) throws -> [UpdatePlanItem] {
-        let manifest = try manifestStore.load()
-        let state = try stateStore.load(now: now())
+        let planDate = now()
+        let manifest = try manifestStore.loadExistingOrEmpty(now: planDate)
+        try validate(manifest)
+        let state = try stateStore.loadExistingOrEmpty(now: planDate)
         return UpdatePlanner(manifest: manifest, state: state).plan(ids: ids, all: all)
     }
 
@@ -71,10 +80,18 @@ public struct UpdateRunner {
         return UpdateReport(results: results)
     }
 
+    private func validate(_ manifest: Manifest) throws {
+        let data = try JSONEncoder.updateBar.encode(manifest)
+        let result = try ManifestValidator.validate(data: data)
+        if !result.isValid {
+            throw RegistryError.invalidManifest(result.errors)
+        }
+    }
+
     private func runUpdate(recipe: Recipe, planItem: UpdatePlanItem) throws -> UpdateResult {
         do {
             let commandResult = try commandRunner.run(
-                ShellCommand(command: recipe.update.cmd, cwd: recipe.update.cwd),
+                ShellCommand(command: recipe.update.cmd, cwd: expandedPath(recipe.update.cwd)),
                 policy: ExecutionPolicy(timeout: 30 * 60, maxOutputBytes: 256 * 1024)
             )
             guard commandResult.exitCode == 0 else {
@@ -94,7 +111,8 @@ public struct UpdateRunner {
                 httpClient: httpClient,
                 commandRunner: commandRunner,
                 now: now,
-                githubToken: githubToken
+                githubToken: githubToken,
+                environment: environment
             ).check(ids: [recipe.id], force: true)
             let check = checks.first
             return UpdateResult(
@@ -137,6 +155,10 @@ public struct UpdateRunner {
             try stateStore.save(state)
         }
     }
+
+    private func expandedPath(_ path: String?) -> String? {
+        path.map { UserPathExpander.expandTilde(in: $0, homeDirectory: userHomeDirectory) }
+    }
 }
 
 public struct UpdateResult: Codable, Equatable {
@@ -157,12 +179,12 @@ public struct UpdateResult: Codable, Equatable {
         error: String?,
         commandFingerprint: String?
     ) {
-        self.id = id
-        self.name = name
+        self.id = SecretRedactor.redact(id)
+        self.name = SecretRedactor.redact(name)
         self.outcome = outcome
-        self.current = current
-        self.latest = latest
-        self.error = error
+        self.current = current.map(SecretRedactor.redact)
+        self.latest = latest.map(SecretRedactor.redact)
+        self.error = error.map(SecretRedactor.redact)
         self.commandFingerprint = commandFingerprint
     }
 
@@ -226,6 +248,26 @@ public struct UpdateSummary: Codable, Equatable {
         self.hardFailures = results.filter { $0.outcome.isHardFailure }.count
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        total = try container.decode(Int.self, forKey: .total)
+        updated = try container.decode(Int.self, forKey: .updated)
+        failed = try container.decode(Int.self, forKey: .failed)
+        skipped = try container.decode(Int.self, forKey: .skipped)
+        skippedUntrusted = try container.decode(Int.self, forKey: .skippedUntrusted)
+        missing = try container.decode(Int.self, forKey: .missing)
+        cancelled = try container.decode(Int.self, forKey: .cancelled)
+        hardFailures = try container.decode(Int.self, forKey: .hardFailures)
+        try validateNonNegativeDecoded(total, forKey: .total, in: container)
+        try validateNonNegativeDecoded(updated, forKey: .updated, in: container)
+        try validateNonNegativeDecoded(failed, forKey: .failed, in: container)
+        try validateNonNegativeDecoded(skipped, forKey: .skipped, in: container)
+        try validateNonNegativeDecoded(skippedUntrusted, forKey: .skippedUntrusted, in: container)
+        try validateNonNegativeDecoded(missing, forKey: .missing, in: container)
+        try validateNonNegativeDecoded(cancelled, forKey: .cancelled, in: container)
+        try validateNonNegativeDecoded(hardFailures, forKey: .hardFailures, in: container)
+    }
+
     enum CodingKeys: String, CodingKey {
         case total
         case updated
@@ -236,6 +278,7 @@ public struct UpdateSummary: Codable, Equatable {
         case cancelled
         case hardFailures = "hard_failures"
     }
+
 }
 
 public enum UpdateOutcome: String, Codable, Equatable {
@@ -267,8 +310,8 @@ public enum UpdateOutcome: String, Codable, Equatable {
     }
 }
 
-private extension UpdatePlanDecision {
-    var outcome: UpdateOutcome {
+extension UpdatePlanDecision {
+    fileprivate var outcome: UpdateOutcome {
         switch self {
         case .willUpdate:
             .updated

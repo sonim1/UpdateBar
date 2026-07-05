@@ -3,20 +3,38 @@
 Release checklist:
 
 ```bash
-swift build
-swift build -c release --product updatebar
-swift build -c release --product updatebar-menubar
-swift test
-npm --prefix tui test
-npm --prefix tui run typecheck
-npm --prefix tui run lint
-bash Scripts/smoke-test.sh
+bash Scripts/quality-gate.sh
 rm -f dist/*.tar.gz dist/*.sha256
 Scripts/build-release.sh
-bash Scripts/archive-smoke-test.sh
-bash Scripts/homebrew-packaging-test.sh
 Scripts/package-app.sh
+bash Scripts/build-app-archive.sh
+bash Scripts/install-release.sh --help
+UPDATEBAR_VERIFY_STRICT=1 bash Scripts/verify-homebrew-metadata.sh
 ```
+
+`Scripts/install-release.sh` installs published CLI archives with `curl`,
+`tar`, and `install`. It verifies each archive against the uploaded `.sha256`
+checksum using `shasum` or `sha256sum`, and fails before download/extraction if
+a required tool is missing.
+
+On macOS, `Scripts/quality-gate.sh` prefers `/Applications/Xcode.app` when it is
+available so `swift test` can find `XCTest`. Before running Swift tests, the
+gate checks that the selected developer directory contains `XCTest.framework`;
+if it prints `Swift XCTest not found`, set `DEVELOPER_DIR` explicitly or follow
+the recovery steps in `docs/troubleshooting.md`.
+The quality gate also builds the debug `updatebar` executable before Swift
+tests and sets `UPDATEBAR_TEST_BIN` so CLI integration tests run the freshly
+built binary instead of an older `.build/debug/updatebar`. When running Swift
+tests manually after CLI changes, use:
+
+```bash
+swift build --product updatebar
+UPDATEBAR_TEST_BIN=$PWD/.build/debug/updatebar swift test
+```
+
+The quality gate runs Homebrew metadata verification with
+`UPDATEBAR_VERIFY_STATIC_ONLY=1`, which checks formula/cask metadata without
+comparing local `dist` checksums. Use strict verification before publishing.
 
 Build a local release archive:
 
@@ -65,17 +83,34 @@ Local unsigned app package:
 
 ```bash
 Scripts/package-app.sh
+bash Scripts/build-app-archive.sh
+bash Scripts/app-archive-smoke-test.sh
 ```
 
 The app packaging script creates `dist/UpdateBar.app` with the menu bar executable
 in `Contents/MacOS/UpdateBar` and the CLI in `Contents/Resources/updatebar`.
 Tagged macOS releases also upload an unsigned
-`UpdateBar-<version>-macos-arm64.app.tar.gz` archive. Signing/notarization are not
-part of the CLI release.
+`UpdateBar-<version>-macos-<arch>.app.tar.gz` archive for the host architecture.
+The published Homebrew cask currently targets the arm64 app asset.
+Signing/notarization are not part of the CLI release.
+
+For future signed releases, `Scripts/package-app.sh` also supports optional
+environment-based signing/notarization when `UPDATEBAR_SIGN_APP=1` and
+`UPDATEBAR_NOTARIZE_APP=1` are set. Provide these when running on macOS with
+Apple tooling:
+
+- `UPDATEBAR_SIGN_IDENTITY`: Developer ID application identity string
+- `UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE`: keychain profile name for `xcrun notarytool`
+- optional `UPDATEBAR_SIGN_ENTITLEMENTS_FILE`: entitlements file path for `codesign`
+
+When signing is enabled, the script signs inside-out: bundled CLI first, menu bar
+executable second, app bundle last. It intentionally does not use
+`codesign --deep`.
 
 The app bundle does not currently include the Ink TUI. The `Open TUI` menu item
-launches `updatebar-tui` from the user's environment and exports `UPDATEBAR_BIN`
-to the bundled Swift CLI path.
+first honors an executable `UPDATEBAR_TUI` override, then prefers launching
+`UPDATEBAR_BIN tui` when the bundled CLI is available, and finally falls back to
+`updatebar-tui` from the user's `PATH`.
 
 Ink TUI packaging:
 
@@ -87,7 +122,8 @@ Release identity:
 
 - GitHub repo slug: `sonim1/UpdateBar`.
 - Published `v0.2.0` prebuilt CLI archives cover Apple Silicon macOS and Linux
-  x86_64. Release tags also publish an unsigned Apple Silicon macOS app archive.
+  x86_64. Release tags also publish an unsigned macOS app archive for the build
+  host architecture.
 - Homebrew tap target: `sonim1/homebrew-tap`.
 - Formula source lives in `Packaging/homebrew/updatebar.rb`; copy it to the tap as
   `Formula/updatebar.rb` when publishing a Homebrew release. The formula SHA must
@@ -96,7 +132,12 @@ Release identity:
 - App cask source lives in `Packaging/homebrew/Casks/updatebar-app.rb`; copy it to
   the tap as `Casks/updatebar-app.rb`. The cask installs `UpdateBar.app` only and
   must not link the bundled CLI. The CLI remains owned by the `updatebar` formula.
-- Install the Ink TUI separately through npm until a dedicated formula is justified.
+- Build or install the Ink TUI from source with npm until a published package or
+  dedicated formula is justified:
+
+```bash
+npm --prefix tui run build
+```
 
 Before tagging:
 
@@ -104,13 +145,15 @@ Before tagging:
 - Git remote and formula URLs match `sonim1/UpdateBar`.
 - Smoke test passes from a clean `UPDATEBAR_HOME`.
 - TUI smoke test passes and verifies the npm package contents.
-- Archive-install smoke passes: unpack the archive, run `updatebar version --json`,
+- Archive-install smoke passes: unpack the archive, run `updatebar --version`,
   `updatebar guide agent`, and `updatebar template recipe --kind npm`.
 - Clean source-copy release dry run passes.
 - Formula URL/version match the tag and formula SHA matches the uploaded release
   asset's `.sha256`.
 - Cask URL/version match the tag and cask SHA matches the uploaded app archive's
   `.sha256`.
+- `UPDATEBAR_VERIFY_STRICT=1 Scripts/verify-homebrew-metadata.sh` verifies release
+  metadata checksums for a prepared dist directory.
 - `bash Scripts/homebrew-packaging-test.sh` passes.
 - `updatebar status --json` remains compatible with the documented menu bar contract.
 - Recipe command errors and child environments do not expose common provider or GitHub tokens.

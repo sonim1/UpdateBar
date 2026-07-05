@@ -24,8 +24,50 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertEqual(item.update.cmd, "npm i -g @anthropic-ai/claude-code@latest")
         XCTAssertNil(item.pin)
         XCTAssertTrue(item.enabled)
-        XCTAssertTrue(item.notify)
         XCTAssertEqual(item.trust.level, .trusted)
+    }
+
+    func testDecodeIgnoresLegacyNotifyValue() throws {
+        let notifyTrue = try JSONDecoder.updateBar.decode(
+            Manifest.self,
+            from: validManifestDataUpdatingFirstItem { $0["notify"] = true }
+        )
+        let notifyFalse = try JSONDecoder.updateBar.decode(
+            Manifest.self,
+            from: validManifestDataUpdatingFirstItem { $0["notify"] = false }
+        )
+
+        XCTAssertEqual(notifyTrue.items, notifyFalse.items)
+    }
+
+    func testDecodeRejectsUnsupportedCheckFileQuery() throws {
+        let data = try validManifestDataUpdatingFirstItem {
+            $0["check"] =
+                [
+                    "file": "/tmp/version.json",
+                    "query": "$.version",
+                ] as [String: Any]
+        }
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(Manifest.self, from: data))
+    }
+
+    func testDecodeRejectsUnsupportedJQVersionParse() throws {
+        let data = try validManifestDataUpdatingFirstItem {
+            $0["version_parse"] = ["jq": ".version"]
+        }
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(Manifest.self, from: data))
+    }
+
+    func testDecodeRejectsStoredElevatedTrustLevel() throws {
+        let data = try validManifestDataUpdatingFirstItem {
+            var trust = try XCTUnwrap($0["trust"] as? [String: Any])
+            trust["level"] = "elevated"
+            $0["trust"] = trust
+        }
+
+        XCTAssertThrowsError(try JSONDecoder.updateBar.decode(Manifest.self, from: data))
     }
 
     func testReplacingAndRemovingItems() throws {
@@ -72,6 +114,23 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertEqual(original["check.cmd"], changedSource["check.cmd"])
     }
 
+    func testUpdateFingerprintDoesNotCollideWhenCommandAndCWDContainSeparators() throws {
+        let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
+        let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
+        var first = try XCTUnwrap(manifest.item(id: "claude-code"))
+        var second = first
+
+        first.update.cmd = "tool --flag=a|b"
+        first.update.cwd = "c"
+        second.update.cmd = "tool --flag=a"
+        second.update.cwd = "b|c"
+
+        XCTAssertNotEqual(
+            first.commandFingerprints()["update.cmd"],
+            second.commandFingerprints()["update.cmd"]
+        )
+    }
+
     func testManifestStoreInitializesEmptyManifestInUpdateBarHome() throws {
         let root = try temporaryDirectory()
         let store = ManifestStore(paths: AppPaths(homeDirectory: root))
@@ -80,11 +139,69 @@ final class ManifestStoreTests: XCTestCase {
 
         XCTAssertEqual(manifest.schemaVersion, 1)
         XCTAssertTrue(manifest.items.isEmpty)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("manifest.json").path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: root.appendingPathComponent("manifest.json").path))
+    }
+
+    func testLoadExistingOrEmptyDoesNotCreateMissingManifestFile() throws {
+        let root = try temporaryDirectory()
+        let store = ManifestStore(paths: AppPaths(homeDirectory: root))
+
+        let manifest = try store.loadExistingOrEmpty(
+            now: Date(timeIntervalSince1970: 1_812_499_200))
+
+        XCTAssertEqual(manifest.schemaVersion, 1)
+        XCTAssertTrue(manifest.items.isEmpty)
+        XCTAssertEqual(manifest.provenance.createdBy, "updatebar")
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: root.appendingPathComponent("manifest.json").path))
+    }
+
+    func testLoadExistingOrEmptyDoesNotCreateMissingHomeDirectory() throws {
+        let root = try temporaryDirectory().appendingPathComponent("missing-home")
+        let store = ManifestStore(paths: AppPaths(homeDirectory: root))
+
+        let manifest = try store.loadExistingOrEmpty(
+            now: Date(timeIntervalSince1970: 1_812_499_200))
+
+        XCTAssertTrue(manifest.items.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
+    }
+
+    func testLoadExistingOrEmptyRepairsExistingHomePermissionsWhenManifestIsMissing() throws {
+        let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
+        let store = ManifestStore(paths: AppPaths(homeDirectory: root))
+
+        let manifest = try store.loadExistingOrEmpty()
+
+        XCTAssertTrue(manifest.items.isEmpty)
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: root.appendingPathComponent("manifest.json").path))
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
+    }
+
+    func testLoadExistingOrEmptyRepairsExistingHomePermissions() throws {
+        let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
+        let manifestURL = root.appendingPathComponent("manifest.json")
+        try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json")).write(
+            to: manifestURL)
+        let store = ManifestStore(paths: AppPaths(homeDirectory: root))
+
+        _ = try store.loadExistingOrEmpty()
+
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
     }
 
     func testManifestStoreWritesAndReadsAtomicallyWithPrivatePermissions() throws {
         let root = try temporaryDirectory()
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path)
         let store = ManifestStore(paths: AppPaths(homeDirectory: root))
         let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
         let manifest = try JSONDecoder.updateBar.decode(Manifest.self, from: data)
@@ -97,6 +214,8 @@ final class ManifestStoreTests: XCTestCase {
             atPath: root.appendingPathComponent("manifest.json").path
         )
         XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+        let homeAttributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        XCTAssertEqual((homeAttributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
     }
 
     func testManifestStoreOverwritesExistingFile() throws {
@@ -126,7 +245,8 @@ final class ManifestStoreTests: XCTestCase {
         }
 
         XCTAssertTrue(
-            FileManager.default.fileExists(atPath: root.appendingPathComponent("manifest.lock").path)
+            FileManager.default.fileExists(
+                atPath: root.appendingPathComponent("manifest.lock").path)
         )
         XCTAssertEqual(try store.load(), manifest)
     }
@@ -143,6 +263,47 @@ final class ManifestStoreTests: XCTestCase {
         }
     }
 
+    func testManifestStoreReportsDecodingFailureWithoutSwiftInternals() throws {
+        let root = try temporaryDirectory()
+        let manifestURL = root.appendingPathComponent("manifest.json")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(
+            """
+            {
+              "schema_version": 1,
+              "provenance": {
+                "created_by": "updatebar",
+                "created_at": "2026-06-09T00:00:00Z",
+                "updated_at": "2026-06-09T00:00:00Z"
+              }
+            }
+            """.utf8
+        ).write(to: manifestURL)
+        let store = ManifestStore(paths: AppPaths(homeDirectory: root))
+
+        XCTAssertThrowsError(try store.load()) { error in
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("manifest.json"))
+            XCTAssertTrue(message.contains("missing required key items"))
+            XCTAssertFalse(message.contains("CodingKeys"))
+            XCTAssertFalse(message.contains("keyNotFound"))
+        }
+    }
+
+    func testStoreErrorDescriptionRedactsSecretLikePathsAndReasons() {
+        let secret = "sk-or-v1-store-secret-value"
+        let errors: [StoreError] = [
+            .corruptFile(path: "/tmp/\(secret)/manifest.json", reason: "invalid \(secret)"),
+            .writeFailed(path: "/tmp/\(secret)/state.json", reason: "failed \(secret)"),
+        ]
+
+        for error in errors {
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("[REDACTED]"))
+            XCTAssertFalse(message.contains(secret))
+        }
+    }
+
     func testAppPathsUsesExplicitHomeAndDoesNotEscapeIt() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
@@ -151,10 +312,46 @@ final class ManifestStoreTests: XCTestCase {
         XCTAssertEqual(paths.stateFile.deletingLastPathComponent().path, root.path)
     }
 
+    func testAppPathsUsesHomeEnvironmentWhenUpdateBarHomeIsUnset() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(environment: ["HOME": root.path])
+        let expected = root.appendingPathComponent(".updatebar").standardizedFileURL
+
+        XCTAssertEqual(paths.homeDirectory.path, expected.path)
+        XCTAssertEqual(paths.manifestFile.deletingLastPathComponent().path, expected.path)
+    }
+
+    func testAppPathsPrefersUpdateBarHomeOverHomeEnvironment() throws {
+        let home = try temporaryDirectory()
+        let updateBarHome = try temporaryDirectory()
+        let paths = AppPaths(
+            environment: [
+                "HOME": home.path,
+                "UPDATEBAR_HOME": updateBarHome.path,
+            ]
+        )
+
+        XCTAssertEqual(paths.homeDirectory.path, updateBarHome.standardizedFileURL.path)
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("updatebar-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    private func validManifestDataUpdatingFirstItem(_ update: (inout [String: Any]) throws -> Void)
+        throws -> Data
+    {
+        let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
+        let object = try JSONSerialization.jsonObject(with: data)
+        var manifest = try XCTUnwrap(object as? [String: Any])
+        var items = try XCTUnwrap(manifest["items"] as? [[String: Any]])
+        var item = try XCTUnwrap(items.first)
+        try update(&item)
+        items[0] = item
+        manifest["items"] = items
+        return try JSONSerialization.data(withJSONObject: manifest)
     }
 }

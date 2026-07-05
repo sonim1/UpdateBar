@@ -1,6 +1,7 @@
 import Foundation
-import XCTest
 import UpdateBarCore
+import UpdateBarTestSupport
+import XCTest
 
 final class ConcurrencyCommandTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
@@ -8,17 +9,21 @@ final class ConcurrencyCommandTests: XCTestCase {
     func testOverlappingCommandsDoNotCorruptStoresOrLoseUnrelatedItems() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-concurrency-tests")
         let paths = AppPaths(homeDirectory: home)
-        try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "anchor"), recipe(id: "tool")]))
-        try StateStore(paths: paths).save(State(schemaVersion: 1, generatedAt: now, items: [
-            "anchor": itemState(),
-            "tool": itemState()
-        ]))
+        try ManifestStore(paths: paths).save(
+            manifest(items: [recipe(id: "anchor"), recipe(id: "tool")]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "anchor": itemState(),
+                    "tool": itemState(),
+                ]))
 
         let commands = [
             ["status", "--json", "--refresh", "--exit-zero-on-outdated"],
             ["approve", "tool", "--field", "update.cmd"],
             ["remove", "tool", "--yes"],
-            ["check", "anchor", "--json", "--force", "--exit-zero-on-outdated"]
+            ["check", "anchor", "--json", "--force", "--exit-zero-on-outdated"],
         ]
         let group = DispatchGroup()
         let results = ResultCollector()
@@ -64,10 +69,9 @@ final class ConcurrencyCommandTests: XCTestCase {
             update: UpdateSpec(cmd: "printf updated", cwd: nil),
             pin: nil,
             enabled: true,
-            notify: true,
             trust: Trust(level: .trusted, approvedCommands: [:])
         )
-        TrustPolicy.approveAllCommands(in: &item)
+        TestApprovals.approveAllCommands(in: &item)
         return item
     }
 

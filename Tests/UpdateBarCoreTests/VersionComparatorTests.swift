@@ -1,12 +1,13 @@
-import XCTest
 import UpdateBarCore
+import XCTest
 
 final class VersionComparatorTests: XCTestCase {
     func testComparesSemanticVersions() throws {
         XCTAssertEqual(try VersionComparator.compareSemVer("1.2.3", "1.2.4"), .orderedAscending)
         XCTAssertEqual(try VersionComparator.compareSemVer("1.2.3", "1.2.3"), .orderedSame)
         XCTAssertEqual(try VersionComparator.compareSemVer("2.0.0", "1.9.9"), .orderedDescending)
-        XCTAssertEqual(try VersionComparator.compareSemVer("1.0.0-beta", "1.0.0"), .orderedAscending)
+        XCTAssertEqual(
+            try VersionComparator.compareSemVer("1.0.0-beta", "1.0.0"), .orderedAscending)
     }
 
     func testRejectsInvalidSemanticVersionsThatWouldCompareAmbiguously() {
@@ -40,7 +41,8 @@ final class VersionComparatorTests: XCTestCase {
 
     func testExtractsVersionsWithRegex() throws {
         XCTAssertEqual(
-            try VersionParser.extract(from: "claude 1.2.3", using: .regex("([0-9]+\\.[0-9]+\\.[0-9]+)")),
+            try VersionParser.extract(
+                from: "claude 1.2.3", using: .regex("([0-9]+\\.[0-9]+\\.[0-9]+)")),
             "1.2.3"
         )
         XCTAssertThrowsError(
@@ -49,5 +51,19 @@ final class VersionComparatorTests: XCTestCase {
         XCTAssertThrowsError(
             try VersionParser.extract(from: "claude 1.2.3", using: .regex("version: ([0-9]+)"))
         )
+    }
+
+    func testVersionParseErrorDescriptionsRedactSecretLikeValues() {
+        let secret = "sk-or-v1-secret-value"
+        let errors: [VersionParser.ParseError] = [
+            .invalidRegex("version \(secret)"),
+            .missingMatch("version \(secret)"),
+        ]
+
+        for error in errors {
+            let message = String(describing: error)
+            XCTAssertTrue(message.contains("[REDACTED]"), "\(error)")
+            XCTAssertFalse(message.contains(secret), "\(error)")
+        }
     }
 }

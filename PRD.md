@@ -1,5 +1,13 @@
 # UpdateBar — Product Requirements Document
 
+> Historical PRD snapshot. For current implementation decisions, see
+> [`current-plan.md`](current-plan.md) and
+> [`current-architecture.md`](current-architecture.md). For upcoming work, see
+> [`next-plan.md`](next-plan.md).
+> Do not use this file as the source of truth for new implementation work.
+> Several OpenRouter/provider/sync assumptions below were superseded by the
+> CLI-first reset.
+
 | 항목 | 값 |
 |------|-----|
 | 문서 상태 | Draft v1.1 (2차 다관점 리뷰 반영: 보안 신뢰모델 §22, 상태 갱신모델 §9.1, 메뉴바 계약 정합, exit-code·크로스플랫폼 등) |

@@ -77,6 +77,115 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertNil(rtk.recipe)
     }
 
+    func testKnownToolsAreDedupedWhenManagerNamesAreVersionedOrScoped() throws {
+        let commands = MockCommandExecutor(results: [
+            ScanService.brewListCommand: CommandResult(
+                exitCode: 0, stdout: "node@22 22.22.0\n", stderr: ""),
+            ScanService.npmGlobalListCommand: CommandResult(
+                exitCode: 0,
+                stdout: #"{"dependencies":{"@openai/codex":{"version":"0.140.0"}}}"#,
+                stderr: ""
+            ),
+            ScanService.knownToolsCommand: CommandResult(
+                exitCode: 0,
+                stdout: "node\tv22.22.2\ncodex\t0.140.0\nrtk\trtk 0.9.0\n",
+                stderr: ""
+            ),
+        ])
+        let service = ScanService(commandRunner: commands)
+
+        let report = try service.scan(detectors: [.brew, .npmGlobal, .known])
+
+        XCTAssertNotNil(report.candidates.first { $0.id == "brew.node22" })
+        XCTAssertNotNil(report.candidates.first { $0.id == "npm.openai.codex" })
+        XCTAssertNil(report.candidates.first { $0.id == "known.node" })
+        XCTAssertNil(report.candidates.first { $0.id == "known.codex" })
+        XCTAssertNotNil(report.candidates.first { $0.id == "known.rtk" })
+    }
+
+    func testKnownToolsAreDedupedWhenScopedManagerPackageUsesCommandAlias() throws {
+        let commands = MockCommandExecutor(results: [
+            ScanService.brewListCommand: CommandResult(exitCode: 0, stdout: "", stderr: ""),
+            ScanService.npmGlobalListCommand: CommandResult(
+                exitCode: 0,
+                stdout: #"{"dependencies":{"@anthropic-ai/claude-code":{"version":"1.0.43"}}}"#,
+                stderr: ""
+            ),
+            ScanService.knownToolsCommand: CommandResult(
+                exitCode: 0,
+                stdout: "claude\t1.0.43\ncodex\t0.140.0\n",
+                stderr: ""
+            ),
+        ])
+        let service = ScanService(commandRunner: commands)
+
+        let report = try service.scan(detectors: [.brew, .npmGlobal, .known])
+
+        XCTAssertNotNil(report.candidates.first { $0.id == "npm.anthropic-ai.claude-code" })
+        XCTAssertNil(report.candidates.first { $0.id == "known.claude" })
+        XCTAssertNotNil(report.candidates.first { $0.id == "known.codex" })
+    }
+
+    func testScanDeduplicatesRepeatedManagerOutputByID() throws {
+        let commands = MockCommandExecutor(results: [
+            ScanService.brewListCommand: CommandResult(
+                exitCode: 0,
+                stdout: "gh 2.74.0\ngh 2.74.0\n",
+                stderr: ""
+            )
+        ])
+        let service = ScanService(commandRunner: commands)
+
+        let report = try service.scan(detectors: [.brew])
+
+        XCTAssertEqual(report.candidates.map(\.id), ["brew.gh"])
+    }
+
+    func testNPMGlobalScanTreatsMissingDependenciesAsEmpty() throws {
+        let commands = MockCommandExecutor(results: [
+            ScanService.npmGlobalListCommand: CommandResult(
+                exitCode: 0,
+                stdout: #"{"name":"lib","version":"1.0.0"}"#,
+                stderr: ""
+            )
+        ])
+        let service = ScanService(commandRunner: commands)
+
+        let report = try service.scan(detectors: [.npmGlobal])
+
+        XCTAssertEqual(report.candidates, [])
+        XCTAssertEqual(report.errors, [])
+    }
+
+    func testScanCandidateIDsStayASCIIAndValidatorCompatible() throws {
+        let commands = MockCommandExecutor(results: [
+            ScanService.brewListCommand: CommandResult(
+                exitCode: 0,
+                stdout: "café 1.0.0\n",
+                stderr: ""
+            )
+        ])
+        let service = ScanService(commandRunner: commands)
+
+        let report = try service.scan(detectors: [.brew])
+
+        let candidate = try XCTUnwrap(report.candidates.first)
+        XCTAssertEqual(candidate.id, "brew.caf")
+        let recipe = try XCTUnwrap(candidate.recipe)
+        let manifest = Manifest(
+            schemaVersion: 1,
+            items: [recipe],
+            provenance: Provenance(
+                createdBy: "test",
+                createdAt: Date(timeIntervalSince1970: 1_800),
+                updatedAt: Date(timeIntervalSince1970: 1_800)
+            )
+        )
+        let validation = try ManifestValidator.validate(
+            data: JSONEncoder.updateBar.encode(manifest))
+        XCTAssertTrue(validation.isValid, validation.errors.joined(separator: "\n"))
+    }
+
     func testScanCategoriesCommonVersionedAndScopedTools() throws {
         let commands = MockCommandExecutor(results: [
             ScanService.brewListCommand: CommandResult(
@@ -111,7 +220,190 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertEqual(try category("npm.typescript", in: report), "library")
     }
 
+    func testScanParsesCodexSkillDirectoriesAsMetadataOnlyCandidates() throws {
+        let home = try temporaryHome(prefix: "updatebar-core-scan-tests")
+        try writeSkill(named: "openspec-propose", under: ".codex/skills", home: home)
+        try writeSkill(named: "gstack-review", under: ".agents/skills", home: home)
+        try FileManager.default.createDirectory(
+            at: home.appendingPathComponent(".codex/skills/not-a-skill"),
+            withIntermediateDirectories: true
+        )
+        let service = ScanService(
+            commandRunner: MockCommandExecutor(results: [:]),
+            homeDirectory: home
+        )
+
+        let report = try service.scan(detectors: [.codexSkill])
+
+        XCTAssertEqual(report.errors, [])
+        XCTAssertEqual(
+            report.candidates.map(\.id),
+            ["codex_skill.gstack-review", "codex_skill.openspec-propose"]
+        )
+        let skill = try XCTUnwrap(
+            report.candidates.first { $0.id == "codex_skill.openspec-propose" })
+        XCTAssertEqual(skill.category, "codex-skill")
+        XCTAssertEqual(skill.capability, .metadataOnly)
+        XCTAssertEqual(skill.confidence, .high)
+        XCTAssertEqual(skill.sourceRef, "~/.codex/skills/openspec-propose")
+        XCTAssertNil(skill.recipe)
+    }
+
+    func testScanRedactsCodexSkillMetadataNamesAndSourceRefs() throws {
+        let home = try temporaryHome(prefix: "updatebar-core-scan-tests")
+        try writeSkill(named: "sk-or-v1-secret-value", under: ".codex/skills", home: home)
+        let service = ScanService(
+            commandRunner: MockCommandExecutor(results: [:]),
+            homeDirectory: home
+        )
+
+        let report = try service.scan(detectors: [.codexSkill])
+
+        let candidate = try XCTUnwrap(report.candidates.first)
+        XCTAssertEqual(candidate.id, "codex_skill.redacted")
+        XCTAssertEqual(candidate.name, "[REDACTED]")
+        XCTAssertEqual(candidate.sourceRef, "~/.codex/skills/[REDACTED]")
+        XCTAssertFalse(report.candidates.description.contains("sk-or-v1-secret-value"))
+    }
+
+    func testScanParsesMCPConfigsAsMetadataOnlyCandidatesWithoutEnvValues() throws {
+        let home = try temporaryHome(prefix: "updatebar-core-scan-tests")
+        try writeText(
+            """
+            {
+              "mcpServers": {
+                "filesystem": {
+                  "command": "npx",
+                  "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+                  "env": { "TOKEN": "secret-token" }
+                }
+              }
+            }
+            """,
+            to: ".cursor/mcp.json",
+            home: home
+        )
+        try writeText(
+            """
+            [mcp_servers.github]
+            command = "gh-mcp"
+            args = ["stdio"]
+
+            [mcp_servers.github.env]
+            env_token = "secret-token"
+            """,
+            to: ".codex/config.toml",
+            home: home
+        )
+        let service = ScanService(
+            commandRunner: MockCommandExecutor(results: [:]),
+            homeDirectory: home
+        )
+
+        let report = try service.scan(detectors: [.mcpConfig])
+
+        XCTAssertEqual(report.errors, [])
+        XCTAssertEqual(
+            report.candidates.map(\.id),
+            ["mcp_config.filesystem", "mcp_config.github"]
+        )
+        let filesystem = try XCTUnwrap(
+            report.candidates.first { $0.id == "mcp_config.filesystem" })
+        XCTAssertEqual(filesystem.category, "mcp-server")
+        XCTAssertEqual(filesystem.capability, .metadataOnly)
+        XCTAssertEqual(filesystem.confidence, .medium)
+        XCTAssertEqual(filesystem.sourceRef, "npx")
+        XCTAssertNil(filesystem.recipe)
+        XCTAssertFalse(report.candidates.description.contains("secret-token"))
+    }
+
+    func testScanRedactsMCPMetadataNamesAndSourceRefs() throws {
+        let home = try temporaryHome(prefix: "updatebar-core-scan-tests")
+        try writeText(
+            """
+            {
+              "mcpServers": {
+                "sk-or-v1-secret-value": {
+                  "command": "node /tmp/sk-or-v1-secret-value/server.js"
+                }
+              }
+            }
+            """,
+            to: ".cursor/mcp.json",
+            home: home
+        )
+        let service = ScanService(
+            commandRunner: MockCommandExecutor(results: [:]),
+            homeDirectory: home
+        )
+
+        let report = try service.scan(detectors: [.mcpConfig])
+
+        let candidate = try XCTUnwrap(report.candidates.first)
+        XCTAssertEqual(candidate.id, "mcp_config.redacted")
+        XCTAssertEqual(candidate.name, "[REDACTED]")
+        XCTAssertEqual(candidate.sourceRef, "node /tmp/[REDACTED]/server.js")
+        XCTAssertFalse(report.candidates.description.contains("sk-or-v1-secret-value"))
+    }
+
+    func testScanRedactsThrownDetectorErrors() throws {
+        let service = ScanService(
+            commandRunner: ThrowingCommandRunner(
+                error: ScanTestError(
+                    description: "launch failed with OPENROUTER_API_KEY=sk-or-v1-secret-value")
+            )
+        )
+
+        let report = try service.scan(detectors: [.brew])
+
+        let error = try XCTUnwrap(report.errors.first)
+        XCTAssertEqual(error.detector, .brew)
+        XCTAssertTrue(error.message.contains("[REDACTED]"))
+        XCTAssertFalse(error.message.contains("sk-or-v1-secret-value"))
+        XCTAssertFalse(error.message.contains("OPENROUTER_API_KEY="))
+    }
+
     private func category(_ id: String, in report: ScanReport) throws -> String {
         try XCTUnwrap(report.candidates.first { $0.id == id }).category
     }
+
+    private func writeSkill(named name: String, under root: String, home: URL) throws {
+        let directory = home.appendingPathComponent(root).appendingPathComponent(name)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try "Skill instructions\n".write(
+            to: directory.appendingPathComponent("SKILL.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+    }
+
+    private func writeText(_ text: String, to relativePath: String, home: URL) throws {
+        let url = relativePath.split(separator: "/").reduce(home) { partial, component in
+            partial.appendingPathComponent(String(component))
+        }
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try text.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private func temporaryHome(prefix: String) throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(prefix)-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+}
+
+private struct ThrowingCommandRunner: CommandRunning {
+    var error: Error
+
+    func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult {
+        throw error
+    }
+}
+
+private struct ScanTestError: Error, CustomStringConvertible {
+    var description: String
 }

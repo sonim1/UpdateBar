@@ -31,8 +31,8 @@ and cancellation UI from machine-readable output.
 The macOS Menu Bar app is native Swift/AppKit. It prefers direct
 `UpdateBarCore` calls through `CoreMenuBarService` and keeps
 `UpdateBarCLIClient` as a subprocess fallback for packaged or diagnostic flows.
-It can open the Ink TUI in Terminal with `UPDATEBAR_BIN` pointing at the resolved
-Swift CLI.
+It can open the Ink TUI in Terminal with an explicit `UPDATEBAR_TUI` override,
+or with `UPDATEBAR_BIN` pointing at the resolved Swift CLI.
 
 ## Boundary Rules
 

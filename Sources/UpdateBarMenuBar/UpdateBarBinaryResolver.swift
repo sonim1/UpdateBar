@@ -1,4 +1,5 @@
 import Foundation
+import UpdateBarCore
 
 public struct UpdateBarBinaryResolution: Equatable, Sendable {
     public var path: String
@@ -13,7 +14,6 @@ public struct UpdateBarBinaryResolution: Equatable, Sendable {
 public enum UpdateBarBinarySource: String, Equatable, Sendable {
     case updateBarBin = "UPDATEBAR_BIN"
     case configured = "configured"
-    case updateBarCLI = "UPDATEBAR_CLI"
     case bundled = "bundled"
     case path = "PATH"
     case developmentFallback = "development_fallback"
@@ -26,7 +26,7 @@ public enum UpdateBarBinaryResolverError: Error, CustomStringConvertible, Equata
     public var description: String {
         switch self {
         case .invalidPath(let source, let path):
-            return "\(source.rawValue) path is not executable: \(path)"
+            return "\(source.rawValue) path is not executable: \(SecretRedactor.redact(path))"
         case .notFound:
             return "updatebar binary not found"
         }
@@ -53,16 +53,15 @@ public struct UpdateBarBinaryResolver {
         if let resolution = try explicitPath(configuredPath, source: .configured) {
             return resolution
         }
-        if let resolution = try explicitPath(environment["UPDATEBAR_CLI"], source: .updateBarCLI) {
-            return resolution
-        }
         if let bundledDirectory,
             let path = executablePath(
                 bundledDirectory.appendingPathComponent("updatebar", isDirectory: false).path)
         {
             return UpdateBarBinaryResolution(path: path, source: .bundled)
         }
-        if let path = pathCandidate(environment: environment, defaultPathEntries: defaultPathEntries) {
+        if let path = pathCandidate(
+            environment: environment, defaultPathEntries: defaultPathEntries)
+        {
             return UpdateBarBinaryResolution(path: path, source: .path)
         }
         if let developmentRoot, let path = developmentCandidate(root: developmentRoot) {
@@ -86,11 +85,15 @@ public struct UpdateBarBinaryResolver {
         environment: [String: String],
         defaultPathEntries: [String]
     ) -> String? {
-        let pathEntries = (environment["PATH"] ?? "")
-            .split(separator: ":")
+        let pathEntries =
+            (environment["PATH"] ?? "")
+            .split(separator: ":", omittingEmptySubsequences: false)
             .map(String.init) + defaultPathEntries
         var seen: Set<String> = []
-        for directory in pathEntries where seen.insert(directory).inserted {
+        for directory in pathEntries
+        where isAbsolutePathEntry(directory)
+            && seen.insert(directory).inserted
+        {
             let candidate = URL(fileURLWithPath: directory)
                 .appendingPathComponent("updatebar", isDirectory: false)
                 .path
@@ -99,6 +102,10 @@ public struct UpdateBarBinaryResolver {
             }
         }
         return nil
+    }
+
+    private func isAbsolutePathEntry(_ value: String) -> Bool {
+        value.hasPrefix("/")
     }
 
     private func developmentCandidate(root: URL) -> String? {

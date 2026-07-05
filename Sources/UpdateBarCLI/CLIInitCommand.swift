@@ -1,0 +1,263 @@
+import ArgumentParser
+import Foundation
+import UpdateBarCore
+
+struct InitCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "init",
+        abstract: "Scan installed local tools and register selected recipes.",
+        discussion: """
+            Without --select, init prints numbered importable candidates and prompts for numbers, ids, or all.
+            Use ids copied from `updatebar scan` when running headless setup with --select.
+            """
+    )
+
+    @Flag(name: .long, help: "Print machine-readable JSON; requires --select.")
+    var json = false
+
+    @Flag(name: .long, help: "Overwrite existing items with matching ids.")
+    var replace = false
+
+    @Option(
+        name: .long,
+        help: ArgumentHelp(
+            "Comma-separated candidate ids, numbers, or all.", valueName: "selection"),
+        completion: .list(["all"])
+    )
+    var select: String?
+
+    @Option(
+        name: .long,
+        help: ArgumentHelp("Filter by category: \(ScanCategory.description)."),
+        completion: .list(ScanCategory.completionValues)
+    )
+    var category: String?
+
+    func run() throws {
+        let categoryFilter = try ScanCategory.filterValue(for: category)
+        let selectedDetectors = try ScanCategory.defaultDetectors(for: categoryFilter)
+        let report = try filteredReport(
+            detectors: selectedDetectors,
+            categoryFilter: categoryFilter
+        )
+        let selectedIDs = try parseSelection(from: report, categoryFilter: categoryFilter)
+
+        do {
+            let summary = try InitService().register(
+                candidates: report.candidates,
+                selectedIDs: selectedIDs,
+                replace: replace
+            )
+            try output(InitPayload(summary: summary, errors: []))
+        } catch let error as InitServiceError {
+            try output(
+                InitPayload(
+                    added: [],
+                    replaced: [],
+                    skipped: [],
+                    errors: invalidSelectionMessages(for: error, categoryFilter: categoryFilter)
+                )
+            )
+            throw ExitCode.failure
+        }
+    }
+
+    private func filteredReport(
+        detectors: [ScanDetector],
+        categoryFilter: String?
+    ) throws -> ScanReport {
+        try ScanService().scan(detectors: detectors).filtered(category: categoryFilter)
+    }
+
+    private func invalidSelectionMessages(
+        for error: InitServiceError,
+        categoryFilter: String?
+    ) -> [String] {
+        switch error {
+        case .invalidSelection(let errors):
+            return errors.map(SecretRedactor.redact)
+                + [scanCandidateIDHint(categoryFilter: categoryFilter)]
+        }
+    }
+
+    private func scanCandidateIDHint(categoryFilter: String?) -> String {
+        let command =
+            categoryFilter.map {
+                "updatebar scan --category \($0)"
+            } ?? "updatebar scan"
+        return "Run \(command) to review candidate ids."
+    }
+
+    private func parseSelection(from report: ScanReport, categoryFilter: String?) throws -> [String]
+    {
+        if let select {
+            let values = parseSelectionTokens(select)
+            guard !values.isEmpty else {
+                throw ValidationError("select: expected at least one selection")
+            }
+            let importable = importableCandidates(from: report)
+            if values.contains(where: isAllSelectionToken) {
+                guard values.count == 1 else {
+                    throw ValidationError("select: all cannot be combined with other selections")
+                }
+                guard !importable.isEmpty else {
+                    throw noImportableCandidatesError(for: report, categoryFilter: categoryFilter)
+                }
+                return importable.map(\.id)
+            }
+            return try parseSelectionValues(values, candidates: importable)
+        }
+
+        if json {
+            throw ValidationError(
+                "init --json requires --select. "
+                    + "Run updatebar scan to review candidate ids, then use "
+                    + "updatebar init --select all --json or pass selected ids."
+            )
+        }
+
+        let importable = importableCandidates(from: report)
+        guard !importable.isEmpty else {
+            throw noImportableCandidatesError(for: report, categoryFilter: categoryFilter)
+        }
+        printImportable(importable)
+        guard
+            let line = readPromptedLine(
+                "Select items to add (numbers, ids, or all):",
+                trailingSpace: true
+            ),
+            !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            throw selectionRequiredError()
+        }
+        return try parseInteractiveSelection(line, candidates: importable)
+    }
+
+    private func importableCandidates(from report: ScanReport) -> [ScanCandidate] {
+        report.candidates.filter {
+            $0.capability == .full && $0.recipe != nil
+        }
+    }
+
+    private func noImportableCandidatesError(for report: ScanReport, categoryFilter: String?)
+        -> ValidationError
+    {
+        let message: String
+        if report.candidates.isEmpty {
+            message =
+                "No importable candidates found. "
+                + "Check that the tool is installed and ensure any category filter is not too strict."
+        } else if let categoryFilter {
+            message =
+                "No importable candidates found. "
+                + "Detected candidates are review-only and cannot be imported yet. "
+                + "Run updatebar scan --category \(categoryFilter) to review them, "
+                + "or run updatebar scan without --category to look for importable candidates."
+        } else {
+            message =
+                "No importable candidates found. "
+                + "Detected candidates are review-only and cannot be imported yet."
+        }
+        return ValidationError(message + scanErrorSuffix(for: report.errors))
+    }
+
+    private func scanErrorSuffix(for errors: [ScanError]) -> String {
+        guard !errors.isEmpty else {
+            return ""
+        }
+        let details =
+            errors
+            .map { "\($0.detector.rawValue): \(SecretRedactor.redact($0.message))" }
+            .joined(separator: "; ")
+        return " Scan errors: \(details)"
+    }
+
+    private func parseInteractiveSelection(
+        _ line: String,
+        candidates: [ScanCandidate]
+    ) throws -> [String] {
+        let values = parseSelectionTokens(line)
+        guard !values.isEmpty else {
+            throw selectionRequiredError()
+        }
+        return try parseSelectionValues(values, candidates: candidates)
+    }
+
+    private func selectionRequiredError() -> ValidationError {
+        ValidationError(
+            "selection required; enter numbers, ids, or all, or pass --select all for headless use"
+        )
+    }
+
+    private func parseSelectionValues(
+        _ values: [String],
+        candidates: [ScanCandidate]
+    ) throws -> [String] {
+        if values.contains(where: isAllSelectionToken) {
+            guard values.count == 1 else {
+                throw ValidationError("select: all cannot be combined with other selections")
+            }
+            return candidates.map(\.id)
+        }
+        return try unique(values).map { value in
+            if let index = Int(value) {
+                guard index >= 1, index <= candidates.count else {
+                    throw ValidationError(
+                        "\(value): selection out of range; use a number from the current init list or a candidate id from updatebar scan"
+                    )
+                }
+                return candidates[index - 1].id
+            }
+            return value
+        }
+    }
+
+    private func parseSelectionTokens(_ value: String) -> [String] {
+        parseList(value)
+    }
+
+    private func isAllSelectionToken(_ value: String) -> Bool {
+        value.lowercased() == "all"
+    }
+
+    private func printImportable(_ candidates: [ScanCandidate]) {
+        writeStdout("Found \(candidates.count) importable candidate(s)")
+        writeStdout("")
+        writeStdout("Recommended")
+        writeStdout("ITEM\tID\tCATEGORY\tSOURCE")
+        for (index, candidate) in candidates.enumerated() {
+            let version = candidate.installedVersion.map { " \($0)" } ?? ""
+            let name = "[\(index + 1)] \(candidate.name)\(version)"
+            let fields = [
+                name,
+                candidate.id,
+                candidate.category,
+                candidate.detector.rawValue,
+            ]
+            writeStdout(fields.joined(separator: "\t"))
+        }
+        writeStdout("")
+    }
+
+    private func output(_ payload: InitPayload) throws {
+        if json {
+            try printJSON(payload)
+        } else if payload.ok {
+            let message = [
+                "added \(payload.added.count)",
+                "replaced \(payload.replaced.count)",
+                "skipped \(payload.skipped.count)",
+            ].joined(separator: ", ")
+            writeStdout(message)
+            if !payload.skipped.isEmpty {
+                writeStdout("Skipped: \(payload.skipped.joined(separator: ", "))")
+                writeStdout("Pass --replace to overwrite skipped item(s).")
+            }
+            printApprovalNextSteps(for: payload.added + payload.replaced)
+        } else {
+            for error in payload.errors {
+                writeStderr(error)
+            }
+        }
+    }
+}

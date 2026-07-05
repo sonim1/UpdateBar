@@ -27,9 +27,16 @@ public struct GitLatestStrategy: LatestStrategy {
                 ShellCommand(command: command, cwd: nil),
                 policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)
             )
-            guard result.exitCode == 0 else { throw LatestError.commandFailed(result.stderr) }
+            guard result.exitCode == 0 else {
+                throw LatestError.commandFailed(
+                    "git ls-remote exited \(result.exitCode): \(SecretRedactor.redact(result.stderr))"
+                )
+            }
             let fields = result.stdout.split { $0 == "\t" || $0 == " " || $0 == "\n" }
-            return fields.first.map(String.init) ?? ""
+            guard let head = fields.first.map(String.init) else {
+                throw LatestError.parseFailed("git head not found: \(branch)")
+            }
+            return head
         case .tags:
             let command =
                 "git ls-remote --tags -- \(ShellQuote.single(recipe.source.ref))"
@@ -37,7 +44,11 @@ public struct GitLatestStrategy: LatestStrategy {
                 ShellCommand(command: command, cwd: nil),
                 policy: ExecutionPolicy(timeout: 60, maxOutputBytes: 128 * 1024)
             )
-            guard result.exitCode == 0 else { throw LatestError.commandFailed(result.stderr) }
+            guard result.exitCode == 0 else {
+                throw LatestError.commandFailed(
+                    "git ls-remote exited \(result.exitCode): \(SecretRedactor.redact(result.stderr))"
+                )
+            }
             let tags = result.stdout.split(separator: "\n").compactMap { line -> String? in
                 guard let tagPart = line.split(separator: "\t").last else { return nil }
                 var tag = String(tagPart).replacingOccurrences(of: "refs/tags/", with: "")
@@ -45,12 +56,15 @@ public struct GitLatestStrategy: LatestStrategy {
                 if tag.hasPrefix("v") { tag.removeFirst() }
                 return tag
             }
-            let latest = tags.max { lhs, rhs in
+            let semverTags = tags.filter { tag in
+                (try? VersionComparator.compareSemVer(tag, tag)) != nil
+            }
+            let latest = semverTags.max { lhs, rhs in
                 let comparison = try? VersionComparator.compareSemVer(lhs, rhs)
                 return comparison == .orderedAscending
             }
             guard let latest else {
-                throw LatestError.parseFailed("no git tags found")
+                throw LatestError.parseFailed("no git semver tags found")
             }
             return latest
         }

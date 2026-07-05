@@ -11,24 +11,24 @@ public protocol MenuBarServicing: Sendable {
     func revoke(id: String, field: String, cancellationToken: CancellationToken?) throws
 }
 
-public extension MenuBarServicing {
-    func checkNow() throws {
+extension MenuBarServicing {
+    public func checkNow() throws {
         try checkNow(cancellationToken: nil)
     }
 
-    func update(id: String) throws {
+    public func update(id: String) throws {
         try update(id: id, cancellationToken: nil)
     }
 
-    func updateAllApproved() throws {
+    public func updateAllApproved() throws {
         try updateAllApproved(cancellationToken: nil)
     }
 
-    func approve(id: String, field: String) throws {
+    public func approve(id: String, field: String) throws {
         try approve(id: id, field: field, cancellationToken: nil)
     }
 
-    func revoke(id: String, field: String) throws {
+    public func revoke(id: String, field: String) throws {
         try revoke(id: id, field: field, cancellationToken: nil)
     }
 }
@@ -101,19 +101,24 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         }
     }
 
-    public func approve(id: String, field: String, cancellationToken: CancellationToken? = nil) throws {
+    public func approve(id: String, field: String, cancellationToken: CancellationToken? = nil)
+        throws
+    {
         _ = try registryService(cancellationToken: cancellationToken).approve(id: id, field: field)
     }
 
-    public func revoke(id: String, field: String, cancellationToken: CancellationToken? = nil) throws {
-        _ = try registryService(cancellationToken: cancellationToken).revokeApproval(id: id, field: field)
+    public func revoke(id: String, field: String, cancellationToken: CancellationToken? = nil)
+        throws
+    {
+        _ = try registryService(cancellationToken: cancellationToken).revokeApproval(
+            id: id, field: field)
     }
 
     private func registryService(cancellationToken: CancellationToken?) throws -> RegistryService {
         RegistryService(
             manifestStore: manifestStore,
             stateStore: stateStore,
-            config: try configStore.load(),
+            config: try configStore.loadExistingOrDefault(),
             httpClient: httpClient,
             commandRunner: commandRunner(for: cancellationToken),
             now: now,
@@ -125,7 +130,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         UpdateRunner(
             manifestStore: manifestStore,
             stateStore: stateStore,
-            config: try configStore.load(),
+            config: try configStore.loadExistingOrDefault(),
             httpClient: httpClient,
             commandRunner: commandRunner(for: cancellationToken),
             now: now,

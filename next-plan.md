@@ -1,7 +1,8 @@
 # UpdateBar — Next Plan After Local Menu Bar MVP
 
-Status as of 2026-07-01. Reviewed against commit `6b3bdcd` after the public
-v0.2.0 release, Homebrew formula/cask publishing, and scan/init UX hardening.
+Status as of 2026-07-03. Reviewed against commit `ef5e060` after the public
+v0.2.0 release, Homebrew formula/cask publishing, scan/init UX hardening,
+Ink TUI architecture work, and additional post-release CLI safety hardening.
 Roadmap is now focused on post-release polish and the signed-app decision.
 
 The current product stance:
@@ -15,10 +16,13 @@ External agents may author recipe JSON, but UpdateBar remains the validation, tr
 Current implemented base:
 
 - CLI and `UpdateBarCore`
+- Ink/React terminal TUI in `tui/`, consuming Swift CLI JSON/JSONL contracts
+  through subprocesses
 - optional local macOS menu bar wrapper: `updatebar-menubar`, `UpdateBarMenuBar`,
-  and `UpdateBarMenuBarApp`
+  and `UpdateBarMenuBarApp`, using direct `UpdateBarCore` by default with an
+  explicit CLI-subprocess fallback
 - manifest/state/config stores with `manifest.lock` / `state.lock`
-- manual add/import/export
+- explicit JSON add/import/export
 - `guide agent`, `guide recipe`, recipe/manifest templates, JSON schema output
 - `validate` for manifest or single recipe JSON, including stdin
 - `import` from file or stdin
@@ -27,6 +31,8 @@ Current implemented base:
 - JSON error envelope for parser/runtime failures when `--json` is present and
   no command payload has already been written
 - `check` / `status` / `update`, with `--exit-zero-on-outdated` on `check` and `status`
+- JSONL streaming contracts for `check --json-stream` and `update --json-stream`,
+  including item progress, final summaries, and cancellation events
 - distinct update exit code `3` for approval-blocked updates
 - env allowlist for recipe child processes (`PATH, HOME, LANG, LC_ALL, LC_CTYPE, TMPDIR, USER`)
 - recipe commands run via `/bin/sh -c`, no login shell, no shell startup files
@@ -37,6 +43,9 @@ Current implemented base:
 - Homebrew cask `sonim1/tap/updatebar-app` for the app only
 - CI, CLI release packaging, archive-install smoke, app packaging smoke, and
   E2E edge-case checks
+- Post-release safety hardening: invalid manifests are validated before lookup
+  side effects, `init` registration is atomic, JSON `add` never waits on TTY
+  input, and config parse errors now report the user-facing config key.
 
 Removed from product: built-in OpenRouter add, provider auth, provider config,
 plaintext secret fallback, credential stores.
@@ -50,9 +59,11 @@ These invariants must hold across every future milestone.
 1. **No built-in AI recipe generation.** Agents author recipe files outside UpdateBar. UpdateBar validates and gates them.
 2. **Untrusted by default.** Imported, templated, or agent-authored recipes land untrusted unless explicitly approved.
 3. **Exact command fingerprints.** `check.cmd`, `latest.cmd`, and `update.cmd` run only when their current fingerprint is approved.
-4. **Separated approval.** Prefer `approve` / `revoke` over `add --trust` for agent workflows.
-5. **Status is read-only.** `status --json` remains the future UI contract and never runs shell or network.
-6. **CLI is the single writer.** Future app/daemon surfaces mutate stores only by invoking the bundled CLI.
+4. **Separated approval.** Use `approve` / `revoke`; `add --trust` is removed.
+5. **Status never executes recipes.** Plain `status --json` remains the future UI contract and is read-only; `status --refresh` may only mark stale trusted items as `checking`, never run shell or network.
+6. **Core is the product boundary.** UpdateBarCore is the source of truth for
+   store access and business behavior; presentation layers must not duplicate
+   check/update/config rules.
 7. **Secrets stay out.** Recipe child processes get allowlisted env only. Captured output/errors are redacted.
 8. **Validate-execute parity.** `validate` must never pass a recipe that `check`/`update` cannot execute (no "valid" recipes using unimplemented strategies).
 9. **Non-interactive by contract.** Every mutating command must be runnable headless (`--yes` or no prompt); no `readLine()` path without an escape hatch.
@@ -114,7 +125,7 @@ Status after implementation pass:
 
 2. **Validate-execute parity (guardrail 8).**
    - Done: `version_parse.jq` is now rejected until runtime support exists.
-   - `schema --json` advertises only `version_parse.regex`.
+  - `schema` advertises only `version_parse.regex`.
    - `check.file` docs now state regex-parsable content only.
 
 3. **Concurrency stress tests.**
@@ -156,14 +167,14 @@ This milestone is the heart of the product under the reset. Absorbs the old
 
 Contract work (new — the machine-readable surface):
 
-- **Done: `schema` command** emitting the recipe JSON Schema (`schema --json`):
+- **Done: `schema` command** emitting the recipe JSON Schema (`schema`):
   field rules, enums, executable `version_parse.regex` shape.
 - **Done: stable JSON error envelope for top-level failures.** Parser/runtime failures
   with `--json` now return `{ok:false, code, errors}` when no command-specific JSON
   payload has already been written.
 - **Done: granular exit code for approval block.** `update` returns `3` when blocked on approval
   without harder failures.
-- **Done: `--yes` on `add --trust`.** The `--manual` wizard remains intentionally interactive.
+- **Done: removed `add --trust`.** Imported, explicitly added, and templated recipes stay untrusted until explicit `approve`.
 - **Done: stdin for `validate` and `import`.** `add --from -` already existed.
 - **Done: JSON output for mutators:** `approve`, `revoke`, `config set`, `enable`, `disable`,
   `pin`, `unpin`, `remove`.
@@ -204,7 +215,7 @@ installed binary — authors and registers a working recipe end to end,
 recovering from at least one validation error programmatically.
 
 Fresh UPDATEBAR_HOME
-schema --json
+schema
 template recipe --kind npm > recipe.json
 validate recipe.json --json   (and via stdin)
 add --from recipe.json --dry-run --json
@@ -224,7 +235,7 @@ Goal: make CLI distribution boring and honest before any app surface.
 Work:
 
 - Done: `version` reads generated `UpdateBarVersion.swift`, produced from `version.env`
-  by `Scripts/generate-version-source.sh`; test asserts `version --json` matches `version.env`.
+  by `Scripts/generate-version-source.sh`; test asserts `--version` matches `version.env`.
 - CHANGELOG currently carries the CLI-only reset under `Unreleased`; move it under
   the tagged version during release finalization.
 - Done locally: release URLs now target `sonim1/UpdateBar`; Homebrew tap target is
@@ -238,7 +249,7 @@ Work:
   `sonim1/UpdateBar`.
 - Done: Homebrew formula style passes locally.
 - Done: **archive-install smoke:** install the built archive into a temp bin and run
-  `version --json`, `guide agent`, `template recipe --kind npm`.
+  `--version`, `guide agent`, `template recipe --kind npm`.
   Implemented as `Scripts/archive-smoke-test.sh`.
 - Done: **Linux CI lane** exists in `.github/workflows/ci.yml`.
 - Done: Homebrew formula installs the CLI as `updatebar`.
@@ -255,7 +266,7 @@ Gate:
 swift build -c release
 Scripts/build-release.sh
 archive-install smoke passes
-version --json == version.env
+--version == version.env
 Linux CI lane green (or Linux claims removed)
 Homebrew formula/cask packaging test passes
 release docs match actual repo slug
@@ -318,19 +329,22 @@ App distribution:
 
 Architecture (minimum honest version):
 
-- One app target calling the bundled CLI. No premature `UpdateBarClient`/`UpdateBarUI`
-  library split — extract libraries only when a second consumer exists.
-- App reads `status --json` or pure read helpers only.
-- Mutating/executing actions invoke the bundled CLI subprocess.
-- App process never writes `manifest.json`, `state.json`, or config directly.
+- One native app target using the direct UpdateBarCore adapter by default.
+- Keep `UpdateBarCLIClient` as a subprocess fallback for packaged or diagnostic
+  flows, selected explicitly with `UPDATEBAR_MENUBAR_ADAPTER=cli`.
+- App reads and mutates through shared core stores/services such as
+  `CoreMenuBarService`; it must not duplicate manifest/state/config parsing or
+  check/update rules in UI code.
+- Mutating/executing actions still honor the same trust, approval, locking, and
+  redaction rules as the CLI because those rules live in UpdateBarCore.
 
 MVP UI:
 
 - badge count for outdated items only
 - separate "needs approval" indicator for untrusted/unapproved items (never counted as updates)
 - list rows: name, current, latest, status
-- actions: Check now · Update selected · Update all approved outdated ·
-  Approve/revoke command fields · Reveal manifest · Preferences · Quit
+- actions: Check now · Refresh Status · Update selected · Update all approved outdated ·
+  Approve/revoke command fields · Open TUI · Open Config · View Logs · Quit
 
 UI decisions to settle inside this milestone (not standing open questions):
 
@@ -343,7 +357,7 @@ Defer: add-recipe GUI, registry browsing, sync, Sparkle.
 Local gate:
 
 ```text
-status display updates after state.json atomic replace [done]
+Refresh Status rereads state after state.json atomic replace [done]
 outdated check exit code is treated as success-with-updates [done]
 partial update exit 2 surfaces per-item errors [done]
 untrusted items are never counted as "updates available" [done]
@@ -388,8 +402,8 @@ Parked deliberately. Each has a written re-entry trigger; none carries design de
 - **Local fan-out sync** — already expressible today as an approved `update.cmd`; needs a docs
   example, not product surface. *Trigger: a user hits an actual wall with the command approach.*
 - **`doctor` / corrupt-store recovery** — `StoreError.corruptFile` exists but no repair path.
-  *Trigger: first real corrupt-store report.* Until then, document manual recovery (delete
-  `state.json`, re-run `check`).
+  *Trigger: first real corrupt-store report.* Until then, document manual recovery (back up the
+  data directory, move `state.json` aside, re-run `check`, and validate/import repaired manifests).
 - **`schema_version` migration policy** — currently hard-pinned to `1`. *Trigger: the first
   schema change; decide read-old-write-new before shipping it.*
 - **Built-in AI / OAuth / local LLM providers** — removed by design. If ever revisited:

@@ -8,13 +8,15 @@ Current scope:
 - keeps `UpdateBarCLIClient` as a subprocess fallback with JSON-only contracts
 - shows outdated items separately from recipes that need command approval
 - shows command text before approve/revoke actions
-- supports check now, update selected, update all approved outdated, approve/revoke command fields,
-  cancel current action, open TUI, open config, view logs, and quit
+- supports Check Now, Refresh Status, update selected, update all approved outdated,
+  approve/revoke command fields, cancel current action, Open TUI, Open Config,
+  View Logs, and Quit
 
 Build a local unsigned app:
 
 ```bash
 Scripts/package-app.sh
+Scripts/menubar-smoke-test.sh
 open dist/UpdateBar.app
 ```
 
@@ -33,7 +35,7 @@ For development without packaging:
 ```bash
 swift build --product updatebar
 swift build --product updatebar-menubar
-UPDATEBAR_CLI=.build/debug/updatebar .build/debug/updatebar-menubar
+UPDATEBAR_BIN=.build/debug/updatebar .build/debug/updatebar-menubar
 ```
 
 Use the fallback adapter explicitly:
@@ -42,14 +44,30 @@ Use the fallback adapter explicitly:
 UPDATEBAR_MENUBAR_ADAPTER=cli UPDATEBAR_BIN=.build/debug/updatebar .build/debug/updatebar-menubar
 ```
 
+View logs from the menu bar app at `~/Library/Logs/UpdateBar/updatebar-menubar.log`.
+If that file does not exist yet, the menu item opens the UpdateBar home directory
+instead. The same fallback is used by `Open Config`.
+Long item lists in the menu are compacted with overflow summaries.
+Recent logs are retained automatically with a rotating local cap.
+
 The app is currently unsigned. If macOS blocks the first launch, Control-click
 `UpdateBar.app` in Finder, choose Open, then confirm Open. Developer ID signing,
 notarization, and stapling are deferred until the Apple Developer Program
 go/no-go decision.
 
+Tip: `Open TUI` now also honors `UPDATEBAR_TUI` when set to a concrete binary, so
+you can point menu-bar launching at a dev-installed TUI without relying on
+`PATH`.
+
+`Open Config` opens the active UpdateBar config file when it exists; by default
+that is `HOME/.updatebar/config.toml`, and `UPDATEBAR_HOME` can point the app at
+an alternate data directory. If the config file is not present, the app opens the
+active UpdateBar home directory instead.
+
 Troubleshooting a missing icon:
 
 ```bash
+Scripts/menubar-smoke-test.sh
 pkill -f UpdateBar
 UPDATEBAR_BIN=/full/path/to/updatebar ./dist/UpdateBar.app/Contents/MacOS/UpdateBar \
   >/tmp/updatebar-menubar.log 2>&1 &

@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Changed
+
+- Removed the hidden prompt-based `updatebar add` wizard; use `updatebar add --from <file>` or `updatebar add --from -` for explicit recipe input.
+- Clarified CLI help for required recipe input, headless JSON confirmations,
+  hidden automation exit behavior, and background install confirmation.
+
+### Fixed
+
+- Improved release installer errors for failed GitHub metadata, archive,
+  checksum downloads, and release archive extraction failures.
+- Improved local installer output with copyable PATH guidance.
+- Strengthened app archive smoke checks to verify the bundle remains a menu bar
+  app.
+- Guarded release installer, menu bar launch, app archive, and quality gate
+  checks against accidental removal from the local release gate.
+- Hardened TUI subprocess cancellation by refusing already-aborted launches and
+  cleaning abort listeners after command exit.
+- Kept JSON and JSONL failure modes machine-readable by avoiding duplicate
+  human stderr after structured error payloads or failed events.
+- Enforced explicit-any linting in the TUI TypeScript source.
+
 ## 0.2.0 - 2026-07-01
 
 ### Breaking
@@ -46,5 +67,5 @@
 ## 0.1.0
 
 - Initial CLI: manifest validation, config, check/status/list/update,
-  item management, import/export, manual add, edit.
+  item management, import/export, explicit add, edit.
 - Smoke tests and release packaging scripts.

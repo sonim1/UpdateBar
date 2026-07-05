@@ -3,32 +3,27 @@ import Foundation
 public struct Config: Equatable, Sendable {
     public var refresh: RefreshConfig
     public var security: SecurityConfig
-    public var notify: NotifyConfig
+
+    public static let knownKeys = [
+        "refresh.interval",
+        "security.require_https_source",
+    ]
 
     public static let `default` = Config(
-        refresh: RefreshConfig(interval: Duration(hours: 6), concurrency: 8),
-        security: SecurityConfig(
-            allowImportExec: false,
-            requireHTTPSSource: true
-        ),
-        notify: NotifyConfig(enabled: true)
+        refresh: RefreshConfig(interval: Duration(hours: 6)),
+        security: SecurityConfig(requireHTTPSSource: true)
     )
 
     public mutating func set(_ key: String, value: String) throws {
         switch key {
         case "refresh.interval":
-            refresh.interval = try Duration(parse: value)
-        case "refresh.concurrency":
-            guard let intValue = Int(value), intValue > 0 else {
+            do {
+                refresh.interval = try Duration(parse: value)
+            } catch {
                 throw ConfigError.invalidValue(key: key, value: value)
             }
-            refresh.concurrency = intValue
-        case "security.allow_import_exec":
-            security.allowImportExec = try parseBool(key: key, value: value)
         case "security.require_https_source":
             security.requireHTTPSSource = try parseBool(key: key, value: value)
-        case "notify.enabled":
-            notify.enabled = try parseBool(key: key, value: value)
         default:
             throw ConfigError.unknownKey(key)
         }
@@ -37,10 +32,7 @@ public struct Config: Equatable, Sendable {
     public func get(_ key: String) -> String? {
         switch key {
         case "refresh.interval": refresh.interval.description
-        case "refresh.concurrency": String(refresh.concurrency)
-        case "security.allow_import_exec": String(security.allowImportExec)
         case "security.require_https_source": String(security.requireHTTPSSource)
-        case "notify.enabled": String(notify.enabled)
         default: nil
         }
     }
@@ -56,31 +48,32 @@ public struct Config: Equatable, Sendable {
 
 public struct RefreshConfig: Equatable, Sendable {
     public var interval: Duration
-    public var concurrency: Int
 }
 
 public struct SecurityConfig: Equatable, Sendable {
-    public var allowImportExec: Bool
     public var requireHTTPSSource: Bool
-}
-
-public struct NotifyConfig: Equatable, Sendable {
-    public var enabled: Bool
 }
 
 public enum ConfigError: Error, CustomStringConvertible, Equatable, Sendable {
     case unknownKey(String)
     case invalidValue(key: String, value: String)
     case corruptConfig(String)
+    case writeFailed(path: String, reason: String)
 
     public var description: String {
         switch self {
-        case let .unknownKey(key):
-            return "\(key): unknown config key"
-        case let .invalidValue(key, value):
-            return "\(key): invalid value \(value)"
-        case let .corruptConfig(message):
-            return "config.toml: \(message)"
+        case .unknownKey(let key):
+            return "\(redacted(key)): unknown config key"
+        case .invalidValue(let key, let value):
+            return "\(redacted(key)): invalid value \(redacted(value))"
+        case .corruptConfig(let message):
+            return "config.toml: \(redacted(message))"
+        case .writeFailed(let path, let reason):
+            return "\(redacted(path)): write failed: \(redacted(reason))"
         }
+    }
+
+    private func redacted(_ text: String) -> String {
+        SecretRedactor.redact(text)
     }
 }

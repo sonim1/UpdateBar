@@ -1,15 +1,17 @@
-import XCTest
 import UpdateBarCore
 import UpdateBarTestSupport
+import XCTest
 
 final class TrustPolicyTests: XCTestCase {
-    func testCmdLatestStrategyIsElevatedTrust() throws {
+    func testCmdLatestStrategyRequiresLatestCommandApproval() throws {
         var recipe = try loadRecipe()
         recipe.latest.strategy = .cmd
         recipe.latest.cmd = "tool latest"
-        recipe.trust.level = .trusted
+        TestApprovals.approveAllCommands(in: &recipe)
+        recipe.latest.cmd = "tool latest v2"
 
-        XCTAssertEqual(TrustPolicy.effectiveLevel(for: recipe), .elevated)
+        XCTAssertFalse(TrustPolicy.isCheckApproved(recipe))
+        XCTAssertFalse(TrustPolicy.hasApprovedCommandFingerprints(recipe))
     }
 
     func testUntrustedRecipeCannotRunCommandFields() throws {
@@ -24,7 +26,7 @@ final class TrustPolicyTests: XCTestCase {
         var recipe = try loadRecipe()
         recipe.trust.level = .untrusted
 
-        TrustPolicy.approveAllCommands(in: &recipe)
+        TestApprovals.approveAllCommands(in: &recipe)
 
         XCTAssertTrue(TrustPolicy.isApproved(recipe, field: "check.cmd"))
         XCTAssertTrue(TrustPolicy.isApproved(recipe, field: "update.cmd"))
@@ -33,7 +35,7 @@ final class TrustPolicyTests: XCTestCase {
 
     func testChangingCommandInvalidatesPreviousApproval() throws {
         var recipe = try loadRecipe()
-        TrustPolicy.approveAllCommands(in: &recipe)
+        TestApprovals.approveAllCommands(in: &recipe)
         XCTAssertTrue(TrustPolicy.isApproved(recipe, field: "update.cmd"))
 
         recipe.update.cmd = "npm update -g @anthropic-ai/claude-code"

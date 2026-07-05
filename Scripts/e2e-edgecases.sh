@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
 
-SWIFT_BIN="${SWIFT_BIN:-swift}"
 UPDATEBAR_BIN="${UPDATEBAR_BIN:-}"
+RUNNER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-updatebar.sh"
 CREATED_TMP_HOME=0
 if [[ -z "${TMP_HOME:-}" ]]; then
   TMP_HOME="$(mktemp -d)"
@@ -16,16 +18,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [[ -n "$UPDATEBAR_BIN" ]]; then
-  if [[ ! -x "$UPDATEBAR_BIN" ]]; then
-    echo "UPDATEBAR_BIN is not executable: $UPDATEBAR_BIN" >&2
-    exit 1
-  fi
-  RUNNER=("$UPDATEBAR_BIN")
-else
-  RUNNER=("$SWIFT_BIN" run updatebar)
-fi
-
 run_case() {
   local name="$1"
   local expected_rc="$2"
@@ -34,7 +26,7 @@ run_case() {
 
   printf "\n[CASE] %s\n" "$name"
   set +e
-  output=$({ "${RUNNER[@]}" "$@" 2>&1; })
+  output=$({ "$RUNNER" "$@" 2>&1; })
   rc=$?
   set -e
   printf "%s\n" "$output"
@@ -90,7 +82,7 @@ run_case_empty_home() {
 
   printf "\n[CASE] %s\n" "$name"
   set +e
-  output=$({ HOME="$TMP_HOME" "${RUNNER[@]}" "$@" 2>&1; })
+  output=$({ HOME="$TMP_HOME" "$RUNNER" "$@" 2>&1; })
   rc=$?
   set -e
   printf "%s\n" "$output"
@@ -149,7 +141,7 @@ run_case_background_install_from_path() {
   fi
 }
 
-# Positive flow: import baseline fixture via stdin, then list and status.
+# Positive flow: import baseline fixture via stdin, then inspect status.
 run_case_ok "import from stdin" import - < Fixtures/manifests/valid-basic.json
 run_case_contains "approvals include command text" 0 '"command":' approvals claude-code --json
 mkdir -p "$TMP_HOME/work"
@@ -185,8 +177,8 @@ run_case_fail "validate invalid manifest should fail" validate Fixtures/manifest
 run_case_ok "validate stdin should pass" validate - --json < Fixtures/manifests/valid-basic.json
 run_case_fail "approve non-command field should fail" approve claude-code --field latest.cmd --json
 run_case_fail "config set unknown key should fail" config set provider.default local
-run_case_ok "config set known key" config set security.allow_import_exec false
-run_case_ok "config get known key" config get security.allow_import_exec
+run_case_ok "config set known key" config set security.require_https_source false
+run_case_ok "config get known key" config get security.require_https_source
 run_case_fail "remove missing item should fail" remove missing-item --yes
 run_case_empty_home "background status (macOS only)" background status --json
 run_case_background_install_from_path

@@ -44,6 +44,37 @@ final class BackgroundLaunchAgentManagerTests: XCTestCase {
         )
     }
 
+    func testInstallIgnoresRelativePathEntriesWhenResolvingExecutable() throws {
+        let root = try temporaryDirectory()
+        let userHome = root.appendingPathComponent("user-home")
+        let relativeBinDirectory = root.appendingPathComponent("relative-bin")
+        let absoluteBinDirectory = root.appendingPathComponent("absolute-bin")
+        _ = try writeExecutable(named: "updatebar", in: relativeBinDirectory)
+        let absoluteExecutable = try writeExecutable(named: "updatebar", in: absoluteBinDirectory)
+        let originalDirectory = FileManager.default.currentDirectoryPath
+        XCTAssertTrue(FileManager.default.changeCurrentDirectoryPath(root.path))
+        defer {
+            _ = FileManager.default.changeCurrentDirectoryPath(originalDirectory)
+        }
+
+        let manager = BackgroundLaunchAgentManager(
+            environment: [
+                "HOME": userHome.path,
+                "PATH": "relative-bin:\(absoluteBinDirectory.path)",
+            ],
+            executableName: "updatebar",
+            currentDirectory: root.appendingPathComponent("work")
+        )
+
+        let plistURL = try manager.install(intervalSeconds: 123)
+
+        let plist = try loadPlist(plistURL)
+        XCTAssertEqual(
+            plist["ProgramArguments"] as? [String],
+            [absoluteExecutable.path, "check", "--exit-zero-on-outdated"]
+        )
+    }
+
     func testUninstallRemovesExistingPlistAndReportsMissing() throws {
         let root = try temporaryDirectory()
         let binDirectory = root.appendingPathComponent("bin")

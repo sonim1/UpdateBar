@@ -5,7 +5,8 @@ Status inspected from the current repo under `~/projects/UpdateBar` (current rel
 Scope:
 
 - CLI + optional macOS menu bar app
-- macOS menu bar app supported (thin local wrapper around CLI status/actions)
+- optional Ink TUI in `tui/` using the Swift CLI JSON/JSONL contracts
+- macOS menu bar app supported (native wrapper using the direct UpdateBarCore adapter by default)
 - no bundled always-on daemon; optional LaunchAgent runs `check` only when installed by the user
 - no built-in AI generation
 - no provider auth storage
@@ -26,13 +27,16 @@ UpdateBar
 │   └── target: Sources/UpdateBarMenuBar
 └── library: UpdateBarTestSupport
     └── target: Sources/UpdateBarTestSupport
+
+Node/React TUI
+└── package: tui/
 ```
 
 Missing today:
 
 - Sparkle integration
 - recipe signing
-- registry
+- shared/community registry
 - sync
 
 ---
@@ -60,7 +64,9 @@ UpdateBarCore
 
 UpdateBar does not author commands. Humans or external agents write recipe JSON. UpdateBar validates, stores as untrusted by default, and runs only approved command fingerprints.
 
-The menu bar app (`updatebar-menubar`) reads status and invokes user-triggered CLI actions internally. It never reads/writes manifest/state/config files directly.
+The menu bar app (`updatebar-menubar`) uses `CoreMenuBarService` and the direct UpdateBarCore adapter by default. It accesses manifest/state/config through the same core stores and services as the CLI, not through duplicated UI logic. A CLI subprocess adapter still exists for compatibility and can be selected with `UPDATEBAR_MENUBAR_ADAPTER=cli`.
+
+The Ink TUI lives in `tui/` as a Node/React presentation layer. It calls the Swift CLI through JSON/JSONL contracts instead of importing Swift libraries directly. `UPDATEBAR_TUI` can point `updatebar tui` or the Menu Bar `Open TUI` action at a built TUI entrypoint.
 
 ---
 
@@ -69,7 +75,7 @@ The menu bar app (`updatebar-menubar`) reads status and invokes user-triggered C
 Default home:
 
 ```text
-~/.updatebar
+HOME/.updatebar
 ```
 
 Override:
@@ -77,6 +83,9 @@ Override:
 ```text
 UPDATEBAR_HOME=/path/to/home
 ```
+
+`UPDATEBAR_HOME` takes precedence over `HOME/.updatebar` when set, which keeps
+tests, scripts, and background jobs isolated from the interactive user store.
 
 Files:
 
@@ -94,43 +103,53 @@ Stores use atomic writes. Mutating read-modify-write paths use file locks.
 
 ## 4. Current CLI Surface
 
+Default root-help surface:
+
+```text
+updatebar approvals
+updatebar check
+updatebar init
+updatebar scan
+updatebar status
+updatebar update
+```
+
+Advanced/support commands still exist but are hidden from default root help and shell completions:
+
 ```text
 updatebar add
 updatebar approve
-updatebar approvals
-updatebar background install
-updatebar background status
-updatebar background uninstall
-updatebar check
-updatebar config
+updatebar background install|status|uninstall
+updatebar config get|set
 updatebar disable
 updatebar edit
 updatebar enable
 updatebar export
-updatebar guide agent
-updatebar guide recipe
+updatebar guide agent|recipe
 updatebar import
-updatebar list
 updatebar pin
 updatebar remove
 updatebar revoke
 updatebar schema
-updatebar status
-updatebar template manifest
-updatebar template recipe
+updatebar template manifest|recipe
+updatebar tui
 updatebar unpin
-updatebar update
 updatebar validate
-updatebar version
 ```
 
 Removed:
 
 ```text
 updatebar auth
+updatebar list
+updatebar version
 updatebar add --ai
 updatebar add --provider
+updatebar add --trust
+updatebar update --all
 ```
+
+Use root `updatebar --version` for version output.
 
 ---
 
@@ -230,7 +249,7 @@ Rules:
 ## 9. Update Flow
 
 ```text
-updatebar update <id|--all>
+updatebar update [ids]
     |
     +-- load manifest/state
     +-- plan candidates
@@ -240,6 +259,8 @@ updatebar update <id|--all>
     +-- run forced check after success
     +-- mark state error after failure
 ```
+
+When ids are omitted, `update` plans every outdated item. There is no `--all` flag.
 
 `update` never approves commands.
 
@@ -307,7 +328,7 @@ Implemented:
 ```text
 updatebar guide agent
 updatebar guide recipe
-updatebar schema --json
+updatebar schema
 updatebar template recipe --kind <kind> [--id <id>] [--source <ref>]
 updatebar template manifest --kind <kind>
 updatebar validate <manifest-or-recipe|-> --json
@@ -335,8 +356,8 @@ agent checks status
 
 Before app/daemon work:
 
-- final GitHub repo slug / Homebrew tap confirmation
-- clean-checkout release dry run
 - Apple Developer Program go/no-go for menu bar app
+- Sparkle/notarization decision for public app distribution
+- shared/community registry design, if UpdateBar starts distributing curated recipes
 
 These are captured in `next-plan.md`.

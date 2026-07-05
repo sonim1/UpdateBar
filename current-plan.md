@@ -43,7 +43,8 @@ Do not build these yet:
 What exists now:
 
 - CLI command set (`add`, `check`, `status`, `update`, approvals, import/export, etc.)
-- optional macOS menu bar app target in the same repo/build pipeline
+- optional macOS menu bar app target in the same repo/build pipeline, using the
+  direct UpdateBarCore adapter by default
 - optional LaunchAgent helper (`updatebar background`) for read-only periodic check
 - Homebrew CLI release packaging for macOS
 
@@ -89,6 +90,12 @@ UpdateBar should not care whether the recipe was authored by:
 - a future registry
 
 UpdateBar's job is to provide the safe execution/validation layer, not the AI authoring layer.
+
+UpdateBarCore is the source of truth for manifest/state/config handling,
+validation, trust, check, status, and update behavior. The Swift CLI, Ink TUI,
+and macOS Menu Bar are presentation layers around that core; the native menu bar
+may use direct UpdateBarCore calls instead of shelling out when it can stay on
+the same typed service boundary.
 
 ---
 
@@ -138,12 +145,14 @@ Add or improve:
 
 ```text
 updatebar help
-updatebar help recipe
-updatebar help agent
-updatebar help examples
+updatebar guide recipe
+updatebar guide agent
+updatebar schema
 updatebar validate --explain <file>
 updatebar add --from <recipe.json> --dry-run --json
-updatebar trust/approve commands, or improve existing --trust flow
+updatebar approvals <id>
+updatebar approve <id> [--field <field>]
+updatebar revoke <id> --field <field>
 ```
 
 Possible command shape:
@@ -175,9 +184,10 @@ External AI agents should follow this workflow:
    - latest.cmd, if present
    - update.cmd
 7. Ask the user before approving commands.
-8. Run `updatebar add --from recipe.json` without approval, or with an explicit approval flow only if the user agrees.
-9. Run `updatebar check <id> --json` to verify behavior.
-10. Report status and next steps.
+8. Run `updatebar add --from recipe.json` without approval.
+9. Run `updatebar approvals <id>` and approve exact fields only if the user agrees.
+10. Run `updatebar check <id> --json` to verify behavior.
+11. Report status and next steps.
 ```
 
 Important rule for agents:
@@ -188,7 +198,7 @@ Do not auto-approve command execution just because an AI generated the recipe.
 
 ---
 
-## 6. Suggested `updatebar help agent` content
+## 6. Suggested `updatebar guide agent` content
 
 The CLI should include a concise guide like this:
 
@@ -279,7 +289,6 @@ Example template strategy:
   },
   "pin": null,
   "enabled": true,
-  "notify": true,
   "trust": {
     "level": "untrusted",
     "approved_commands": {}
@@ -352,24 +361,16 @@ updatebar validate <file> --json
 Keep:
 
 ```text
-updatebar add --manual
 updatebar add --from recipe.json
 updatebar add --from recipe.json --dry-run --json
-```
-
-Consider allowing `--from -` for stdin:
-
-```text
 cat recipe.json | updatebar add --from - --dry-run --json
 ```
 
-This is useful for agents.
+`add` requires explicit recipe input through `--from`; the old prompt-based wizard is removed to keep the hidden support command deterministic and automation-friendly.
 
 ### Approval flow
 
-Current `--trust` can approve all commands after printing them.
-
-Consider making approval explicit and separate:
+`add --trust` is removed. Approval is explicit and separate:
 
 ```text
 updatebar approve <id>
@@ -392,14 +393,13 @@ This would make the agent workflow safer because adding and approving are separa
 - Remove `add --ai` and `--provider`.
 - Remove provider model config if unused.
 - Remove AI-specific auth paths and docs.
-- Keep manual/import recipe flow.
+- Keep explicit add/import recipe flow.
 - Ensure tests reflect CLI-only behavior.
 
 Gate:
 
 ```text
 swift test passes
-updatebar add --manual works
 updatebar add --from works
 updatebar validate works
 no OpenRouter references remain except maybe migration notes/changelog

@@ -25,7 +25,10 @@ public struct InitService {
         replace: Bool
     ) throws -> InitSummary {
         let selectedIDs = unique(selectedIDs)
-        let candidatesByID = Dictionary(uniqueKeysWithValues: candidates.map { ($0.id, $0) })
+        let candidatesByID = Dictionary(
+            candidates.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
         var recipesByID: [String: Recipe] = [:]
         var errors: [String] = []
 
@@ -35,7 +38,7 @@ public struct InitService {
                 continue
             }
             guard candidate.capability == .full, let recipe = candidate.recipe else {
-                errors.append("\(id): not importable")
+                errors.append("\(id): not importable (\(candidate.capability.rawValue))")
                 continue
             }
             recipesByID[id] = TrustPolicy.untrustedCopy(recipe)
@@ -49,6 +52,17 @@ public struct InitService {
         var added: [String] = []
         var replaced: [String] = []
         var skipped: [String] = []
+        var recipesToImport: [Recipe] = []
+        var recipeImportIndexes: [String: Int] = [:]
+
+        func stageForImport(_ recipe: Recipe) {
+            if let index = recipeImportIndexes[recipe.id] {
+                recipesToImport[index] = recipe
+            } else {
+                recipeImportIndexes[recipe.id] = recipesToImport.count
+                recipesToImport.append(recipe)
+            }
+        }
 
         for id in selectedIDs {
             guard let recipe = recipesByID[id] else { continue }
@@ -57,14 +71,23 @@ public struct InitService {
                     skipped.append(recipe.id)
                     continue
                 }
-                try registryService.addRecipe(recipe, replace: true)
                 manifest = manifest.replacing(item: recipe)
+                stageForImport(recipe)
                 replaced.append(recipe.id)
             } else {
-                try registryService.addRecipe(recipe, replace: false)
                 manifest = manifest.replacing(item: recipe)
+                stageForImport(recipe)
                 added.append(recipe.id)
             }
+        }
+
+        if !recipesToImport.isEmpty {
+            let incoming = Manifest(
+                schemaVersion: manifest.schemaVersion,
+                items: recipesToImport,
+                provenance: manifest.provenance
+            )
+            _ = try registryService.importManifest(incoming, replace: true)
         }
 
         return InitSummary(added: added, replaced: replaced, skipped: skipped)
@@ -87,7 +110,7 @@ public enum InitServiceError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
         case .invalidSelection(let errors):
-            return errors.joined(separator: "\n")
+            return errors.map(SecretRedactor.redact).joined(separator: "\n")
         }
     }
 }

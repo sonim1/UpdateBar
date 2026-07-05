@@ -8,8 +8,8 @@
     @MainActor
     final class UpdateBarMenuBarApp: NSObject, NSApplicationDelegate {
         private static var bootstrapDelegate: UpdateBarMenuBarApp?
-        private var statusItem: NSStatusItem!
-        private var service: (any MenuBarServicing)!
+        private var statusItem: NSStatusItem?
+        private var service: (any MenuBarServicing)?
         private var cliPath = ""
         private let formatter = MenuBarStatusFormatter()
         private let menuBuilder = MenuBarMenuModelBuilder()
@@ -35,13 +35,19 @@
         }
 
         func applicationDidFinishLaunching(_ notification: Notification) {
-            cliPath = Self.resolveCLIPath()
-            Self.debugLog("resolved updatebar path: \(cliPath)")
-            service = Self.makeService(cliPath: cliPath)
-            statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-            statusItem.autosaveName = "UpdateBarStatusItem"
-            statusItem.isVisible = true
-            guard let statusButton = statusItem.button else {
+            let useCLIAdapter = Self.shouldUseCLIAdapter()
+            if useCLIAdapter {
+                let resolvedPath = Self.resolveCLIPath()
+                if !resolvedPath.isEmpty {
+                    cliPath = resolvedPath
+                }
+            }
+            service = Self.makeService(cliPath: useCLIAdapter ? cliPath : nil)
+            let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+            statusItem = item
+            item.autosaveName = "UpdateBarStatusItem"
+            item.isVisible = true
+            guard let statusButton = item.button else {
                 showError(MenuBarStartupError.missingStatusBarButton)
                 return
             }
@@ -74,7 +80,14 @@
             }
         }
 
-        @objc private func updateAllApproved() {
+        @objc private func updateAllApproved(_ sender: NSMenuItem) {
+            let fallback = MenuBarActionConfirmation.updateAllApprovedOutdated(
+                itemNames: latestState.outdatedItems.map(\.name)
+            )
+            guard confirm((sender.representedObject as? MenuBarActionConfirmation) ?? fallback)
+            else {
+                return
+            }
             runAction("Run Updates") { [service] token in
                 try service?.updateAllApproved(cancellationToken: token)
             }
@@ -83,6 +96,10 @@
         @objc private func updateSelected(_ sender: NSMenuItem) {
             guard let action = sender.representedObject as? ItemAction else { return }
             let id = action.id
+            guard confirm(action.confirmation ?? MenuBarActionConfirmation.updateItem(id: id))
+            else {
+                return
+            }
             runAction("Update \(id)") { [service] token in
                 try service?.update(id: id, cancellationToken: token)
             }
@@ -92,6 +109,12 @@
             guard let action = sender.representedObject as? ApprovalAction else { return }
             let id = action.id
             let field = action.field
+            let fallback = MenuBarActionConfirmation.commandApproval(
+                id: id,
+                field: field,
+                approving: true
+            )
+            guard confirm(action.confirmation ?? fallback) else { return }
             runAction("Approve \(id) \(field)") { [service] token in
                 try service?.approve(id: id, field: field, cancellationToken: token)
             }
@@ -101,6 +124,12 @@
             guard let action = sender.representedObject as? ApprovalAction else { return }
             let id = action.id
             let field = action.field
+            let fallback = MenuBarActionConfirmation.commandApproval(
+                id: id,
+                field: field,
+                approving: false
+            )
+            guard confirm(action.confirmation ?? fallback) else { return }
             runAction("Revoke \(id) \(field)") { [service] token in
                 try service?.revoke(id: id, field: field, cancellationToken: token)
             }
@@ -116,7 +145,12 @@
         }
 
         @objc private func openTUI() {
-            let command = OpenTUICommand(cliPath: cliPath)
+            let resolvedCLIPath = cliPath.isEmpty ? Self.resolveCLIPath() : cliPath
+            guard !resolvedCLIPath.isEmpty else {
+                showError(MenuBarStartupError.cliResolverFailed)
+                return
+            }
+            let command = OpenTUICommand(cliPath: resolvedCLIPath)
             do {
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: command.executablePath)
@@ -128,11 +162,22 @@
         }
 
         @objc private func openConfig() {
-            NSWorkspace.shared.open(AppPaths().configFile)
+            let appPaths = AppPaths()
+            let configURL = appPaths.configFile
+            let configExists = FileManager.default.fileExists(atPath: configURL.path)
+            openInFinder(
+                configExists ? configURL : appPaths.homeDirectory,
+                failureMessage: MenuBarStartupError.configOpenFailed(path: configURL.path)
+            )
         }
 
         @objc private func viewLogs() {
-            NSWorkspace.shared.activateFileViewerSelecting([AppPaths().homeDirectory])
+            let logURL = Self.logFileURL
+            let targetURL =
+                FileManager.default.fileExists(atPath: logURL.path)
+                ? logURL : AppPaths().homeDirectory
+            openInFinder(
+                targetURL, failureMessage: MenuBarStartupError.viewLogFailed(path: targetURL.path))
         }
 
         @objc private func quit() {
@@ -213,6 +258,10 @@
         }
 
         private func rebuildMenu() {
+            guard let statusItem else {
+                Self.debugLog("cannot rebuild menu before status item exists")
+                return
+            }
             let activeAction = actionCoordinator.activeAction
             let lastActionNotice = actionCoordinator.lastActionNotice
             if let activeAction {
@@ -247,33 +296,43 @@
 
         private func menuItem(from item: MenuBarMenuItem) -> NSMenuItem {
             guard let action = item.action else {
-                return disabledItem(item.title)
+                return disabledItem(item.title, toolTip: item.toolTip)
             }
             let menuItem = actionItem(item.title, action: selector(for: action))
             menuItem.toolTip = item.toolTip
             switch action {
             case .menu, .cancelCurrentAction:
-                break
+                if action == .menu(.updateAllApprovedOutdated) {
+                    menuItem.representedObject = item.confirmation
+                }
             case .update(let id):
-                menuItem.representedObject = ItemAction(id: id)
+                menuItem.representedObject = ItemAction(id: id, confirmation: item.confirmation)
             case .approve(let id, let field), .revoke(let id, let field):
-                menuItem.representedObject = ApprovalAction(id: id, field: field)
+                menuItem.representedObject = ApprovalAction(
+                    id: id,
+                    field: field,
+                    confirmation: item.confirmation
+                )
             }
             return menuItem
         }
 
         private func showError(_ error: Error) {
-            Self.debugLog("showing error: \(error)")
+            let errorDescription = SecretRedactor.redact(String(describing: error))
+            Self.debugLog("showing error: \(errorDescription)")
             setTitle("!", accessibilityLabel: "UpdateBar error")
+            guard let statusItem else {
+                return
+            }
             let model = menuBuilder.makeErrorMenu(
-                errorDescription: String(describing: error)
+                errorDescription: errorDescription
             )
             statusItem.menu = makeMenu(from: model)
         }
 
         private func setTitle(_ title: String, accessibilityLabel: String? = nil) {
-            statusItem.button?.title = title
-            statusItem.button?.setAccessibilityLabel(accessibilityLabel ?? "UpdateBar \(title)")
+            statusItem?.button?.title = title
+            statusItem?.button?.setAccessibilityLabel(accessibilityLabel ?? "UpdateBar \(title)")
         }
 
         private func accessibilityLabel(for state: MenuBarState) -> String {
@@ -284,7 +343,77 @@
         }
 
         private static func debugLog(_ message: String) {
-            FileHandle.standardError.write(Data(("UpdateBarMenuBar: \(message)\n").utf8))
+            let redactedMessage = SecretRedactor.redact(message)
+            FileHandle.standardError.write(Data(("UpdateBarMenuBar: \(redactedMessage)\n").utf8))
+            appendLog(redactedMessage)
+        }
+
+        private func openInFinder(_ targetURL: URL, failureMessage: Error) {
+            NSWorkspace.shared.activateFileViewerSelecting([targetURL])
+            if NSWorkspace.shared.open(targetURL) {
+                return
+            }
+            if NSWorkspace.shared.open(targetURL.deletingLastPathComponent()) {
+                return
+            }
+            showError(failureMessage)
+        }
+
+        private func confirm(_ confirmation: MenuBarActionConfirmation?) -> Bool {
+            guard let confirmation else { return true }
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = confirmation.title
+            alert.informativeText = confirmation.message
+            alert.addButton(withTitle: confirmation.confirmButton)
+            alert.addButton(withTitle: confirmation.cancelButton)
+            return alert.runModal() == .alertFirstButtonReturn
+        }
+
+        private static var logDirectory: URL {
+            FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library", isDirectory: true)
+                .appendingPathComponent("Logs", isDirectory: true)
+                .appendingPathComponent("UpdateBar", isDirectory: true)
+        }
+
+        private static var logFileURL: URL {
+            logDirectory.appendingPathComponent("updatebar-menubar.log", isDirectory: false)
+        }
+
+        private static let maxLogFileBytes: Int = 256 * 1024
+
+        private static let dateFormatter: ISO8601DateFormatter = {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return formatter
+        }()
+
+        private static func appendLog(_ message: String) {
+            do {
+                try FileManager.default.createDirectory(
+                    at: logDirectory,
+                    withIntermediateDirectories: true
+                )
+
+                let line = "\(dateFormatter.string(from: Date())) UpdateBarMenuBar: \(message)\n"
+                let data = Data(line.utf8)
+
+                if FileManager.default.fileExists(atPath: logFileURL.path) {
+                    let existing = try Data(contentsOf: logFileURL)
+                    let concatenated = existing + data
+                    if concatenated.count <= maxLogFileBytes {
+                        try concatenated.write(to: logFileURL, options: .atomic)
+                        return
+                    }
+                    let trimmed = concatenated.suffix(maxLogFileBytes)
+                    try trimmed.write(to: logFileURL, options: .atomic)
+                    return
+                }
+                try data.write(to: logFileURL)
+            } catch {
+                // Logging should not block or fail app startup.
+            }
         }
 
         private func actionItem(_ title: String, action: Selector) -> NSMenuItem {
@@ -310,10 +439,12 @@
 
         private func selector(for action: MenuBarMenuAction) -> Selector {
             switch action {
+            case .refreshStatus:
+                return #selector(refreshFromMenu)
             case .checkNow:
                 return #selector(checkNow)
             case .updateAllApprovedOutdated:
-                return #selector(updateAllApproved)
+                return #selector(updateAllApproved(_:))
             case .openTUI:
                 return #selector(openTUI)
             case .openConfig:
@@ -325,10 +456,10 @@
             }
         }
 
-        private func disabledItem(_ title: String) -> NSMenuItem {
+        private func disabledItem(_ title: String, toolTip: String? = nil) -> NSMenuItem {
             let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
             item.isEnabled = false
-            item.toolTip = title
+            item.toolTip = toolTip ?? title
             return item
         }
 
@@ -337,20 +468,28 @@
                 let resolution = try UpdateBarBinaryResolver().resolve(
                     bundledDirectory: Bundle.main.resourceURL
                 )
-                debugLog("using \(resolution.source.rawValue) updatebar: \(resolution.path)")
+                let redactedPath = SecretRedactor.redact(resolution.path)
+                debugLog("using \(resolution.source.rawValue) updatebar: \(redactedPath)")
                 return resolution.path
             } catch {
                 debugLog("failed to resolve updatebar path: \(error)")
+                return ""
             }
-            return "/opt/homebrew/bin/updatebar"
         }
 
-        private static func makeService(cliPath: String) -> any MenuBarServicing {
-            let environment = ProcessInfo.processInfo.environment
-            if environment["UPDATEBAR_MENUBAR_ADAPTER"] == "cli" {
+        private static func shouldUseCLIAdapter() -> Bool {
+            ProcessInfo.processInfo.environment["UPDATEBAR_MENUBAR_ADAPTER"] == "cli"
+        }
+
+        private static func makeService(cliPath: String?) -> any MenuBarServicing {
+            if shouldUseCLIAdapter(), let cliPath, !cliPath.isEmpty {
                 debugLog("using CLI subprocess menu bar adapter")
                 return UpdateBarCLIClient(executablePath: cliPath)
             }
+            if shouldUseCLIAdapter() {
+                debugLog("CLI adapter requested but no executable was resolved; using core adapter")
+            }
+            let environment = ProcessInfo.processInfo.environment
             debugLog("using direct UpdateBarCore menu bar adapter")
             return CoreMenuBarService(
                 githubToken: environment["GITHUB_TOKEN"] ?? environment["GH_TOKEN"]
@@ -360,29 +499,42 @@
 
     private final class ItemAction: NSObject {
         let id: String
+        let confirmation: MenuBarActionConfirmation?
 
-        init(id: String) {
+        init(id: String, confirmation: MenuBarActionConfirmation?) {
             self.id = id
+            self.confirmation = confirmation
         }
     }
 
     private final class ApprovalAction: NSObject {
         let id: String
         let field: String
+        let confirmation: MenuBarActionConfirmation?
 
-        init(id: String, field: String) {
+        init(id: String, field: String, confirmation: MenuBarActionConfirmation?) {
             self.id = id
             self.field = field
+            self.confirmation = confirmation
         }
     }
 
     private enum MenuBarStartupError: Error, CustomStringConvertible {
         case missingStatusBarButton
+        case configOpenFailed(path: String)
+        case viewLogFailed(path: String)
+        case cliResolverFailed
 
         var description: String {
             switch self {
             case .missingStatusBarButton:
                 return "Failed to create menu bar button"
+            case .configOpenFailed(let path):
+                return "Failed to open config at \(path)"
+            case .viewLogFailed(let path):
+                return "Failed to open log target at \(path)"
+            case .cliResolverFailed:
+                return "Unable to resolve updatebar executable for Open TUI"
             }
         }
     }
