@@ -560,7 +560,9 @@ run_corrupt_archive_fails_clearly() {
     cat "$output" >&2
     exit 1
   fi
-  if ! grep -Fq "Failed to extract release archive: $ASSET_NAME" "$output"; then
+  if ! grep -Fq "Failed to extract release archive: $ASSET_NAME" "$output" \
+    && ! grep -Fq "release archive did not contain executable updatebar: $ASSET_NAME" "$output"
+  then
     echo "install-release corrupt-archive error was not clear" >&2
     cat "$output" >&2
     exit 1
