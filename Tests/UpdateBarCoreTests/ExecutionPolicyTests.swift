@@ -92,7 +92,7 @@ final class ExecutionPolicyTests: XCTestCase {
         let started = Date()
 
         let result = try executor.run(
-            ShellCommand(command: "sleep 3 & printf done", cwd: nil),
+            ShellCommand(command: "sleep 3 </dev/null >/dev/null 2>&1 & printf done", cwd: nil),
             policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 1024)
         )
 
