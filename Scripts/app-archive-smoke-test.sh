@@ -26,6 +26,23 @@ MACOS_BIN="$APP_DIR/Contents/MacOS/UpdateBar"
 CLI_BIN="$APP_DIR/Contents/Resources/updatebar"
 INFO_PLIST="$APP_DIR/Contents/Info.plist"
 
+plist_value() {
+  local key="$1"
+  if command -v plutil >/dev/null 2>&1; then
+    plutil -extract "$key" raw "$INFO_PLIST" 2>/dev/null || true
+    return
+  fi
+  awk -v key="$key" '
+    $0 ~ "<key>" key "</key>" {
+      getline
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+      gsub(/<string>|<\/string>/, "")
+      print
+      exit
+    }
+  ' "$INFO_PLIST"
+}
+
 if [[ ! -x "$MACOS_BIN" ]]; then
   echo "missing executable menu bar binary: $MACOS_BIN" >&2
   exit 1
@@ -43,14 +60,31 @@ if command -v plutil >/dev/null 2>&1; then
   plutil -lint "$INFO_PLIST" >/dev/null
 fi
 
-if command -v plutil >/dev/null 2>&1; then
-  LSUI_ELEMENT="$(plutil -extract LSUIElement raw "$INFO_PLIST" 2>/dev/null || true)"
-else
-  LSUI_ELEMENT="$(
-    awk '/<key>LSUIElement<\/key>/ { getline; gsub(/[[:space:]]/, ""); print; exit }' \
-      "$INFO_PLIST"
-  )"
+APP_EXECUTABLE="$(plist_value CFBundleExecutable)"
+if [[ "$APP_EXECUTABLE" != "UpdateBar" ]]; then
+  echo "app archive has unexpected executable name: $ARCHIVE" >&2
+  echo "  expected: UpdateBar" >&2
+  echo "  actual:   ${APP_EXECUTABLE:-missing}" >&2
+  exit 1
 fi
+
+PACKAGE_TYPE="$(plist_value CFBundlePackageType)"
+if [[ "$PACKAGE_TYPE" != "APPL" ]]; then
+  echo "app archive is not a double-clickable app bundle: $ARCHIVE" >&2
+  echo "  expected CFBundlePackageType: APPL" >&2
+  echo "  actual:                       ${PACKAGE_TYPE:-missing}" >&2
+  exit 1
+fi
+
+BUNDLE_IDENTIFIER="$(plist_value CFBundleIdentifier)"
+if [[ "$BUNDLE_IDENTIFIER" != "com.sonim1.UpdateBar" ]]; then
+  echo "app archive has unexpected bundle identifier: $ARCHIVE" >&2
+  echo "  expected: com.sonim1.UpdateBar" >&2
+  echo "  actual:   ${BUNDLE_IDENTIFIER:-missing}" >&2
+  exit 1
+fi
+
+LSUI_ELEMENT="$(plist_value LSUIElement)"
 if [[ "$LSUI_ELEMENT" != "true" && "$LSUI_ELEMENT" != "1" && "$LSUI_ELEMENT" != "<true/>" ]]; then
   echo "app archive is not configured as a menu bar app: $ARCHIVE" >&2
   echo "  expected LSUIElement true" >&2
@@ -58,11 +92,7 @@ if [[ "$LSUI_ELEMENT" != "true" && "$LSUI_ELEMENT" != "1" && "$LSUI_ELEMENT" != 
   exit 1
 fi
 
-if command -v plutil >/dev/null 2>&1; then
-  APP_VERSION="$(plutil -extract CFBundleShortVersionString raw "$INFO_PLIST" 2>/dev/null || true)"
-else
-  APP_VERSION="$(awk '/<key>CFBundleShortVersionString<\/key>/ { getline; gsub(/.*<string>|<\/string>.*/, ""); print; exit }' "$INFO_PLIST")"
-fi
+APP_VERSION="$(plist_value CFBundleShortVersionString)"
 if [[ "$APP_VERSION" != "$UPDATEBAR_VERSION" ]]; then
   echo "app archive version mismatch for $ARCHIVE" >&2
   echo "  expected: $UPDATEBAR_VERSION" >&2

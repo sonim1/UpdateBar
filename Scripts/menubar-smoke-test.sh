@@ -61,9 +61,20 @@ if grep -F "showing error" "$tmp_log" >/dev/null; then
     exit 1
 fi
 
+if [[ ! -f "$LOG_PATH" ]]; then
+    echo "menu bar runtime log was not created: $LOG_PATH"
+    cat "$tmp_log"
+    exit 1
+fi
+
+if ! grep -F "UpdateBarMenuBar main starting" "$LOG_PATH" >/dev/null; then
+    echo "menu bar runtime log missing startup marker: $LOG_PATH"
+    cat "$tmp_log"
+    tail -n 40 "$LOG_PATH" 2>/dev/null || true
+    exit 1
+fi
+
 echo "menu bar launch smoke passed"
 echo "runtime log target: $LOG_PATH"
 echo "runtime log tail:"
-if [[ -f "$LOG_PATH" ]]; then
-    tail -n 20 "$LOG_PATH"
-fi
+tail -n 20 "$LOG_PATH"
