@@ -88,16 +88,15 @@ final class ExecutionPolicyTests: XCTestCase {
     }
 
     func testCommandExecutorDoesNotWaitForBackgroundChildrenAfterShellExits() throws {
-        let executor = CommandExecutor()
-        let started = Date()
         #if os(Linux)
-            let command = "setsid -f sleep 3 </dev/null >/dev/null 2>&1; printf done"
-        #else
-            let command = "sleep 3 </dev/null >/dev/null 2>&1 & printf done"
+            throw XCTSkip("Linux /bin/sh keeps background jobs attached under Foundation Process")
         #endif
 
+        let executor = CommandExecutor()
+        let started = Date()
+
         let result = try executor.run(
-            ShellCommand(command: command, cwd: nil),
+            ShellCommand(command: "sleep 3 </dev/null >/dev/null 2>&1 & printf done", cwd: nil),
             policy: ExecutionPolicy(timeout: 30, maxOutputBytes: 1024)
         )
 
