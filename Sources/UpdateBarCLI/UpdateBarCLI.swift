@@ -39,6 +39,7 @@ struct UpdateBar: ParsableCommand {
             CommandGroup(
                 name: "Support",
                 subcommands: [
+                    DoctorCommand.self,
                     GuideCommand.self,
                     TUICommand.self,
                     SchemaCommand.self,

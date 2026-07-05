@@ -79,6 +79,9 @@ export UPDATEBAR_BIN="$ROOT/.build/debug/updatebar"
 echo "running updatebar smoke test"
 bash Scripts/smoke-test.sh
 
+echo "running installed CLI smoke test"
+bash Scripts/cli-smoke-test.sh
+
 echo "running updatebar edgecase checks"
 bash Scripts/e2e-edgecases.sh
 

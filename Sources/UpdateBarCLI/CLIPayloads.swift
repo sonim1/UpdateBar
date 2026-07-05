@@ -46,6 +46,19 @@ struct BackgroundUninstallPayload: Encodable {
     var label: String
 }
 
+struct DoctorPayload: Encodable {
+    var ok: Bool
+    var home: String
+    var checks: [DoctorCheckPayload]
+}
+
+struct DoctorCheckPayload: Encodable {
+    var name: String
+    var ok: Bool
+    var path: String?
+    var message: String
+}
+
 struct ValidationPayload: Encodable {
     var ok: Bool
     var valid: Bool

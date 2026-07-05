@@ -15,7 +15,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         let helpLines = output.split(separator: "\n").map(String.init)
         for command in [
             "add", "import", "export", "background", "config", "guide", "schema", "template",
-            "validate", "tui",
+            "validate", "tui", "doctor",
         ] {
             XCTAssertFalse(
                 helpShowsCommand(command, in: helpLines),
@@ -717,7 +717,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         let hiddenCommands = [
             "add", "import", "export", "approve", "revoke", "pin", "unpin", "enable", "disable",
             "remove", "edit", "background", "config", "guide", "schema", "template", "validate",
-            "tui",
+            "tui", "doctor",
         ]
 
         for shell in ["bash", "zsh", "fish"] {
@@ -1002,19 +1002,53 @@ final class DocumentationSnapshotTests: XCTestCase {
     func testGitHubInstallerDocsMatchInstallerPreflight() throws {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let releaseDocs = try String(contentsOfFile: "docs/release.md", encoding: .utf8)
+        let installDocs = try String(contentsOfFile: "docs/install.md", encoding: .utf8)
         let installSection = try readmeSection(
             "### Install from GitHub (single command)",
             before: "### Menu bar app",
             in: readme
         )
 
-        for document in [installSection, releaseDocs] {
+        for document in [installSection, releaseDocs, installDocs] {
             XCTAssertTrue(document.contains("curl"))
             XCTAssertTrue(document.contains("tar"))
             XCTAssertTrue(document.contains("shasum"))
             XCTAssertTrue(document.contains("sha256sum"))
             XCTAssertTrue(document.contains("checksum"))
         }
+    }
+
+    func testInstallDocsUnifySupportedInstallPaths() throws {
+        let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
+        let installDocs = try String(contentsOfFile: "docs/install.md", encoding: .utf8)
+
+        XCTAssertTrue(readme.contains("[docs/install.md](docs/install.md)"))
+        for phrase in [
+            "brew install sonim1/tap/updatebar",
+            "curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash",
+            "brew install --cask sonim1/tap/updatebar-app",
+            "UpdateBar.app",
+            "one-command verification",
+        ] {
+            XCTAssertTrue(installDocs.contains(phrase), "install docs missing \(phrase)")
+        }
+    }
+
+    func testCliSmokeScriptVerifiesInstallCommands() throws {
+        let script = try String(contentsOfFile: "Scripts/cli-smoke-test.sh", encoding: .utf8)
+        let qualityGate = try String(contentsOfFile: "Scripts/quality-gate.sh", encoding: .utf8)
+        let installDocs = try String(contentsOfFile: "docs/install.md", encoding: .utf8)
+
+        for command in [
+            "--version",
+            "doctor",
+            "scan",
+            "status --json --exit-zero-on-outdated",
+        ] {
+            XCTAssertTrue(script.contains(command), "CLI smoke missing \(command)")
+        }
+        XCTAssertTrue(qualityGate.contains("bash Scripts/cli-smoke-test.sh"))
+        XCTAssertTrue(installDocs.contains("Scripts/cli-smoke-test.sh"))
     }
 
     func testReleaseDocsExplainQualityGateXCTestPreflight() throws {

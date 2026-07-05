@@ -313,6 +313,7 @@ extension UpdateBar {
         "config get": "updatebar config get --json",
         "config set": "updatebar config set <key> <value> --json",
         "disable": "updatebar disable <id> --json",
+        "doctor": "updatebar doctor --json",
         "enable": "updatebar enable <id> --json",
         "export": "updatebar export --json",
         "import": "updatebar import <file> --json",
@@ -329,6 +330,7 @@ extension UpdateBar {
     private static let jsonStreamCommands: Set<String> = ["check", "update"]
 
     private static let noPositionalMachineOutputCommands: Set<String> = [
+        "doctor",
         "scan",
         "status",
     ]

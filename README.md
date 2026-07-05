@@ -20,6 +20,7 @@ brew install --cask sonim1/tap/updatebar-app
 The app cask is currently unsigned. If macOS blocks the first launch,
 Control-click `UpdateBar.app` in Finder, choose Open, then confirm Open.
 The `updatebar-app` cask installs the app only; install the formula for the `updatebar` CLI.
+All supported install paths are summarized in [docs/install.md](docs/install.md).
 
 ## Install From Source
 
@@ -143,7 +144,7 @@ updatebar import Fixtures/manifests/untrusted-import.json --json
 ## Scope
 
 v1 ships the CLI first, with optional Ink TUI and macOS Menu Bar presentation layers over the same core behavior.
-Built-in AI generation, OAuth providers, and local LLM providers are removed by design — recipe authoring belongs to external agents. Sync, community registries, recipe signing, `diff`, and `doctor` are not planned until real external demand appears (see `next-plan.md`).
+Built-in AI generation, OAuth providers, and local LLM providers are removed by design — recipe authoring belongs to external agents. Sync, community registries, recipe signing, and `diff` are not planned until real external demand appears (see `next-plan.md`).
 
 UpdateBar has no telemetry.
 

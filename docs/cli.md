@@ -102,6 +102,13 @@ Primary workflow commands:
 The sections below also document hidden support commands for explicit scripts,
 packaging, and advanced workflows.
 
+### `updatebar doctor [--json]`
+
+Checks the active UpdateBar home directory, config file, manifest, and state
+without creating missing files. Human output is tab-separated with `STATUS`,
+`CHECK`, `PATH`, and `MESSAGE` columns. JSON output includes `ok`, `home`, and
+`checks`.
+
 ### `updatebar background install --yes [--json]`
 
 Writes the opt-in macOS per-user LaunchAgent plist for background checks.
