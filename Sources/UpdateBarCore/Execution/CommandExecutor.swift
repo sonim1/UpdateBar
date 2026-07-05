@@ -50,8 +50,11 @@ public struct CommandExecutor: CommandRunning {
         let stderr = Pipe()
         process.standardOutput = stdout
         process.standardError = stderr
+        try Self.configureNonBlocking(stdout.fileHandleForReading)
+        try Self.configureNonBlocking(stderr.fileHandleForReading)
         let stdoutData = LockedData(maxBytes: policy.maxOutputBytes)
         let stderrData = LockedData(maxBytes: policy.maxOutputBytes)
+        let stopReaders = LockedFlag()
 
         do {
             try process.run()
@@ -62,12 +65,12 @@ public struct CommandExecutor: CommandRunning {
         let readersFinished = DispatchGroup()
         readersFinished.enter()
         DispatchQueue.global().async {
-            Self.drain(stdout.fileHandleForReading, into: stdoutData)
+            Self.drain(stdout.fileHandleForReading, into: stdoutData, stopReaders: stopReaders)
             readersFinished.leave()
         }
         readersFinished.enter()
         DispatchQueue.global().async {
-            Self.drain(stderr.fileHandleForReading, into: stderrData)
+            Self.drain(stderr.fileHandleForReading, into: stderrData, stopReaders: stopReaders)
             readersFinished.leave()
         }
 
@@ -75,18 +78,23 @@ public struct CommandExecutor: CommandRunning {
         while process.isRunning && Date() < deadline {
             if cancellationToken?.isCancelled == true {
                 stopProcess(process)
-                finishReaders(readersFinished, stdout: stdout, stderr: stderr, timeout: 2.0)
+                finishReaders(
+                    readersFinished, stdout: stdout, stderr: stderr, stopReaders: stopReaders,
+                    timeout: 2.0)
                 throw ExecutionError.cancelled(command: command.command)
             }
             Thread.sleep(forTimeInterval: 0.01)
         }
         if process.isRunning {
             stopProcess(process)
-            finishReaders(readersFinished, stdout: stdout, stderr: stderr, timeout: 2.0)
+            finishReaders(
+                readersFinished, stdout: stdout, stderr: stderr, stopReaders: stopReaders,
+                timeout: 2.0)
             throw ExecutionError.timedOut(command: command.command)
         }
         process.waitUntilExit()
-        finishReaders(readersFinished, stdout: stdout, stderr: stderr, timeout: 0.2)
+        finishReaders(
+            readersFinished, stdout: stdout, stderr: stderr, stopReaders: stopReaders, timeout: 0.2)
 
         return CommandResult(
             exitCode: process.terminationStatus,
@@ -134,8 +142,10 @@ public struct CommandExecutor: CommandRunning {
         _ readersFinished: DispatchGroup,
         stdout: Pipe,
         stderr: Pipe,
+        stopReaders: LockedFlag,
         timeout: TimeInterval
     ) {
+        stopReaders.set()
         if readersFinished.wait(timeout: .now() + timeout) == .success {
             return
         }
@@ -145,11 +155,47 @@ public struct CommandExecutor: CommandRunning {
         _ = readersFinished.wait(timeout: .now() + 1.0)
     }
 
-    private static func drain(_ handle: FileHandle, into output: LockedData) {
+    private static func configureNonBlocking(_ handle: FileHandle) throws {
+        let fd = handle.fileDescriptor
+        let flags = fcntl(fd, F_GETFL, 0)
+        guard flags >= 0 else {
+            throw ExecutionError.launchFailed("failed to inspect output pipe flags")
+        }
+        guard fcntl(fd, F_SETFL, flags | O_NONBLOCK) >= 0 else {
+            throw ExecutionError.launchFailed("failed to configure output pipe")
+        }
+    }
+
+    private static func drain(
+        _ handle: FileHandle,
+        into output: LockedData,
+        stopReaders: LockedFlag
+    ) {
+        let fd = handle.fileDescriptor
+        var buffer = [UInt8](repeating: 0, count: 4096)
         while true {
-            let data = handle.availableData
-            if data.isEmpty { break }
-            output.append(data)
+            let count = buffer.withUnsafeMutableBufferPointer { pointer in
+                read(fd, pointer.baseAddress, pointer.count)
+            }
+
+            if count > 0 {
+                output.append(Data(buffer.prefix(count)))
+                continue
+            }
+            if count == 0 {
+                break
+            }
+            if errno == EINTR {
+                continue
+            }
+            if errno == EAGAIN || errno == EWOULDBLOCK {
+                if stopReaders.isSet {
+                    break
+                }
+                Thread.sleep(forTimeInterval: 0.005)
+                continue
+            }
+            break
         }
     }
 }
@@ -177,5 +223,22 @@ private final class LockedData: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return storage
+    }
+}
+
+private final class LockedFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+
+    var isSet: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func set() {
+        lock.lock()
+        value = true
+        lock.unlock()
     }
 }
