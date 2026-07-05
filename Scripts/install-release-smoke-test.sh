@@ -40,8 +40,8 @@ SH
 chmod 755 "$PAYLOAD/updatebar"
 
 cat > "$FAKE_BIN/gzip" <<'SH'
-#!/usr/bin/env sh
-cat
+#!/usr/bin/env bash
+/bin/cat
 SH
 chmod 755 "$FAKE_BIN/gzip"
 
