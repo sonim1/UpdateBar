@@ -18,7 +18,7 @@ if [[ "${1-}" == "--help" ]]; then
   exit 0
 fi
 
-for tool in awk curl grep install mkdir mktemp rm tar uname; do
+for tool in awk curl grep gzip install mkdir mktemp rm tar uname; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     echo "$tool is required to install release assets" >&2
     exit 1

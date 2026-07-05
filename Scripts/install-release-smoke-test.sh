@@ -39,9 +39,15 @@ echo "fixture updatebar 9.9.9"
 SH
 chmod 755 "$PAYLOAD/updatebar"
 
+cat > "$FAKE_BIN/gzip" <<'SH'
+#!/usr/bin/env sh
+cat
+SH
+chmod 755 "$FAKE_BIN/gzip"
+
 ASSET_NAME="updatebar-9.9.9-${PLATFORM}-${ARCH}.tar.gz"
 ASSET_URL="https://example.test/releases/${ASSET_NAME}"
-tar -czf "$FIXTURES/$ASSET_NAME" -C "$PAYLOAD" updatebar
+tar -cf "$FIXTURES/$ASSET_NAME" -C "$PAYLOAD" updatebar
 
 if command -v shasum >/dev/null 2>&1; then
   SHA="$(shasum -a 256 "$FIXTURES/$ASSET_NAME" | awk '{print $1}')"
@@ -364,7 +370,9 @@ run_missing_checksum_tool_fails_clearly() {
     ln -sf "$(command -v "$tool")" "$limited_bin/$tool"
   done
   cp "$FAKE_BIN/curl" "$limited_bin/curl"
+  cp "$FAKE_BIN/gzip" "$limited_bin/gzip"
   chmod 755 "$limited_bin/curl"
+  chmod 755 "$limited_bin/gzip"
 
   set +e
   env \
@@ -396,7 +404,9 @@ run_missing_required_tool_fails_clearly() {
     ln -sf "$(command -v "$tool")" "$limited_bin/$tool"
   done
   cp "$FAKE_BIN/curl" "$limited_bin/curl"
+  cp "$FAKE_BIN/gzip" "$limited_bin/gzip"
   chmod 755 "$limited_bin/curl"
+  chmod 755 "$limited_bin/gzip"
 
   set +e
   env \
@@ -425,6 +435,43 @@ run_missing_required_tool_fails_clearly() {
   fi
 }
 
+run_missing_gzip_fails_clearly() {
+  local limited_bin="$TMP_DIR/no-gzip-bin"
+  local output="$TMP_DIR/install-no-gzip.out"
+  mkdir -p "$limited_bin"
+  for tool in awk bash cat cp grep install mkdir mktemp rm tar uname; do
+    ln -sf "$(command -v "$tool")" "$limited_bin/$tool"
+  done
+  cp "$FAKE_BIN/curl" "$limited_bin/curl"
+  chmod 755 "$limited_bin/curl"
+
+  set +e
+  env \
+    PATH="$limited_bin" \
+    UPDATEBAR_FAKE_RELEASE_FIXTURES="$FIXTURES" \
+    UPDATEBAR_INSTALL_PREFIX="$TMP_DIR/install-no-gzip" \
+    UPDATEBAR_GITHUB_REPO="sonim1/UpdateBar" \
+    /bin/bash Scripts/install-release.sh > "$output" 2>&1
+  local rc=$?
+  set -e
+
+  if [[ "$rc" -eq 0 ]]; then
+    echo "install-release succeeded without gzip" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if ! grep -Fq "gzip is required to install release assets" "$output"; then
+    echo "install-release missing gzip error was not clear" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  if grep -Fq "Cannot exec" "$output"; then
+    echo "install-release leaked a tar/gzip extraction error" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
 run_without_cat_still_installs() {
   local limited_bin="$TMP_DIR/no-cat-bin"
   local prefix="$TMP_DIR/install-no-cat"
@@ -439,7 +486,9 @@ run_without_cat_still_installs() {
     ln -sf "$(command -v sha256sum)" "$limited_bin/sha256sum"
   fi
   cp "$FAKE_BIN/curl" "$limited_bin/curl"
+  cp "$FAKE_BIN/gzip" "$limited_bin/gzip"
   chmod 755 "$limited_bin/curl"
+  chmod 755 "$limited_bin/gzip"
 
   env \
     PATH="$limited_bin" \
@@ -523,7 +572,7 @@ run_missing_archive_binary_fails_clearly() {
   local output="$TMP_DIR/install-missing-binary.out"
   mkdir -p "$bad_payload"
   printf 'not updatebar\n' > "$bad_payload/README.txt"
-  tar -czf "$FIXTURES/$ASSET_NAME" -C "$bad_payload" README.txt
+  tar -cf "$FIXTURES/$ASSET_NAME" -C "$bad_payload" README.txt
 
   if command -v shasum >/dev/null 2>&1; then
     SHA="$(shasum -a 256 "$FIXTURES/$ASSET_NAME" | awk '{print $1}')"
@@ -565,6 +614,7 @@ run_archive_download_failure_fails_clearly
 run_checksum_download_failure_fails_clearly
 run_missing_checksum_tool_fails_clearly
 run_missing_required_tool_fails_clearly
+run_missing_gzip_fails_clearly
 run_without_cat_still_installs
 run_invalid_checksum_file_fails_clearly
 run_corrupt_archive_fails_clearly
