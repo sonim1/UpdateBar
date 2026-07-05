@@ -92,7 +92,6 @@ public struct CommandExecutor: CommandRunning {
                 timeout: 2.0)
             throw ExecutionError.timedOut(command: command.command)
         }
-        process.waitUntilExit()
         finishReaders(
             readersFinished, stdout: stdout, stderr: stderr, stopReaders: stopReaders, timeout: 0.2)
 
