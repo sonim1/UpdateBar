@@ -14,6 +14,7 @@ GZIP_LOG="$TMP_DIR/gzip.log"
 
 mkdir -p "$TEST_ROOT/Scripts" "$TEST_ROOT/dist/UpdateBar.app/Contents" "$BIN_DIR"
 cp "$ROOT/Scripts/build-app-archive.sh" "$TEST_ROOT/Scripts/build-app-archive.sh"
+cp "$ROOT/Scripts/release-tar-args.sh" "$TEST_ROOT/Scripts/release-tar-args.sh"
 cp "$ROOT/version.env" "$TEST_ROOT/version.env"
 printf 'fixture\n' >"$TEST_ROOT/dist/UpdateBar.app/Contents/fixture.txt"
 
@@ -116,6 +117,12 @@ fi
 
 if ! grep -Fx -- "-cf" "$TAR_LOG" >/dev/null || ! grep -Fx -- "-" "$TAR_LOG" >/dev/null; then
   echo "build-app-archive.sh did not stream tar output to stdout" >&2
+  exit 1
+fi
+
+if ! grep -Fx -- "--format" "$TAR_LOG" >/dev/null || \
+   ! grep -Fx -- "ustar" "$TAR_LOG" >/dev/null; then
+  echo "build-app-archive.sh did not request normalized tar format" >&2
   exit 1
 fi
 

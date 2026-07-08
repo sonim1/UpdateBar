@@ -7,9 +7,16 @@
 - Removed the hidden prompt-based `updatebar add` wizard; use `updatebar add --from <file>` or `updatebar add --from -` for explicit recipe input.
 - Clarified CLI help for required recipe input, headless JSON confirmations,
   hidden automation exit behavior, and background install confirmation.
+- Clarified install, upgrade, uninstall, Apple Silicon support, and unsigned
+  macOS launch guidance.
+- Added release workflow dry runs, Swift test gating, and CHANGELOG-backed
+  GitHub Release notes.
 
 ### Fixed
 
+- Made macOS app archives reproducible enough for pre-tag Homebrew cask SHA
+  verification by normalizing mtimes, tar metadata, and gzip headers.
+- Statically linked the Swift standard library into Linux release binaries.
 - Improved release installer errors for failed GitHub metadata, archive,
   checksum downloads, and release archive extraction failures.
 - Improved local installer output with copyable PATH guidance.
@@ -22,6 +29,11 @@
 - Kept JSON and JSONL failure modes machine-readable by avoiding duplicate
   human stderr after structured error payloads or failed events.
 - Enforced explicit-any linting in the TUI TypeScript source.
+
+### Security
+
+- Added private vulnerability reporting guidance and Dependabot monitoring for
+  GitHub Actions, npm, and Swift package dependencies.
 
 ## 0.2.0 - 2026-07-01
 

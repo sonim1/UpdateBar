@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -23,6 +24,10 @@ jobs:
       - name: Verify tag matches version
         run: |
           source version.env
+          if [[ "$GITHUB_EVENT_NAME" != "push" ]]; then
+            echo "release dry run for v${UPDATEBAR_VERSION}"
+            exit 0
+          fi
           expected="v${UPDATEBAR_VERSION}"
           if [[ "$GITHUB_REF_NAME" != "$expected" ]]; then
             echo "release tag must match version.env: expected $expected, got $GITHUB_REF_NAME" >&2
@@ -32,6 +37,8 @@ jobs:
         if: runner.os == 'Linux'
         with:
           swift-version: "6.0"
+      - name: Swift tests
+        run: swift test
       - name: Build archive
         run: bash Scripts/build-release.sh
       - name: Archive smoke
@@ -63,14 +70,18 @@ jobs:
 
   publish:
     needs: build
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: dist
           merge-multiple: true
+      - name: Extract release notes
+        run: bash Scripts/extract-changelog-section.sh "$GITHUB_REF_NAME" > release-notes.md
       - name: Verify downloaded checksums
         run: |
           if command -v shasum >/dev/null 2>&1; then
@@ -83,3 +94,5 @@ jobs:
           files: |
             dist/*.tar.gz
             dist/*.sha256
+          body_path: release-notes.md
+          fail_on_unmatched_files: true

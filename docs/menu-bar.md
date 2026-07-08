@@ -50,10 +50,11 @@ instead. The same fallback is used by `Open Config`.
 Long item lists in the menu are compacted with overflow summaries.
 Recent logs are retained automatically with a rotating local cap.
 
-The app is currently unsigned. If macOS blocks the first launch, Control-click
-`UpdateBar.app` in Finder, choose Open, then confirm Open. Developer ID signing,
-notarization, and stapling are deferred until the Apple Developer Program
-go/no-go decision.
+The app is currently unsigned. On macOS 15 or newer, if Gatekeeper blocks the
+first launch, open System Settings > Privacy & Security and choose Open Anyway
+for `UpdateBar.app`. On older macOS versions, Control-click Open may still work.
+Developer ID signing, notarization, and stapling are deferred until the Apple
+Developer Program go/no-go decision.
 
 Tip: `Open TUI` now also honors `UPDATEBAR_TUI` when set to a concrete binary, so
 you can point menu-bar launching at a dev-installed TUI without relying on

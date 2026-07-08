@@ -42,6 +42,27 @@ if ! grep -Fq 'GITHUB_REF_NAME' "$RELEASE_WORKFLOW" || ! grep -Fq 'version.env' 
   exit 1
 fi
 
+if ! grep -Fq 'workflow_dispatch:' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must support manual dry-run dispatches" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'swift test' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must run Swift tests before publishing release assets" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'Scripts/extract-changelog-section.sh "$GITHUB_REF_NAME"' "$RELEASE_WORKFLOW" \
+  || ! grep -Fq 'body_path: release-notes.md' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must publish release notes from CHANGELOG.md" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'fail_on_unmatched_files: true' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must fail when release artifact globs do not match" >&2
+  exit 1
+fi
+
 if ! grep -Fq 'bash Scripts/tui-smoke-test.sh' "$QUALITY_GATE"; then
   echo "quality-gate.sh must run the TUI smoke/package checks" >&2
   exit 1

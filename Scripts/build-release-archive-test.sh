@@ -14,9 +14,11 @@ mkdir -p "$BIN_DIR"
 
 TAR_LOG="$TMP_DIR/tar.log"
 GZIP_LOG="$TMP_DIR/gzip.log"
+SWIFT_LOG="$TMP_DIR/swift.log"
 
 cat >"$BIN_DIR/swift" <<'SH'
 #!/usr/bin/env bash
+printf '%s\n' "$@" >"${SWIFT_LOG:?}"
 echo "fixture swift build log"
 mkdir -p .build/release
 cat >.build/release/updatebar <<'BIN'
@@ -26,6 +28,18 @@ BIN
 chmod 0755 .build/release/updatebar
 SH
 chmod +x "$BIN_DIR/swift"
+
+cat >"$BIN_DIR/uname" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+  -s) printf 'Linux\n' ;;
+  -m) printf 'x86_64\n' ;;
+  *) /usr/bin/uname "$@" ;;
+esac
+SH
+chmod +x "$BIN_DIR/uname"
 
 cat >"$BIN_DIR/tar" <<'SH'
 #!/usr/bin/env bash
@@ -76,21 +90,12 @@ SH
 chmod +x "$BIN_DIR/gzip"
 
 archive="$(
-  TAR_LOG="$TAR_LOG" GZIP_LOG="$GZIP_LOG" PATH="$BIN_DIR:$PATH" SWIFT_BIN="$BIN_DIR/swift" \
+  TAR_LOG="$TAR_LOG" GZIP_LOG="$GZIP_LOG" SWIFT_LOG="$SWIFT_LOG" PATH="$BIN_DIR:$PATH" SWIFT_BIN="$BIN_DIR/swift" \
     bash Scripts/build-release.sh
 )"
 
-case "$(uname -s)" in
-  Darwin) platform="macos" ;;
-  Linux) platform="linux" ;;
-  *) echo "unsupported platform: $(uname -s)" >&2; exit 1 ;;
-esac
-
-case "$(uname -m)" in
-  arm64|aarch64) arch="arm64" ;;
-  x86_64|amd64) arch="x86_64" ;;
-  *) echo "unsupported arch: $(uname -m)" >&2; exit 1 ;;
-esac
+platform="linux"
+arch="x86_64"
 
 expected_archive="$ROOT/dist/updatebar-${UPDATEBAR_VERSION}-${platform}-${arch}.tar.gz"
 if [[ "$archive" != "$expected_archive" ]]; then
@@ -110,6 +115,11 @@ fi
 
 if ! grep -Fx -- "-n" "$GZIP_LOG" >/dev/null; then
   echo "build-release.sh did not pass -n to gzip" >&2
+  exit 1
+fi
+
+if ! grep -Fx -- "--static-swift-stdlib" "$SWIFT_LOG" >/dev/null; then
+  echo "build-release.sh did not statically link the Swift stdlib for Linux" >&2
   exit 1
 fi
 

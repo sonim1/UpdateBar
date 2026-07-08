@@ -15,8 +15,10 @@ cask "updatebar-app" do
   app "UpdateBar.app"
 
   caveats <<~EOS
-    If macOS blocks the first launch,
-    Control-click UpdateBar.app in Finder, choose Open, then confirm Open.
+    This app is currently unsigned. On macOS 15 or newer, if Gatekeeper
+    blocks the first launch, open System Settings > Privacy & Security and
+    choose Open Anyway for UpdateBar.app. On older macOS versions,
+    Control-click Open may still work.
 
     For the updatebar CLI, install the formula:
       brew install sonim1/tap/updatebar

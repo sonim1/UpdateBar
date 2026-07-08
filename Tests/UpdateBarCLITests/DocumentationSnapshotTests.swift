@@ -1029,6 +1029,13 @@ final class DocumentationSnapshotTests: XCTestCase {
             "brew install --cask sonim1/tap/updatebar-app",
             "UpdateBar.app",
             "one-command verification",
+            "brew upgrade sonim1/tap/updatebar",
+            "brew upgrade --cask sonim1/tap/updatebar-app",
+            "brew uninstall sonim1/tap/updatebar",
+            "brew uninstall --cask sonim1/tap/updatebar-app",
+            "System Settings > Privacy & Security",
+            "Open Anyway",
+            "Apple Silicon",
         ] {
             XCTAssertTrue(installDocs.contains(phrase), "install docs missing \(phrase)")
         }

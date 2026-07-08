@@ -12,6 +12,10 @@ bash Scripts/install-release.sh --help
 UPDATEBAR_VERIFY_STRICT=1 bash Scripts/verify-homebrew-metadata.sh
 ```
 
+Before pushing a tag, run the GitHub Actions `Release` workflow manually from
+the Actions tab. Manual dispatch is a dry run: it builds and verifies release
+artifacts, but does not publish a GitHub Release.
+
 `Scripts/install-release.sh` installs published CLI archives with `curl`,
 `tar`, and `install`. It verifies each archive against the uploaded `.sha256`
 checksum using `shasum` or `sha256sum`, and fails before download/extraction if
@@ -45,6 +49,9 @@ Scripts/build-release.sh
 `Scripts/build-release.sh` regenerates `Sources/UpdateBarCLI/UpdateBarVersion.swift`
 from `version.env` before compiling. If `version.env` changes during development, run
 `Scripts/generate-version-source.sh` before tests.
+
+Linux release archives pass `--static-swift-stdlib` to SwiftPM so the published
+binary does not require a Swift toolchain on user machines.
 
 The CLI archive is intentionally unsigned in M2. `Scripts/build-release.sh`
 normalizes archive metadata and uses `gzip -n`; the final SHA is still the SHA
@@ -91,6 +98,8 @@ The app packaging script creates `dist/UpdateBar.app` with the menu bar executab
 in `Contents/MacOS/UpdateBar` and the CLI in `Contents/Resources/updatebar`.
 Tagged macOS releases also upload an unsigned
 `UpdateBar-<version>-macos-<arch>.app.tar.gz` archive for the host architecture.
+`Scripts/build-app-archive.sh` normalizes app bundle mtimes, tar owner/group
+metadata, and gzip headers so cask SHA values can be reproduced before tagging.
 The published Homebrew cask currently targets the arm64 app asset.
 Signing/notarization are not part of the CLI release.
 
@@ -142,6 +151,8 @@ npm --prefix tui run build
 Before tagging:
 
 - `CHANGELOG.md` has an entry matching `version.env`.
+- `Scripts/extract-changelog-section.sh v<version>` prints non-empty release
+  notes; release.yml publishes this section as the GitHub Release body.
 - Git remote and formula URLs match `sonim1/UpdateBar`.
 - Smoke test passes from a clean `UPDATEBAR_HOME`.
 - TUI smoke test passes and verifies the npm package contents.
