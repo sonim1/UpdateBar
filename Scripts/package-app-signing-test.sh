@@ -100,6 +100,7 @@ chmod +x "$BIN_DIR/uname" "$BIN_DIR/swift" "$BIN_DIR/plutil" "$BIN_DIR/codesign"
     UPDATEBAR_SIGN_IDENTITY="Developer ID Application: Test" \
     UPDATEBAR_NOTARIZE_APP=1 \
     UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE="UpdateBar Notary Test" \
+    UPDATEBAR_NOTARYTOOL_KEYCHAIN="/tmp/updatebar-test.keychain-db" \
     UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE=1 \
     bash Scripts/package-app.sh >/dev/null
 )
@@ -158,6 +159,12 @@ fi
 
 if ! grep -Fq "UpdateBar-${UPDATEBAR_VERSION}-macos-x86_64.app.zip" "$XCRUN_LOG"; then
   echo "notarytool submit should use host-architecture archive" >&2
+  cat "$XCRUN_LOG" >&2
+  exit 1
+fi
+
+if ! grep -Fq -- "--keychain /tmp/updatebar-test.keychain-db" "$XCRUN_LOG"; then
+  echo "notarytool submit should pass --keychain when UPDATEBAR_NOTARYTOOL_KEYCHAIN is set" >&2
   cat "$XCRUN_LOG" >&2
   exit 1
 fi

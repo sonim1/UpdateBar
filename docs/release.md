@@ -103,18 +103,63 @@ metadata, and gzip headers so cask SHA values can be reproduced before tagging.
 The published Homebrew cask currently targets the arm64 app asset.
 Signing/notarization are not part of the CLI release.
 
-For future signed releases, `Scripts/package-app.sh` also supports optional
-environment-based signing/notarization when `UPDATEBAR_SIGN_APP=1` and
-`UPDATEBAR_NOTARIZE_APP=1` are set. Provide these when running on macOS with
-Apple tooling:
+`Scripts/package-app.sh` supports environment-based signing/notarization when
+`UPDATEBAR_SIGN_APP=1` and `UPDATEBAR_NOTARIZE_APP=1` are set. Provide these
+when running on macOS with Apple tooling:
 
 - `UPDATEBAR_SIGN_IDENTITY`: Developer ID application identity string
 - `UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE`: keychain profile name for `xcrun notarytool`
+- optional `UPDATEBAR_NOTARYTOOL_KEYCHAIN`: keychain file path holding the
+  notary profile (used by CI, which stores credentials in a temporary keychain)
 - optional `UPDATEBAR_SIGN_ENTITLEMENTS_FILE`: entitlements file path for `codesign`
 
 When signing is enabled, the script signs inside-out: bundled CLI first, menu bar
 executable second, app bundle last. It intentionally does not use
 `codesign --deep`.
+
+### Signed releases in CI
+
+The release workflow signs and notarizes the macOS app when the following
+repository secrets are configured. If `MACOS_SIGNING_CERT_P12` is absent, the
+workflow builds an unsigned app as before; if only the notary secrets are
+absent, the app is signed but not notarized.
+
+- `MACOS_SIGNING_CERT_P12`: base64-encoded PKCS#12 export of the
+  "Developer ID Application" certificate (with private key)
+- `MACOS_SIGNING_CERT_PASSWORD`: password protecting the `.p12`
+- `NOTARY_APPLE_ID`: Apple ID email for notarization
+- `NOTARY_TEAM_ID`: Apple Developer team ID
+- `NOTARY_PASSWORD`: app-specific password for the Apple ID
+  (create at <https://account.apple.com>, Sign-In and Security >
+  App-Specific Passwords)
+
+One-time secret setup from a machine that has the certificate:
+
+```bash
+# Export the signing certificate + private key (Keychain Access GUI also works)
+security export -t identities -f pkcs12 -o /tmp/updatebar-signing.p12 -P "<p12-password>"
+
+gh secret set MACOS_SIGNING_CERT_P12 --body "$(base64 -i /tmp/updatebar-signing.p12)"
+gh secret set MACOS_SIGNING_CERT_PASSWORD --body "<p12-password>"
+gh secret set NOTARY_APPLE_ID --body "<apple-id-email>"
+gh secret set NOTARY_TEAM_ID --body "<team-id>"
+gh secret set NOTARY_PASSWORD --body "<app-specific-password>"
+rm /tmp/updatebar-signing.p12
+```
+
+Local signed + notarized package (requires a one-time
+`xcrun notarytool store-credentials updatebar-notary --apple-id <email> --team-id <team-id>`):
+
+```bash
+UPDATEBAR_SIGN_APP=1 \
+UPDATEBAR_SIGN_IDENTITY="Developer ID Application: <name> (<team-id>)" \
+UPDATEBAR_NOTARIZE_APP=1 \
+UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE=updatebar-notary \
+Scripts/package-app.sh
+```
+
+Signing and stapling happen before `Scripts/build-app-archive.sh`, so the
+stapled ticket is included in the released archive and its cask SHA.
 
 The app bundle does not currently include the Ink TUI. The `Open TUI` menu item
 first honors an executable `UPDATEBAR_TUI` override, then prefers launching

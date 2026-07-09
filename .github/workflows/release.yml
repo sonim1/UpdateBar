@@ -50,10 +50,71 @@ jobs:
           else
             sha256sum -c dist/*.sha256
           fi
+      - name: Prepare code signing
+        if: runner.os == 'macOS'
+        env:
+          MACOS_SIGNING_CERT_P12: ${{ secrets.MACOS_SIGNING_CERT_P12 }}
+          MACOS_SIGNING_CERT_PASSWORD: ${{ secrets.MACOS_SIGNING_CERT_PASSWORD }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: |
+          if [[ -z "$MACOS_SIGNING_CERT_P12" ]]; then
+            echo "signing secrets not configured; building unsigned app"
+            exit 0
+          fi
+
+          KEYCHAIN_PATH="$RUNNER_TEMP/updatebar-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          printf '%s' "$MACOS_SIGNING_CERT_P12" | base64 --decode >"$RUNNER_TEMP/signing-cert.p12"
+          security import "$RUNNER_TEMP/signing-cert.p12" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$MACOS_SIGNING_CERT_PASSWORD" \
+            -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/signing-cert.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
+            | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
+          if [[ -z "$IDENTITY" ]]; then
+            echo "no Developer ID Application identity found in imported certificate" >&2
+            exit 1
+          fi
+          {
+            echo "UPDATEBAR_SIGN_APP=1"
+            echo "UPDATEBAR_SIGN_IDENTITY=$IDENTITY"
+          } >>"$GITHUB_ENV"
+
+          if [[ -n "$NOTARY_APPLE_ID" && -n "$NOTARY_TEAM_ID" && -n "$NOTARY_PASSWORD" ]]; then
+            xcrun notarytool store-credentials updatebar-notary \
+              --apple-id "$NOTARY_APPLE_ID" \
+              --team-id "$NOTARY_TEAM_ID" \
+              --password "$NOTARY_PASSWORD" \
+              --keychain "$KEYCHAIN_PATH" >/dev/null
+            {
+              echo "UPDATEBAR_NOTARIZE_APP=1"
+              echo "UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE=updatebar-notary"
+              echo "UPDATEBAR_NOTARYTOOL_KEYCHAIN=$KEYCHAIN_PATH"
+            } >>"$GITHUB_ENV"
+          else
+            echo "notary secrets not configured; app will be signed but not notarized"
+          fi
       - name: Build app archive
         if: runner.os == 'macOS'
         run: |
           bash Scripts/package-app.sh
+          if [[ "${UPDATEBAR_SIGN_APP:-0}" == "1" ]]; then
+            codesign --verify --strict --deep dist/UpdateBar.app
+          fi
+          if [[ "${UPDATEBAR_NOTARIZE_APP:-0}" == "1" ]]; then
+            xcrun stapler validate dist/UpdateBar.app
+          fi
           APP_ARCHIVE="$(bash Scripts/build-app-archive.sh)"
           shasum -a 256 -c "${APP_ARCHIVE}.sha256"
           bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"

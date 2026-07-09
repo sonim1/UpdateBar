@@ -82,7 +82,15 @@ notarize_app_if_requested() {
   ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$zip_path"
 
   log "submitting app for notarization (profile: $keychain_profile)"
-  xcrun notarytool submit "$zip_path" --keychain-profile "$keychain_profile" --wait
+  local keychain_path="${UPDATEBAR_NOTARYTOOL_KEYCHAIN:-}"
+  if [[ -n "$keychain_path" ]]; then
+    xcrun notarytool submit "$zip_path" \
+      --keychain-profile "$keychain_profile" \
+      --keychain "$keychain_path" \
+      --wait
+  else
+    xcrun notarytool submit "$zip_path" --keychain-profile "$keychain_profile" --wait
+  fi
   log "stapling notarization ticket"
   xcrun stapler staple "$APP_DIR"
 }
