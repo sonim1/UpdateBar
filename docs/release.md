@@ -96,10 +96,15 @@ bash Scripts/app-archive-smoke-test.sh
 
 The app packaging script creates `dist/UpdateBar.app` with the menu bar executable
 in `Contents/MacOS/UpdateBar` and the CLI in `Contents/Resources/updatebar`.
-Tagged macOS releases also upload an unsigned
-`UpdateBar-<version>-macos-<arch>.app.tar.gz` archive for the host architecture.
+Tagged macOS releases also upload a
+`UpdateBar-<version>-macos-<arch>.app.tar.gz` archive for the host architecture,
+signed and notarized when the signing secrets are configured.
 `Scripts/build-app-archive.sh` normalizes app bundle mtimes, tar owner/group
-metadata, and gzip headers so cask SHA values can be reproduced before tagging.
+metadata, and gzip headers for stable archives. Because notarization stapling
+and toolchain drift change rebuilt archive contents, the release workflow does
+not require the committed formula/cask SHA to equal the fresh build
+(`UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1`); Homebrew SHAs are taken from the
+published release assets when the tap is updated after publishing.
 The published Homebrew cask currently targets the arm64 app asset.
 Signing/notarization are not part of the CLI release.
 

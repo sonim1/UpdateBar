@@ -203,4 +203,71 @@ if ! grep -Fq "cask URL must end with $cask_asset" "$BAD_CASK_ASSET_OUTPUT"; the
   exit 1
 fi
 
+# Strict mode with real (mismatching) archives must fail on SHA equality...
+STRICT_OUTPUT="$TMP_DIR/strict.out"
+set +e
+UPDATEBAR_VERIFY_STRICT=1 \
+bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" > "$STRICT_OUTPUT" 2>&1
+strict_status=$?
+set -e
+
+if [[ "$strict_status" -eq 0 ]]; then
+  echo "strict verification accepted mismatching archive checksums" >&2
+  cat "$STRICT_OUTPUT" >&2
+  exit 1
+fi
+
+# ...but pass with UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1 when only the
+# committed formula/cask SHA equality differs (checksum files must still
+# match the archives).
+rehash() {
+  local asset="$1"
+  if command -v shasum >/dev/null 2>&1; then
+    (cd "$TMP_DIR" && shasum -a 256 "$asset" > "$asset.sha256")
+  else
+    (cd "$TMP_DIR" && sha256sum "$asset" > "$asset.sha256")
+  fi
+}
+rehash "$formula_asset"
+rehash "$cask_asset"
+
+SKIP_OUTPUT="$TMP_DIR/skip-sha-equality.out"
+UPDATEBAR_VERIFY_STRICT=1 \
+UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1 \
+bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" > "$SKIP_OUTPUT" 2>&1
+
+if ! grep -Fq "release metadata verification passed for version $UPDATEBAR_VERSION" "$SKIP_OUTPUT"; then
+  echo "skip-sha-equality verification did not report success" >&2
+  cat "$SKIP_OUTPUT" >&2
+  exit 1
+fi
+
+if ! grep -Fq "formula SHA mismatch (skipped)" "$SKIP_OUTPUT"; then
+  echo "skip-sha-equality verification did not warn about the formula SHA" >&2
+  cat "$SKIP_OUTPUT" >&2
+  exit 1
+fi
+
+# Corrupt checksum files must still fail even when SHA equality is skipped.
+printf '1111111111111111111111111111111111111111111111111111111111111111  %s\n' "$formula_asset" > "$TMP_DIR/$formula_asset.sha256"
+CORRUPT_OUTPUT="$TMP_DIR/corrupt-checksum.out"
+set +e
+UPDATEBAR_VERIFY_STRICT=1 \
+UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1 \
+bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" > "$CORRUPT_OUTPUT" 2>&1
+corrupt_status=$?
+set -e
+
+if [[ "$corrupt_status" -eq 0 ]]; then
+  echo "skip-sha-equality verification accepted a corrupt archive checksum" >&2
+  cat "$CORRUPT_OUTPUT" >&2
+  exit 1
+fi
+
+if ! grep -Fq "CLI archive checksum mismatch" "$CORRUPT_OUTPUT"; then
+  echo "corrupt archive checksum did not report the expected error" >&2
+  cat "$CORRUPT_OUTPUT" >&2
+  exit 1
+fi
+
 echo "homebrew metadata behavior ok"

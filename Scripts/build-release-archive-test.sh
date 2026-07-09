@@ -123,6 +123,11 @@ if ! grep -Fx -- "--static-swift-stdlib" "$SWIFT_LOG" >/dev/null; then
   exit 1
 fi
 
+if ! grep -A1 -Fx -- "-Xlinker" "$SWIFT_LOG" | grep -Fx -- "-lcurl" >/dev/null; then
+  echo "build-release.sh did not link libcurl for static Linux Foundation" >&2
+  exit 1
+fi
+
 if grep -Fx -- "-f" "$GZIP_LOG" >/dev/null; then
   echo "build-release.sh forced gzip on an intermediate tar archive" >&2
   exit 1

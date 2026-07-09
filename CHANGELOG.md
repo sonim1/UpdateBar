@@ -18,6 +18,13 @@
   terminal UI with `brew install sonim1/tap/updatebar-tui`.
 - Signed and notarized macOS app archives in the release workflow when
   signing secrets are configured; unsigned builds remain the fallback.
+- Linked libcurl explicitly for statically linked Linux release binaries and
+  installed its dev package in the release workflow, fixing undefined curl
+  symbol link failures.
+- Relaxed strict release metadata verification to skip committed formula/cask
+  SHA equality (`UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1`): notarization stapling
+  and toolchain drift make rebuilt archives differ from published assets.
+  Structural checks and archive checksum integrity remain strict.
 - Removed the hidden prompt-based `updatebar add` wizard; use `updatebar add --from <file>` or `updatebar add --from -` for explicit recipe input.
 - Clarified CLI help for required recipe input, headless JSON confirmations,
   hidden automation exit behavior, and background install confirmation.

@@ -76,11 +76,14 @@ Troubleshooting a missing icon:
 
 ```bash
 Scripts/menubar-smoke-test.sh
-pkill -f UpdateBar
+LOG_PATH=/tmp/updatebar-menubar.log
 UPDATEBAR_BIN=/full/path/to/updatebar ./dist/UpdateBar.app/Contents/MacOS/UpdateBar \
-  >/tmp/updatebar-menubar.log 2>&1 &
+  >"$LOG_PATH" 2>&1 &
+MENUBAR_PID=$!
 sleep 2
-tail -n 60 /tmp/updatebar-menubar.log
+kill "$MENUBAR_PID" 2>/dev/null || true
+wait "$MENUBAR_PID" 2>/dev/null || true
+tail -n 60 "$LOG_PATH"
 ```
 
 When `UpdateBarMenuBar: UpdateBarMenuBar main starting` is not printed, the binary

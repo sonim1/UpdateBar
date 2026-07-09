@@ -37,6 +37,11 @@ jobs:
         if: runner.os == 'Linux'
         with:
           swift-version: "6.0"
+      - name: Install Linux link dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev
       - name: Swift tests
         run: swift test
       - name: Build archive
@@ -120,7 +125,14 @@ jobs:
           bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"
       - name: Verify release metadata
         if: runner.os == 'macOS'
-        run: UPDATEBAR_VERIFY_STRICT=1 Scripts/verify-homebrew-metadata.sh dist
+        # SHA equality against the committed formula/cask is skipped here:
+        # notarization stapling and toolchain drift make rebuilt archives
+        # differ from published assets. Homebrew SHAs are verified when the
+        # tap is updated from the published release assets.
+        run: |
+          UPDATEBAR_VERIFY_STRICT=1 \
+          UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1 \
+          Scripts/verify-homebrew-metadata.sh dist
       - name: Upload archive
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

@@ -23,6 +23,11 @@ FORMULA_PATH="${UPDATEBAR_HOMEBREW_FORMULA_PATH:-Packaging/homebrew/updatebar.rb
 CASK_PATH="${UPDATEBAR_HOMEBREW_CASK_PATH:-Packaging/homebrew/Casks/updatebar-app.rb}"
 STRICT="${UPDATEBAR_VERIFY_STRICT:-0}"
 STATIC_ONLY="${UPDATEBAR_VERIFY_STATIC_ONLY:-0}"
+# Skip "committed formula/cask SHA == freshly built archive SHA" checks.
+# Signed + notarized (stapled) app archives and toolchain drift make
+# rebuilt archives differ from published assets, so release builds verify
+# structure strictly but leave SHA equality to the tap update step.
+SKIP_SHA_EQUALITY="${UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY:-0}"
 
 validate_sha256() {
   local label="$1"
@@ -113,13 +118,13 @@ if [[ "$FORMULA_VERIFIED" -eq 1 ]]; then
     echo "warning: CLI archive checksum mismatch (non-strict): recorded $FORMULA_RECORDED_SHA vs calc $FORMULA_CALC_SHA" >&2
   fi
   if [[ "$FORMULA_SHA" != "$FORMULA_RECORDED_SHA" ]]; then
-    if [[ "$STRICT" == "1" ]]; then
+    if [[ "$STRICT" == "1" && "$SKIP_SHA_EQUALITY" != "1" ]]; then
       echo "formula SHA mismatch for updatebar.rb" >&2
       echo "  formula: $FORMULA_SHA" >&2
       echo "  archive: $FORMULA_RECORDED_SHA" >&2
       exit 1
     fi
-    echo "warning: formula SHA mismatch (non-strict): updatebar.rb has $FORMULA_SHA, archive $FORMULA_RECORDED_SHA" >&2
+    echo "warning: formula SHA mismatch (skipped): updatebar.rb has $FORMULA_SHA, archive $FORMULA_RECORDED_SHA" >&2
   fi
 fi
 
@@ -167,13 +172,13 @@ elif [[ -f "$CASK_ARCHIVE" ]]; then
     echo "warning: app archive checksum mismatch (non-strict): recorded $CASK_RECORDED_SHA vs calc $CASK_CALC_SHA" >&2
   fi
   if [[ "$CASK_SHA" != "$CASK_RECORDED_SHA" ]]; then
-    if [[ "$STRICT" == "1" ]]; then
+    if [[ "$STRICT" == "1" && "$SKIP_SHA_EQUALITY" != "1" ]]; then
       echo "cask SHA mismatch for updatebar-app.rb" >&2
       echo "  cask: $CASK_SHA" >&2
       echo "  archive: $CASK_RECORDED_SHA" >&2
       exit 1
     fi
-    echo "warning: cask SHA mismatch (non-strict): updatebar-app.rb has $CASK_SHA, archive $CASK_RECORDED_SHA" >&2
+    echo "warning: cask SHA mismatch (skipped): updatebar-app.rb has $CASK_SHA, archive $CASK_RECORDED_SHA" >&2
   fi
 else
   if [[ "$STRICT" == "1" ]]; then

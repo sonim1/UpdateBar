@@ -1390,6 +1390,17 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(menuBarSpec.contains("Update All Approved Outdated"))
     }
 
+    func testMenuBarTroubleshootingAvoidsBroadPkill() throws {
+        let menuBarDocs = try String(contentsOfFile: "docs/menu-bar.md", encoding: .utf8)
+        let troubleshootingDocs = try String(
+            contentsOfFile: "docs/troubleshooting.md",
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(menuBarDocs.contains("pkill -f"))
+        XCTAssertFalse(troubleshootingDocs.contains("pkill -f"))
+    }
+
     func testOpenSpecDesignDoesNotLeaveResolvedTUIDecisionsOpen() throws {
         let design = try String(
             contentsOfFile: "openspec/changes/add-ink-tui-menubar-architecture/design.md",
