@@ -56,9 +56,9 @@ for `UpdateBar.app`. On older macOS versions, Control-click Open may still work.
 Developer ID signing, notarization, and stapling are deferred until the Apple
 Developer Program go/no-go decision.
 
-Tip: `Open TUI` now also honors `UPDATEBAR_TUI` when set to a concrete binary, so
-you can point menu-bar launching at a dev-installed TUI without relying on
-`PATH`.
+Tip: `Open TUI` opens Terminal and runs `updatebar tui` with the bundled CLI.
+Install the TUI with `brew install sonim1/tap/updatebar-tui`, or set
+`UPDATEBAR_TUI` to a dev-built executable to override the `PATH` lookup.
 
 `Open Config` opens the active UpdateBar config file when it exists; by default
 that is `HOME/.updatebar/config.toml`, and `UPDATEBAR_HOME` can point the app at

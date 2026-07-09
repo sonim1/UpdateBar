@@ -22,6 +22,9 @@ cask "updatebar-app" do
 
     For the updatebar CLI, install the formula:
       brew install sonim1/tap/updatebar
+
+    For the Open TUI menu item, install the terminal UI:
+      brew install sonim1/tap/updatebar-tui
   EOS
 
   zap trash: [

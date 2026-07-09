@@ -135,19 +135,24 @@ pgrep -ax UpdateBar
 tail -n 80 /tmp/updatebar-menubar.log
 ```
 
-If Open TUI is available but not launching, check `UPDATEBAR_BIN` and that a TUI
-binary is reachable by one of:
+If Open TUI is not launching, check that a TUI binary is reachable. The CLI's
+`tui` subcommand resolves it from:
 
 - `UPDATEBAR_TUI` environment variable (explicit executable path),
-- bundled CLI path as `UPDATEBAR_BIN` (`UPDATEBAR_BIN tui`),
 - `updatebar-tui` on `PATH`.
 
 ## Open TUI Does Nothing
 
-The Menu Bar app opens Terminal and runs `UPDATEBAR_TUI` if set. If not set, it
-falls back to `UPDATEBAR_BIN tui`, then `updatebar-tui` on `PATH` with a setup
-message. From the repository root, build the TUI and point `UPDATEBAR_TUI` at
-the generated executable:
+The Menu Bar app opens Terminal and runs `updatebar tui` with the bundled CLI.
+The subcommand launches `UPDATEBAR_TUI` if set, otherwise `updatebar-tui` from
+`PATH`. Install the TUI with Homebrew:
+
+```bash
+brew install sonim1/tap/updatebar-tui
+```
+
+Developing from source? Build the TUI and point `UPDATEBAR_TUI` at the
+generated executable:
 
 ```bash
 npm --prefix tui install

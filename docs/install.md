@@ -98,6 +98,13 @@ The cask installs only `UpdateBar.app`. Install the CLI separately with:
 brew install sonim1/tap/updatebar
 ```
 
+The optional terminal UI used by the app's `Open TUI` menu item is a separate
+formula:
+
+```bash
+brew install sonim1/tap/updatebar-tui
+```
+
 Upgrade:
 
 ```bash

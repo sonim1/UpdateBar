@@ -4,6 +4,14 @@
 
 ### Changed
 
+- Simplified the menu bar `Open TUI` action to run a single `updatebar tui`
+  command in Terminal; TUI discovery and install guidance now live in the CLI.
+- Pointed the missing-TUI CLI error at the new `updatebar-tui` Homebrew
+  formula, keeping source-build guidance for contributors.
+- Added a `updatebar-tui` Homebrew formula so end users can install the
+  terminal UI with `brew install sonim1/tap/updatebar-tui`.
+- Signed and notarized macOS app archives in the release workflow when
+  signing secrets are configured; unsigned builds remain the fallback.
 - Removed the hidden prompt-based `updatebar add` wizard; use `updatebar add --from <file>` or `updatebar add --from -` for explicit recipe input.
 - Clarified CLI help for required recipe input, headless JSON confirmations,
   hidden automation exit behavior, and background install confirmation.
