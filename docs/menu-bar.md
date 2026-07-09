@@ -56,9 +56,12 @@ for `UpdateBar.app`. On older macOS versions, Control-click Open may still work.
 Developer ID signing, notarization, and stapling are deferred until the Apple
 Developer Program go/no-go decision.
 
-Tip: `Open TUI` opens Terminal and runs `updatebar tui` with the bundled CLI.
-Install the TUI with `brew install sonim1/tap/updatebar-tui`, or set
-`UPDATEBAR_TUI` to a dev-built executable to override the `PATH` lookup.
+Tip: `Open TUI` runs `updatebar tui` with the bundled CLI in your chosen
+terminal. When more than one supported terminal is installed (Terminal, iTerm,
+Ghostty, kitty, Alacritty, WezTerm), a `TUI Terminal` submenu appears next to
+`Open TUI` showing each app's icon; the choice is remembered. Install the TUI
+with `brew install sonim1/tap/updatebar-tui`, or set `UPDATEBAR_TUI` to a
+dev-built executable to override the `PATH` lookup.
 
 `Open Config` opens the active UpdateBar config file when it exists; by default
 that is `HOME/.updatebar/config.toml`, and `UPDATEBAR_HOME` can point the app at

@@ -35,6 +35,90 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 
+    func testTerminalPickerAppearsAfterOpenTUIWithSelectionAndIcons() {
+        let state = MenuBarState(
+            title: "Up to date",
+            badgeValue: nil,
+            outdatedItems: [],
+            approvalItems: [],
+            errorItems: [],
+            okItems: []
+        )
+        let terminals = [
+            TUITerminal.fallback,
+            TUITerminal(id: "com.googlecode.iterm2", name: "iTerm", launchStyle: .openDocument),
+        ]
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:],
+            installedTerminals: terminals,
+            selectedTerminalID: "com.googlecode.iterm2"
+        )
+
+        let labels = model.entries.labels
+        let openTUIIndex = labels.firstIndex(of: "Open TUI")
+        XCTAssertEqual(labels.firstIndex(of: "TUI Terminal >"), openTUIIndex.map { $0 + 1 })
+
+        let submenu = model.entries.submenu(titled: "TUI Terminal")
+        XCTAssertEqual(submenu?.items.map(\.title), ["Terminal", "iTerm"])
+        XCTAssertEqual(submenu?.items.map(\.isChecked), [false, true])
+        XCTAssertEqual(
+            submenu?.items.map(\.iconAppBundleID),
+            ["com.apple.Terminal", "com.googlecode.iterm2"]
+        )
+        XCTAssertEqual(
+            submenu?.items.first?.action,
+            .selectTUITerminal(bundleID: "com.apple.Terminal")
+        )
+    }
+
+    func testTerminalPickerFallsBackToTerminalForUnknownSelection() {
+        let state = MenuBarState(
+            title: "Up to date",
+            badgeValue: nil,
+            outdatedItems: [],
+            approvalItems: [],
+            errorItems: [],
+            okItems: []
+        )
+        let terminals = [
+            TUITerminal.fallback,
+            TUITerminal(id: "com.googlecode.iterm2", name: "iTerm", launchStyle: .openDocument),
+        ]
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:],
+            installedTerminals: terminals,
+            selectedTerminalID: "com.example.uninstalled"
+        )
+
+        let submenu = model.entries.submenu(titled: "TUI Terminal")
+        XCTAssertEqual(submenu?.items.map(\.isChecked), [true, false])
+    }
+
+    func testTerminalPickerHiddenWhenOnlyOneTerminalInstalled() {
+        let state = MenuBarState(
+            title: "Up to date",
+            badgeValue: nil,
+            outdatedItems: [],
+            approvalItems: [],
+            errorItems: [],
+            okItems: []
+        )
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:],
+            installedTerminals: [TUITerminal.fallback],
+            selectedTerminalID: nil
+        )
+
+        XCTAssertNil(model.entries.submenu(titled: "TUI Terminal"))
+        XCTAssertFalse(model.entries.labels.contains("TUI Terminal >"))
+    }
+
     func testActionNoticesRedactSecretLikeTitles() {
         let state = MenuBarState(
             title: "Up to date",
@@ -623,6 +707,8 @@ extension Array where Element == MenuBarMenuEntry {
                 return "---"
             case .item(let item):
                 return item.title
+            case .submenu(let submenu):
+                return "\(submenu.title) >"
             }
         }
     }
@@ -632,6 +718,13 @@ extension Array where Element == MenuBarMenuEntry {
             guard case .item(let item) = entry else { return nil }
             return item.action
         }
+    }
+
+    fileprivate func submenu(titled title: String) -> MenuBarSubmenu? {
+        compactMap { entry in
+            guard case .submenu(let submenu) = entry else { return nil }
+            return submenu
+        }.first { $0.title == title }
     }
 
     fileprivate func item(titled title: String) -> MenuBarMenuItem? {

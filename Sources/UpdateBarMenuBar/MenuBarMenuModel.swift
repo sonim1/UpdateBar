@@ -11,7 +11,18 @@ public struct MenuBarMenuModel: Equatable, Sendable {
 
 public enum MenuBarMenuEntry: Equatable, Sendable {
     case item(MenuBarMenuItem)
+    case submenu(MenuBarSubmenu)
     case separator
+}
+
+public struct MenuBarSubmenu: Equatable, Sendable {
+    public var title: String
+    public var items: [MenuBarMenuItem]
+
+    public init(title: String, items: [MenuBarMenuItem]) {
+        self.title = title
+        self.items = items
+    }
 }
 
 public struct MenuBarMenuItem: Equatable, Sendable {
@@ -19,17 +30,24 @@ public struct MenuBarMenuItem: Equatable, Sendable {
     public var action: MenuBarMenuItemAction?
     public var toolTip: String?
     public var confirmation: MenuBarActionConfirmation?
+    public var isChecked: Bool
+    /// Bundle identifier of an app whose icon should decorate the item.
+    public var iconAppBundleID: String?
 
     public init(
         title: String,
         action: MenuBarMenuItemAction? = nil,
         toolTip: String? = nil,
-        confirmation: MenuBarActionConfirmation? = nil
+        confirmation: MenuBarActionConfirmation? = nil,
+        isChecked: Bool = false,
+        iconAppBundleID: String? = nil
     ) {
         self.title = title
         self.action = action
         self.toolTip = toolTip
         self.confirmation = confirmation
+        self.isChecked = isChecked
+        self.iconAppBundleID = iconAppBundleID
     }
 }
 
@@ -39,6 +57,7 @@ public enum MenuBarMenuItemAction: Equatable, Sendable {
     case update(id: String)
     case approve(id: String, field: String)
     case revoke(id: String, field: String)
+    case selectTUITerminal(bundleID: String)
 }
 
 public struct MenuBarMenuModelBuilder: Sendable {
@@ -52,7 +71,9 @@ public struct MenuBarMenuModelBuilder: Sendable {
         state: MenuBarState,
         approvalStatuses: [String: [CommandApprovalStatus]],
         activeActionTitle: String? = nil,
-        lastActionNotice: String? = nil
+        lastActionNotice: String? = nil,
+        installedTerminals: [TUITerminal] = [],
+        selectedTerminalID: String? = nil
     ) -> MenuBarMenuModel {
         var entries: [MenuBarMenuEntry] = []
 
@@ -110,9 +131,36 @@ public struct MenuBarMenuModelBuilder: Sendable {
         appendSeparator(to: &entries)
         for action in MenuBarMenuAction.footer {
             appendAction(action.title, action: .menu(action), to: &entries)
+            if action == .openTUI {
+                appendTerminalPicker(
+                    installedTerminals,
+                    selectedTerminalID: selectedTerminalID,
+                    to: &entries
+                )
+            }
         }
 
         return MenuBarMenuModel(entries: entries)
+    }
+
+    private func appendTerminalPicker(
+        _ terminals: [TUITerminal],
+        selectedTerminalID: String?,
+        to entries: inout [MenuBarMenuEntry]
+    ) {
+        guard terminals.count > 1 else { return }
+        let selectedID =
+            terminals.contains { $0.id == selectedTerminalID }
+            ? selectedTerminalID : TUITerminal.fallback.id
+        let items = terminals.map { terminal in
+            MenuBarMenuItem(
+                title: terminal.name,
+                action: .selectTUITerminal(bundleID: terminal.id),
+                isChecked: terminal.id == selectedID,
+                iconAppBundleID: terminal.id
+            )
+        }
+        entries.append(.submenu(MenuBarSubmenu(title: "TUI Terminal", items: items)))
     }
 
     public func makeErrorMenu(errorDescription: String) -> MenuBarMenuModel {
