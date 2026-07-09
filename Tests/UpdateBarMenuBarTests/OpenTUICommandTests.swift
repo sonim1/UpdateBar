@@ -77,5 +77,44 @@ final class OpenTUICommandTests: XCTestCase {
         XCTAssertEqual(ids.count, Set(ids).count)
         XCTAssertEqual(TUITerminal.fallback.id, "com.apple.Terminal")
         XCTAssertEqual(TUITerminal.known(id: "com.googlecode.iterm2")?.name, "iTerm")
+        XCTAssertEqual(TUITerminal.known(id: "dev.warp.Warp-Stable")?.name, "Warp")
+        XCTAssertEqual(TUITerminal.known(id: "com.raphaelamorim.rio")?.name, "Rio")
+    }
+
+    func testWarpLaunchesThroughLaunchConfigURI() throws {
+        let command = OpenTUICommand(
+            cliPath: cliPath,
+            commandFileURL: commandFileURL,
+            terminal: try XCTUnwrap(TUITerminal.known(id: "dev.warp.Warp-Stable")),
+            homeDirectory: URL(fileURLWithPath: "/Users/tester")
+        )
+
+        let auxiliary = try XCTUnwrap(command.auxiliaryFile)
+        XCTAssertEqual(
+            auxiliary.url.path,
+            "/Users/tester/.warp/launch_configurations/updatebar-tui.yaml"
+        )
+        XCTAssertTrue(auxiliary.contents.contains("name: UpdateBar TUI"))
+        XCTAssertTrue(auxiliary.contents.contains("cwd: \"/Users/tester\""))
+        XCTAssertTrue(
+            auxiliary.contents.contains("exec: '/tmp/UpdateBar/open-tui.command'")
+        )
+
+        XCTAssertEqual(command.executablePath, "/usr/bin/open")
+        XCTAssertEqual(
+            command.arguments,
+            ["warp://launch//Users/tester/.warp/launch_configurations/updatebar-tui.yaml"]
+        )
+    }
+
+    func testNonWarpTerminalsNeedNoAuxiliaryFile() {
+        for terminal in TUITerminal.known where terminal.id != "dev.warp.Warp-Stable" {
+            let command = OpenTUICommand(
+                cliPath: cliPath,
+                commandFileURL: commandFileURL,
+                terminal: terminal
+            )
+            XCTAssertNil(command.auxiliaryFile, terminal.name)
+        }
     }
 }

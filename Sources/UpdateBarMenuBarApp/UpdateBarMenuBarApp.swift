@@ -170,6 +170,17 @@
                     [.posixPermissions: 0o755],
                     ofItemAtPath: commandFileURL.path
                 )
+                if let auxiliaryFile = command.auxiliaryFile {
+                    try FileManager.default.createDirectory(
+                        at: auxiliaryFile.url.deletingLastPathComponent(),
+                        withIntermediateDirectories: true
+                    )
+                    try auxiliaryFile.contents.write(
+                        to: auxiliaryFile.url,
+                        atomically: true,
+                        encoding: .utf8
+                    )
+                }
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: command.executablePath)
                 process.arguments = command.arguments

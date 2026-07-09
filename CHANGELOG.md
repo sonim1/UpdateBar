@@ -7,9 +7,11 @@
 - Simplified the menu bar `Open TUI` action to run a single `updatebar tui`
   command in Terminal; TUI discovery and install guidance now live in the CLI.
 - Added a `TUI Terminal` picker submenu with app icons for choosing which
-  terminal (Terminal, iTerm, Ghostty, kitty, Alacritty, WezTerm) opens the
-  TUI; the app now launches it via a `.command` file instead of AppleScript,
-  removing the Terminal automation permission prompt.
+  terminal (Terminal, iTerm, Ghostty, kitty, Alacritty, WezTerm, Warp, Rio)
+  opens the TUI; the app now launches it via a `.command` file instead of
+  AppleScript, removing the Terminal automation permission prompt. Warp is
+  driven through a generated launch configuration and its `warp://launch/`
+  URI since it has no exec flag.
 - Pointed the missing-TUI CLI error at the new `updatebar-tui` Homebrew
   formula, keeping source-build guidance for contributors.
 - Added a `updatebar-tui` Homebrew formula so end users can install the

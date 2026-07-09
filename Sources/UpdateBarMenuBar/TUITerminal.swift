@@ -7,6 +7,9 @@ public struct TUITerminal: Equatable, Sendable, Identifiable {
         /// The app needs the command file passed as a process argument,
         /// optionally behind terminal-specific flags (Ghostty, kitty, ...).
         case openWithArgs([String])
+        /// Warp has no exec flag; it runs commands through a launch
+        /// configuration YAML opened via its `warp://launch/<path>` URI.
+        case warpLaunchConfigURI(scheme: String)
     }
 
     /// Application bundle identifier; also the persisted selection key.
@@ -50,6 +53,16 @@ public struct TUITerminal: Equatable, Sendable, Identifiable {
             id: "com.github.wez.wezterm",
             name: "WezTerm",
             launchStyle: .openWithArgs(["start", "--"])
+        ),
+        TUITerminal(
+            id: "dev.warp.Warp-Stable",
+            name: "Warp",
+            launchStyle: .warpLaunchConfigURI(scheme: "warp")
+        ),
+        TUITerminal(
+            id: "com.raphaelamorim.rio",
+            name: "Rio",
+            launchStyle: .openWithArgs(["-e"])
         ),
     ]
 
