@@ -35,6 +35,9 @@
 
 ### Fixed
 
+- Ran the Ink TUI in the alternate screen buffer so arrow keys work in Warp
+  (its block editor was capturing input for primary-screen programs) and
+  scrollback stays clean everywhere.
 - Made macOS app archives reproducible enough for pre-tag Homebrew cask SHA
   verification by normalizing mtimes, tar metadata, and gzip headers.
 - Statically linked the Swift standard library into Linux release binaries.
