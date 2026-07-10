@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.0 - 2026-07-10
+
 ### Added
 
 - `Overview` menu entry: a dashboard panel with pending-update and
