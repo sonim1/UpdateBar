@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0 - 2026-07-09
+
 ### Changed
 
 - Simplified the menu bar `Open TUI` action to run a single `updatebar tui`

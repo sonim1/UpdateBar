@@ -296,18 +296,18 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertTrue(changelog.contains("## \(expected)"))
     }
 
-    func testChangelogUnreleasedDocumentsPostReleaseHardening() throws {
+    func testChangelogDocumentsPostReleaseHardening() throws {
         let changelog = try String(contentsOfFile: "CHANGELOG.md", encoding: .utf8)
-        let unreleased = try changelogSection("Unreleased", in: changelog)
+        let section = try changelogSection("0.3.0", in: changelog)
 
-        XCTAssertTrue(unreleased.contains("release installer"))
-        XCTAssertTrue(unreleased.contains("release archive extraction"))
-        XCTAssertTrue(unreleased.contains("local installer"))
-        XCTAssertTrue(unreleased.contains("app archive"))
-        XCTAssertTrue(unreleased.contains("quality gate"))
-        XCTAssertTrue(unreleased.contains("TUI subprocess"))
-        XCTAssertTrue(unreleased.contains("abort listener"))
-        XCTAssertTrue(unreleased.contains("explicit-any"))
+        XCTAssertTrue(section.contains("release installer"))
+        XCTAssertTrue(section.contains("release archive extraction"))
+        XCTAssertTrue(section.contains("local installer"))
+        XCTAssertTrue(section.contains("app archive"))
+        XCTAssertTrue(section.contains("quality gate"))
+        XCTAssertTrue(section.contains("TUI subprocess"))
+        XCTAssertTrue(section.contains("abort listener"))
+        XCTAssertTrue(section.contains("explicit-any"))
     }
 
     func testUnknownCommandWithJSONReturnsErrorEnvelope() throws {
