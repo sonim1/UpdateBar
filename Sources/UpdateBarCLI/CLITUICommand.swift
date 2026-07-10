@@ -10,20 +10,22 @@ struct TUICommand: ParsableCommand {
     )
 
     func run() throws {
-        let process = Process()
         let executable = try resolveTUICommand()
-        process.executableURL = URL(fileURLWithPath: executable)
-        process.environment = makeTUIEnvironment()
-        process.standardInput = FileHandle.standardInput
-        process.standardOutput = FileHandle.standardOutput
-        process.standardError = FileHandle.standardError
-        try process.run()
-        process.waitUntilExit()
+        let environment = makeTUIEnvironment()
 
-        let exitCode = Int32(process.terminationStatus)
-        if exitCode != 0 {
-            throw ExitCode(exitCode)
-        }
+        // Replace this process instead of spawning a child: Foundation's
+        // Process puts the child in a new process group, so the TUI's
+        // tcsetattr(raw mode) is a background call the kernel ignores and
+        // arrow keys echo instead of navigating.
+        var argv: [UnsafeMutablePointer<CChar>?] = [strdup(executable), nil]
+        var envp: [UnsafeMutablePointer<CChar>?] =
+            environment.map { strdup("\($0.key)=\($0.value)") } + [nil]
+        execve(executable, &argv, &envp)
+
+        let message = String(cString: strerror(errno))
+        for pointer in argv { free(pointer) }
+        for pointer in envp { free(pointer) }
+        throw ValidationError("failed to launch \(executable): \(message)")
     }
 
     private func resolveTUICommand() throws -> String {
