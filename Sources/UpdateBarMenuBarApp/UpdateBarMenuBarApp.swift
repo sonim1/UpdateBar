@@ -16,7 +16,7 @@
         private let actionCoordinator = MenuBarActionCoordinator()
         private var latestState = MenuBarState(
             title: "Checking...",
-            badgeValue: nil,
+            badgeValue: "...",
             outdatedItems: [],
             approvalItems: [],
             errorItems: [],
@@ -52,7 +52,7 @@
                 return
             }
 
-            statusButton.title = "UB"
+            statusButton.title = "..."
             statusButton.toolTip = "UpdateBar"
             statusButton.setAccessibilityIdentifier("updatebar-status-button")
             statusButton.setAccessibilityLabel("UpdateBar status")
@@ -339,7 +339,7 @@
                 setTitle("...", accessibilityLabel: "UpdateBar running \(activeAction.title)")
             } else {
                 setTitle(
-                    latestState.badgeValue ?? "UB",
+                    latestState.badgeValue ?? "✓",
                     accessibilityLabel: accessibilityLabel(for: latestState)
                 )
             }

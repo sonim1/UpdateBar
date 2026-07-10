@@ -38,6 +38,7 @@ final class SourceHygieneTests: XCTestCase {
 
         XCTAssertFalse(source.contains(#""UB""#))
         XCTAssertTrue(source.contains(#"statusButton.title = "...""#))
+        XCTAssertTrue(source.contains(#"badgeValue: "...""#))
         XCTAssertTrue(source.contains(#"latestState.badgeValue ?? "✓""#))
     }
 }
