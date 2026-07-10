@@ -30,6 +30,7 @@ final class MenuBarMenuActionTests: XCTestCase {
                 "Refresh Status",
                 "Check Now",
                 "Open TUI",
+                "Overview",
                 "Manage Items...",
                 "Scan & Add",
                 "Open Config",

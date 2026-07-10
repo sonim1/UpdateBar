@@ -196,6 +196,23 @@ public struct UpdateBarCLIClient: Sendable {
         try ensureSuccess(result, allowedExitCodes: [0])
     }
 
+    public func history(since: Date?) throws -> [HistoryEvent] {
+        var arguments = ["history", "--json"]
+        if let since {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime]
+            arguments += ["--since", formatter.string(from: since)]
+        }
+        let result = try runner.run(
+            executablePath: executablePath,
+            arguments: arguments,
+            cancellationToken: nil
+        )
+        try ensureSuccess(result, allowedExitCodes: [0])
+        return try JSONDecoder.updateBar.decode(
+            [HistoryEvent].self, from: Data(result.stdout.utf8))
+    }
+
     private func ensureSuccess(_ result: CommandResult, allowedExitCodes: Set<Int32>) throws {
         guard allowedExitCodes.contains(result.exitCode) else {
             let detail = Self.errorDetail(from: result)

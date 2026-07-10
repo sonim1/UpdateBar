@@ -17,6 +17,7 @@
         private var scanPanelController: ScanPanelController?
         private var configPanelController: ConfigPanelController?
         private var manageItemsPanelController: ManageItemsPanelController?
+        private var dashboardPanelController: DashboardPanelController?
         private var latestState = MenuBarState(
             title: "Checking...",
             badgeValue: "...",
@@ -165,6 +166,22 @@
                 )
             }
             scanPanelController?.showScanWindow()
+        }
+
+        @objc private func showOverview() {
+            guard let service else {
+                showError(MenuBarStartupError.serviceUnavailable)
+                return
+            }
+            if dashboardPanelController == nil {
+                dashboardPanelController = DashboardPanelController(
+                    service: service,
+                    onOpenItems: { [weak self] in
+                        self?.manageItems()
+                    }
+                )
+            }
+            dashboardPanelController?.showWindowAndReload()
         }
 
         @objc private func manageItems() {
@@ -581,6 +598,8 @@
                 return #selector(updateAllApproved(_:))
             case .openTUI:
                 return #selector(openTUI)
+            case .overview:
+                return #selector(showOverview)
             case .manageItems:
                 return #selector(manageItems)
             case .scanAndAdd:

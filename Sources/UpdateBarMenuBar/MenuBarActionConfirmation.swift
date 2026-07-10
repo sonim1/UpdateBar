@@ -28,8 +28,8 @@ public struct MenuBarActionConfirmation: Equatable, Sendable {
                 toolTip: "Runs approved outdated items after confirmation.",
                 confirmButton: "Run Updates"
             )
-        case .refreshStatus, .checkNow, .openTUI, .manageItems, .scanAndAdd, .openConfig,
-            .viewLogs, .quit:
+        case .refreshStatus, .checkNow, .openTUI, .overview, .manageItems, .scanAndAdd,
+            .openConfig, .viewLogs, .quit:
             return nil
         }
     }
