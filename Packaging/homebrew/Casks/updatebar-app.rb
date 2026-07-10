@@ -2,7 +2,7 @@
 
 cask "updatebar-app" do
   version "0.3.1"
-  sha256 "8980f0c316e7761bad9407e57eb9076831e1ec27f38877a891de8c1c858ae0ec"
+  sha256 "32a2ae9cdf0d37e0cb8c909d9a4537e959d3a61c94e75e9e90a61fe5f7d5da67"
 
   url "https://github.com/sonim1/UpdateBar/releases/download/v#{version}/UpdateBar-#{version}-macos-arm64.app.tar.gz"
   name "UpdateBar"
