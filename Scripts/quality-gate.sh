@@ -127,6 +127,9 @@ bash Scripts/verify-homebrew-metadata-test.sh
 echo "running tui smoke test"
 bash Scripts/tui-smoke-test.sh
 
+echo "running tui input regression test"
+bash Scripts/tui-input-test.sh
+
 if [[ "$SKIP_MENUBAR_SMOKE" != "1" ]]; then
   if [[ "$(uname -s)" == "Darwin" ]]; then
     echo "packaging menu bar app"
