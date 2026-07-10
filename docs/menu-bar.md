@@ -56,8 +56,9 @@ signing environment variables are provided.
 
 Tip: `Open TUI` runs `updatebar tui` with the bundled CLI in your chosen
 terminal. When more than one supported terminal is installed (Terminal, iTerm,
-Ghostty, kitty, Alacritty, WezTerm, Warp, Rio), a `TUI Terminal` submenu
-appears next to `Open TUI` showing each app's icon; the choice is remembered.
+Ghostty, kitty, Alacritty, WezTerm, Warp, Rio), `Open TUI` expands into a
+submenu of those terminals with each app's icon — pick one and the TUI opens
+there; the last choice is marked.
 Most terminals launch the shared `.command` file directly; Warp has no exec
 flag, so the app writes a launch configuration to
 `~/.warp/launch_configurations/updatebar-tui.yaml` and opens it via the

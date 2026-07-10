@@ -57,7 +57,7 @@ public enum MenuBarMenuItemAction: Equatable, Sendable {
     case update(id: String)
     case approve(id: String, field: String)
     case revoke(id: String, field: String)
-    case selectTUITerminal(bundleID: String)
+    case openTUIInTerminal(bundleID: String)
 }
 
 public struct MenuBarMenuModelBuilder: Sendable {
@@ -130,37 +130,39 @@ public struct MenuBarMenuModelBuilder: Sendable {
 
         appendSeparator(to: &entries)
         for action in MenuBarMenuAction.footer {
-            appendAction(action.title, action: .menu(action), to: &entries)
-            if action == .openTUI {
-                appendTerminalPicker(
+            if action == .openTUI, installedTerminals.count > 1 {
+                appendOpenTUISubmenu(
                     installedTerminals,
                     selectedTerminalID: selectedTerminalID,
                     to: &entries
                 )
+            } else {
+                appendAction(action.title, action: .menu(action), to: &entries)
             }
         }
 
         return MenuBarMenuModel(entries: entries)
     }
 
-    private func appendTerminalPicker(
+    private func appendOpenTUISubmenu(
         _ terminals: [TUITerminal],
         selectedTerminalID: String?,
         to entries: inout [MenuBarMenuEntry]
     ) {
-        guard terminals.count > 1 else { return }
-        let selectedID =
+        let lastUsedID =
             terminals.contains { $0.id == selectedTerminalID }
             ? selectedTerminalID : TUITerminal.fallback.id
         let items = terminals.map { terminal in
             MenuBarMenuItem(
                 title: terminal.name,
-                action: .selectTUITerminal(bundleID: terminal.id),
-                isChecked: terminal.id == selectedID,
+                action: .openTUIInTerminal(bundleID: terminal.id),
+                isChecked: terminal.id == lastUsedID,
                 iconAppBundleID: terminal.id
             )
         }
-        entries.append(.submenu(MenuBarSubmenu(title: "TUI Terminal", items: items)))
+        entries.append(
+            .submenu(MenuBarSubmenu(title: MenuBarMenuAction.openTUI.title, items: items))
+        )
     }
 
     public func makeErrorMenu(errorDescription: String) -> MenuBarMenuModel {

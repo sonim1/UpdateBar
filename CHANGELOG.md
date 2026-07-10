@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.3.2 - 2026-07-10
+
+### Changed
+
+- Merged the terminal picker into `Open TUI`: with multiple supported
+  terminals installed the item expands into a submenu of terminals (with app
+  icons) and picking one opens the TUI there directly, instead of a separate
+  `TUI Terminal` selection submenu.
+
 ## 0.3.1 - 2026-07-10
 
 ### Fixed

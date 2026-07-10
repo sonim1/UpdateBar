@@ -35,7 +35,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 
-    func testTerminalPickerAppearsAfterOpenTUIWithSelectionAndIcons() {
+    func testOpenTUIBecomesTerminalSubmenuWithIconsAndLastUsedCheck() {
         let state = MenuBarState(
             title: "Up to date",
             badgeValue: nil,
@@ -57,10 +57,10 @@ final class MenuBarMenuModelTests: XCTestCase {
         )
 
         let labels = model.entries.labels
-        let openTUIIndex = labels.firstIndex(of: "Open TUI")
-        XCTAssertEqual(labels.firstIndex(of: "TUI Terminal >"), openTUIIndex.map { $0 + 1 })
+        XCTAssertFalse(labels.contains("Open TUI"))
+        XCTAssertTrue(labels.contains("Open TUI >"))
 
-        let submenu = model.entries.submenu(titled: "TUI Terminal")
+        let submenu = model.entries.submenu(titled: "Open TUI")
         XCTAssertEqual(submenu?.items.map(\.title), ["Terminal", "iTerm"])
         XCTAssertEqual(submenu?.items.map(\.isChecked), [false, true])
         XCTAssertEqual(
@@ -69,11 +69,11 @@ final class MenuBarMenuModelTests: XCTestCase {
         )
         XCTAssertEqual(
             submenu?.items.first?.action,
-            .selectTUITerminal(bundleID: "com.apple.Terminal")
+            .openTUIInTerminal(bundleID: "com.apple.Terminal")
         )
     }
 
-    func testTerminalPickerFallsBackToTerminalForUnknownSelection() {
+    func testOpenTUISubmenuFallsBackToTerminalForUnknownLastUsed() {
         let state = MenuBarState(
             title: "Up to date",
             badgeValue: nil,
@@ -94,11 +94,11 @@ final class MenuBarMenuModelTests: XCTestCase {
             selectedTerminalID: "com.example.uninstalled"
         )
 
-        let submenu = model.entries.submenu(titled: "TUI Terminal")
+        let submenu = model.entries.submenu(titled: "Open TUI")
         XCTAssertEqual(submenu?.items.map(\.isChecked), [true, false])
     }
 
-    func testTerminalPickerHiddenWhenOnlyOneTerminalInstalled() {
+    func testOpenTUIStaysPlainItemWhenOnlyOneTerminalInstalled() {
         let state = MenuBarState(
             title: "Up to date",
             badgeValue: nil,
@@ -115,8 +115,8 @@ final class MenuBarMenuModelTests: XCTestCase {
             selectedTerminalID: nil
         )
 
-        XCTAssertNil(model.entries.submenu(titled: "TUI Terminal"))
-        XCTAssertFalse(model.entries.labels.contains("TUI Terminal >"))
+        XCTAssertNil(model.entries.submenu(titled: "Open TUI"))
+        XCTAssertTrue(model.entries.labels.contains("Open TUI"))
     }
 
     func testActionNoticesRedactSecretLikeTitles() {

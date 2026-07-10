@@ -145,6 +145,18 @@
         }
 
         @objc private func openTUI() {
+            launchTUI(in: selectedTerminal())
+        }
+
+        @objc private func openTUIInTerminal(_ sender: NSMenuItem) {
+            guard let bundleID = sender.representedObject as? String,
+                let terminal = installedTerminals().first(where: { $0.id == bundleID })
+            else { return }
+            UserDefaults.standard.set(bundleID, forKey: Self.tuiTerminalDefaultsKey)
+            launchTUI(in: terminal)
+        }
+
+        private func launchTUI(in terminal: TUITerminal) {
             let resolvedCLIPath = cliPath.isEmpty ? Self.resolveCLIPath() : cliPath
             guard !resolvedCLIPath.isEmpty else {
                 showError(MenuBarStartupError.cliResolverFailed)
@@ -155,7 +167,7 @@
                 let command = OpenTUICommand(
                     cliPath: resolvedCLIPath,
                     commandFileURL: commandFileURL,
-                    terminal: selectedTerminal()
+                    terminal: terminal
                 )
                 try FileManager.default.createDirectory(
                     at: commandFileURL.deletingLastPathComponent(),
@@ -188,12 +200,6 @@
             } catch {
                 showError(error)
             }
-        }
-
-        @objc private func selectTUITerminal(_ sender: NSMenuItem) {
-            guard let bundleID = sender.representedObject as? String else { return }
-            UserDefaults.standard.set(bundleID, forKey: Self.tuiTerminalDefaultsKey)
-            rebuildMenu()
         }
 
         private static let tuiTerminalDefaultsKey = "TUITerminalBundleID"
@@ -396,7 +402,7 @@
                     field: field,
                     confirmation: item.confirmation
                 )
-            case .selectTUITerminal(let bundleID):
+            case .openTUIInTerminal(let bundleID):
                 menuItem.representedObject = bundleID
             }
             return menuItem
@@ -519,8 +525,8 @@
                 return #selector(approveField(_:))
             case .revoke:
                 return #selector(revokeField(_:))
-            case .selectTUITerminal:
-                return #selector(selectTUITerminal(_:))
+            case .openTUIInTerminal:
+                return #selector(openTUIInTerminal(_:))
             }
         }
 

@@ -30,4 +30,14 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(source.contains("appendLog(redactedMessage)"))
         XCTAssertFalse(source.contains("appendLog(message)"))
     }
+
+    func testMenuBarStatusItemDoesNotShowBrandFallback() throws {
+        let sourceURL = URL(
+            fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertFalse(source.contains(#""UB""#))
+        XCTAssertTrue(source.contains(#"statusButton.title = "...""#))
+        XCTAssertTrue(source.contains(#"latestState.badgeValue ?? "✓""#))
+    }
 }
