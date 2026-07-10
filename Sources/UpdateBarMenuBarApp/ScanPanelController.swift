@@ -238,9 +238,11 @@
         }
 
         private func updateAddButton() {
-            addButton.isEnabled = !isRunning && rows.contains {
-                $0.isSelected && $0.isImportable
-            }
+            addButton.isEnabled =
+                !isRunning
+                && rows.contains {
+                    $0.isSelected && $0.isImportable
+                }
         }
 
         private func checkboxCell(row: Int, rowModel: ScanListRow) -> NSTableCellView {

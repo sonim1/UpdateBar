@@ -93,7 +93,8 @@ public struct UpdateBarCLIClient: Sendable {
             InitResultPayload.self,
             from: Data(result.stdout.utf8)
         )
-        return InitSummary(added: payload.added, replaced: payload.replaced, skipped: payload.skipped)
+        return InitSummary(
+            added: payload.added, replaced: payload.replaced, skipped: payload.skipped)
     }
 
     public func loadConfig() throws -> Config {

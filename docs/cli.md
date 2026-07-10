@@ -252,6 +252,16 @@ Returns `2` if any selected update fails.
 In machine-readable mode (`--json` or `--json-stream`), prompts are suppressed;
 omit `--yes` to skip execution and receive a `.cancelled` outcome.
 
+### `updatebar history [--json] [--since <iso8601>]`
+
+Lists recorded update and check events from `~/.updatebar/history.jsonl`.
+Updates append `update_finished` events (id, from/to versions, outcome) and
+full-manifest checks append `check_finished` summaries (outdated count). The
+file is size-capped by dropping the oldest lines; malformed lines are skipped
+on read. `--since` accepts an ISO-8601 date (`2026-07-01`) or date-time
+(`2026-07-01T00:00:00Z`). Human output is tab-separated with `AT`, `EVENT`,
+`ID`, and `DETAIL` columns.
+
 ### `updatebar approve <id> --field <command-field> [--json]`
 
 Approves one command field such as `check.cmd`, `latest.cmd`, or `update.cmd`. Add `--json` for a machine-readable mutation payload.

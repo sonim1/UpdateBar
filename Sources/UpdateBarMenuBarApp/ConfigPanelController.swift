@@ -137,7 +137,8 @@
                 stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
                 stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
                 stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
-                stack.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor, constant: -16),
+                stack.bottomAnchor.constraint(
+                    lessThanOrEqualTo: content.bottomAnchor, constant: -16),
                 grid.widthAnchor.constraint(equalTo: stack.widthAnchor),
                 buttons.widthAnchor.constraint(equalTo: stack.widthAnchor),
                 intervalField.widthAnchor.constraint(greaterThanOrEqualToConstant: 220),

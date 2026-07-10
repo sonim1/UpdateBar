@@ -9,8 +9,16 @@ Current scope:
 - shows outdated items separately from recipes that need command approval
 - shows command text before approve/revoke actions
 - supports Check Now, Refresh Status, update selected, update all approved outdated,
-  approve/revoke command fields, cancel current action, Open TUI, Open Config,
-  View Logs, and Quit
+  approve/revoke command fields, cancel current action, Open TUI, Overview,
+  Manage Items, Scan & Add, Open Config, View Logs, and Quit
+
+`Overview` opens a dashboard with pending-update and awaiting-approval counts,
+last check/update times, and a bar chart of successful updates over the last
+four weeks (from `~/.updatebar/history.jsonl`). `Manage Items...` opens a panel
+listing every registered item grouped by category with an enable/disable
+checkbox per item. `Scan & Add` opens a panel that scans only when you press
+Scan, marks already-registered candidates, and registers selected ones without
+approving any commands.
 
 Build a local unsigned app:
 
