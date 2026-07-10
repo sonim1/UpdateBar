@@ -14,6 +14,9 @@
         private let formatter = MenuBarStatusFormatter()
         private let menuBuilder = MenuBarMenuModelBuilder()
         private let actionCoordinator = MenuBarActionCoordinator()
+        private var scanPanelController: ScanPanelController?
+        private var configPanelController: ConfigPanelController?
+        private var manageItemsPanelController: ManageItemsPanelController?
         private var latestState = MenuBarState(
             title: "Checking...",
             badgeValue: "...",
@@ -148,6 +151,38 @@
             launchTUI(in: selectedTerminal())
         }
 
+        @objc private func scanAndAdd() {
+            guard let service else {
+                showError(MenuBarStartupError.serviceUnavailable)
+                return
+            }
+            if scanPanelController == nil {
+                scanPanelController = ScanPanelController(
+                    service: service,
+                    onRegistered: { [weak self] in
+                        self?.refreshStatus(refresh: false)
+                    }
+                )
+            }
+            scanPanelController?.showWindowAndScanIfNeeded()
+        }
+
+        @objc private func manageItems() {
+            guard let service else {
+                showError(MenuBarStartupError.serviceUnavailable)
+                return
+            }
+            if manageItemsPanelController == nil {
+                manageItemsPanelController = ManageItemsPanelController(
+                    service: service,
+                    onChanged: { [weak self] in
+                        self?.refreshStatus(refresh: false)
+                    }
+                )
+            }
+            manageItemsPanelController?.showWindowAndReload()
+        }
+
         @objc private func openTUIInTerminal(_ sender: NSMenuItem) {
             guard let bundleID = sender.representedObject as? String,
                 let terminal = installedTerminals().first(where: { $0.id == bundleID })
@@ -233,13 +268,19 @@
         }
 
         @objc private func openConfig() {
-            let appPaths = AppPaths()
-            let configURL = appPaths.configFile
-            let configExists = FileManager.default.fileExists(atPath: configURL.path)
-            openInFinder(
-                configExists ? configURL : appPaths.homeDirectory,
-                failureMessage: MenuBarStartupError.configOpenFailed(path: configURL.path)
-            )
+            guard let service else {
+                showError(MenuBarStartupError.serviceUnavailable)
+                return
+            }
+            if configPanelController == nil {
+                configPanelController = ConfigPanelController(
+                    service: service,
+                    onSaved: { [weak self] in
+                        self?.refreshStatus(refresh: false)
+                    }
+                )
+            }
+            configPanelController?.showWindowAndLoad()
         }
 
         @objc private func viewLogs() {
@@ -540,6 +581,10 @@
                 return #selector(updateAllApproved(_:))
             case .openTUI:
                 return #selector(openTUI)
+            case .manageItems:
+                return #selector(manageItems)
+            case .scanAndAdd:
+                return #selector(scanAndAdd)
             case .openConfig:
                 return #selector(openConfig)
             case .viewLogs:
@@ -614,20 +659,20 @@
 
     private enum MenuBarStartupError: Error, CustomStringConvertible {
         case missingStatusBarButton
-        case configOpenFailed(path: String)
         case viewLogFailed(path: String)
         case cliResolverFailed
+        case serviceUnavailable
 
         var description: String {
             switch self {
             case .missingStatusBarButton:
                 return "Failed to create menu bar button"
-            case .configOpenFailed(let path):
-                return "Failed to open config at \(path)"
             case .viewLogFailed(let path):
                 return "Failed to open log target at \(path)"
             case .cliResolverFailed:
                 return "Unable to resolve updatebar executable for Open TUI"
+            case .serviceUnavailable:
+                return "UpdateBar service is unavailable"
             }
         }
     }

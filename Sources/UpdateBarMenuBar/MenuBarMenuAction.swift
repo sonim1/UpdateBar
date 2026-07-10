@@ -3,6 +3,8 @@ public enum MenuBarMenuAction: Equatable, Sendable {
     case checkNow
     case updateAllApprovedOutdated
     case openTUI
+    case manageItems
+    case scanAndAdd
     case openConfig
     case viewLogs
     case quit
@@ -17,6 +19,10 @@ public enum MenuBarMenuAction: Equatable, Sendable {
             return "Run Updates"
         case .openTUI:
             return "Open TUI"
+        case .manageItems:
+            return "Manage Items..."
+        case .scanAndAdd:
+            return "Scan & Add"
         case .openConfig:
             return "Open Config"
         case .viewLogs:
@@ -28,6 +34,8 @@ public enum MenuBarMenuAction: Equatable, Sendable {
 
     public static let footer: [MenuBarMenuAction] = [
         .openTUI,
+        .manageItems,
+        .scanAndAdd,
         .openConfig,
         .viewLogs,
         .quit,
@@ -37,6 +45,8 @@ public enum MenuBarMenuAction: Equatable, Sendable {
         .refreshStatus,
         .checkNow,
         .openTUI,
+        .manageItems,
+        .scanAndAdd,
         .openConfig,
         .viewLogs,
         .quit,

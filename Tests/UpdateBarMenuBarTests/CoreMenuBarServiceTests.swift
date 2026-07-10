@@ -7,6 +7,47 @@ import XCTest
 final class CoreMenuBarServiceTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
 
+    func testCoreServiceScansRegistersSelectedCandidatesAndSavesConfig() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let commands = MockCommandExecutor(results: [
+            ScanService.brewListCommand: CommandResult(
+                exitCode: 0,
+                stdout: "jq 1.7.1\n",
+                stderr: ""
+            ),
+            ScanService.npmGlobalListCommand: CommandResult(
+                exitCode: 0,
+                stdout: #"{"dependencies":{}}"#,
+                stderr: ""
+            ),
+            ScanService.knownToolsCommand: CommandResult(exitCode: 0, stdout: "", stderr: ""),
+        ])
+        let service = CoreMenuBarService(paths: paths, commandRunner: commands, now: { self.now })
+
+        let report = try service.scan(category: "shell-utility")
+        let summary = try service.registerScannedCandidates(
+            report.candidates,
+            selectedIDs: ["brew.jq"],
+            replace: false
+        )
+        var config = try service.loadConfig()
+        config.refresh.interval = Duration(minutes: 30)
+        config.security.requireHTTPSSource = false
+        try service.saveConfig(config)
+
+        XCTAssertEqual(report.candidates.map(\.id), ["brew.jq"])
+        XCTAssertEqual(summary.added, ["brew.jq"])
+        let manifest = try ManifestStore(paths: paths).load()
+        let recipe = try XCTUnwrap(manifest.item(id: "brew.jq"))
+        XCTAssertTrue(recipe.enabled)
+        XCTAssertEqual(recipe.trust.level, .untrusted)
+        XCTAssertEqual(recipe.trust.approvedCommands, [:])
+        let savedConfig = try ConfigStore(paths: paths).load()
+        XCTAssertEqual(savedConfig.refresh.interval, Duration(minutes: 30))
+        XCTAssertFalse(savedConfig.security.requireHTTPSSource)
+    }
+
     func testCoreServiceReadsStatusApprovalsAndRunsUpdate() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
@@ -109,6 +150,26 @@ final class CoreMenuBarServiceTests: XCTestCase {
             commands.commands.map(\.command),
             ["tool current", "tool latest"])
         XCTAssertEqual(state.items["tool"]?.status, .outdated)
+    }
+
+    func testCoreServiceTogglesItemEnabledState() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(id: "tool", updateCommand: "tool update", currentCommand: "tool current")
+            ]))
+        try StateStore(paths: paths).save(
+            State(schemaVersion: 1, generatedAt: now, items: [:]))
+        let service = CoreMenuBarService(paths: paths, now: { self.now })
+
+        try service.setEnabled(id: "tool", enabled: false)
+        let disabled = try service.status(refresh: false)
+        XCTAssertEqual(disabled.items.first?.status, .disabled)
+
+        try service.setEnabled(id: "tool", enabled: true)
+        let enabled = try service.status(refresh: false)
+        XCTAssertNotEqual(enabled.items.first?.status, .disabled)
     }
 
     private func manifest(items: [Recipe]) -> Manifest {
