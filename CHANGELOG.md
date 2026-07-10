@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.3.1 - 2026-07-10
+
+### Fixed
+
+- Fixed arrow keys echoing as escape sequences in `updatebar tui`: the CLI
+  now replaces itself with the TUI via exec instead of spawning it in a new
+  process group, so the terminal raw mode request is honored.
+
 ## 0.3.0 - 2026-07-09
 
 ### Changed
