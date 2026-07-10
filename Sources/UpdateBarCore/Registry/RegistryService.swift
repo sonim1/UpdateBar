@@ -14,6 +14,7 @@ public struct RegistryService {
     private let now: () -> Date
     private let githubToken: String?
     private let userHomeDirectory: URL
+    private let historyStore: HistoryStore
 
     public init(
         manifestStore: ManifestStore = ManifestStore(),
@@ -23,7 +24,8 @@ public struct RegistryService {
         commandRunner: CommandRunning = CommandExecutor(),
         now: @escaping () -> Date = { Date() },
         githubToken: String? = nil,
-        environment: [String: String] = ProcessInfo.processInfo.environment
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        historyStore: HistoryStore? = nil
     ) {
         self.manifestStore = manifestStore
         self.stateStore = stateStore
@@ -33,6 +35,7 @@ public struct RegistryService {
         self.now = now
         self.githubToken = githubToken
         self.userHomeDirectory = UserPathExpander.homeDirectory(environment: environment)
+        self.historyStore = historyStore ?? HistoryStore(paths: AppPaths(environment: environment))
     }
 
     public func check(
@@ -160,6 +163,16 @@ public struct RegistryService {
 
             state.generatedAt = checkDate
             try stateStore.save(state)
+            if ids.isEmpty {
+                // Full-manifest check: record a summary sample for the
+                // dashboard. Telemetry must never fail a check.
+                try? historyStore.append(
+                    HistoryEvent(
+                        event: .checkFinished,
+                        outdated: results.filter { $0.status == .outdated }.count,
+                        at: checkDate
+                    ))
+            }
             return results
         }
     }

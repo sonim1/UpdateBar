@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added
+
+- `Overview` menu entry: a dashboard panel with pending-update and
+  awaiting-approval tiles, last check/update times, and a four-week bar chart
+  of successful updates.
+- `Manage Items...` menu entry: a panel listing every registered item grouped
+  by category with per-item enable/disable toggles.
+- Update/check history recorded to `~/.updatebar/history.jsonl` and exposed
+  via the new `updatebar history [--json] [--since <iso8601>]` subcommand.
+
+### Changed
+
+- The Scan & Add panel no longer scans on open; scanning starts from the Scan
+  button, and already-registered candidates are marked and cannot be
+  re-imported.
+
 ## 0.3.2 - 2026-07-10
 
 ### Changed

@@ -39,4 +39,8 @@ public struct AppPaths: Equatable {
     public var configFile: URL {
         homeDirectory.appendingPathComponent("config.toml", isDirectory: false)
     }
+
+    public var historyFile: URL {
+        homeDirectory.appendingPathComponent("history.jsonl", isDirectory: false)
+    }
 }

@@ -21,6 +21,7 @@ struct UpdateBar: ParsableCommand {
                     StatusCommand.self,
                     CheckCommand.self,
                     UpdateCommand.self,
+                    HistoryCommand.self,
                 ]),
             CommandGroup(
                 name: "Manage",

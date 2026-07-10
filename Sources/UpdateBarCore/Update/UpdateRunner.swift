@@ -11,6 +11,7 @@ public struct UpdateRunner {
     private let environment: [String: String]
     private let userHomeDirectory: URL
     private let confirm: (UpdatePlanItem) -> Bool
+    private let historyStore: HistoryStore
 
     public init(
         manifestStore: ManifestStore = ManifestStore(),
@@ -21,7 +22,8 @@ public struct UpdateRunner {
         now: @escaping () -> Date = { Date() },
         githubToken: String? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
-        confirm: @escaping (UpdatePlanItem) -> Bool = { _ in false }
+        confirm: @escaping (UpdatePlanItem) -> Bool = { _ in false },
+        historyStore: HistoryStore? = nil
     ) {
         self.manifestStore = manifestStore
         self.stateStore = stateStore
@@ -33,6 +35,7 @@ public struct UpdateRunner {
         self.environment = environment
         self.userHomeDirectory = UserPathExpander.homeDirectory(environment: environment)
         self.confirm = confirm
+        self.historyStore = historyStore ?? HistoryStore(paths: AppPaths(environment: environment))
     }
 
     public func update(ids: [String], all: Bool, assumeYes: Bool) throws -> [UpdateResult] {
@@ -97,6 +100,7 @@ public struct UpdateRunner {
             guard commandResult.exitCode == 0 else {
                 let error = "update.cmd exited \(commandResult.exitCode): \(commandResult.stderr)"
                 try markFailure(recipe: recipe, error: error)
+                recordHistory(planItem: planItem, outcome: "failed", to: nil)
                 return UpdateResult(
                     planItem: planItem,
                     outcome: .failed,
@@ -115,6 +119,7 @@ public struct UpdateRunner {
                 environment: environment
             ).check(ids: [recipe.id], force: true)
             let check = checks.first
+            recordHistory(planItem: planItem, outcome: "updated", to: check?.current)
             return UpdateResult(
                 planItem: planItem,
                 outcome: .updated,
@@ -130,12 +135,26 @@ public struct UpdateRunner {
             )
         } catch {
             try markFailure(recipe: recipe, error: String(describing: error))
+            recordHistory(planItem: planItem, outcome: "failed", to: nil)
             return UpdateResult(
                 planItem: planItem,
                 outcome: .failed,
                 error: SecretRedactor.redact(String(describing: error))
             )
         }
+    }
+
+    // History is telemetry for the dashboard; it must never fail an update.
+    private func recordHistory(planItem: UpdatePlanItem, outcome: String, to: String?) {
+        try? historyStore.append(
+            HistoryEvent(
+                event: .updateFinished,
+                id: planItem.id,
+                from: planItem.current,
+                to: to ?? planItem.latest,
+                outcome: outcome,
+                at: now()
+            ))
     }
 
     private func markFailure(recipe: Recipe, error: String) throws {

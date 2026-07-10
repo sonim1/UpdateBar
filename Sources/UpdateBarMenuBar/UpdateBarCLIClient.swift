@@ -65,6 +65,70 @@ public struct UpdateBarCLIClient: Sendable {
         return try JSONDecoder.updateBar.decode(StatusSnapshot.self, from: Data(result.stdout.utf8))
     }
 
+    public func scan(category: String? = nil) throws -> ScanReport {
+        var arguments = ["scan", "--json"]
+        if let category, !category.isEmpty {
+            arguments += ["--category", category]
+        }
+        let result = try runner.run(executablePath: executablePath, arguments: arguments)
+        try ensureSuccess(result, allowedExitCodes: [0])
+        return try JSONDecoder.updateBar.decode(ScanReport.self, from: Data(result.stdout.utf8))
+    }
+
+    public func registerScannedCandidates(
+        _ candidates: [ScanCandidate],
+        selectedIDs: [String],
+        replace: Bool
+    ) throws -> InitSummary {
+        guard !selectedIDs.isEmpty else {
+            return InitSummary(added: [], replaced: [], skipped: [])
+        }
+        var arguments = ["init", "--select", selectedIDs.joined(separator: ","), "--json"]
+        if replace {
+            arguments.append("--replace")
+        }
+        let result = try runner.run(executablePath: executablePath, arguments: arguments)
+        try ensureSuccess(result, allowedExitCodes: [0])
+        let payload = try JSONDecoder.updateBar.decode(
+            InitResultPayload.self,
+            from: Data(result.stdout.utf8)
+        )
+        return InitSummary(
+            added: payload.added, replaced: payload.replaced, skipped: payload.skipped)
+    }
+
+    public func loadConfig() throws -> Config {
+        let result = try runner.run(
+            executablePath: executablePath,
+            arguments: ["config", "get", "--json"]
+        )
+        try ensureSuccess(result, allowedExitCodes: [0])
+        let payload = try JSONDecoder.updateBar.decode(
+            ConfigDumpPayload.self,
+            from: Data(result.stdout.utf8)
+        )
+        var config = Config.default
+        try config.set("refresh.interval", value: payload.refresh.interval)
+        try config.set(
+            "security.require_https_source",
+            value: String(payload.security.requireHTTPSSource)
+        )
+        return config
+    }
+
+    public func saveConfig(_ config: Config) throws {
+        for (key, value) in [
+            ("refresh.interval", config.refresh.interval.description),
+            ("security.require_https_source", String(config.security.requireHTTPSSource)),
+        ] {
+            let result = try runner.run(
+                executablePath: executablePath,
+                arguments: ["config", "set", key, value, "--json"]
+            )
+            try ensureSuccess(result, allowedExitCodes: [0])
+        }
+    }
+
     public func checkNow(cancellationToken: CancellationToken? = nil) throws {
         let result = try runner.run(
             executablePath: executablePath,
@@ -124,6 +188,32 @@ public struct UpdateBarCLIClient: Sendable {
         try ensureSuccess(result, allowedExitCodes: [0])
     }
 
+    public func setEnabled(id: String, enabled: Bool) throws {
+        let result = try runner.run(
+            executablePath: executablePath,
+            arguments: [enabled ? "enable" : "disable", id, "--json"],
+            cancellationToken: nil
+        )
+        try ensureSuccess(result, allowedExitCodes: [0])
+    }
+
+    public func history(since: Date?) throws -> [HistoryEvent] {
+        var arguments = ["history", "--json"]
+        if let since {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime]
+            arguments += ["--since", formatter.string(from: since)]
+        }
+        let result = try runner.run(
+            executablePath: executablePath,
+            arguments: arguments,
+            cancellationToken: nil
+        )
+        try ensureSuccess(result, allowedExitCodes: [0])
+        return try JSONDecoder.updateBar.decode(
+            [HistoryEvent].self, from: Data(result.stdout.utf8))
+    }
+
     private func ensureSuccess(_ result: CommandResult, allowedExitCodes: Set<Int32>) throws {
         guard allowedExitCodes.contains(result.exitCode) else {
             let detail = Self.errorDetail(from: result)
@@ -160,6 +250,29 @@ public struct UpdateBarCLIClient: Sendable {
             return error
         }
         return nil
+    }
+
+    private struct InitResultPayload: Decodable {
+        var added: [String]
+        var replaced: [String]
+        var skipped: [String]
+    }
+
+    private struct ConfigDumpPayload: Decodable {
+        var refresh: Refresh
+        var security: Security
+
+        struct Refresh: Decodable {
+            var interval: String
+        }
+
+        struct Security: Decodable {
+            var requireHTTPSSource: Bool
+
+            enum CodingKeys: String, CodingKey {
+                case requireHTTPSSource = "require_https_source"
+            }
+        }
     }
 }
 

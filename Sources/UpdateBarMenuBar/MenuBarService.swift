@@ -3,15 +3,29 @@ import UpdateBarCore
 
 public protocol MenuBarServicing: Sendable {
     func status(refresh: Bool) throws -> StatusSnapshot
+    func scan(category: String?) throws -> ScanReport
+    func registerScannedCandidates(
+        _ candidates: [ScanCandidate],
+        selectedIDs: [String],
+        replace: Bool
+    ) throws -> InitSummary
+    func loadConfig() throws -> Config
+    func saveConfig(_ config: Config) throws
     func checkNow(cancellationToken: CancellationToken?) throws
     func update(id: String, cancellationToken: CancellationToken?) throws
     func updateAllApproved(cancellationToken: CancellationToken?) throws
     func approvals(id: String) throws -> [CommandApprovalStatus]
     func approve(id: String, field: String, cancellationToken: CancellationToken?) throws
     func revoke(id: String, field: String, cancellationToken: CancellationToken?) throws
+    func setEnabled(id: String, enabled: Bool) throws
+    func history(since: Date?) throws -> [HistoryEvent]
 }
 
 extension MenuBarServicing {
+    public func scan() throws -> ScanReport {
+        try scan(category: nil)
+    }
+
     public func checkNow() throws {
         try checkNow(cancellationToken: nil)
     }
@@ -36,6 +50,7 @@ extension MenuBarServicing {
 extension UpdateBarCLIClient: MenuBarServicing {}
 
 public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
+    private let paths: AppPaths
     private let manifestStore: ManifestStore
     private let stateStore: StateStore
     private let configStore: ConfigStore
@@ -51,6 +66,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         now: @escaping () -> Date = Date.init,
         githubToken: String? = nil
     ) {
+        self.paths = paths
         self.manifestStore = ManifestStore(paths: paths)
         self.stateStore = StateStore(paths: paths)
         self.configStore = ConfigStore(paths: paths)
@@ -67,6 +83,37 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
             configStore: configStore,
             now: now
         ).snapshot(refresh: refresh)
+    }
+
+    public func scan(category: String? = nil) throws -> ScanReport {
+        let categoryFilter = try ScanCategory.filterValue(for: category)
+        let detectors = try ScanCategory.defaultDetectors(for: categoryFilter)
+        return try ScanService(
+            commandRunner: commandRunner(for: nil),
+            homeDirectory: paths.homeDirectory
+        )
+        .scan(detectors: detectors)
+        .filtered(category: categoryFilter)
+    }
+
+    public func registerScannedCandidates(
+        _ candidates: [ScanCandidate],
+        selectedIDs: [String],
+        replace: Bool
+    ) throws -> InitSummary {
+        try InitService(registryService: registryService(cancellationToken: nil)).register(
+            candidates: candidates,
+            selectedIDs: selectedIDs,
+            replace: replace
+        )
+    }
+
+    public func loadConfig() throws -> Config {
+        try configStore.loadExistingOrDefault()
+    }
+
+    public func saveConfig(_ config: Config) throws {
+        try configStore.save(config)
     }
 
     public func checkNow(cancellationToken: CancellationToken? = nil) throws {
@@ -112,6 +159,14 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
     {
         _ = try registryService(cancellationToken: cancellationToken).revokeApproval(
             id: id, field: field)
+    }
+
+    public func setEnabled(id: String, enabled: Bool) throws {
+        _ = try registryService(cancellationToken: nil).setEnabled(id: id, enabled: enabled)
+    }
+
+    public func history(since: Date?) throws -> [HistoryEvent] {
+        try HistoryStore(paths: paths).events(since: since)
     }
 
     private func registryService(cancellationToken: CancellationToken?) throws -> RegistryService {

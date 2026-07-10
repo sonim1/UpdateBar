@@ -210,6 +210,87 @@ final class UpdateBarCLIClientTests: XCTestCase {
             ])
     }
 
+    func testSetEnabledUsesEnableAndDisableSubcommands() throws {
+        let runner = RecordingRunner(
+            result: CommandResult(exitCode: 0, stdout: "{}", stderr: "")
+        )
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        try client.setEnabled(id: "tool", enabled: true)
+        try client.setEnabled(id: "tool", enabled: false)
+
+        XCTAssertEqual(
+            runner.calls,
+            [
+                CommandCall(
+                    executablePath: "/tmp/updatebar", arguments: ["enable", "tool", "--json"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar", arguments: ["disable", "tool", "--json"]),
+            ])
+    }
+
+    func testScanRegisterAndConfigActionsUseJSONContracts() throws {
+        let runner = SequencedRecordingRunner(results: [
+            CommandResult(exitCode: 0, stdout: #"{"candidates":[],"errors":[]}"#, stderr: ""),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"ok":true,"added":["brew.jq"],"replaced":[],"skipped":[],"errors":[]}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"refresh":{"interval":"6h"},"security":{"require_https_source":true}}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"ok":true,"key":"refresh.interval","value":"30m"}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"ok":true,"key":"security.require_https_source","value":"false"}"#,
+                stderr: ""
+            ),
+        ])
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        let report = try client.scan(category: "shell-utility")
+        let summary = try client.registerScannedCandidates(
+            [],
+            selectedIDs: ["brew.jq"],
+            replace: false
+        )
+        var config = try client.loadConfig()
+        config.refresh.interval = Duration(minutes: 30)
+        config.security.requireHTTPSSource = false
+        try client.saveConfig(config)
+
+        XCTAssertEqual(report.candidates, [])
+        XCTAssertEqual(summary.added, ["brew.jq"])
+        XCTAssertEqual(
+            runner.calls,
+            [
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["scan", "--json", "--category", "shell-utility"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["init", "--select", "brew.jq", "--json"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["config", "get", "--json"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["config", "set", "refresh.interval", "30m", "--json"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: [
+                        "config", "set", "security.require_https_source", "false", "--json",
+                    ]),
+            ])
+    }
+
     func testProcessRunnerCapsLargeOutput() throws {
         let runner = ProcessRunner(timeout: 5, maxOutputBytes: 8)
 
@@ -354,5 +435,22 @@ private final class RecordingRunner: UpdateBarProcessRunning, @unchecked Sendabl
     func run(executablePath: String, arguments: [String]) throws -> CommandResult {
         calls.append(CommandCall(executablePath: executablePath, arguments: arguments))
         return result
+    }
+}
+
+private final class SequencedRecordingRunner: UpdateBarProcessRunning, @unchecked Sendable {
+    private var results: [CommandResult]
+    private(set) var calls: [CommandCall] = []
+
+    init(results: [CommandResult]) {
+        self.results = results
+    }
+
+    func run(executablePath: String, arguments: [String]) throws -> CommandResult {
+        calls.append(CommandCall(executablePath: executablePath, arguments: arguments))
+        if results.isEmpty {
+            return CommandResult(exitCode: 1, stdout: "", stderr: "missing result")
+        }
+        return results.removeFirst()
     }
 }
