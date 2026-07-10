@@ -164,7 +164,7 @@
                     }
                 )
             }
-            scanPanelController?.showWindowAndScanIfNeeded()
+            scanPanelController?.showScanWindow()
         }
 
         @objc private func manageItems() {
