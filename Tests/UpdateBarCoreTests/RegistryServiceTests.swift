@@ -471,7 +471,8 @@ final class RegistryServiceTests: XCTestCase {
             httpClient: MockHTTPClient(responses: [:]),
             commandRunner: commands,
             now: { self.now },
-            environment: environment
+            environment: environment,
+            historyStore: HistoryStore(paths: paths)
         )
     }
 

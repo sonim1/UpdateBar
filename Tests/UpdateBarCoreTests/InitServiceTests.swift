@@ -13,7 +13,8 @@ final class InitServiceTests: XCTestCase {
             registryService: RegistryService(
                 manifestStore: ManifestStore(paths: paths),
                 stateStore: StateStore(paths: paths),
-                now: { self.now }
+                now: { self.now },
+                historyStore: HistoryStore(paths: paths)
             ))
         let secret = "sk-or-v1-secret-value"
         let good = candidate(recipe(id: "good"))

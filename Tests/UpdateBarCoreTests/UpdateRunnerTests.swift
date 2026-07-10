@@ -261,7 +261,8 @@ final class UpdateRunnerTests: XCTestCase {
             commandRunner: commands,
             now: { self.now },
             environment: environment,
-            confirm: { _ in true }
+            confirm: { _ in true },
+            historyStore: HistoryStore(paths: paths)
         )
     }
 

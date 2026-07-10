@@ -177,7 +177,8 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
             httpClient: httpClient,
             commandRunner: commandRunner(for: cancellationToken),
             now: now,
-            githubToken: githubToken
+            githubToken: githubToken,
+            historyStore: HistoryStore(paths: paths)
         )
     }
 
@@ -190,7 +191,8 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
             commandRunner: commandRunner(for: cancellationToken),
             now: now,
             githubToken: githubToken,
-            confirm: { _ in true }
+            confirm: { _ in true },
+            historyStore: HistoryStore(paths: paths)
         )
     }
 
