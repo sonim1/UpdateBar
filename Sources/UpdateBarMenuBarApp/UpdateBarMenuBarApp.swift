@@ -150,8 +150,37 @@
                 showError(MenuBarStartupError.cliResolverFailed)
                 return
             }
-            let command = OpenTUICommand(cliPath: resolvedCLIPath)
             do {
+                let commandFileURL = Self.tuiCommandFileURL
+                let command = OpenTUICommand(
+                    cliPath: resolvedCLIPath,
+                    commandFileURL: commandFileURL,
+                    terminal: selectedTerminal()
+                )
+                try FileManager.default.createDirectory(
+                    at: commandFileURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                try command.commandFileContents.write(
+                    to: commandFileURL,
+                    atomically: true,
+                    encoding: .utf8
+                )
+                try FileManager.default.setAttributes(
+                    [.posixPermissions: 0o755],
+                    ofItemAtPath: commandFileURL.path
+                )
+                if let auxiliaryFile = command.auxiliaryFile {
+                    try FileManager.default.createDirectory(
+                        at: auxiliaryFile.url.deletingLastPathComponent(),
+                        withIntermediateDirectories: true
+                    )
+                    try auxiliaryFile.contents.write(
+                        to: auxiliaryFile.url,
+                        atomically: true,
+                        encoding: .utf8
+                    )
+                }
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: command.executablePath)
                 process.arguments = command.arguments
@@ -159,6 +188,42 @@
             } catch {
                 showError(error)
             }
+        }
+
+        @objc private func selectTUITerminal(_ sender: NSMenuItem) {
+            guard let bundleID = sender.representedObject as? String else { return }
+            UserDefaults.standard.set(bundleID, forKey: Self.tuiTerminalDefaultsKey)
+            rebuildMenu()
+        }
+
+        private static let tuiTerminalDefaultsKey = "TUITerminalBundleID"
+
+        private static var tuiCommandFileURL: URL {
+            let base =
+                FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+                ?? FileManager.default.temporaryDirectory
+            return
+                base
+                .appendingPathComponent("UpdateBar", isDirectory: true)
+                .appendingPathComponent("open-tui.command", isDirectory: false)
+        }
+
+        private func installedTerminals() -> [TUITerminal] {
+            TUITerminal.known.filter {
+                NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0.id) != nil
+            }
+        }
+
+        private func selectedTerminal() -> TUITerminal {
+            let installed = installedTerminals()
+            if let id = UserDefaults.standard.string(forKey: Self.tuiTerminalDefaultsKey),
+                let terminal = installed.first(where: { $0.id == id })
+            {
+                return terminal
+            }
+            return installed.first { $0.id == TUITerminal.fallback.id }
+                ?? installed.first
+                ?? TUITerminal.fallback
         }
 
         @objc private func openConfig() {
@@ -276,7 +341,9 @@
                 state: latestState,
                 approvalStatuses: approvalStatuses,
                 activeActionTitle: activeAction?.title,
-                lastActionNotice: activeAction == nil ? lastActionNotice : nil
+                lastActionNotice: activeAction == nil ? lastActionNotice : nil,
+                installedTerminals: installedTerminals(),
+                selectedTerminalID: selectedTerminal().id
             )
             statusItem.menu = makeMenu(from: model)
         }
@@ -289,6 +356,14 @@
                     menu.addItem(.separator())
                 case .item(let item):
                     menu.addItem(menuItem(from: item))
+                case .submenu(let submenu):
+                    let parent = NSMenuItem(title: submenu.title, action: nil, keyEquivalent: "")
+                    let child = NSMenu(title: submenu.title)
+                    for item in submenu.items {
+                        child.addItem(menuItem(from: item))
+                    }
+                    parent.submenu = child
+                    menu.addItem(parent)
                 }
             }
             return menu
@@ -300,6 +375,14 @@
             }
             let menuItem = actionItem(item.title, action: selector(for: action))
             menuItem.toolTip = item.toolTip
+            menuItem.state = item.isChecked ? .on : .off
+            if let bundleID = item.iconAppBundleID,
+                let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+            {
+                let icon = NSWorkspace.shared.icon(forFile: appURL.path)
+                icon.size = NSSize(width: 16, height: 16)
+                menuItem.image = icon
+            }
             switch action {
             case .menu, .cancelCurrentAction:
                 if action == .menu(.updateAllApprovedOutdated) {
@@ -313,6 +396,8 @@
                     field: field,
                     confirmation: item.confirmation
                 )
+            case .selectTUITerminal(let bundleID):
+                menuItem.representedObject = bundleID
             }
             return menuItem
         }
@@ -434,6 +519,8 @@
                 return #selector(approveField(_:))
             case .revoke:
                 return #selector(revokeField(_:))
+            case .selectTUITerminal:
+                return #selector(selectTUITerminal(_:))
             }
         }
 

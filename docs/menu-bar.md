@@ -50,14 +50,22 @@ instead. The same fallback is used by `Open Config`.
 Long item lists in the menu are compacted with overflow summaries.
 Recent logs are retained automatically with a rotating local cap.
 
-The app is currently unsigned. If macOS blocks the first launch, Control-click
-`UpdateBar.app` in Finder, choose Open, then confirm Open. Developer ID signing,
-notarization, and stapling are deferred until the Apple Developer Program
-go/no-go decision.
+The app is currently unsigned. On macOS 15 or newer, if Gatekeeper blocks the
+first launch, open System Settings > Privacy & Security and choose Open Anyway
+for `UpdateBar.app`. On older macOS versions, Control-click Open may still work.
+Developer ID signing, notarization, and stapling are deferred until the Apple
+Developer Program go/no-go decision.
 
-Tip: `Open TUI` now also honors `UPDATEBAR_TUI` when set to a concrete binary, so
-you can point menu-bar launching at a dev-installed TUI without relying on
-`PATH`.
+Tip: `Open TUI` runs `updatebar tui` with the bundled CLI in your chosen
+terminal. When more than one supported terminal is installed (Terminal, iTerm,
+Ghostty, kitty, Alacritty, WezTerm, Warp, Rio), a `TUI Terminal` submenu
+appears next to `Open TUI` showing each app's icon; the choice is remembered.
+Most terminals launch the shared `.command` file directly; Warp has no exec
+flag, so the app writes a launch configuration to
+`~/.warp/launch_configurations/updatebar-tui.yaml` and opens it via the
+`warp://launch/` URI. Install the TUI with
+`brew install sonim1/tap/updatebar-tui`, or set `UPDATEBAR_TUI` to a dev-built
+executable to override the `PATH` lookup.
 
 `Open Config` opens the active UpdateBar config file when it exists; by default
 that is `HOME/.updatebar/config.toml`, and `UPDATEBAR_HOME` can point the app at
@@ -68,11 +76,14 @@ Troubleshooting a missing icon:
 
 ```bash
 Scripts/menubar-smoke-test.sh
-pkill -f UpdateBar
+LOG_PATH=/tmp/updatebar-menubar.log
 UPDATEBAR_BIN=/full/path/to/updatebar ./dist/UpdateBar.app/Contents/MacOS/UpdateBar \
-  >/tmp/updatebar-menubar.log 2>&1 &
+  >"$LOG_PATH" 2>&1 &
+MENUBAR_PID=$!
 sleep 2
-tail -n 60 /tmp/updatebar-menubar.log
+kill "$MENUBAR_PID" 2>/dev/null || true
+wait "$MENUBAR_PID" 2>/dev/null || true
+tail -n 60 "$LOG_PATH"
 ```
 
 When `UpdateBarMenuBar: UpdateBarMenuBar main starting` is not printed, the binary

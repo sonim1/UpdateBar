@@ -182,11 +182,10 @@ final class TUICommandTests: XCTestCase {
         let result = try CLIProcess.run(["tui"], home: home, environment: ["PATH": home.path])
 
         XCTAssertNotEqual(result.exitCode, 0)
-        XCTAssertTrue(result.stderr.contains("Could not locate updatebar-tui on PATH."))
-        XCTAssertTrue(result.stderr.contains("UPDATEBAR_TUI"))
+        XCTAssertTrue(result.stderr.contains("updatebar-tui is not installed."))
+        XCTAssertTrue(result.stderr.contains("brew install sonim1/tap/updatebar-tui"))
         XCTAssertTrue(result.stderr.contains("npm --prefix tui install"))
-        XCTAssertTrue(result.stderr.contains("npm --prefix tui run build"))
-        XCTAssertTrue(result.stderr.contains("tui/dist/index.js"))
+        XCTAssertTrue(result.stderr.contains("UPDATEBAR_TUI"))
     }
 
     func testTUICommandIgnoresRelativePathEntries() throws {
@@ -208,7 +207,7 @@ final class TUICommandTests: XCTestCase {
 
         XCTAssertNotEqual(result.exitCode, 0)
         XCTAssertFalse(result.stdout.contains("relative-path"))
-        XCTAssertTrue(result.stderr.contains("Could not locate updatebar-tui on PATH."))
+        XCTAssertTrue(result.stderr.contains("updatebar-tui is not installed."))
     }
 
     private func writeExecutable(_ url: URL, _ body: String) throws {

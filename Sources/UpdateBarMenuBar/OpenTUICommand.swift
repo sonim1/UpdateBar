@@ -1,79 +1,74 @@
 import Foundation
-import UpdateBarCore
 
 public struct OpenTUICommand: Equatable, Sendable {
+    public struct AuxiliaryFile: Equatable, Sendable {
+        public var url: URL
+        public var contents: String
+    }
+
+    /// Contents of the `.command` launcher script the app writes to disk.
+    /// TUI discovery, UPDATEBAR_TUI overrides, and install guidance all live
+    /// in the CLI's `tui` subcommand so the terminal only ever shows one
+    /// short command.
+    public var commandFileContents: String
+    /// Extra file some terminals need before launch (Warp launch config).
+    public var auxiliaryFile: AuxiliaryFile?
     public var executablePath: String
     public var arguments: [String]
 
     public init(
         cliPath: String,
-        tuiCommand: String = "updatebar-tui",
-        updateBarHome: String? = ProcessInfo.processInfo.environment["UPDATEBAR_HOME"],
-        tuiCommandOverride: String? = ProcessInfo.processInfo.environment["UPDATEBAR_TUI"]
+        commandFileURL: URL,
+        terminal: TUITerminal,
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
     ) {
-        let exports = [
-            "export UPDATEBAR_BIN=\(Self.shellQuote(cliPath))",
-            updateBarHome.map { "export UPDATEBAR_HOME=\(Self.shellQuote($0))" },
-            tuiCommandOverride.map { "export UPDATEBAR_TUI=\(Self.shellQuote($0))" },
-        ].compactMap { $0 }
-        let pathFilter = [
-            "old_ifs=$IFS",
-            "IFS=:",
-            "absolute_path_entries=",
-            "for path_entry in $PATH",
-            "do case \"$path_entry\" in /*) absolute_path_entries=\"${absolute_path_entries:+$absolute_path_entries:}$path_entry\" ;; esac",
-            "done",
-            "IFS=$old_ifs",
-            "PATH=$absolute_path_entries",
-            "export PATH",
-        ]
+        commandFileContents = """
+            #!/bin/sh
+            exec \(Self.shellQuote(cliPath)) tui
+            """
+        executablePath = "/usr/bin/open"
+        switch terminal.launchStyle {
+        case .openDocument:
+            auxiliaryFile = nil
+            arguments = ["-b", terminal.id, commandFileURL.path]
+        case .openWithArgs(let flags):
+            auxiliaryFile = nil
+            arguments = ["-nb", terminal.id, "--args"] + flags + [commandFileURL.path]
+        case .warpLaunchConfigURI(let scheme):
+            let configURL =
+                homeDirectory
+                .appendingPathComponent(".warp", isDirectory: true)
+                .appendingPathComponent("launch_configurations", isDirectory: true)
+                .appendingPathComponent("updatebar-tui.yaml", isDirectory: false)
+            auxiliaryFile = AuxiliaryFile(
+                url: configURL,
+                contents: Self.warpLaunchConfig(
+                    commandFilePath: commandFileURL.path,
+                    homePath: homeDirectory.path
+                )
+            )
+            let encodedPath =
+                configURL.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)
+                ?? configURL.path
+            arguments = ["\(scheme)://launch/\(encodedPath)"]
+        }
+    }
 
-        let quotedCommand = Self.shellQuote(tuiCommand)
-        let fallbackPrompt = Self.shellQuote("\(tuiCommand) is not available")
-        let fallbackSetup = Self.shellQuote(
-            "Build it with npm --prefix tui install && npm --prefix tui run build."
-        )
-        let fallbackHowToMessage = Self.shellQuote(
-            "Run UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui, or set UPDATEBAR_TUI to a runnable binary."
-        )
-        let invalidTUIMessage = Self.shellQuote("UPDATEBAR_TUI is set but not executable:")
-        let invalidTUIValue = Self.shellQuote(
-            tuiCommandOverride.map(SecretRedactor.redact) ?? "$UPDATEBAR_TUI"
-        )
-
-        let launch = [
-            "if [ -n \"$UPDATEBAR_TUI\" ] && [ -x \"$UPDATEBAR_TUI\" ]",
-            "then exec \"$UPDATEBAR_TUI\"",
-            "elif [ -n \"$UPDATEBAR_TUI\" ]",
-            "then printf '%s\\n' \(invalidTUIMessage)",
-            "printf '%s\\n' \(invalidTUIValue)",
-            "exit 1",
-            "elif [ -x \"$UPDATEBAR_BIN\" ]",
-            "then exec \"$UPDATEBAR_BIN\" tui",
-            "elif command -v \(quotedCommand) >/dev/null 2>&1",
-            "then exec \(quotedCommand)",
-            "else printf '%s\\n' \(fallbackPrompt)",
-            "printf '%s\\n' \(fallbackSetup)",
-            "printf '%s\\n' \(fallbackHowToMessage)",
-            "exit 1",
-            "fi",
-        ]
-
-        let script = (exports + pathFilter + launch).joined(separator: "; ")
-        executablePath = "/usr/bin/osascript"
-        arguments = [
-            "-e",
-            "tell application \"Terminal\" to do script \(Self.appleScriptQuote(script))",
-            "-e",
-            "tell application \"Terminal\" to activate",
-        ]
+    private static func warpLaunchConfig(commandFilePath: String, homePath: String) -> String {
+        """
+        ---
+        name: UpdateBar TUI
+        windows:
+          - tabs:
+              - title: UpdateBar TUI
+                layout:
+                  cwd: "\(homePath)"
+                  commands:
+                    - exec: \(shellQuote(commandFilePath))
+        """
     }
 
     private static func shellQuote(_ value: String) -> String {
         "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
-    }
-
-    private static func appleScriptQuote(_ value: String) -> String {
-        "\"\(value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\""))\""
     }
 }

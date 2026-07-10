@@ -23,7 +23,13 @@ case "$(uname -m)" in
 esac
 
 BUILD_ROOT="$(pwd -P)"
-"$SWIFT_BIN" build -c release --product updatebar \
+SWIFT_BUILD_ARGS=(-c release --product updatebar)
+if [[ "$PLATFORM" == "linux" ]]; then
+  # Static Foundation pulls in lib_CFURLSessionInterface.a, which needs the
+  # system libcurl at link time; SwiftPM does not add it automatically.
+  SWIFT_BUILD_ARGS+=(--static-swift-stdlib -Xlinker -lcurl)
+fi
+"$SWIFT_BIN" build "${SWIFT_BUILD_ARGS[@]}" \
   -Xswiftc -debug-prefix-map -Xswiftc "${BUILD_ROOT}=." \
   -Xswiftc -file-prefix-map -Xswiftc "${BUILD_ROOT}=." >&2
 

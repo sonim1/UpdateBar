@@ -12,6 +12,10 @@ bash Scripts/install-release.sh --help
 UPDATEBAR_VERIFY_STRICT=1 bash Scripts/verify-homebrew-metadata.sh
 ```
 
+Before pushing a tag, run the GitHub Actions `Release` workflow manually from
+the Actions tab. Manual dispatch is a dry run: it builds and verifies release
+artifacts, but does not publish a GitHub Release.
+
 `Scripts/install-release.sh` installs published CLI archives with `curl`,
 `tar`, and `install`. It verifies each archive against the uploaded `.sha256`
 checksum using `shasum` or `sha256sum`, and fails before download/extraction if
@@ -45,6 +49,9 @@ Scripts/build-release.sh
 `Scripts/build-release.sh` regenerates `Sources/UpdateBarCLI/UpdateBarVersion.swift`
 from `version.env` before compiling. If `version.env` changes during development, run
 `Scripts/generate-version-source.sh` before tests.
+
+Linux release archives pass `--static-swift-stdlib` to SwiftPM so the published
+binary does not require a Swift toolchain on user machines.
 
 The CLI archive is intentionally unsigned in M2. `Scripts/build-release.sh`
 normalizes archive metadata and uses `gzip -n`; the final SHA is still the SHA
@@ -89,23 +96,75 @@ bash Scripts/app-archive-smoke-test.sh
 
 The app packaging script creates `dist/UpdateBar.app` with the menu bar executable
 in `Contents/MacOS/UpdateBar` and the CLI in `Contents/Resources/updatebar`.
-Tagged macOS releases also upload an unsigned
-`UpdateBar-<version>-macos-<arch>.app.tar.gz` archive for the host architecture.
+Tagged macOS releases also upload a
+`UpdateBar-<version>-macos-<arch>.app.tar.gz` archive for the host architecture,
+signed and notarized when the signing secrets are configured.
+`Scripts/build-app-archive.sh` normalizes app bundle mtimes, tar owner/group
+metadata, and gzip headers for stable archives. Because notarization stapling
+and toolchain drift change rebuilt archive contents, the release workflow does
+not require the committed formula/cask SHA to equal the fresh build
+(`UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1`); Homebrew SHAs are taken from the
+published release assets when the tap is updated after publishing.
 The published Homebrew cask currently targets the arm64 app asset.
 Signing/notarization are not part of the CLI release.
 
-For future signed releases, `Scripts/package-app.sh` also supports optional
-environment-based signing/notarization when `UPDATEBAR_SIGN_APP=1` and
-`UPDATEBAR_NOTARIZE_APP=1` are set. Provide these when running on macOS with
-Apple tooling:
+`Scripts/package-app.sh` supports environment-based signing/notarization when
+`UPDATEBAR_SIGN_APP=1` and `UPDATEBAR_NOTARIZE_APP=1` are set. Provide these
+when running on macOS with Apple tooling:
 
 - `UPDATEBAR_SIGN_IDENTITY`: Developer ID application identity string
 - `UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE`: keychain profile name for `xcrun notarytool`
+- optional `UPDATEBAR_NOTARYTOOL_KEYCHAIN`: keychain file path holding the
+  notary profile (used by CI, which stores credentials in a temporary keychain)
 - optional `UPDATEBAR_SIGN_ENTITLEMENTS_FILE`: entitlements file path for `codesign`
 
 When signing is enabled, the script signs inside-out: bundled CLI first, menu bar
 executable second, app bundle last. It intentionally does not use
 `codesign --deep`.
+
+### Signed releases in CI
+
+The release workflow signs and notarizes the macOS app when the following
+repository secrets are configured. If `MACOS_SIGNING_CERT_P12` is absent, the
+workflow builds an unsigned app as before; if only the notary secrets are
+absent, the app is signed but not notarized.
+
+- `MACOS_SIGNING_CERT_P12`: base64-encoded PKCS#12 export of the
+  "Developer ID Application" certificate (with private key)
+- `MACOS_SIGNING_CERT_PASSWORD`: password protecting the `.p12`
+- `NOTARY_APPLE_ID`: Apple ID email for notarization
+- `NOTARY_TEAM_ID`: Apple Developer team ID
+- `NOTARY_PASSWORD`: app-specific password for the Apple ID
+  (create at <https://account.apple.com>, Sign-In and Security >
+  App-Specific Passwords)
+
+One-time secret setup from a machine that has the certificate:
+
+```bash
+# Export the signing certificate + private key (Keychain Access GUI also works)
+security export -t identities -f pkcs12 -o /tmp/updatebar-signing.p12 -P "<p12-password>"
+
+gh secret set MACOS_SIGNING_CERT_P12 --body "$(base64 -i /tmp/updatebar-signing.p12)"
+gh secret set MACOS_SIGNING_CERT_PASSWORD --body "<p12-password>"
+gh secret set NOTARY_APPLE_ID --body "<apple-id-email>"
+gh secret set NOTARY_TEAM_ID --body "<team-id>"
+gh secret set NOTARY_PASSWORD --body "<app-specific-password>"
+rm /tmp/updatebar-signing.p12
+```
+
+Local signed + notarized package (requires a one-time
+`xcrun notarytool store-credentials updatebar-notary --apple-id <email> --team-id <team-id>`):
+
+```bash
+UPDATEBAR_SIGN_APP=1 \
+UPDATEBAR_SIGN_IDENTITY="Developer ID Application: <name> (<team-id>)" \
+UPDATEBAR_NOTARIZE_APP=1 \
+UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE=updatebar-notary \
+Scripts/package-app.sh
+```
+
+Signing and stapling happen before `Scripts/build-app-archive.sh`, so the
+stapled ticket is included in the released archive and its cask SHA.
 
 The app bundle does not currently include the Ink TUI. The `Open TUI` menu item
 first honors an executable `UPDATEBAR_TUI` override, then prefers launching
@@ -142,6 +201,8 @@ npm --prefix tui run build
 Before tagging:
 
 - `CHANGELOG.md` has an entry matching `version.env`.
+- `Scripts/extract-changelog-section.sh v<version>` prints non-empty release
+  notes; release.yml publishes this section as the GitHub Release body.
 - Git remote and formula URLs match `sonim1/UpdateBar`.
 - Smoke test passes from a clean `UPDATEBAR_HOME`.
 - TUI smoke test passes and verifies the npm package contents.

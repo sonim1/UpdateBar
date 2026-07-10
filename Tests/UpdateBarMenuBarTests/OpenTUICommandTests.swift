@@ -1,116 +1,120 @@
+import Foundation
 import UpdateBarMenuBar
 import XCTest
 
 final class OpenTUICommandTests: XCTestCase {
-    func testBuildsTerminalCommandWithUpdateBarEnvironment() {
+    private let cliPath = "/Applications/UpdateBar.app/Contents/Resources/updatebar"
+    private let commandFileURL = URL(fileURLWithPath: "/tmp/UpdateBar/open-tui.command")
+
+    func testCommandFileRunsCLITUISubcommand() {
         let command = OpenTUICommand(
-            cliPath: "/Applications/UpdateBar.app/Contents/Resources/updatebar",
-            tuiCommand: "updatebar-tui",
-            updateBarHome: "/tmp/updatebar-home"
+            cliPath: cliPath,
+            commandFileURL: commandFileURL,
+            terminal: TUITerminal.fallback
         )
 
-        XCTAssertEqual(command.executablePath, "/usr/bin/osascript")
-        let joined = command.arguments.joined(separator: " ")
-        XCTAssertTrue(joined.contains("UPDATEBAR_BIN"))
-        XCTAssertTrue(joined.contains("/Applications/UpdateBar.app/Contents/Resources/updatebar"))
-        XCTAssertTrue(joined.contains("UPDATEBAR_HOME"))
-        XCTAssertTrue(joined.contains("/tmp/updatebar-home"))
-        XCTAssertTrue(joined.contains("$UPDATEBAR_BIN"))
+        XCTAssertTrue(command.commandFileContents.hasPrefix("#!/bin/sh\n"))
+        XCTAssertTrue(
+            command.commandFileContents.contains(
+                "exec '/Applications/UpdateBar.app/Contents/Resources/updatebar' tui"
+            )
+        )
+        XCTAssertFalse(command.commandFileContents.contains("export"))
+        XCTAssertFalse(command.commandFileContents.contains("command -v"))
+        XCTAssertFalse(command.commandFileContents.contains("npm"))
     }
 
-    func testTerminalCommandExplainsMissingTUIBinary() {
+    func testShellQuotesCLIPathsWithSpaces() {
         let command = OpenTUICommand(
-            cliPath: "/Applications/UpdateBar.app/Contents/Resources/updatebar",
-            tuiCommand: "updatebar-tui",
-            updateBarHome: nil
+            cliPath: "/tmp/my tools/updatebar",
+            commandFileURL: commandFileURL,
+            terminal: TUITerminal.fallback
         )
 
-        let joined = command.arguments.joined(separator: " ")
-        XCTAssertTrue(joined.contains("command -v"))
-        XCTAssertTrue(joined.contains("updatebar-tui is not available"))
-        XCTAssertTrue(joined.contains("npm --prefix tui install"))
-        XCTAssertTrue(joined.contains("npm --prefix tui run build"))
-        XCTAssertTrue(joined.contains("tui/dist/index.js"))
-        XCTAssertTrue(joined.contains("Run "))
-        XCTAssertTrue(joined.contains("updatebar tui"))
+        XCTAssertTrue(
+            command.commandFileContents.contains("exec '/tmp/my tools/updatebar' tui")
+        )
     }
 
-    func testTerminalCommandPrefersUPDATEBAR_TUIWhenProvided() {
+    func testDocumentStyleTerminalOpensCommandFileByBundleID() {
         let command = OpenTUICommand(
-            cliPath: "/Applications/UpdateBar.app/Contents/Resources/updatebar",
-            tuiCommand: "updatebar-tui",
-            updateBarHome: "/tmp/updatebar-home",
-            tuiCommandOverride: "/opt/homebrew/bin/updatebar-tui"
+            cliPath: cliPath,
+            commandFileURL: commandFileURL,
+            terminal: TUITerminal(
+                id: "com.apple.Terminal",
+                name: "Terminal",
+                launchStyle: .openDocument
+            )
         )
 
-        let joined = command.arguments.joined(separator: " ")
-        XCTAssertTrue(joined.contains("UPDATEBAR_TUI"))
-        XCTAssertTrue(joined.contains("/opt/homebrew/bin/updatebar-tui"))
+        XCTAssertEqual(command.executablePath, "/usr/bin/open")
+        XCTAssertEqual(
+            command.arguments,
+            ["-b", "com.apple.Terminal", "/tmp/UpdateBar/open-tui.command"]
+        )
     }
 
-    func testInvalidUPDATEBARTUIOverrideIsReportedBeforeFallbacks() throws {
+    func testArgumentStyleTerminalPassesCommandFileBehindFlags() {
         let command = OpenTUICommand(
-            cliPath: "/Applications/UpdateBar.app/Contents/Resources/updatebar",
-            tuiCommand: "updatebar-tui",
-            updateBarHome: nil,
-            tuiCommandOverride: "/tmp/missing-updatebar-tui"
+            cliPath: cliPath,
+            commandFileURL: commandFileURL,
+            terminal: TUITerminal(
+                id: "com.mitchellh.ghostty",
+                name: "Ghostty",
+                launchStyle: .openWithArgs(["-e"])
+            )
         )
 
-        let joined = command.arguments.joined(separator: " ")
-        let invalidOverride = try XCTUnwrap(
-            joined.range(of: "UPDATEBAR_TUI is set but not executable")
+        XCTAssertEqual(command.executablePath, "/usr/bin/open")
+        XCTAssertEqual(
+            command.arguments,
+            ["-nb", "com.mitchellh.ghostty", "--args", "-e", "/tmp/UpdateBar/open-tui.command"]
         )
-        let cliFallback = try XCTUnwrap(joined.range(of: "$UPDATEBAR_BIN"))
-
-        XCTAssertLessThan(invalidOverride.lowerBound, cliFallback.lowerBound)
     }
 
-    func testInvalidUPDATEBARTUIOverrideOutputIsRedacted() {
-        let command = OpenTUICommand(
-            cliPath: "/Applications/UpdateBar.app/Contents/Resources/updatebar",
-            tuiCommand: "updatebar-tui",
-            updateBarHome: nil,
-            tuiCommandOverride: "/tmp/sk-or-v1-secret-value/updatebar-tui"
-        )
-
-        let joined = command.arguments.joined(separator: " ")
-
-        XCTAssertTrue(joined.contains("UPDATEBAR_TUI is set but not executable"))
-        XCTAssertTrue(joined.contains("/tmp/[REDACTED]/updatebar-tui"))
+    func testKnownTerminalsHaveUniqueBundleIDsAndTerminalFallback() {
+        let ids = TUITerminal.known.map(\.id)
+        XCTAssertEqual(ids.count, Set(ids).count)
+        XCTAssertEqual(TUITerminal.fallback.id, "com.apple.Terminal")
+        XCTAssertEqual(TUITerminal.known(id: "com.googlecode.iterm2")?.name, "iTerm")
+        XCTAssertEqual(TUITerminal.known(id: "dev.warp.Warp-Stable")?.name, "Warp")
+        XCTAssertEqual(TUITerminal.known(id: "com.raphaelamorim.rio")?.name, "Rio")
     }
 
-    func testTerminalCommandExitsNonZeroAfterSetupFailures() throws {
+    func testWarpLaunchesThroughLaunchConfigURI() throws {
         let command = OpenTUICommand(
-            cliPath: "/Applications/UpdateBar.app/Contents/Resources/updatebar",
-            tuiCommand: "updatebar-tui",
-            updateBarHome: nil,
-            tuiCommandOverride: "/tmp/missing-updatebar-tui"
+            cliPath: cliPath,
+            commandFileURL: commandFileURL,
+            terminal: try XCTUnwrap(TUITerminal.known(id: "dev.warp.Warp-Stable")),
+            homeDirectory: URL(fileURLWithPath: "/Users/tester")
         )
 
-        let joined = command.arguments.joined(separator: " ")
-        let invalidOverride = try XCTUnwrap(
-            joined.range(of: "UPDATEBAR_TUI is set but not executable")
+        let auxiliary = try XCTUnwrap(command.auxiliaryFile)
+        XCTAssertEqual(
+            auxiliary.url.path,
+            "/Users/tester/.warp/launch_configurations/updatebar-tui.yaml"
         )
-        let exit = try XCTUnwrap(joined.range(of: "exit 1"))
-        let cliFallback = try XCTUnwrap(joined.range(of: "$UPDATEBAR_BIN"))
+        XCTAssertTrue(auxiliary.contents.contains("name: UpdateBar TUI"))
+        XCTAssertTrue(auxiliary.contents.contains("cwd: \"/Users/tester\""))
+        XCTAssertTrue(
+            auxiliary.contents.contains("exec: '/tmp/UpdateBar/open-tui.command'")
+        )
 
-        XCTAssertLessThan(invalidOverride.lowerBound, exit.lowerBound)
-        XCTAssertLessThan(exit.lowerBound, cliFallback.lowerBound)
-        XCTAssertTrue(joined.contains("updatebar-tui is not available"))
+        XCTAssertEqual(command.executablePath, "/usr/bin/open")
+        XCTAssertEqual(
+            command.arguments,
+            ["warp://launch//Users/tester/.warp/launch_configurations/updatebar-tui.yaml"]
+        )
     }
 
-    func testTerminalCommandFiltersRelativePathEntriesBeforePathFallback() throws {
-        let command = OpenTUICommand(
-            cliPath: "/Applications/UpdateBar.app/Contents/Resources/updatebar",
-            tuiCommand: "updatebar-tui",
-            updateBarHome: nil
-        )
-
-        let joined = command.arguments.joined(separator: " ")
-        let pathFilter = try XCTUnwrap(joined.range(of: "absolute_path_entries"))
-        let commandLookup = try XCTUnwrap(joined.range(of: "command -v"))
-
-        XCTAssertLessThan(pathFilter.lowerBound, commandLookup.lowerBound)
-        XCTAssertTrue(joined.contains("/*) absolute_path_entries"))
+    func testNonWarpTerminalsNeedNoAuxiliaryFile() {
+        for terminal in TUITerminal.known where terminal.id != "dev.warp.Warp-Stable" {
+            let command = OpenTUICommand(
+                cliPath: cliPath,
+                commandFileURL: commandFileURL,
+                terminal: terminal
+            )
+            XCTAssertNil(command.auxiliaryFile, terminal.name)
+        }
     }
 }

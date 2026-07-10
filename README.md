@@ -17,8 +17,8 @@ Install the optional macOS menu bar app:
 brew install --cask sonim1/tap/updatebar-app
 ```
 
-The app cask is currently unsigned. If macOS blocks the first launch,
-Control-click `UpdateBar.app` in Finder, choose Open, then confirm Open.
+The app cask is currently unsigned. On macOS 15 or newer, if Gatekeeper blocks
+the first launch, use System Settings > Privacy & Security > Open Anyway.
 The `updatebar-app` cask installs the app only; install the formula for the `updatebar` CLI.
 All supported install paths are summarized in [docs/install.md](docs/install.md).
 

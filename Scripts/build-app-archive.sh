@@ -24,7 +24,16 @@ if [[ ! -d "$APP_DIR" ]]; then
 fi
 
 rm -f "$ARCHIVE" "${ARCHIVE}.sha256"
-COPYFILE_DISABLE=1 tar -C dist -cf - UpdateBar.app | gzip -n >"$ARCHIVE"
+while IFS= read -r -d '' path; do
+  touch -h -t 202001010000 "$path"
+done < <(find "$APP_DIR" -print0)
+
+TAR_ARGS=()
+while IFS= read -r arg; do
+  TAR_ARGS+=("$arg")
+done < <("$ROOT/Scripts/release-tar-args.sh" tar)
+
+COPYFILE_DISABLE=1 tar "${TAR_ARGS[@]}" -C dist -cf - UpdateBar.app | gzip -n >"$ARCHIVE"
 
 if command -v shasum >/dev/null 2>&1; then
   shasum -a 256 "$ARCHIVE" >"${ARCHIVE}.sha256"

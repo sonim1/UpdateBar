@@ -91,6 +91,9 @@ bash Scripts/install-local-smoke-test.sh
 echo "running release tar args check"
 bash Scripts/release-tar-args-test.sh
 
+echo "running changelog extraction check"
+bash Scripts/extract-changelog-section-test.sh
+
 echo "running archive checksum verification behavior check"
 bash Scripts/verify-archive-checksum-test.sh
 

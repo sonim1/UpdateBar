@@ -38,7 +38,11 @@ struct TUICommand: ParsableCommand {
             return resolved
         }
         throw ValidationError(
-            "Could not locate updatebar-tui on PATH. Build it with `npm --prefix tui install && npm --prefix tui run build`, then run `UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui`, or add updatebar-tui to PATH."
+            """
+            updatebar-tui is not installed.
+            Install it with: brew install sonim1/tap/updatebar-tui
+            (Developing from source? Run `npm --prefix tui install && npm --prefix tui run build`, then set UPDATEBAR_TUI=tui/dist/index.js.)
+            """
         )
     }
 

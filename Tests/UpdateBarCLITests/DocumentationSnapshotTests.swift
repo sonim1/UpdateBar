@@ -1029,6 +1029,13 @@ final class DocumentationSnapshotTests: XCTestCase {
             "brew install --cask sonim1/tap/updatebar-app",
             "UpdateBar.app",
             "one-command verification",
+            "brew upgrade sonim1/tap/updatebar",
+            "brew upgrade --cask sonim1/tap/updatebar-app",
+            "brew uninstall sonim1/tap/updatebar",
+            "brew uninstall --cask sonim1/tap/updatebar-app",
+            "System Settings > Privacy & Security",
+            "Open Anyway",
+            "Apple Silicon",
         ] {
             XCTAssertTrue(installDocs.contains(phrase), "install docs missing \(phrase)")
         }
@@ -1381,6 +1388,17 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(menuBarSpec.contains("Refresh Status"))
         XCTAssertTrue(menuBarSpec.contains("Update Selected"))
         XCTAssertTrue(menuBarSpec.contains("Update All Approved Outdated"))
+    }
+
+    func testMenuBarTroubleshootingAvoidsBroadPkill() throws {
+        let menuBarDocs = try String(contentsOfFile: "docs/menu-bar.md", encoding: .utf8)
+        let troubleshootingDocs = try String(
+            contentsOfFile: "docs/troubleshooting.md",
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(menuBarDocs.contains("pkill -f"))
+        XCTAssertFalse(troubleshootingDocs.contains("pkill -f"))
     }
 
     func testOpenSpecDesignDoesNotLeaveResolvedTUIDecisionsOpen() throws {
