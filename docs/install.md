@@ -115,21 +115,18 @@ brew upgrade --cask sonim1/tap/updatebar-app
 Manual GitHub Release install:
 
 ```bash
-VERSION=0.2.0
+VERSION=0.3.0
 ARCH=arm64
 curl -fL "https://github.com/sonim1/UpdateBar/releases/download/v${VERSION}/UpdateBar-${VERSION}-macos-${ARCH}.app.tar.gz" -o /tmp/UpdateBar.app.tar.gz
 tar -xzf /tmp/UpdateBar.app.tar.gz -C /Applications
 open /Applications/UpdateBar.app
 ```
 
-The app is currently unsigned. On macOS 15 or newer, if Gatekeeper blocks the
-first launch, open System Settings > Privacy & Security and choose Open Anyway
-for `UpdateBar.app`. On older macOS versions, Control-click Open may still work.
-For local testing only, you can remove quarantine metadata:
-
-```bash
-xattr -dr com.apple.quarantine /Applications/UpdateBar.app
-```
+Releases from v0.3.0 are signed with a Developer ID certificate and notarized
+by Apple, so the app opens without Gatekeeper prompts. Pre-0.3.0 assets are
+unsigned; if Gatekeeper blocks one of those, open
+System Settings > Privacy & Security and choose Open Anyway for
+`UpdateBar.app`.
 
 Runtime logs are written to:
 

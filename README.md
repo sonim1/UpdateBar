@@ -17,8 +17,8 @@ Install the optional macOS menu bar app:
 brew install --cask sonim1/tap/updatebar-app
 ```
 
-The app cask is currently unsigned. On macOS 15 or newer, if Gatekeeper blocks
-the first launch, use System Settings > Privacy & Security > Open Anyway.
+Releases from v0.3.0 are signed with a Developer ID certificate and notarized
+by Apple, so the app opens without Gatekeeper warnings.
 The `updatebar-app` cask installs the app only; install the formula for the `updatebar` CLI.
 All supported install paths are summarized in [docs/install.md](docs/install.md).
 
@@ -68,7 +68,7 @@ before installing `updatebar`.
 
 ### Menu bar app
 
-`updatebar-menubar` ships as an optional macOS wrapper. Release tags publish an unsigned macOS app archive for the build host architecture, and `Scripts/package-app.sh` builds the same local bundle from source.
+`updatebar-menubar` ships as an optional macOS wrapper. Release tags publish a signed and notarized macOS app archive for the build host architecture, and `Scripts/package-app.sh` builds the same local bundle from source.
 It prefers direct `UpdateBarCore` calls, keeps a CLI subprocess fallback, and exposes:
 
 - check now

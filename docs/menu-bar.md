@@ -20,7 +20,7 @@ Scripts/menubar-smoke-test.sh
 open dist/UpdateBar.app
 ```
 
-Install the published unsigned app with Homebrew:
+Install the published app with Homebrew:
 
 ```bash
 brew tap sonim1/tap
@@ -50,11 +50,9 @@ instead. The same fallback is used by `Open Config`.
 Long item lists in the menu are compacted with overflow summaries.
 Recent logs are retained automatically with a rotating local cap.
 
-The app is currently unsigned. On macOS 15 or newer, if Gatekeeper blocks the
-first launch, open System Settings > Privacy & Security and choose Open Anyway
-for `UpdateBar.app`. On older macOS versions, Control-click Open may still work.
-Developer ID signing, notarization, and stapling are deferred until the Apple
-Developer Program go/no-go decision.
+Releases from v0.3.0 are signed with a Developer ID certificate and notarized
+by Apple. Local `Scripts/package-app.sh` builds stay unsigned unless the
+signing environment variables are provided.
 
 Tip: `Open TUI` runs `updatebar tui` with the bundled CLI in your chosen
 terminal. When more than one supported terminal is installed (Terminal, iTerm,
