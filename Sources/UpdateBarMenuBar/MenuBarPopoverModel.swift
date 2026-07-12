@@ -87,14 +87,6 @@ public struct MenuBarPopoverModelBuilder: Sendable {
         installedTerminals: [TUITerminal] = [],
         selectedTerminalID: String? = nil
     ) -> MenuBarPopoverModel {
-        let menu = MenuBarMenuModelBuilder().makeMenu(
-            state: state,
-            approvalStatuses: approvalStatuses,
-            activeActionTitle: activeActionTitle,
-            lastActionNotice: lastActionNotice,
-            installedTerminals: installedTerminals,
-            selectedTerminalID: selectedTerminalID
-        )
         let sourceItems =
             state.allItems.isEmpty
             ? state.outdatedItems + state.approvalItems + state.errorItems + state.okItems
@@ -110,7 +102,10 @@ public struct MenuBarPopoverModelBuilder: Sendable {
                 ),
                 stateLabel: "Ready",
                 action: action,
-                confirmation: menu.item(for: action)?.confirmation
+                confirmation: MenuBarActionConfirmation.updateItem(
+                    for: item,
+                    approvalStatuses: approvalStatuses
+                )
             )
         }
         let approvals = state.approvalItems.flatMap { item in
@@ -140,7 +135,10 @@ public struct MenuBarPopoverModelBuilder: Sendable {
                     ),
                     stateLabel: approval.approved ? "Approved" : "Needs approval",
                     action: action,
-                    confirmation: menu.item(for: action)?.confirmation
+                    confirmation: MenuBarActionConfirmation.commandApproval(
+                        for: item,
+                        status: approval
+                    )
                 )
             }
         }
@@ -170,16 +168,5 @@ public struct MenuBarPopoverModelBuilder: Sendable {
             terminals: installedTerminals,
             selectedTerminalID: selectedTerminalID
         )
-    }
-}
-
-extension MenuBarMenuModel {
-    fileprivate func item(for action: MenuBarMenuItemAction) -> MenuBarMenuItem? {
-        entries.compactMap { entry -> MenuBarMenuItem? in
-            guard case .item(let item) = entry, item.action == action else {
-                return nil
-            }
-            return item
-        }.first
     }
 }

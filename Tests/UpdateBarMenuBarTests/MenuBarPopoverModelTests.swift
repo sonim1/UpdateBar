@@ -146,6 +146,54 @@ final class MenuBarPopoverModelTests: XCTestCase {
         XCTAssertEqual(model.approvals.first?.confirmation?.title, "Revoke check.cmd?")
     }
 
+    func testSeventhUpdatePreservesConfirmation() {
+        let updates = (1...7).map { index in
+            item(
+                id: "tool-\(index)",
+                name: "Tool \(index)",
+                current: "1.0",
+                latest: "2.0",
+                status: .outdated
+            )
+        }
+        let state = state(outdatedItems: updates, allItems: updates)
+
+        let model = MenuBarPopoverModelBuilder().makeModel(
+            state: state,
+            approvalStatuses: [:]
+        )
+
+        XCTAssertEqual(model.updates[6].action, .update(id: "tool-7"))
+        XCTAssertNotNil(model.updates[6].confirmation)
+    }
+
+    func testThirdApprovalPreservesConfirmation() {
+        let approval = item(id: "tool", name: "Tool", status: .untrusted)
+        let state = state(approvalItems: [approval], allItems: [approval])
+        let statuses = [
+            "tool": (1...3).map { index in
+                CommandApprovalStatus(
+                    field: "field-\(index)",
+                    approved: index == 3,
+                    fingerprint: "fp-\(index)",
+                    command: "tool command \(index)",
+                    cwd: nil
+                )
+            }
+        ]
+
+        let model = MenuBarPopoverModelBuilder().makeModel(
+            state: state,
+            approvalStatuses: statuses
+        )
+
+        XCTAssertEqual(
+            model.approvals[2].action,
+            .revoke(id: "tool", field: "field-3")
+        )
+        XCTAssertNotNil(model.approvals[2].confirmation)
+    }
+
     func testRedactsPresentationStrings() {
         let secret = "sk-or-v1-secret-value"
         let outdated = item(

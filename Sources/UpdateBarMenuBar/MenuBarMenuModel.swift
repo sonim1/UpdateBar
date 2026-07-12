@@ -182,14 +182,12 @@ public struct MenuBarMenuModelBuilder: Sendable {
         to entries: inout [MenuBarMenuEntry]
     ) {
         appendSection("Updates (\(items.count))", items: items, to: &entries) { item in
-            let updateCommand = approvalStatuses[item.id]?.first { $0.field == "update.cmd" }
             let name = SecretRedactor.redact(item.name)
             let current = item.current.map(SecretRedactor.redact) ?? "?"
             let latest = item.latest.map(SecretRedactor.redact) ?? "?"
             let confirmation = MenuBarActionConfirmation.updateItem(
-                id: SecretRedactor.redact(item.id),
-                command: updateCommand.map { SecretRedactor.redact($0.command) },
-                cwd: updateCommand?.cwd.map(SecretRedactor.redact)
+                for: item,
+                approvalStatuses: approvalStatuses
             )
             return MenuBarMenuItem(
                 title: "\(name) \(current) -> \(latest)",
@@ -254,11 +252,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
                     ? .revoke(id: item.id, field: approval.field)
                     : .approve(id: item.id, field: approval.field)
                 let confirmation = MenuBarActionConfirmation.commandApproval(
-                    id: SecretRedactor.redact(item.id),
-                    field: approval.field,
-                    approving: !approval.approved,
-                    command: redactedCommand,
-                    cwd: redactedCwd
+                    for: item,
+                    status: approval
                 )
                 guard showCount > 0 else { break }
                 let label = "      \(verb) \(approval.field): \(command)\(cwd)"
