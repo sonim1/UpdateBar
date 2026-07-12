@@ -26,6 +26,8 @@ jobs:
           path: .build
           key: macos-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
           restore-keys: macos-spm-${{ runner.os }}-
+      - name: Install shellcheck
+        run: brew install shellcheck
       - name: Quality gate
         run: bash Scripts/quality-gate.sh
 
@@ -44,5 +46,9 @@ jobs:
           path: .build
           key: linux-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
           restore-keys: linux-spm-${{ runner.os }}-
+      - name: Install shellcheck
+        run: |
+          apt-get update
+          apt-get install -y shellcheck
       - name: Quality gate
         run: SKIP_MENUBAR_SMOKE=1 bash Scripts/quality-gate.sh

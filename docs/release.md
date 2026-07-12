@@ -53,13 +53,14 @@ from `version.env` before compiling. If `version.env` changes during development
 Linux release archives pass `--static-swift-stdlib` to SwiftPM so the published
 binary does not require a Swift toolchain on user machines.
 
-The CLI archive is intentionally unsigned in M2. `Scripts/build-release.sh`
+The CLI archive is intentionally unsigned. `Scripts/build-release.sh`
 normalizes archive metadata and uses `gzip -n`; the final SHA is still the SHA
 of the exact binary built by that runner and toolchain. By default, the binary
 is kept unstripped to preserve runtime compatibility; if you need stripping in
 a known-good toolchain, run with `UPDATEBAR_STRIP_BINARY=1`. Set
-`UPDATEBAR_AD_HOC_CODESIGN=1` only for local experiments. Future signed app
-distribution will use Developer ID signing, notarization, and stapling.
+`UPDATEBAR_AD_HOC_CODESIGN=1` only for local experiments. The macOS app
+distribution path uses Developer ID signing, notarization, and stapling when
+the release signing secrets are configured.
 
 The Swift CLI release archive is intentionally independent from Node and Ink.
 `Scripts/build-release.sh`, `Scripts/archive-smoke-test.sh`, and the Homebrew
@@ -180,9 +181,11 @@ Scripts/tui-smoke-test.sh
 Release identity:
 
 - GitHub repo slug: `sonim1/UpdateBar`.
-- Published `v0.2.0` prebuilt CLI archives cover Apple Silicon macOS and Linux
-  x86_64. Release tags also publish an unsigned macOS app archive for the build
-  host architecture.
+- Current release metadata in this repo targets `v0.4.0`.
+- Published prebuilt CLI archives cover Apple Silicon macOS and Linux x86_64.
+  Release tags also publish a macOS app archive for the build host
+  architecture, signed and notarized when the release signing secrets are
+  configured.
 - Homebrew tap target: `sonim1/homebrew-tap`.
 - Formula source lives in `Packaging/homebrew/updatebar.rb`; copy it to the tap as
   `Formula/updatebar.rb` when publishing a Homebrew release. The formula SHA must
@@ -191,8 +194,9 @@ Release identity:
 - App cask source lives in `Packaging/homebrew/Casks/updatebar-app.rb`; copy it to
   the tap as `Casks/updatebar-app.rb`. The cask installs `UpdateBar.app` only and
   must not link the bundled CLI. The CLI remains owned by the `updatebar` formula.
-- Build or install the Ink TUI from source with npm until a published package or
-  dedicated formula is justified:
+- Ink TUI formula source lives in `Packaging/homebrew/updatebar-tui.rb`; copy it
+  to the tap as `Formula/updatebar-tui.rb` when publishing a TUI formula update.
+  For source checkouts, build the Ink TUI with npm:
 
 ```bash
 npm --prefix tui run build
@@ -218,3 +222,19 @@ Before tagging:
 - `bash Scripts/homebrew-packaging-test.sh` passes.
 - `updatebar status --json` remains compatible with the documented menu bar contract.
 - Recipe command errors and child environments do not expose common provider or GitHub tokens.
+
+## Rollback or Yank
+
+Prefer a fixed patch release over rewriting a published tag. If a release must
+be pulled back, keep the public trail clear:
+
+1. Confirm the bad version, affected assets, and whether Homebrew tap metadata
+   has already been updated.
+2. Mark the GitHub Release notes as yanked or superseded, including the fixed
+   version users should install.
+3. Revert or update the tap formula/cask to a known-good version; do not leave
+   Homebrew metadata pointing at missing assets.
+4. Cut a patch release with a matching `version.env`, `CHANGELOG.md` entry,
+   archives, checksums, formula, and cask metadata.
+5. Avoid force-pushing or deleting tags unless the release was never consumed
+   and every downstream reference has been checked.

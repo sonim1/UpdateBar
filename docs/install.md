@@ -68,7 +68,7 @@ updatebar doctor
 Install a specific version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.2.0
+curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.4.0
 ```
 
 Set `UPDATEBAR_INSTALL_PREFIX` when installing outside `~/.local/bin`.
@@ -115,7 +115,7 @@ brew upgrade --cask sonim1/tap/updatebar-app
 Manual GitHub Release install:
 
 ```bash
-VERSION=0.3.0
+VERSION=0.4.0
 ARCH=arm64
 curl -fL "https://github.com/sonim1/UpdateBar/releases/download/v${VERSION}/UpdateBar-${VERSION}-macos-${ARCH}.app.tar.gz" -o /tmp/UpdateBar.app.tar.gz
 tar -xzf /tmp/UpdateBar.app.tar.gz -C /Applications

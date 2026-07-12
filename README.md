@@ -54,7 +54,7 @@ can find `XCTest`. If direct `swift test` fails, set `DEVELOPER_DIR` or see
 curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash
 
 # Or install a specific version:
-curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.2.0
+curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.4.0
 
 # Optional: change install directory
 curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | UPDATEBAR_INSTALL_PREFIX="$HOME/.local/bin" bash
@@ -144,7 +144,7 @@ updatebar import Fixtures/manifests/untrusted-import.json --json
 ## Scope
 
 v1 ships the CLI first, with optional Ink TUI and macOS Menu Bar presentation layers over the same core behavior.
-Built-in AI generation, OAuth providers, and local LLM providers are removed by design — recipe authoring belongs to external agents. Sync, community registries, recipe signing, and `diff` are not planned until real external demand appears (see `next-plan.md`).
+Built-in AI generation, OAuth providers, and local LLM providers are removed by design — recipe authoring belongs to external agents. Sync, community registries, recipe signing, and `diff` are not planned until real external demand appears. Current architecture notes live in [current-architecture.md](current-architecture.md); [next-plan.md](next-plan.md) is retained as historical planning context.
 
 UpdateBar has no telemetry.
 
@@ -156,6 +156,7 @@ Approved recipe commands are not sandboxed. They run with your user privileges a
 
 See [docs/security.md](docs/security.md) for details.
 
+Contributing notes live in [CONTRIBUTING.md](CONTRIBUTING.md).
 Shell completion setup lives in [docs/completions.md](docs/completions.md).
 Background check setup lives in [docs/background.md](docs/background.md).
 Architecture notes live in [docs/architecture.md](docs/architecture.md).

@@ -1,5 +1,10 @@
 # UpdateBar — Next Plan After Local Menu Bar MVP
 
+> Historical note (2026-07-12): this document is retained for planning context,
+> not as the current operating plan. Current release metadata is `0.4.0`; use
+> `README.md`, `docs/release.md`, and `current-architecture.md` for current
+> repo state.
+
 Status as of 2026-07-03. Reviewed against commit `ef5e060` after the public
 v0.2.0 release, Homebrew formula/cask publishing, scan/init UX hardening,
 Ink TUI architecture work, and additional post-release CLI safety hardening.
