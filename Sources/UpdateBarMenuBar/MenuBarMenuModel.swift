@@ -91,8 +91,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
         }
 
         appendDisabled(state.title, to: &entries)
-        if state.needsAttentionCount > 0 {
-            appendDisabled("\(state.needsAttentionCount) need attention", to: &entries)
+        if let needsAttentionSummary = state.needsAttentionSummary {
+            appendDisabled(needsAttentionSummary, to: &entries)
         }
         appendSeparator(to: &entries)
         appendAction(MenuBarMenuAction.checkNow.title, action: .menu(.checkNow), to: &entries)

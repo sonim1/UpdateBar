@@ -38,6 +38,27 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 
+    func testSingularAttentionCountUsesSingularCopy() {
+        let state = MenuBarState(
+            title: "Needs attention",
+            badgeValue: "!",
+            outdatedItems: [],
+            approvalItems: [
+                statusItem(id: "fresh", name: "Fresh Tool", current: "2.0.0", status: .ok)
+            ],
+            errorItems: [],
+            okItems: []
+        )
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:]
+        )
+
+        XCTAssertTrue(model.entries.labels.contains("1 needs attention"))
+        XCTAssertFalse(model.entries.labels.contains("1 need attention"))
+    }
+
     func testOpenTUIBecomesTerminalSubmenuWithIconsAndLastUsedCheck() {
         let state = MenuBarState(
             title: "Up to date",

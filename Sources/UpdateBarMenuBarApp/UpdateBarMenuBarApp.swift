@@ -485,8 +485,8 @@
         }
 
         private func accessibilityLabel(for state: MenuBarState) -> String {
-            if state.needsAttentionCount > 0 {
-                return "UpdateBar \(state.title), \(state.needsAttentionCount) need attention"
+            if let needsAttentionSummary = state.needsAttentionSummary {
+                return "UpdateBar \(state.title), \(needsAttentionSummary)"
             }
             return "UpdateBar \(state.title)"
         }
