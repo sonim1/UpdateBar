@@ -13,6 +13,8 @@
         private var cliPath = ""
         private let formatter = MenuBarStatusFormatter()
         private let menuBuilder = MenuBarMenuModelBuilder()
+        private let popoverModelBuilder = MenuBarPopoverModelBuilder()
+        private let popoverController = MenuBarPopoverController()
         private let actionCoordinator = MenuBarActionCoordinator()
         private var scanPanelController: ScanPanelController?
         private var configPanelController: ConfigPanelController?
@@ -27,6 +29,7 @@
             okItems: []
         )
         private var approvalStatuses: [String: [CommandApprovalStatus]] = [:]
+        private var lastPopoverError: String?
 
         static func main() {
             let app = NSApplication.shared
@@ -60,6 +63,10 @@
             statusButton.toolTip = "UpdateBar"
             statusButton.setAccessibilityIdentifier("updatebar-status-button")
             statusButton.setAccessibilityLabel("UpdateBar status")
+            statusButton.target = self
+            statusButton.action = #selector(togglePopover(_:))
+            statusButton.sendAction(on: [.leftMouseUp])
+            item.menu = nil
             if let image = NSImage(
                 systemSymbolName: "arrow.triangle.2.circlepath",
                 accessibilityDescription: "UpdateBar"
@@ -85,13 +92,18 @@
         }
 
         @objc private func updateAllApproved(_ sender: NSMenuItem) {
-            let fallback = MenuBarActionConfirmation.updateAllApprovedOutdated(
-                itemNames: latestState.outdatedItems.map(\.name)
+            updateAllApproved(
+                confirmation: sender.representedObject as? MenuBarActionConfirmation
             )
-            guard confirm((sender.representedObject as? MenuBarActionConfirmation) ?? fallback)
-            else {
-                return
-            }
+        }
+
+        private func updateAllApproved(confirmation: MenuBarActionConfirmation? = nil) {
+            let fallback = MenuBarActionConfirmation.updateAllApprovedOutdated(
+                itemNames: latestState.outdatedItems.map {
+                    SecretRedactor.redact($0.name)
+                }
+            )
+            guard confirm(confirmation ?? fallback) else { return }
             runAction("Run Updates") { [service] token in
                 try service?.updateAllApproved(cancellationToken: token)
             }
@@ -99,9 +111,11 @@
 
         @objc private func updateSelected(_ sender: NSMenuItem) {
             guard let action = sender.representedObject as? ItemAction else { return }
-            let id = action.id
-            guard confirm(action.confirmation ?? MenuBarActionConfirmation.updateItem(id: id))
-            else {
+            update(id: action.id, confirmation: action.confirmation)
+        }
+
+        private func update(id: String, confirmation: MenuBarActionConfirmation?) {
+            guard confirm(confirmation ?? MenuBarActionConfirmation.updateItem(id: id)) else {
                 return
             }
             runAction("Update \(id)") { [service] token in
@@ -111,32 +125,44 @@
 
         @objc private func approveField(_ sender: NSMenuItem) {
             guard let action = sender.representedObject as? ApprovalAction else { return }
-            let id = action.id
-            let field = action.field
+            setApproval(
+                id: action.id,
+                field: action.field,
+                approving: true,
+                confirmation: action.confirmation
+            )
+        }
+
+        private func setApproval(
+            id: String,
+            field: String,
+            approving: Bool,
+            confirmation: MenuBarActionConfirmation?
+        ) {
             let fallback = MenuBarActionConfirmation.commandApproval(
                 id: id,
                 field: field,
-                approving: true
+                approving: approving
             )
-            guard confirm(action.confirmation ?? fallback) else { return }
-            runAction("Approve \(id) \(field)") { [service] token in
-                try service?.approve(id: id, field: field, cancellationToken: token)
+            guard confirm(confirmation ?? fallback) else { return }
+            let verb = approving ? "Approve" : "Revoke"
+            runAction("\(verb) \(id) \(field)") { [service] token in
+                if approving {
+                    try service?.approve(id: id, field: field, cancellationToken: token)
+                } else {
+                    try service?.revoke(id: id, field: field, cancellationToken: token)
+                }
             }
         }
 
         @objc private func revokeField(_ sender: NSMenuItem) {
             guard let action = sender.representedObject as? ApprovalAction else { return }
-            let id = action.id
-            let field = action.field
-            let fallback = MenuBarActionConfirmation.commandApproval(
-                id: id,
-                field: field,
-                approving: false
+            setApproval(
+                id: action.id,
+                field: action.field,
+                approving: false,
+                confirmation: action.confirmation
             )
-            guard confirm(action.confirmation ?? fallback) else { return }
-            runAction("Revoke \(id) \(field)") { [service] token in
-                try service?.revoke(id: id, field: field, cancellationToken: token)
-            }
         }
 
         @objc private func refreshFromMenu() {
@@ -201,9 +227,14 @@
         }
 
         @objc private func openTUIInTerminal(_ sender: NSMenuItem) {
-            guard let bundleID = sender.representedObject as? String,
-                let terminal = installedTerminals().first(where: { $0.id == bundleID })
-            else { return }
+            guard let bundleID = sender.representedObject as? String else { return }
+            launchTUI(inTerminalWithBundleID: bundleID)
+        }
+
+        private func launchTUI(inTerminalWithBundleID bundleID: String) {
+            guard let terminal = installedTerminals().first(where: { $0.id == bundleID }) else {
+                return
+            }
             UserDefaults.standard.set(bundleID, forKey: Self.tuiTerminalDefaultsKey)
             launchTUI(in: terminal)
         }
@@ -313,6 +344,96 @@
             NSApplication.shared.terminate(nil)
         }
 
+        @objc private func togglePopover(_ sender: NSStatusBarButton) {
+            let didToggle = popoverController.toggle(
+                relativeTo: sender,
+                model: makePopoverModel(),
+                callbacks: popoverCallbacks
+            )
+            guard !didToggle else { return }
+
+            let error = MenuBarStartupError.popoverPresentationFailed
+            showError(error)
+            showNativeErrorMenu(errorDescription: String(describing: error))
+        }
+
+        private var popoverCallbacks: MenuBarPopoverController.Callbacks {
+            MenuBarPopoverController.Callbacks(
+                onItemAction: { [weak self] row in
+                    self?.handlePopoverItem(row)
+                },
+                onMenuAction: { [weak self] action in
+                    self?.handlePopoverMenuAction(action)
+                },
+                onAbout: { [weak self] in
+                    self?.showAbout()
+                }
+            )
+        }
+
+        private func handlePopoverItem(_ row: MenuBarPopoverRow) {
+            popoverController.close()
+            guard let action = row.action else { return }
+            switch action {
+            case .update(let id):
+                update(id: id, confirmation: row.confirmation)
+            case .approve(let id, let field):
+                setApproval(
+                    id: id,
+                    field: field,
+                    approving: true,
+                    confirmation: row.confirmation
+                )
+            case .revoke(let id, let field):
+                setApproval(
+                    id: id,
+                    field: field,
+                    approving: false,
+                    confirmation: row.confirmation
+                )
+            case .openTUIInTerminal(let bundleID):
+                launchTUI(inTerminalWithBundleID: bundleID)
+            case .cancelCurrentAction:
+                cancelCurrentAction()
+            case .menu(let action):
+                handlePopoverMenuAction(action, confirmation: row.confirmation)
+            }
+        }
+
+        private func handlePopoverMenuAction(
+            _ action: MenuBarMenuAction,
+            confirmation: MenuBarActionConfirmation? = nil
+        ) {
+            popoverController.close()
+            switch action {
+            case .refreshStatus:
+                refreshStatus(refresh: true)
+            case .checkNow:
+                checkNow()
+            case .updateAllApprovedOutdated:
+                updateAllApproved(confirmation: confirmation)
+            case .openTUI:
+                openTUI()
+            case .overview:
+                showOverview()
+            case .manageItems:
+                manageItems()
+            case .scanAndAdd:
+                scanAndAdd()
+            case .openConfig:
+                openConfig()
+            case .viewLogs:
+                viewLogs()
+            case .quit:
+                quit()
+            }
+        }
+
+        private func showAbout() {
+            popoverController.close()
+            NSApp.orderFrontStandardAboutPanel(nil)
+        }
+
         private func refreshStatus(refresh: Bool) {
             setTitle("...", accessibilityLabel: "UpdateBar checking")
             DispatchQueue.global(qos: .userInitiated).async { [service, formatter] in
@@ -331,6 +452,7 @@
                         approvalsByItemID: approvals
                     )
                     DispatchQueue.main.async {
+                        self.lastPopoverError = nil
                         self.latestState = state
                         self.approvalStatuses = approvals
                         self.rebuildMenu()
@@ -391,25 +513,44 @@
                 Self.debugLog("cannot rebuild menu before status item exists")
                 return
             }
+            statusItem.menu = nil
+            if let statusButton = statusItem.button {
+                statusButton.target = self
+                statusButton.action = #selector(togglePopover(_:))
+                statusButton.sendAction(on: [.leftMouseUp])
+            }
+
             let activeAction = actionCoordinator.activeAction
-            let lastActionNotice = actionCoordinator.lastActionNotice
             if let activeAction {
                 setTitle("...", accessibilityLabel: "UpdateBar running \(activeAction.title)")
+            } else if lastPopoverError != nil {
+                setTitle("!", accessibilityLabel: "UpdateBar error")
             } else {
                 setTitle(
                     latestState.badgeValue ?? "✓",
                     accessibilityLabel: accessibilityLabel(for: latestState)
                 )
             }
-            let model = menuBuilder.makeMenu(
+
+            if popoverController.isShown {
+                popoverController.update(
+                    model: makePopoverModel(),
+                    callbacks: popoverCallbacks
+                )
+            }
+        }
+
+        private func makePopoverModel() -> MenuBarPopoverModel {
+            let activeAction = actionCoordinator.activeAction
+            return popoverModelBuilder.makeModel(
                 state: latestState,
                 approvalStatuses: approvalStatuses,
                 activeActionTitle: activeAction?.title,
-                lastActionNotice: activeAction == nil ? lastActionNotice : nil,
+                lastActionNotice: activeAction == nil ? actionCoordinator.lastActionNotice : nil,
+                errorDescription: lastPopoverError,
                 installedTerminals: installedTerminals(),
                 selectedTerminalID: selectedTerminal().id
             )
-            statusItem.menu = makeMenu(from: model)
         }
 
         private func makeMenu(from model: MenuBarMenuModel) -> NSMenu {
@@ -469,12 +610,23 @@
         private func showError(_ error: Error) {
             let errorDescription = SecretRedactor.redact(String(describing: error))
             Self.debugLog("showing error: \(errorDescription)")
+            lastPopoverError = errorDescription
             setTitle("!", accessibilityLabel: "UpdateBar error")
-            guard let statusItem else {
-                return
+            if popoverController.isShown {
+                popoverController.update(
+                    model: makePopoverModel(),
+                    callbacks: popoverCallbacks
+                )
+            } else if statusItem?.menu != nil {
+                showNativeErrorMenu(errorDescription: errorDescription)
             }
+        }
+
+        private func showNativeErrorMenu(errorDescription: String) {
+            popoverController.close()
+            guard let statusItem else { return }
             let model = menuBuilder.makeErrorMenu(
-                errorDescription: errorDescription
+                errorDescription: SecretRedactor.redact(errorDescription)
             )
             statusItem.menu = makeMenu(from: model)
         }
@@ -681,6 +833,7 @@
         case viewLogFailed(path: String)
         case cliResolverFailed
         case serviceUnavailable
+        case popoverPresentationFailed
 
         var description: String {
             switch self {
@@ -692,6 +845,8 @@
                 return "Unable to resolve updatebar executable for Open TUI"
             case .serviceUnavailable:
                 return "UpdateBar service is unavailable"
+            case .popoverPresentationFailed:
+                return "Unable to present the UpdateBar popover"
             }
         }
     }

@@ -309,6 +309,19 @@
         }
 
         private var commandArea: some View {
+            VStack(spacing: 6) {
+                if let activeActionTitle = model.activeActionTitle {
+                    commandButton("Cancel Current Action", symbol: "stop.circle") {
+                        onItemAction(cancelCurrentActionRow(title: activeActionTitle))
+                    }
+                }
+                commandGrid
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+        }
+
+        private var commandGrid: some View {
             LazyVGrid(columns: commandColumns, spacing: 6) {
                 commandButton("Open Dashboard", symbol: "rectangle.grid.1x2") {
                     onMenuAction(.overview)
@@ -329,8 +342,6 @@
                     onMenuAction(.quit)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
         }
 
         @ViewBuilder
@@ -413,6 +424,17 @@
                 stateLabel: terminal.id == model.selectedTerminalID
                     ? "Selected terminal" : "Terminal",
                 action: .openTUIInTerminal(bundleID: terminal.id),
+                confirmation: nil
+            )
+        }
+
+        private func cancelCurrentActionRow(title: String) -> MenuBarPopoverRow {
+            MenuBarPopoverRow(
+                id: "cancel-current-action",
+                title: "Cancel Current Action",
+                detail: title,
+                stateLabel: "Running",
+                action: .cancelCurrentAction,
                 confirmation: nil
             )
         }
