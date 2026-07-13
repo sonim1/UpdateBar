@@ -1,9 +1,11 @@
 # Menu Bar App
 
 The menu bar app is a native Swift/AppKit presentation layer for UpdateBar.
-Clicking the status item opens a fixed-size, system-material popover that follows
-the macOS system appearance. The popover has `Overview`, `Updates`, and `Approvals` tabs
-for summary metrics, outdated items, and commands awaiting approval.
+Clicking the status item opens a fixed 340-by-520-point, system-material popover
+that follows the macOS system appearance. A compact segmented control switches
+between the `Overview`, `Updates`, and `Approvals` tabs for summary counts,
+outdated items, and commands awaiting approval. Content uses borderless rows and
+native separators instead of dashboard-style cards.
 
 Current scope:
 
@@ -13,8 +15,8 @@ Current scope:
   per-item update and approve/revoke actions
 - shows command text before approve/revoke actions
 - provides Open Dashboard, Manage Items, Open TUI, Refresh, Settings, About,
-  More, and Quit commands without changing the popover's fixed layout; Refresh
-  invokes the existing Refresh Status action
+  More, and Quit as full-width vertical menu-style rows without changing the
+  popover's fixed layout; Refresh invokes the existing Refresh Status action
 - keeps `Check Now` and `Run Updates` in More alongside `Scan & Add` and
   `View Logs`; Run Updates is disabled with a "No updates available." help
   message when there are no outdated items

@@ -5,8 +5,6 @@
 
     @MainActor
     final class MenuBarPopoverController {
-        private static let contentSize = NSSize(width: 390, height: 560)
-
         struct Callbacks {
             let onItemAction: (MenuBarPopoverRow) -> Void
             let onMenuAction: (MenuBarMenuAction) -> Void
@@ -20,7 +18,7 @@
             popover = NSPopover()
             popover.behavior = .transient
             popover.animates = true
-            popover.contentSize = Self.contentSize
+            popover.contentSize = MenuBarPopoverLayout.size
         }
 
         var isShown: Bool {
@@ -77,7 +75,7 @@
             let contentViewController = NSViewController()
             contentViewController.view = effectView
             popover.contentViewController = contentViewController
-            popover.contentSize = Self.contentSize
+            popover.contentSize = MenuBarPopoverLayout.size
         }
 
         func close() {

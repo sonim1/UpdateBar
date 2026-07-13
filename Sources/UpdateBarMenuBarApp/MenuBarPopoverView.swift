@@ -3,6 +3,10 @@
     import SwiftUI
     import UpdateBarMenuBar
 
+    enum MenuBarPopoverLayout {
+        static let size = CGSize(width: 340, height: 520)
+    }
+
     enum MenuBarPopoverTab: String, CaseIterable, Hashable, Identifiable {
         case overview = "Overview"
         case updates = "Updates"
@@ -30,11 +34,6 @@
 
         @State private var selectedTab: MenuBarPopoverTab = .overview
 
-        private let commandColumns = [
-            GridItem(.flexible(), spacing: 8),
-            GridItem(.flexible(), spacing: 8),
-        ]
-
         var body: some View {
             VStack(spacing: 0) {
                 header
@@ -42,17 +41,21 @@
                 tabBar
                 Divider()
                 selectedContent
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .frame(height: 240, alignment: .top)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .clipped()
                 Divider()
                 commandArea
             }
-            .frame(width: 390, height: 560, alignment: .top)
+            .frame(
+                width: MenuBarPopoverLayout.size.width,
+                height: MenuBarPopoverLayout.size.height,
+                alignment: .top
+            )
             .background(Color.clear)
         }
 
         private var header: some View {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 8) {
                     Text("UpdateBar")
                         .font(.headline)
@@ -63,50 +66,37 @@
                         .lineLimit(1)
                 }
 
-                Text(model.title)
-                    .font(.subheadline.weight(.medium))
-                    .lineLimit(1)
-                    .help(model.title)
-
-                Label(lastCheckedText, systemImage: "clock")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                Label(healthText, systemImage: healthSymbol)
-                    .font(.caption)
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-        }
-
-        private var tabBar: some View {
-            HStack(spacing: 6) {
-                ForEach(MenuBarPopoverTab.allCases) { tab in
-                    Button {
-                        selectedTab = tab
-                    } label: {
-                        Label(tab.rawValue, systemImage: tab.systemImage)
-                            .font(.callout.weight(.medium))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 28)
-                            .foregroundStyle(
-                                selectedTab == tab ? Color.accentColor : Color.primary
-                            )
-                            .background(
-                                selectedTab == tab
-                                    ? Color.accentColor.opacity(0.14) : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 6)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(tab.rawValue)
-                    .accessibilityValue(selectedTab == tab ? "Selected" : "Not selected")
+                HStack(spacing: 8) {
+                    Label(model.title, systemImage: healthSymbol)
+                        .font(.caption.weight(.medium))
+                        .lineLimit(1)
+                        .help(healthText)
+                        .accessibilityLabel(healthText)
+                    Spacer(minLength: 8)
+                    Label(lastCheckedSummary, systemImage: "clock")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .help(lastCheckedText)
+                        .accessibilityLabel(lastCheckedText)
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+        }
+
+        private var tabBar: some View {
+            Picker("Section", selection: $selectedTab) {
+                ForEach(MenuBarPopoverTab.allCases) { tab in
+                    Label(tab.rawValue, systemImage: tab.systemImage)
+                        .tag(tab)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
         }
 
         @ViewBuilder
@@ -133,26 +123,24 @@
 
         private var overview: some View {
             ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 8) {
-                        metric("Updates", value: model.updateCount, symbol: "arrow.down.circle")
-                        metric("Approval", value: model.approvalCount, symbol: "checkmark.shield")
-                        metric(
-                            "Errors", value: model.errorCount, symbol: "exclamationmark.triangle")
-                    }
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    countSummary
 
                     if let activeActionTitle = model.activeActionTitle {
-                        notice(
+                        overviewDivider
+                        statusRow(
                             "Running",
                             detail: activeActionTitle,
                             symbol: "bolt.horizontal.circle"
                         )
                     }
                     if let lastActionNotice = model.lastActionNotice {
-                        notice("Last action", detail: lastActionNotice, symbol: "info.circle")
+                        overviewDivider
+                        statusRow("Last action", detail: lastActionNotice, symbol: "info.circle")
                     }
                     if let errorMessage = model.errorMessage {
-                        notice(
+                        overviewDivider
+                        statusRow(
                             "Error",
                             detail: errorMessage,
                             symbol: "exclamationmark.triangle"
@@ -161,29 +149,61 @@
 
                     summarySection("Available Updates", rows: model.updates)
                     summarySection("Errors", rows: model.errors)
+
+                    if model.updates.isEmpty && model.errors.isEmpty
+                        && model.activeActionTitle == nil && model.lastActionNotice == nil
+                        && model.errorMessage == nil
+                    {
+                        overviewDivider
+                        statusRow(
+                            "Status",
+                            detail: "All tracked items are current.",
+                            symbol: "checkmark.circle"
+                        )
+                    }
                 }
-                .padding(12)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
             }
         }
 
-        private func metric(_ title: String, value: Int, symbol: String) -> some View {
-            VStack(alignment: .leading, spacing: 3) {
+        private var countSummary: some View {
+            HStack(spacing: 0) {
+                summaryCount("Updates", value: model.updateCount, symbol: "arrow.down.circle")
+                Divider()
+                    .frame(height: 28)
+                summaryCount("Approvals", value: model.approvalCount, symbol: "checkmark.shield")
+                Divider()
+                    .frame(height: 28)
+                summaryCount(
+                    "Errors", value: model.errorCount, symbol: "exclamationmark.triangle")
+            }
+            .padding(.vertical, 3)
+        }
+
+        private func summaryCount(_ title: String, value: Int, symbol: String) -> some View {
+            VStack(spacing: 1) {
+                Text("\(value)")
+                    .font(.callout.monospacedDigit().weight(.semibold))
                 Label(title, systemImage: symbol)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                Text("\(value)")
-                    .font(.title3.weight(.semibold))
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(8)
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
-            .accessibilityElement(children: .combine)
+            .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(title): \(value)")
         }
 
-        private func notice(_ title: String, detail: String, symbol: String) -> some View {
+        private var overviewDivider: some View {
+            Divider()
+                .padding(.vertical, 4)
+        }
+
+        private func statusRow(_ title: String, detail: String, symbol: String) -> some View {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: symbol)
+                    .frame(width: 16)
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
@@ -196,8 +216,7 @@
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(8)
-            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 6))
+            .padding(.vertical, 4)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(title), \(detail)")
             .help(detail)
@@ -206,20 +225,27 @@
         @ViewBuilder
         private func summarySection(_ title: String, rows: [MenuBarPopoverRow]) -> some View {
             if !rows.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.caption.weight(.semibold))
+                overviewDivider
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.bottom, 2)
+
+                let visibleRows = Array(rows.prefix(3))
+                ForEach(visibleRows) { row in
+                    rowView(row)
+                    if row.id != visibleRows.last?.id {
+                        Divider()
+                            .padding(.leading, 25)
+                    }
+                }
+
+                if rows.count > visibleRows.count {
+                    Text("\(rows.count - visibleRows.count) more")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-
-                    ForEach(Array(rows.prefix(3))) { row in
-                        rowView(row)
-                    }
-
-                    if rows.count > 3 {
-                        Text("\(rows.count - 3) more")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                        .padding(.vertical, 3)
+                        .padding(.leading, 25)
                 }
             }
         }
@@ -232,31 +258,35 @@
         ) -> some View {
             Group {
                 if rows.isEmpty {
-                    VStack(spacing: 6) {
+                    HStack(alignment: .top, spacing: 9) {
                         Image(systemName: emptySymbol)
-                            .font(.title2)
+                            .frame(width: 16)
                             .foregroundStyle(.secondary)
                             .accessibilityHidden(true)
-                        Text(emptyTitle)
-                            .font(.headline)
-                        Text(emptyDetail)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(emptyTitle)
+                                .font(.callout.weight(.medium))
+                            Text(emptyDetail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(20)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(12)
                     .accessibilityElement(children: .combine)
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(rows) { row in
                                 rowView(row)
-                                Divider()
+                                if row.id != rows.last?.id {
+                                    Divider()
+                                        .padding(.leading, 25)
+                                }
                             }
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
                     }
                 }
             }
@@ -288,7 +318,7 @@
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(row.title)
                         .font(.callout.weight(.medium))
                         .lineLimit(1)
@@ -304,35 +334,35 @@
                 Spacer(minLength: 4)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 7)
+            .padding(.vertical, 5)
             .contentShape(Rectangle())
         }
 
         private var commandArea: some View {
-            VStack(spacing: 6) {
+            VStack(spacing: 0) {
                 if let activeActionTitle = model.activeActionTitle {
                     commandButton("Cancel Current Action", symbol: "stop.circle") {
                         onItemAction(cancelCurrentActionRow(title: activeActionTitle))
                     }
+                    commandDivider
                 }
-                commandGrid
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-        }
 
-        private var commandGrid: some View {
-            LazyVGrid(columns: commandColumns, spacing: 6) {
                 commandButton("Open Dashboard", symbol: "rectangle.grid.1x2") {
                     onMenuAction(.overview)
                 }
                 commandButton("Manage Items", symbol: "list.bullet.rectangle") {
                     onMenuAction(.manageItems)
                 }
+
+                commandDivider
+
                 openTUICommand
                 commandButton("Refresh", symbol: "arrow.clockwise") {
                     onMenuAction(.refreshStatus)
                 }
+
+                commandDivider
+
                 commandButton("Settings", symbol: "gearshape") {
                     onMenuAction(.openConfig)
                 }
@@ -342,6 +372,14 @@
                     onMenuAction(.quit)
                 }
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+        }
+
+        private var commandDivider: some View {
+            Divider()
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
         }
 
         @ViewBuilder
@@ -361,7 +399,7 @@
                         }
                     }
                 } label: {
-                    commandLabel("Open TUI", symbol: "terminal")
+                    MenuCommandLabel(title: "Open TUI", symbol: "terminal")
                 }
                 .menuStyle(.borderlessButton)
                 .accessibilityLabel("Open TUI")
@@ -412,7 +450,7 @@
                     Label("View Logs", systemImage: "doc.text.magnifyingglass")
                 }
             } label: {
-                commandLabel("More", symbol: "ellipsis.circle")
+                MenuCommandLabel(title: "More", symbol: "ellipsis.circle")
             }
             .menuStyle(.borderlessButton)
             .accessibilityLabel("More actions")
@@ -424,19 +462,10 @@
             action: @escaping () -> Void
         ) -> some View {
             Button(action: action) {
-                commandLabel(title, symbol: symbol)
+                MenuCommandLabel(title: title, symbol: symbol)
             }
             .buttonStyle(.plain)
-        }
-
-        private func commandLabel(_ title: String, symbol: String) -> some View {
-            Label(title, systemImage: symbol)
-                .font(.callout)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 28)
-                .padding(.horizontal, 8)
-                .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 6))
+            .accessibilityLabel(title)
         }
 
         private func openTUIRow(for terminal: TUITerminal) -> MenuBarPopoverRow {
@@ -493,17 +522,23 @@
             return "info.circle"
         }
 
+        private var lastCheckedSummary: String {
+            guard let lastChecked = model.lastChecked else {
+                return "Never"
+            }
+            let formatter = RelativeDateTimeFormatter()
+            formatter.unitsStyle = .short
+            return formatter.localizedString(for: lastChecked, relativeTo: Date())
+        }
+
         private var lastCheckedText: String {
             guard let lastChecked = model.lastChecked else {
                 return "Last checked: Never"
             }
-            let relativeFormatter = RelativeDateTimeFormatter()
-            relativeFormatter.unitsStyle = .short
-            let relative = relativeFormatter.localizedString(for: lastChecked, relativeTo: Date())
             let date = lastChecked.formatted(
                 .dateTime.month(.abbreviated).day().hour().minute()
             )
-            return "Last checked: \(relative) (\(date))"
+            return "Last checked: \(lastCheckedSummary) (\(date))"
         }
 
         private var healthText: String {
@@ -532,6 +567,27 @@
                 return "arrow.down.circle"
             }
             return "checkmark.circle"
+        }
+    }
+
+    private struct MenuCommandLabel: View {
+        let title: String
+        let symbol: String
+
+        @State private var isHovered = false
+
+        var body: some View {
+            Label(title, systemImage: symbol)
+                .font(.callout)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 26, alignment: .leading)
+                .padding(.horizontal, 7)
+                .background(
+                    isHovered ? Color.primary.opacity(0.07) : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 4)
+                )
+                .contentShape(Rectangle())
+                .onHover { isHovered = $0 }
         }
     }
 #endif

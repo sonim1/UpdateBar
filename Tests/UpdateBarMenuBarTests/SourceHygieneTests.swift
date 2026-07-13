@@ -41,4 +41,28 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(source.contains(#"badgeValue: "...""#))
         XCTAssertTrue(source.contains(#"latestState.badgeValue ?? "✓""#))
     }
+
+    func testMenuBarPopoverUsesCompactNativeMenuLayout() throws {
+        let viewSource = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/MenuBarPopoverView.swift"),
+            encoding: .utf8
+        )
+        let controllerSource = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/MenuBarPopoverController.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(viewSource.contains("LazyVGrid"))
+        XCTAssertFalse(viewSource.contains("commandGrid"))
+        XCTAssertFalse(viewSource.contains("private func metric("))
+        XCTAssertFalse(viewSource.contains(".background(.quaternary"))
+        XCTAssertTrue(viewSource.contains("Picker(\"Section\", selection: $selectedTab)"))
+        XCTAssertTrue(viewSource.contains(".pickerStyle(.segmented)"))
+        XCTAssertTrue(viewSource.contains("CGSize(width: 340, height: 520)"))
+        XCTAssertTrue(viewSource.contains("MenuBarPopoverLayout.size.width"))
+        XCTAssertTrue(controllerSource.contains("MenuBarPopoverLayout.size"))
+        XCTAssertFalse(controllerSource.contains("NSSize(width:"))
+    }
 }

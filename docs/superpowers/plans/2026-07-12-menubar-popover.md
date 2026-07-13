@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the primary native status-item menu with a CodexBar-inspired, system-material popover while keeping the detailed dashboard as a separate window.
+**Goal:** Replace the primary native status-item menu with a system-material popover that follows native macOS menu density while keeping the detailed dashboard as a separate window.
 
-**Architecture:** A pure presentation builder in UpdateBarMenuBar maps existing state and approval data into testable rows. UpdateBarMenuBarApp hosts a SwiftUI view in a transient NSPopover and routes its actions back through the existing action coordinator and panel controllers. The current NSMenu remains only as an error fallback.
+**Architecture:** A pure presentation builder in UpdateBarMenuBar maps existing state and approval data into testable rows. UpdateBarMenuBarApp hosts a compact SwiftUI view in a transient NSPopover and routes its actions back through the existing action coordinator and panel controllers. The current NSMenu remains only as an error fallback. View and controller share one 340-by-520-point layout size.
 
 **Tech Stack:** Swift 6, AppKit, SwiftUI, XCTest, macOS 13+
 
@@ -14,12 +14,13 @@
 
 - Create Sources/UpdateBarMenuBar/MenuBarPopoverModel.swift: immutable popover presentation data and mapping.
 - Create Tests/UpdateBarMenuBarTests/MenuBarPopoverModelTests.swift: mapping, redaction, and action tests.
-- Create Sources/UpdateBarMenuBarApp/MenuBarPopoverView.swift: compact tabs, rows, and commands.
+- Create Sources/UpdateBarMenuBarApp/MenuBarPopoverView.swift: compact segmented navigation, borderless rows, and vertical menu-style commands.
 - Create Sources/UpdateBarMenuBarApp/MenuBarPopoverController.swift: NSPopover lifecycle and system material hosting.
+- Modify Tests/UpdateBarMenuBarTests/SourceHygieneTests.swift: guard the native menu layout and shared compact size.
 - Modify Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift: status-button routing, live model updates, and action dispatch.
 - Modify Sources/UpdateBarMenuBarApp/DashboardPanelController.swift: separate modern dashboard layout and Updates copy.
 
-The worktree already contains overlapping user changes in UpdateBarMenuBarApp.swift. Implementation commits must not be created automatically because staging that file would also stage pre-existing work.
+The approved native-menu refinement is limited to the popover view, its shared size in the controller, focused source hygiene coverage, and documentation. It does not change presentation models, services, action routing, or the standalone dashboard.
 
 ### Task 1: Build the Popover Presentation Model
 
@@ -315,15 +316,17 @@ Expected: all MenuBarPopoverModelTests pass.
 
 - [ ] **Step 1: Create the three-tab SwiftUI view**
 
-Implement a 390-point-wide view with:
+Implement a fixed 340-by-520-point view with:
 
-- Overview, Updates, and Approvals tabs using SF Symbols.
-- A title row showing UpdateBar, last checked time, tracked count, and a text health state.
-- Three compact metrics labeled Updates, Approval, and Errors.
-- Scrollable update and approval rows capped by the available popover height.
-- A redacted error banner and error rows with text labels, not color alone.
-- Commands for Open Dashboard, Manage Items, Open TUI, Refresh, Settings, About, and Quit.
-- A More menu containing Scan & Add and View Logs so existing commands remain reachable.
+- A shared `MenuBarPopoverLayout.size` used by both SwiftUI and `NSPopover`.
+- Overview, Updates, and Approvals in a compact native segmented `Picker`.
+- A two-row header showing UpdateBar, tracked count, concise status, and relative last-check time.
+- One borderless count summary labeled Updates, Approvals, and Errors.
+- Scrollable borderless update and approval rows capped by the available popover height.
+- Redacted status and error rows with text labels, not color alone or persistent card fills.
+- Full-width vertical menu-style rows for Open Dashboard, Manage Items, Open TUI, Refresh, Settings, About, More, and Quit.
+- A More menu containing Check Now, Run Updates, Scan & Add, and View Logs so existing commands remain reachable.
+- Cancel Current Action while an action is running.
 - Open TUI becomes a Menu when multiple installed terminals are present and marks the selected terminal.
 
 Use this public boundary:
@@ -345,13 +348,16 @@ struct MenuBarPopoverView: View {
             Divider()
             commandList
         }
-        .frame(width: 390)
+        .frame(
+            width: MenuBarPopoverLayout.size.width,
+            height: MenuBarPopoverLayout.size.height
+        )
         .background(Color.clear)
     }
 }
 ~~~
 
-Use Button for commands, Menu for secondary commands, Label with SF Symbols, 8-point-or-smaller corner radii, and secondary text for details. Keep every actionable row at least 32 points high and add accessibility labels that include both title and state.
+Use Button for commands, Menu for secondary commands, Label with SF Symbols, native separators, and secondary text for details. Persistent tile and card backgrounds are prohibited; a subtle hover fill is allowed for actionable rows. Add accessibility labels that include both title and state.
 
 - [ ] **Step 2: Compile the app target**
 
@@ -381,7 +387,7 @@ final class MenuBarPopoverController {
     init() {
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 390, height: 520)
+        popover.contentSize = MenuBarPopoverLayout.size
     }
 
     var isShown: Bool { popover.isShown }
@@ -466,7 +472,7 @@ rtk err swift build --target UpdateBarMenuBarApp
 
 Expected: tests pass and the app target builds.
 
-### Task 4: Polish the Separate Dashboard
+### Task 4: Polish the Separate Dashboard (Original Scope, Unchanged by Refinement)
 
 **Files:**
 - Modify: Sources/UpdateBarMenuBarApp/DashboardPanelController.swift
@@ -552,6 +558,7 @@ Expected: release build succeeds.
 Launch the debug executable, click the UpdateBar status item, and verify:
 
 - the popover anchors under the icon;
+- the popover remains fixed at 340 by 520 points across tabs and refreshes;
 - system material changes with light and dark appearance;
 - Overview, Updates, and Approvals switch without resizing;
 - Escape and outside click dismiss it;
