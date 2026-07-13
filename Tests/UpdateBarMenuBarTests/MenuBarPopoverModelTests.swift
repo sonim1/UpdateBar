@@ -249,35 +249,78 @@ final class MenuBarPopoverModelTests: XCTestCase {
         XCTAssertFalse(String(describing: model).contains(secret))
     }
 
-    func testRefreshErrorOverridesStaleHeaderPresentation() {
-        let secret = "sk-or-v1-secret-value"
-        let outdated = item(
-            id: "old",
-            name: "Old Tool",
-            current: "1.0",
-            latest: "1.1",
-            status: .outdated
-        )
-        let staleState = MenuBarState(
-            title: "1 update",
-            badgeValue: "1",
-            outdatedItems: [outdated],
-            approvalItems: [],
-            errorItems: [],
-            okItems: [],
-            allItems: [outdated]
-        )
+    func testHeaderPresentationStatesAndPrecedence() {
+        let cases:
+            [(
+                name: String,
+                model: MenuBarPopoverModel,
+                title: String,
+                symbol: String,
+                healthText: String
+            )] = [
+                (
+                    name: "reported error overrides all status counts",
+                    model: headerModel(
+                        title: "3 updates",
+                        updateCount: 3,
+                        approvalCount: 2,
+                        errorCount: 1,
+                        errorMessage: "Service failed with [REDACTED]"
+                    ),
+                    title: "Needs attention",
+                    symbol: "exclamationmark.triangle",
+                    healthText: "Health: error reported"
+                ),
+                (
+                    name: "status error overrides approvals and updates",
+                    model: headerModel(
+                        title: "1 item error",
+                        updateCount: 3,
+                        approvalCount: 2,
+                        errorCount: 1
+                    ),
+                    title: "1 item error",
+                    symbol: "exclamationmark.triangle",
+                    healthText: "Health: 1 error"
+                ),
+                (
+                    name: "approval overrides updates",
+                    model: headerModel(
+                        title: "2 approvals",
+                        updateCount: 3,
+                        approvalCount: 2
+                    ),
+                    title: "2 approvals",
+                    symbol: "checkmark.shield",
+                    healthText: "Health: approval required for 2 items"
+                ),
+                (
+                    name: "updates",
+                    model: headerModel(title: "2 updates", updateCount: 2),
+                    title: "2 updates",
+                    symbol: "arrow.down.circle",
+                    healthText: "Health: 2 updates available"
+                ),
+                (
+                    name: "healthy",
+                    model: headerModel(title: "Up to date"),
+                    title: "Up to date",
+                    symbol: "checkmark.circle",
+                    healthText: "Health: All tracked items are current"
+                ),
+            ]
 
-        let model = MenuBarPopoverModelBuilder().makeModel(
-            state: staleState,
-            approvalStatuses: [:],
-            errorDescription: "Service failed with \(secret)"
-        )
+        for testCase in cases {
+            XCTAssertEqual(testCase.model.headerTitle, testCase.title, testCase.name)
+            XCTAssertEqual(testCase.model.headerSymbol, testCase.symbol, testCase.name)
+            XCTAssertEqual(
+                testCase.model.headerHealthText,
+                testCase.healthText,
+                testCase.name
+            )
+        }
 
-        XCTAssertEqual(model.headerTitle, "Status unavailable")
-        XCTAssertEqual(model.headerSymbol, "exclamationmark.triangle")
-        XCTAssertEqual(model.headerHealthText, "Health: status refresh failed")
-        XCTAssertEqual(model.errorMessage, "Service failed with [REDACTED]")
+        XCTAssertEqual(cases[0].model.errorMessage, "Service failed with [REDACTED]")
     }
 
     func testFallbackTrackingCountsUniqueSectionItemIDs() {
@@ -313,6 +356,31 @@ final class MenuBarPopoverModelTests: XCTestCase {
         XCTAssertEqual(model.approvals.first?.stateLabel, "Needs approval")
         XCTAssertNil(model.approvals.first?.action)
         XCTAssertNil(model.approvals.first?.confirmation)
+    }
+
+    private func headerModel(
+        title: String,
+        updateCount: Int = 0,
+        approvalCount: Int = 0,
+        errorCount: Int = 0,
+        errorMessage: String? = nil
+    ) -> MenuBarPopoverModel {
+        MenuBarPopoverModel(
+            title: title,
+            trackedItemCount: 0,
+            updateCount: updateCount,
+            approvalCount: approvalCount,
+            errorCount: errorCount,
+            lastChecked: nil,
+            activeActionTitle: nil,
+            lastActionNotice: nil,
+            errorMessage: errorMessage,
+            updates: [],
+            approvals: [],
+            errors: [],
+            terminals: [],
+            selectedTerminalID: nil
+        )
     }
 
     private func state(

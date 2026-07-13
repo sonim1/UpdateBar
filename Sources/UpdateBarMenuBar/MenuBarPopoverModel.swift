@@ -75,7 +75,7 @@ public struct MenuBarPopoverModel: Equatable, Sendable {
     }
 
     public var headerTitle: String {
-        errorMessage == nil ? title : "Status unavailable"
+        errorMessage == nil ? title : "Needs attention"
     }
 
     public var headerSymbol: String {
@@ -93,7 +93,7 @@ public struct MenuBarPopoverModel: Equatable, Sendable {
 
     public var headerHealthText: String {
         if errorMessage != nil {
-            return "Health: status refresh failed"
+            return "Health: error reported"
         }
         if errorCount > 0 {
             return "Health: \(errorCount) error\(errorCount == 1 ? "" : "s")"
