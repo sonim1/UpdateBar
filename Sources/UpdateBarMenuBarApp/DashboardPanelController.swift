@@ -1,4 +1,5 @@
 #if os(macOS)
+    import Accessibility
     import AppKit
     import Charts
     import Foundation
@@ -72,18 +73,20 @@
                         .chartYAxis {
                             AxisMarks(values: .automatic(desiredCount: 3))
                         }
+                        .chartXScale(
+                            range: .plotDimension(startPadding: 20, endPadding: 20)
+                        )
+                        .accessibilityChartDescriptor(
+                            UpdatesChartDescriptor(buckets: summary.updatesPerDay)
+                        )
 
                         if let chartEmptyMessage {
                             Text(chartEmptyMessage)
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
-                                .accessibilityHidden(true)
                         }
                     }
                     .frame(minHeight: 120, maxHeight: .infinity)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Updates in the last 4 weeks")
-                    .accessibilityValue(chartAccessibilityValue)
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
             }
@@ -122,14 +125,6 @@
             return nil
         }
 
-        private var chartAccessibilityValue: String {
-            if let chartEmptyMessage {
-                return chartEmptyMessage
-            }
-            let noun = totalUpdates == 1 ? "update" : "updates"
-            return "\(totalUpdates) \(noun) recorded"
-        }
-
         private func tile(title: String, value: String, systemImage: String) -> some View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
@@ -163,6 +158,64 @@
         private func shortDate(_ date: Date?) -> String {
             guard let date else { return "–" }
             return date.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+        }
+    }
+
+    private struct UpdatesChartDescriptor: AXChartDescriptorRepresentable {
+        var buckets: [DashboardDayCount]
+
+        func makeChartDescriptor() -> AXChartDescriptor {
+            let dateLabels = buckets.map { dateLabel($0.day) }
+            let xAxis = AXCategoricalDataAxisDescriptor(
+                title: "Date",
+                categoryOrder: dateLabels
+            )
+            let maximumCount = buckets.map(\.count).max() ?? 0
+            let yAxis = AXNumericDataAxisDescriptor(
+                title: "Update count",
+                range: 0...Double(max(1, maximumCount)),
+                gridlinePositions: []
+            ) { value in
+                countLabel(Int(value.rounded()))
+            }
+            let dataPoints = zip(buckets, dateLabels).map { bucket, dateLabel in
+                AXDataPoint(
+                    x: dateLabel,
+                    y: Double(bucket.count),
+                    label: "\(dateLabel): \(countLabel(bucket.count))"
+                )
+            }
+            let series = AXDataSeriesDescriptor(
+                name: "Daily updates",
+                isContinuous: false,
+                dataPoints: dataPoints
+            )
+
+            return AXChartDescriptor(
+                title: "Updates in the last 4 weeks",
+                summary: descriptorSummary,
+                xAxis: xAxis,
+                yAxis: yAxis,
+                series: [series]
+            )
+        }
+
+        private var descriptorSummary: String {
+            guard let first = buckets.first, let last = buckets.last else {
+                return "No daily update data is available."
+            }
+            let firstDate = dateLabel(first.day)
+            let lastDate = dateLabel(last.day)
+            return "Daily update counts from \(firstDate) through \(lastDate)."
+        }
+
+        private func dateLabel(_ date: Date) -> String {
+            date.formatted(.dateTime.weekday(.wide).month(.wide).day().year())
+        }
+
+        private func countLabel(_ count: Int) -> String {
+            let noun = count == 1 ? "update" : "updates"
+            return "\(count) \(noun)"
         }
     }
 
