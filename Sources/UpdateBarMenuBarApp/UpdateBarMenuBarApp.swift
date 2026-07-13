@@ -339,6 +339,10 @@
         }
 
         private func refreshStatus(refresh: Bool) {
+            guard actionCoordinator.activeAction == nil else {
+                rebuildMenu()
+                return
+            }
             let refreshToken = refreshGenerationGate.begin()
             setTitle("...", accessibilityLabel: "UpdateBar checking")
             let loadingMenu = menuBuilder.makeLoadingMenu()

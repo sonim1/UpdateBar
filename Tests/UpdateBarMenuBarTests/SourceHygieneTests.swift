@@ -79,11 +79,21 @@ final class SourceHygieneTests: XCTestCase {
             endingAt: "private func runAction(",
             in: source
         )
+        let activeActionGuard = try XCTUnwrap(
+            refreshSource.range(
+                of: "guardactionCoordinator.activeAction==nilelse{rebuildMenu()return}"
+            )
+        )
+        let generationBegin = try XCTUnwrap(
+            refreshSource.range(of: "refreshGenerationGate.begin()")
+        )
         let loadingMenu = try XCTUnwrap(refreshSource.range(of: "menuBuilder.makeLoadingMenu()"))
         let backgroundRefresh = try XCTUnwrap(
             refreshSource.range(of: "DispatchQueue.global(qos:.userInitiated).async")
         )
 
+        XCTAssertLessThan(activeActionGuard.lowerBound, generationBegin.lowerBound)
+        XCTAssertLessThan(activeActionGuard.lowerBound, loadingMenu.lowerBound)
         XCTAssertLessThan(loadingMenu.lowerBound, backgroundRefresh.lowerBound)
         XCTAssertTrue(refreshSource.contains("statusItem?.menu=makeMenu("))
 
