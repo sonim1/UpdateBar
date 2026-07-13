@@ -64,5 +64,39 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(viewSource.contains("MenuBarPopoverLayout.size.width"))
         XCTAssertTrue(controllerSource.contains("MenuBarPopoverLayout.size"))
         XCTAssertFalse(controllerSource.contains("NSSize(width:"))
+
+        let compactViewSource = viewSource.filter { !$0.isWhitespace }
+        XCTAssertTrue(compactViewSource.contains(".buttonStyle(.plain).commandRowStyle()"))
+        XCTAssertEqual(
+            compactViewSource.components(
+                separatedBy: ".menuStyle(.borderlessButton).commandRowStyle()"
+            ).count - 1,
+            2
+        )
+
+        guard
+            let modifierStart = viewSource.range(
+                of: "private struct CommandRowModifier: ViewModifier"),
+            let modifierEnd = viewSource.range(
+                of: "extension View",
+                range: modifierStart.upperBound..<viewSource.endIndex
+            )
+        else {
+            XCTFail("Popover commands must share a control-level command-row modifier")
+            return
+        }
+
+        let modifierSource = viewSource[modifierStart.lowerBound..<modifierEnd.lowerBound]
+            .filter { !$0.isWhitespace }
+        XCTAssertTrue(modifierSource.contains("@FocusStateprivatevarisFocused:Bool"))
+        XCTAssertTrue(
+            modifierSource.contains(
+                ".frame(maxWidth:.infinity,minHeight:26,alignment:.leading)"
+            )
+        )
+        XCTAssertTrue(modifierSource.contains(".contentShape(Rectangle())"))
+        XCTAssertTrue(modifierSource.contains(".focused($isFocused)"))
+        XCTAssertTrue(modifierSource.contains("isFocused?Color.accentColor"))
+        XCTAssertTrue(modifierSource.contains(".onHover{isHovered=$0}"))
     }
 }

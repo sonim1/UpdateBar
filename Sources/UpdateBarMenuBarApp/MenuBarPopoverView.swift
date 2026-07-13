@@ -402,6 +402,7 @@
                     MenuCommandLabel(title: "Open TUI", symbol: "terminal")
                 }
                 .menuStyle(.borderlessButton)
+                .commandRowStyle()
                 .accessibilityLabel("Open TUI")
             } else {
                 commandButton("Open TUI", symbol: "terminal") {
@@ -453,6 +454,7 @@
                 MenuCommandLabel(title: "More", symbol: "ellipsis.circle")
             }
             .menuStyle(.borderlessButton)
+            .commandRowStyle()
             .accessibilityLabel("More actions")
         }
 
@@ -465,6 +467,7 @@
                 MenuCommandLabel(title: title, symbol: symbol)
             }
             .buttonStyle(.plain)
+            .commandRowStyle()
             .accessibilityLabel(title)
         }
 
@@ -574,20 +577,41 @@
         let title: String
         let symbol: String
 
-        @State private var isHovered = false
-
         var body: some View {
             Label(title, systemImage: symbol)
                 .font(.callout)
                 .lineLimit(1)
-                .frame(maxWidth: .infinity, minHeight: 26, alignment: .leading)
                 .padding(.horizontal, 7)
+        }
+    }
+
+    private struct CommandRowModifier: ViewModifier {
+        @FocusState private var isFocused: Bool
+        @State private var isHovered = false
+
+        func body(content: Content) -> some View {
+            content
+                .frame(maxWidth: .infinity, minHeight: 26, alignment: .leading)
+                .contentShape(Rectangle())
+                .focused($isFocused)
                 .background(
-                    isHovered ? Color.primary.opacity(0.07) : Color.clear,
+                    isFocused
+                        ? Color.accentColor.opacity(0.18)
+                        : isHovered ? Color.primary.opacity(0.07) : Color.clear,
                     in: RoundedRectangle(cornerRadius: 4)
                 )
-                .contentShape(Rectangle())
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(Color.accentColor, lineWidth: 1)
+                        .opacity(isFocused ? 1 : 0)
+                )
                 .onHover { isHovered = $0 }
+        }
+    }
+
+    extension View {
+        fileprivate func commandRowStyle() -> some View {
+            modifier(CommandRowModifier())
         }
     }
 #endif
