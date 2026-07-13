@@ -68,6 +68,70 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
+    func testRefreshAndActionTransitionsProtectInstalledMenuState() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
+            encoding: .utf8
+        )
+        let refreshSource = try functionSource(
+            named: "private func refreshStatus(",
+            endingAt: "private func runAction(",
+            in: source
+        )
+        let loadingMenu = try XCTUnwrap(refreshSource.range(of: "menuBuilder.makeLoadingMenu()"))
+        let backgroundRefresh = try XCTUnwrap(
+            refreshSource.range(of: "DispatchQueue.global(qos:.userInitiated).async")
+        )
+
+        XCTAssertLessThan(loadingMenu.lowerBound, backgroundRefresh.lowerBound)
+        XCTAssertTrue(refreshSource.contains("statusItem?.menu=makeMenu("))
+
+        let runActionSource = try functionSource(
+            named: "private func runAction(",
+            endingAt: "private func rebuildMenu()",
+            in: source
+        )
+        let invalidate = try XCTUnwrap(
+            runActionSource.range(of: "refreshGenerationGate.invalidate()")
+        )
+        let backgroundAction = try XCTUnwrap(
+            runActionSource.range(of: "DispatchQueue.global(qos:.userInitiated).async")
+        )
+
+        XCTAssertLessThan(invalidate.lowerBound, backgroundAction.lowerBound)
+    }
+
+    func testShowErrorPreservesActiveActionMenu() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
+            encoding: .utf8
+        )
+        let errorSource = try functionSource(
+            named: "private func showError(",
+            endingAt: "private func setTitle(",
+            in: source
+        )
+
+        XCTAssertTrue(
+            errorSource.contains(
+                "guardactionCoordinator.activeAction==nilelse{rebuildMenu()return}"
+            )
+        )
+    }
+
+    func testDashboardWindowUsesDashboardTitle() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/DashboardPanelController.swift"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains(#"window.title = "Dashboard""#))
+        XCTAssertFalse(source.contains(#"window.title = "Overview""#))
+    }
+
     func testMenuBarStatusItemUsesNativeMenuRouting() throws {
         let source = try String(
             contentsOf: URL(

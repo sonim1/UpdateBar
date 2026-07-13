@@ -171,6 +171,71 @@ final class MenuBarMenuModelTests: XCTestCase {
             finishedModel.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
     }
 
+    func testLoadingMenuContainsOnlySafeDashboardAndQuitActions() {
+        let model = MenuBarMenuModelBuilder().makeLoadingMenu()
+
+        XCTAssertEqual(
+            model.entries.labels,
+            [
+                "Checking for updates...",
+                "---",
+                "Dashboard",
+                "Quit",
+            ])
+        XCTAssertEqual(
+            model.entries.actions,
+            [
+                .menu(.overview),
+                .menu(.quit),
+            ])
+    }
+
+    func testActiveActionMenuContainsCancelAndOnlySafeFooterActions() {
+        let state = MenuBarState(
+            title: "Needs attention",
+            badgeValue: "!",
+            outdatedItems: [
+                statusItem(
+                    id: "old",
+                    name: "Old Tool",
+                    current: "1.0.0",
+                    latest: "1.1.0",
+                    status: .outdated
+                )
+            ],
+            approvalItems: [
+                statusItem(id: "fresh", name: "Fresh Tool", status: .untrusted)
+            ],
+            errorItems: [],
+            okItems: []
+        )
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:],
+            activeActionTitle: "Update Old Tool"
+        )
+
+        XCTAssertEqual(
+            model.entries.labels,
+            [
+                "Running: Update Old Tool",
+                "Cancel Current Action",
+                "---",
+                "Dashboard",
+                "View Logs",
+                "Quit",
+            ])
+        XCTAssertEqual(
+            model.entries.actions,
+            [
+                .cancelCurrentAction,
+                .menu(.overview),
+                .menu(.viewLogs),
+                .menu(.quit),
+            ])
+    }
+
     func testBuildsActionableSectionsForUpdatesApprovalsErrorsAndInstalledItems() {
         let state = MenuBarState(
             title: "1 update",

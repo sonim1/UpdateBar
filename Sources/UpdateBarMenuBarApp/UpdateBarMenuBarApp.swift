@@ -341,6 +341,8 @@
         private func refreshStatus(refresh: Bool) {
             let refreshToken = refreshGenerationGate.begin()
             setTitle("...", accessibilityLabel: "UpdateBar checking")
+            let loadingMenu = menuBuilder.makeLoadingMenu()
+            statusItem?.menu = makeMenu(from: loadingMenu)
             DispatchQueue.global(qos: .userInitiated).async { [service, formatter] in
                 do {
                     guard let service else { return }
@@ -379,6 +381,7 @@
                 rebuildMenu()
                 return
             }
+            refreshGenerationGate.invalidate()
             rebuildMenu()
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
@@ -495,6 +498,10 @@
         private func showError(_ error: Error) {
             let errorDescription = SecretRedactor.redact(String(describing: error))
             Self.debugLog("showing error: \(errorDescription)")
+            guard actionCoordinator.activeAction == nil else {
+                rebuildMenu()
+                return
+            }
             setTitle("!", accessibilityLabel: "UpdateBar error")
             guard let statusItem else { return }
             let model = menuBuilder.makeErrorMenu(

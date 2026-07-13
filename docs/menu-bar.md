@@ -17,6 +17,10 @@ Current scope:
   items; Run Updates is disabled when there are no outdated items
 - expands Open TUI into a native submenu when multiple supported terminals are
   installed, with the selected terminal marked by a checkmark
+- replaces actionable rows with `Checking for updates...`, Dashboard, and Quit
+  while a refresh is in flight, so stale update and approval actions cannot run
+- limits an active-action menu to Running, Cancel Current Action, Dashboard,
+  View Logs, and Quit until the action finishes
 - keeps bulk-update confirmation in the app dispatcher before approved update
   commands run
 

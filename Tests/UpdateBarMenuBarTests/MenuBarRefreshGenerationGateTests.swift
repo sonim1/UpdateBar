@@ -19,4 +19,15 @@ final class MenuBarRefreshGenerationGateTests: XCTestCase {
 
         XCTAssertTrue(gate.isCurrent(second))
     }
+
+    func testInvalidateRejectsInFlightRefreshBeforeActionWorkBegins() {
+        var gate = MenuBarRefreshGenerationGate()
+        let refresh = gate.begin()
+
+        gate.invalidate()
+
+        XCTAssertFalse(gate.isCurrent(refresh))
+        let nextRefresh = gate.begin()
+        XCTAssertTrue(gate.isCurrent(nextRefresh))
+    }
 }

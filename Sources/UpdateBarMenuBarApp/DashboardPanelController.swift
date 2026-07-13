@@ -236,7 +236,7 @@
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Overview"
+            window.title = "Dashboard"
             window.isReleasedWhenClosed = false
             window.contentMinSize = NSSize(width: 620, height: 420)
             super.init(window: window)

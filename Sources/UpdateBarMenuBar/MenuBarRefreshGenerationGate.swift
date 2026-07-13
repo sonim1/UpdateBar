@@ -8,6 +8,10 @@ public struct MenuBarRefreshGenerationGate: Sendable {
         return latestToken
     }
 
+    public mutating func invalidate() {
+        latestToken += 1
+    }
+
     public func isCurrent(_ token: Int) -> Bool {
         token == latestToken
     }
