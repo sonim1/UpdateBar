@@ -68,84 +68,57 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
-    func testMenuBarPopoverHeaderUsesModelPresentation() throws {
+    func testMenuBarStatusItemUsesNativeMenuRouting() throws {
         let source = try String(
             contentsOf: URL(
-                fileURLWithPath: "Sources/UpdateBarMenuBarApp/MenuBarPopoverView.swift"),
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
             encoding: .utf8
         )
-        let compactSource = source.filter { !$0.isWhitespace }
+        XCTAssertFalse(source.contains("statusButton.target"))
+        XCTAssertFalse(source.contains("statusButton.action"))
+        XCTAssertFalse(source.contains("statusButton.sendAction"))
+        XCTAssertFalse(source.contains("togglePopover"))
+        XCTAssertFalse(source.contains("MenuBarPopoverController"))
 
-        XCTAssertTrue(
-            compactSource.contains(
-                "Label(model.headerTitle,systemImage:model.headerSymbol)"
-            )
+        let rebuildSource = try functionSource(
+            named: "private func rebuildMenu()",
+            endingAt: "private func makeMenu(from",
+            in: source
         )
-        XCTAssertTrue(
-            compactSource.contains(
-                ".help(model.headerHealthText).accessibilityLabel(model.headerHealthText)"
-            )
+        XCTAssertTrue(rebuildSource.contains("letmodel=menuBuilder.makeMenu("))
+        XCTAssertTrue(rebuildSource.contains("statusItem.menu=makeMenu(from:model)"))
+
+        let errorSource = try functionSource(
+            named: "private func showError(",
+            endingAt: "private func setTitle(",
+            in: source
         )
-        XCTAssertFalse(source.contains("private var healthText"))
-        XCTAssertFalse(source.contains("private var healthSymbol"))
+        XCTAssertTrue(errorSource.contains("letmodel=menuBuilder.makeErrorMenu("))
+        XCTAssertTrue(errorSource.contains("statusItem.menu=makeMenu(from:model)"))
     }
 
-    func testMenuBarPopoverUsesCompactNativeMenuLayout() throws {
-        let viewSource = try String(
-            contentsOf: URL(
-                fileURLWithPath: "Sources/UpdateBarMenuBarApp/MenuBarPopoverView.swift"),
-            encoding: .utf8
-        )
-        let controllerSource = try String(
-            contentsOf: URL(
-                fileURLWithPath: "Sources/UpdateBarMenuBarApp/MenuBarPopoverController.swift"),
-            encoding: .utf8
-        )
+    func testCustomPopoverSourcesAreRemoved() {
+        let paths = [
+            "Sources/UpdateBarMenuBarApp/MenuBarPopoverView.swift",
+            "Sources/UpdateBarMenuBarApp/MenuBarPopoverController.swift",
+            "Sources/UpdateBarMenuBar/MenuBarPopoverModel.swift",
+            "Tests/UpdateBarMenuBarTests/MenuBarPopoverModelTests.swift",
+        ]
 
-        XCTAssertFalse(viewSource.contains("LazyVGrid"))
-        XCTAssertFalse(viewSource.contains("commandGrid"))
-        XCTAssertFalse(viewSource.contains("private func metric("))
-        XCTAssertFalse(viewSource.contains(".background(.quaternary"))
-        XCTAssertTrue(viewSource.contains("Picker(\"Section\", selection: $selectedTab)"))
-        XCTAssertTrue(viewSource.contains(".pickerStyle(.segmented)"))
-        XCTAssertTrue(viewSource.contains("CGSize(width: 340, height: 520)"))
-        XCTAssertTrue(viewSource.contains("MenuBarPopoverLayout.size.width"))
-        XCTAssertTrue(controllerSource.contains("MenuBarPopoverLayout.size"))
-        XCTAssertFalse(controllerSource.contains("NSSize(width:"))
-
-        let compactViewSource = viewSource.filter { !$0.isWhitespace }
-        XCTAssertTrue(compactViewSource.contains(".buttonStyle(.plain).commandRowStyle()"))
-        XCTAssertEqual(
-            compactViewSource.components(
-                separatedBy: ".menuStyle(.borderlessButton).commandRowStyle()"
-            ).count - 1,
-            2
-        )
-
-        guard
-            let modifierStart = viewSource.range(
-                of: "private struct CommandRowModifier: ViewModifier"),
-            let modifierEnd = viewSource.range(
-                of: "extension View",
-                range: modifierStart.upperBound..<viewSource.endIndex
-            )
-        else {
-            XCTFail("Popover commands must share a control-level command-row modifier")
-            return
+        for path in paths {
+            XCTAssertFalse(FileManager.default.fileExists(atPath: path), path)
         }
+    }
 
-        let modifierSource = viewSource[modifierStart.lowerBound..<modifierEnd.lowerBound]
-            .filter { !$0.isWhitespace }
-        XCTAssertTrue(modifierSource.contains("@FocusStateprivatevarisFocused:Bool"))
-        XCTAssertTrue(
-            modifierSource.contains(
-                ".frame(maxWidth:.infinity,minHeight:26,alignment:.leading)"
-            )
+    private func functionSource(
+        named startMarker: String,
+        endingAt endMarker: String,
+        in source: String
+    ) throws -> String {
+        let start = try XCTUnwrap(source.range(of: startMarker))
+        let end = try XCTUnwrap(
+            source.range(of: endMarker, range: start.upperBound..<source.endIndex)
         )
-        XCTAssertTrue(modifierSource.contains(".contentShape(Rectangle())"))
-        XCTAssertTrue(modifierSource.contains(".focused($isFocused)"))
-        XCTAssertTrue(modifierSource.contains("isFocused?Color.accentColor"))
-        XCTAssertFalse(modifierSource.contains(".strokeBorder("))
-        XCTAssertTrue(modifierSource.contains(".onHover{isHovered=$0}"))
+        return String(source[start.lowerBound..<end.lowerBound]).filter { !$0.isWhitespace }
     }
 }

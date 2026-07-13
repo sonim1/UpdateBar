@@ -28,7 +28,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Run Updates",
                 "---",
                 "Open TUI",
-                "Overview",
+                "Dashboard",
                 "Manage Items...",
                 "Scan & Add",
                 "Open Config",
@@ -244,7 +244,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Ready Tool 2.0.0",
                 "---",
                 "Open TUI",
-                "Overview",
+                "Dashboard",
                 "Manage Items...",
                 "Scan & Add",
                 "Open Config",
@@ -546,7 +546,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Refresh Status",
                 "Check Now",
                 "Open TUI",
-                "Overview",
+                "Dashboard",
                 "Manage Items...",
                 "Scan & Add",
                 "Open Config",
@@ -567,6 +567,32 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.quit),
             ])
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
+    }
+
+    func testDashboardTitleRoutesOverviewInNormalAndErrorMenus() {
+        let state = MenuBarState(
+            title: "Up to date",
+            badgeValue: nil,
+            outdatedItems: [],
+            approvalItems: [],
+            errorItems: [],
+            okItems: []
+        )
+        let builder = MenuBarMenuModelBuilder()
+
+        let normalMenu = builder.makeMenu(state: state, approvalStatuses: [:])
+        let errorMenu = builder.makeErrorMenu(errorDescription: "manifest invalid")
+
+        XCTAssertEqual(
+            normalMenu.entries.item(titled: "Dashboard")?.action,
+            .menu(.overview)
+        )
+        XCTAssertEqual(
+            errorMenu.entries.item(titled: "Dashboard")?.action,
+            .menu(.overview)
+        )
+        XCTAssertFalse(normalMenu.entries.labels.contains("Overview"))
+        XCTAssertFalse(errorMenu.entries.labels.contains("Overview"))
     }
 
     func testErrorRecoveryMenuRedactsSecretLikeValues() {

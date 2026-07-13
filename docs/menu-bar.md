@@ -1,11 +1,9 @@
 # Menu Bar App
 
 The menu bar app is a native Swift/AppKit presentation layer for UpdateBar.
-Clicking the status item opens a fixed 340-by-520-point, system-material popover
-that follows the macOS system appearance. A compact segmented control switches
-between the `Overview`, `Updates`, and `Approvals` tabs for summary counts,
-outdated items, and commands awaiting approval. Content uses borderless rows and
-native separators instead of dashboard-style cards.
+Clicking the status item opens a native `NSMenu`.
+The menu follows the macOS system appearance and is rebuilt from current state using
+standard menu items, separators, submenus, application icons, and checkmarks.
 
 Current scope:
 
@@ -14,16 +12,15 @@ Current scope:
 - shows outdated items separately from recipes that need command approval, with
   per-item update and approve/revoke actions
 - shows command text before approve/revoke actions
-- provides Open Dashboard, Manage Items, Open TUI, Refresh, Settings, About,
-  More, and Quit as full-width vertical menu-style rows without changing the
-  popover's fixed layout; Refresh invokes the existing Refresh Status action
-- keeps `Check Now` and `Run Updates` in More alongside `Scan & Add` and
-  `View Logs`; Run Updates is disabled with a "No updates available." help
-  message when there are no outdated items
+- provides `Check Now` and `Run Updates`, Refresh Status, Open TUI, Dashboard,
+  Manage Items, Scan & Add, Open Config, View Logs, and Quit through native menu
+  items; Run Updates is disabled when there are no outdated items
+- expands Open TUI into a native submenu when multiple supported terminals are
+  installed, with the selected terminal marked by a checkmark
 - keeps bulk-update confirmation in the app dispatcher before approved update
   commands run
 
-`Open Dashboard` opens a separate Dashboard window with pending-update and
+`Dashboard` opens a separate Dashboard window with pending-update and
 awaiting-approval counts, last check/update times, and a bar chart of successful
 updates over the last four weeks (from `~/.updatebar/history.jsonl`). `Manage
 Items...` opens a panel listing every registered item grouped by category with
@@ -31,9 +28,10 @@ an enable/disable checkbox per item. `Scan & Add` opens a panel that scans only
 when you press Scan, marks already-registered candidates, and registers selected
 ones without approving any commands.
 
-If the popover cannot be presented, the app reports the error and opens a
-native error-recovery menu so refresh, Check Now, Open TUI, Dashboard, item
-management, configuration, logs, and Quit remain reachable.
+If an operation or status refresh fails, the status badge changes to `!` and the
+app directly assigns a native error-recovery menu. Refresh Status, Check Now,
+Open TUI, Dashboard, item management, configuration, logs, and Quit remain
+reachable.
 
 Build a local unsigned app:
 
