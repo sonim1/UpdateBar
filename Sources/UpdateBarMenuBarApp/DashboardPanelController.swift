@@ -10,60 +10,154 @@
         var summary: DashboardSummary
         var onOpenItems: () -> Void
 
+        private let metricColumns = [
+            GridItem(.flexible(), spacing: 12),
+            GridItem(.flexible(), spacing: 12),
+        ]
+
         var body: some View {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .center, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("UpdateBar")
+                            .font(.title2.weight(.semibold))
+                        Text(statusText)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+
+                    Spacer(minLength: 16)
+
+                    Button(action: onOpenItems) {
+                        Label("Manage Items", systemImage: "slider.horizontal.3")
+                    }
+                    .accessibilityLabel("Manage Items")
+                }
+
+                LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 12) {
                     tile(
-                        title: "Pending Updates",
-                        value: "\(summary.pendingUpdates)"
+                        title: "Updates",
+                        value: "\(summary.pendingUpdates)",
+                        systemImage: "arrow.down.circle"
                     )
                     tile(
                         title: "Awaiting Approval",
-                        value: "\(summary.approvalsWaiting)"
+                        value: "\(summary.approvalsWaiting)",
+                        systemImage: "hourglass"
                     )
                     tile(
                         title: "Last Checked",
-                        value: shortDate(summary.lastChecked)
+                        value: shortDate(summary.lastChecked),
+                        systemImage: "magnifyingglass"
                     )
                     tile(
                         title: "Last Updated",
-                        value: shortDate(summary.lastUpdated)
+                        value: shortDate(summary.lastUpdated),
+                        systemImage: "clock"
                     )
                 }
 
-                Text("Updates · last 4 weeks")
-                    .font(.headline)
-                Chart(summary.updatesPerDay, id: \.day) { bucket in
-                    BarMark(
-                        x: .value("Day", bucket.day, unit: .day),
-                        y: .value("Updates", bucket.count)
-                    )
-                }
-                .chartYAxis {
-                    AxisMarks(values: .automatic(desiredCount: 3))
-                }
-                .frame(minHeight: 160)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Updates · last 4 weeks")
+                        .font(.headline)
 
-                HStack {
-                    Spacer()
-                    Button("Manage Items...", action: onOpenItems)
+                    ZStack {
+                        Chart(summary.updatesPerDay, id: \.day) { bucket in
+                            BarMark(
+                                x: .value("Day", bucket.day, unit: .day),
+                                y: .value("Updates", bucket.count)
+                            )
+                        }
+                        .chartYAxis {
+                            AxisMarks(values: .automatic(desiredCount: 3))
+                        }
+
+                        if let chartEmptyMessage {
+                            Text(chartEmptyMessage)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .frame(minHeight: 120, maxHeight: .infinity)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Updates in the last 4 weeks")
+                    .accessibilityValue(chartAccessibilityValue)
                 }
+                .frame(maxHeight: .infinity, alignment: .top)
             }
-            .padding(16)
+            .padding(20)
+            .frame(minWidth: 620, minHeight: 420, alignment: .topLeading)
         }
 
-        private func tile(title: String, value: String) -> some View {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(value)
-                    .font(.title2.weight(.semibold))
-                    .lineLimit(1)
+        private var statusText: String {
+            if summary.pendingUpdates == 0, summary.approvalsWaiting == 0 {
+                return "Everything is up to date."
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            var parts: [String] = []
+            if summary.pendingUpdates > 0 {
+                let noun = summary.pendingUpdates == 1 ? "update" : "updates"
+                parts.append("\(summary.pendingUpdates) \(noun) available")
+            }
+            if summary.approvalsWaiting > 0 {
+                let noun = summary.approvalsWaiting == 1 ? "item" : "items"
+                parts.append("\(summary.approvalsWaiting) \(noun) awaiting approval")
+            }
+            return parts.joined(separator: " · ")
+        }
+
+        private var totalUpdates: Int {
+            summary.updatesPerDay.reduce(0) { $0 + $1.count }
+        }
+
+        private var chartEmptyMessage: String? {
+            if summary.updatesPerDay.isEmpty {
+                return "No update history available"
+            }
+            if totalUpdates == 0 {
+                return "No updates in the last 4 weeks"
+            }
+            return nil
+        }
+
+        private var chartAccessibilityValue: String {
+            if let chartEmptyMessage {
+                return chartEmptyMessage
+            }
+            let noun = totalUpdates == 1 ? "update" : "updates"
+            return "\(totalUpdates) \(noun) recorded"
+        }
+
+        private func tile(title: String, value: String, systemImage: String) -> some View {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: systemImage)
+                        .frame(width: 16)
+                        .accessibilityHidden(true)
+                    Text(title)
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+
+                Text(value)
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(height: 24, alignment: .leading)
+                    .help(value)
+            }
             .padding(12)
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+            .background(
+                .quaternary.opacity(0.5),
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue(value)
         }
 
         private func shortDate(_ date: Date?) -> String {
@@ -83,16 +177,16 @@
         ) {
             self.service = service
             self.onOpenItems = onOpenItems
-            let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 620, height: 380),
-                styleMask: [.titled, .closable, .resizable, .utilityWindow],
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 720, height: 520),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
             )
-            panel.title = "Overview"
-            panel.isReleasedWhenClosed = false
-            panel.minSize = NSSize(width: 520, height: 320)
-            super.init(window: panel)
+            window.title = "Overview"
+            window.isReleasedWhenClosed = false
+            window.contentMinSize = NSSize(width: 620, height: 420)
+            super.init(window: window)
         }
 
         required init?(coder: NSCoder) {
