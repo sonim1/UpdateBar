@@ -600,11 +600,6 @@
                         : isHovered ? Color.primary.opacity(0.07) : Color.clear,
                     in: RoundedRectangle(cornerRadius: 4)
                 )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(Color.accentColor, lineWidth: 1)
-                        .opacity(isFocused ? 1 : 0)
-                )
                 .onHover { isHovered = $0 }
         }
     }

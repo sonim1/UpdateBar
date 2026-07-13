@@ -97,6 +97,7 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(modifierSource.contains(".contentShape(Rectangle())"))
         XCTAssertTrue(modifierSource.contains(".focused($isFocused)"))
         XCTAssertTrue(modifierSource.contains("isFocused?Color.accentColor"))
+        XCTAssertFalse(modifierSource.contains(".strokeBorder("))
         XCTAssertTrue(modifierSource.contains(".onHover{isHovered=$0}"))
     }
 }
