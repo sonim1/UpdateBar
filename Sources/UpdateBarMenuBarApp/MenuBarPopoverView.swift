@@ -379,6 +379,29 @@
         private var moreMenu: some View {
             Menu {
                 Button {
+                    onMenuAction(.checkNow)
+                } label: {
+                    Label("Check Now", systemImage: "magnifyingglass")
+                }
+                Button {
+                    onMenuAction(.updateAllApprovedOutdated)
+                } label: {
+                    Label("Run Updates", systemImage: "arrow.down.circle")
+                }
+                .disabled(model.updateCount == 0)
+                .help(
+                    model.updateCount == 0
+                        ? "No updates available."
+                        : "Runs approved outdated items after confirmation."
+                )
+                .accessibilityLabel("Run Updates")
+                .accessibilityValue(
+                    model.updateCount == 0
+                        ? "No updates available."
+                        : "\(model.updateCount) update\(model.updateCount == 1 ? "" : "s") available."
+                )
+                Divider()
+                Button {
                     onMenuAction(.scanAndAdd)
                 } label: {
                     Label("Scan & Add", systemImage: "plus.magnifyingglass")

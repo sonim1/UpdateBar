@@ -1,24 +1,37 @@
 # Menu Bar App
 
 The menu bar app is a native Swift/AppKit presentation layer for UpdateBar.
+Clicking the status item opens a fixed-size, system-material popover that follows
+the macOS system appearance. The popover has `Overview`, `Updates`, and `Approvals` tabs
+for summary metrics, outdated items, and commands awaiting approval.
 
 Current scope:
 
 - prefers direct `UpdateBarCore` calls through `CoreMenuBarService`
 - keeps `UpdateBarCLIClient` as a subprocess fallback with JSON-only contracts
-- shows outdated items separately from recipes that need command approval
+- shows outdated items separately from recipes that need command approval, with
+  per-item update and approve/revoke actions
 - shows command text before approve/revoke actions
-- supports Check Now, Refresh Status, update selected, update all approved outdated,
-  approve/revoke command fields, cancel current action, Open TUI, Overview,
-  Manage Items, Scan & Add, Open Config, View Logs, and Quit
+- provides Open Dashboard, Manage Items, Open TUI, Refresh, Settings, About,
+  More, and Quit commands without changing the popover's fixed layout; Refresh
+  invokes the existing Refresh Status action
+- keeps `Check Now` and `Run Updates` in More alongside `Scan & Add` and
+  `View Logs`; Run Updates is disabled with a "No updates available." help
+  message when there are no outdated items
+- keeps bulk-update confirmation in the app dispatcher before approved update
+  commands run
 
-`Overview` opens a dashboard with pending-update and awaiting-approval counts,
-last check/update times, and a bar chart of successful updates over the last
-four weeks (from `~/.updatebar/history.jsonl`). `Manage Items...` opens a panel
-listing every registered item grouped by category with an enable/disable
-checkbox per item. `Scan & Add` opens a panel that scans only when you press
-Scan, marks already-registered candidates, and registers selected ones without
-approving any commands.
+`Open Dashboard` opens a separate Dashboard window with pending-update and
+awaiting-approval counts, last check/update times, and a bar chart of successful
+updates over the last four weeks (from `~/.updatebar/history.jsonl`). `Manage
+Items...` opens a panel listing every registered item grouped by category with
+an enable/disable checkbox per item. `Scan & Add` opens a panel that scans only
+when you press Scan, marks already-registered candidates, and registers selected
+ones without approving any commands.
+
+If the popover cannot be presented, the app reports the error and opens a
+native error-recovery menu so refresh, Check Now, Open TUI, Dashboard, item
+management, configuration, logs, and Quit remain reachable.
 
 Build a local unsigned app:
 
