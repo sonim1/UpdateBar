@@ -14,6 +14,7 @@
         }
 
         private let popover: NSPopover
+        private var hostingView: NSHostingView<MenuBarPopoverView>?
 
         init() {
             popover = NSPopover()
@@ -46,14 +47,20 @@
         }
 
         func update(model: MenuBarPopoverModel, callbacks: Callbacks) {
-            let hostingView = NSHostingView(
-                rootView: MenuBarPopoverView(
-                    model: model,
-                    onItemAction: callbacks.onItemAction,
-                    onMenuAction: callbacks.onMenuAction,
-                    onAbout: callbacks.onAbout
-                ))
+            let rootView = MenuBarPopoverView(
+                model: model,
+                onItemAction: callbacks.onItemAction,
+                onMenuAction: callbacks.onMenuAction,
+                onAbout: callbacks.onAbout
+            )
+            if let hostingView {
+                hostingView.rootView = rootView
+                return
+            }
+
+            let hostingView = NSHostingView(rootView: rootView)
             hostingView.translatesAutoresizingMaskIntoConstraints = false
+            self.hostingView = hostingView
 
             let effectView = NSVisualEffectView()
             effectView.material = .popover

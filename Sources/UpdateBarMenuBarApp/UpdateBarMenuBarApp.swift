@@ -16,6 +16,7 @@
         private let popoverModelBuilder = MenuBarPopoverModelBuilder()
         private let popoverController = MenuBarPopoverController()
         private let actionCoordinator = MenuBarActionCoordinator()
+        private var refreshGenerationGate = MenuBarRefreshGenerationGate()
         private var scanPanelController: ScanPanelController?
         private var configPanelController: ConfigPanelController?
         private var manageItemsPanelController: ManageItemsPanelController?
@@ -435,6 +436,7 @@
         }
 
         private func refreshStatus(refresh: Bool) {
+            let refreshToken = refreshGenerationGate.begin()
             setTitle("...", accessibilityLabel: "UpdateBar checking")
             DispatchQueue.global(qos: .userInitiated).async { [service, formatter] in
                 do {
@@ -452,6 +454,7 @@
                         approvalsByItemID: approvals
                     )
                     DispatchQueue.main.async {
+                        guard self.refreshGenerationGate.isCurrent(refreshToken) else { return }
                         self.lastPopoverError = nil
                         self.latestState = state
                         self.approvalStatuses = approvals
@@ -459,6 +462,7 @@
                     }
                 } catch {
                     DispatchQueue.main.async {
+                        guard self.refreshGenerationGate.isCurrent(refreshToken) else { return }
                         self.showError(error)
                     }
                 }
