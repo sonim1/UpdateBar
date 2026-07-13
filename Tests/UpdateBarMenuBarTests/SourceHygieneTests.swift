@@ -42,28 +42,36 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(source.contains(#"latestState.badgeValue ?? "✓""#))
     }
 
-    func testSuccessfulActionCompletionRebuildsBeforeRefresh() throws {
+    func testAllCancellationOutcomesRefreshBeforeMutationRowsReturn() throws {
         let source = try String(
             contentsOf: URL(
                 fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
             encoding: .utf8
         )
-        guard
-            let runActionStart = source.range(of: "private func runAction("),
-            let runActionEnd = source.range(
-                of: "private func rebuildMenu()",
-                range: runActionStart.upperBound..<source.endIndex
-            )
-        else {
-            XCTFail("Menu bar action lifecycle methods are missing")
-            return
-        }
-
-        let runActionSource = source[runActionStart.lowerBound..<runActionEnd.lowerBound]
-            .filter { !$0.isWhitespace }
+        let runActionSource = try functionSource(
+            named: "private func runAction(",
+            endingAt: "private func rebuildMenu()",
+            in: source
+        )
         XCTAssertTrue(
             runActionSource.contains(
-                "self.actionCoordinator.finish(activeAction,outcome:wasCancelled?.cancelled:.finished)self.rebuildMenu()if!wasCancelled{self.refreshStatus(refresh:false)}"
+                "self.actionCoordinator.finish(activeAction,outcome:wasCancelled?.cancelled:.finished)self.refreshStatus(refresh:false)"
+            )
+        )
+        let explicitCancellationRefresh =
+            "self.actionCoordinator.finish(activeAction,outcome:.cancelled)self.refreshStatus(refresh:false)"
+        XCTAssertEqual(
+            runActionSource.components(separatedBy: explicitCancellationRefresh).count - 1,
+            2
+        )
+        XCTAssertFalse(
+            runActionSource.contains(
+                "self.actionCoordinator.finish(activeAction,outcome:.cancelled)self.rebuildMenu()"
+            )
+        )
+        XCTAssertTrue(
+            runActionSource.contains(
+                "self.actionCoordinator.finish(activeAction,outcome:.failed)self.showError(error)"
             )
         )
     }
@@ -112,7 +120,7 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertLessThan(invalidate.lowerBound, backgroundAction.lowerBound)
     }
 
-    func testShowErrorPreservesActiveActionMenu() throws {
+    func testShowErrorPreservesActiveActionThenInvalidatesOlderRefresh() throws {
         let source = try String(
             contentsOf: URL(
                 fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
@@ -123,12 +131,22 @@ final class SourceHygieneTests: XCTestCase {
             endingAt: "private func setTitle(",
             in: source
         )
-
-        XCTAssertTrue(
-            errorSource.contains(
-                "guardactionCoordinator.activeAction==nilelse{rebuildMenu()return}"
+        let activeActionGuard = try XCTUnwrap(
+            errorSource.range(
+                of: "guardactionCoordinator.activeAction==nilelse{rebuildMenu()return}"
             )
         )
+        let invalidate = try XCTUnwrap(
+            errorSource.range(of: "refreshGenerationGate.invalidate()")
+        )
+        let errorTitle = try XCTUnwrap(
+            errorSource.range(of: "setTitle(\"!\",accessibilityLabel:\"UpdateBarerror\")")
+        )
+        let errorMenu = try XCTUnwrap(errorSource.range(of: "menuBuilder.makeErrorMenu("))
+
+        XCTAssertLessThan(activeActionGuard.lowerBound, invalidate.lowerBound)
+        XCTAssertLessThan(invalidate.lowerBound, errorTitle.lowerBound)
+        XCTAssertLessThan(invalidate.lowerBound, errorMenu.lowerBound)
     }
 
     func testDashboardWindowUsesDashboardTitle() throws {

@@ -396,20 +396,17 @@
                             activeAction,
                             outcome: wasCancelled ? .cancelled : .finished
                         )
-                        self.rebuildMenu()
-                        if !wasCancelled {
-                            self.refreshStatus(refresh: false)
-                        }
+                        self.refreshStatus(refresh: false)
                     }
                 } catch let error as ExecutionError where error.isCancellation {
                     DispatchQueue.main.async {
                         self.actionCoordinator.finish(activeAction, outcome: .cancelled)
-                        self.rebuildMenu()
+                        self.refreshStatus(refresh: false)
                     }
                 } catch let error as UpdateBarCLIClientError where error == .cancelled {
                     DispatchQueue.main.async {
                         self.actionCoordinator.finish(activeAction, outcome: .cancelled)
-                        self.rebuildMenu()
+                        self.refreshStatus(refresh: false)
                     }
                 } catch {
                     DispatchQueue.main.async {
@@ -506,6 +503,7 @@
                 rebuildMenu()
                 return
             }
+            refreshGenerationGate.invalidate()
             setTitle("!", accessibilityLabel: "UpdateBar error")
             guard let statusItem else { return }
             let model = menuBuilder.makeErrorMenu(
