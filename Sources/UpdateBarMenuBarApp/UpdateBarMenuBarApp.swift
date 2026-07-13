@@ -487,9 +487,8 @@
                             activeAction,
                             outcome: wasCancelled ? .cancelled : .finished
                         )
-                        if wasCancelled {
-                            self.rebuildMenu()
-                        } else {
+                        self.rebuildMenu()
+                        if !wasCancelled {
                             self.refreshStatus(refresh: false)
                         }
                     }

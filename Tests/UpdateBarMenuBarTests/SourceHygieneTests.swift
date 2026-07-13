@@ -42,6 +42,54 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(source.contains(#"latestState.badgeValue ?? "✓""#))
     }
 
+    func testSuccessfulActionCompletionRebuildsBeforeRefresh() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
+            encoding: .utf8
+        )
+        guard
+            let runActionStart = source.range(of: "private func runAction("),
+            let runActionEnd = source.range(
+                of: "private func rebuildMenu()",
+                range: runActionStart.upperBound..<source.endIndex
+            )
+        else {
+            XCTFail("Menu bar action lifecycle methods are missing")
+            return
+        }
+
+        let runActionSource = source[runActionStart.lowerBound..<runActionEnd.lowerBound]
+            .filter { !$0.isWhitespace }
+        XCTAssertTrue(
+            runActionSource.contains(
+                "self.actionCoordinator.finish(activeAction,outcome:wasCancelled?.cancelled:.finished)self.rebuildMenu()if!wasCancelled{self.refreshStatus(refresh:false)}"
+            )
+        )
+    }
+
+    func testMenuBarPopoverHeaderUsesModelPresentation() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/MenuBarPopoverView.swift"),
+            encoding: .utf8
+        )
+        let compactSource = source.filter { !$0.isWhitespace }
+
+        XCTAssertTrue(
+            compactSource.contains(
+                "Label(model.headerTitle,systemImage:model.headerSymbol)"
+            )
+        )
+        XCTAssertTrue(
+            compactSource.contains(
+                ".help(model.headerHealthText).accessibilityLabel(model.headerHealthText)"
+            )
+        )
+        XCTAssertFalse(source.contains("private var healthText"))
+        XCTAssertFalse(source.contains("private var healthSymbol"))
+    }
+
     func testMenuBarPopoverUsesCompactNativeMenuLayout() throws {
         let viewSource = try String(
             contentsOf: URL(

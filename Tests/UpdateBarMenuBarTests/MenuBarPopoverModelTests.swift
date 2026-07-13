@@ -249,6 +249,37 @@ final class MenuBarPopoverModelTests: XCTestCase {
         XCTAssertFalse(String(describing: model).contains(secret))
     }
 
+    func testRefreshErrorOverridesStaleHeaderPresentation() {
+        let secret = "sk-or-v1-secret-value"
+        let outdated = item(
+            id: "old",
+            name: "Old Tool",
+            current: "1.0",
+            latest: "1.1",
+            status: .outdated
+        )
+        let staleState = MenuBarState(
+            title: "1 update",
+            badgeValue: "1",
+            outdatedItems: [outdated],
+            approvalItems: [],
+            errorItems: [],
+            okItems: [],
+            allItems: [outdated]
+        )
+
+        let model = MenuBarPopoverModelBuilder().makeModel(
+            state: staleState,
+            approvalStatuses: [:],
+            errorDescription: "Service failed with \(secret)"
+        )
+
+        XCTAssertEqual(model.headerTitle, "Status unavailable")
+        XCTAssertEqual(model.headerSymbol, "exclamationmark.triangle")
+        XCTAssertEqual(model.headerHealthText, "Health: status refresh failed")
+        XCTAssertEqual(model.errorMessage, "Service failed with [REDACTED]")
+    }
+
     func testFallbackTrackingCountsUniqueSectionItemIDs() {
         let duplicate = item(id: "shared", name: "Shared", status: .outdated)
         let repeated = item(id: "shared", name: "Shared", status: .error)

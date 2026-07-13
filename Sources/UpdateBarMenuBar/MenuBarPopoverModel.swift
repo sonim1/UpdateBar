@@ -73,6 +73,40 @@ public struct MenuBarPopoverModel: Equatable, Sendable {
         self.terminals = terminals
         self.selectedTerminalID = selectedTerminalID
     }
+
+    public var headerTitle: String {
+        errorMessage == nil ? title : "Status unavailable"
+    }
+
+    public var headerSymbol: String {
+        if errorMessage != nil || errorCount > 0 {
+            return "exclamationmark.triangle"
+        }
+        if approvalCount > 0 {
+            return "checkmark.shield"
+        }
+        if updateCount > 0 {
+            return "arrow.down.circle"
+        }
+        return "checkmark.circle"
+    }
+
+    public var headerHealthText: String {
+        if errorMessage != nil {
+            return "Health: status refresh failed"
+        }
+        if errorCount > 0 {
+            return "Health: \(errorCount) error\(errorCount == 1 ? "" : "s")"
+        }
+        if approvalCount > 0 {
+            return
+                "Health: approval required for \(approvalCount) item\(approvalCount == 1 ? "" : "s")"
+        }
+        if updateCount > 0 {
+            return "Health: \(updateCount) update\(updateCount == 1 ? "" : "s") available"
+        }
+        return "Health: All tracked items are current"
+    }
 }
 
 public struct MenuBarPopoverModelBuilder: Sendable {

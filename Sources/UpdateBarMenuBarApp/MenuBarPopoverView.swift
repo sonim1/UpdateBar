@@ -67,11 +67,11 @@
                 }
 
                 HStack(spacing: 8) {
-                    Label(model.title, systemImage: healthSymbol)
+                    Label(model.headerTitle, systemImage: model.headerSymbol)
                         .font(.caption.weight(.medium))
                         .lineLimit(1)
-                        .help(healthText)
-                        .accessibilityLabel(healthText)
+                        .help(model.headerHealthText)
+                        .accessibilityLabel(model.headerHealthText)
                     Spacer(minLength: 8)
                     Label(lastCheckedSummary, systemImage: "clock")
                         .font(.caption)
@@ -544,33 +544,6 @@
             return "Last checked: \(lastCheckedSummary) (\(date))"
         }
 
-        private var healthText: String {
-            if model.errorCount > 0 {
-                return "Health: \(model.errorCount) error\(model.errorCount == 1 ? "" : "s")"
-            }
-            if model.approvalCount > 0 {
-                return
-                    "Health: approval required for \(model.approvalCount) item\(model.approvalCount == 1 ? "" : "s")"
-            }
-            if model.updateCount > 0 {
-                return
-                    "Health: \(model.updateCount) update\(model.updateCount == 1 ? "" : "s") available"
-            }
-            return "Health: All tracked items are current"
-        }
-
-        private var healthSymbol: String {
-            if model.errorCount > 0 {
-                return "exclamationmark.triangle"
-            }
-            if model.approvalCount > 0 {
-                return "checkmark.shield"
-            }
-            if model.updateCount > 0 {
-                return "arrow.down.circle"
-            }
-            return "checkmark.circle"
-        }
     }
 
     private struct MenuCommandLabel: View {
