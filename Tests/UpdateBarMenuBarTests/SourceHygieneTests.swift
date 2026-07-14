@@ -225,7 +225,8 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(dashboardSource.contains("case items"))
         XCTAssertTrue(
             dashboardCompact.contains("privatelettabViewController=NSTabViewController()"))
-        XCTAssertTrue(dashboardCompact.contains("tabViewController.tabStyle=.toolbar"))
+        XCTAssertTrue(
+            dashboardCompact.contains("tabViewController.tabStyle=.segmentedControlOnTop"))
         XCTAssertTrue(dashboardSource.contains("private let overviewHostingView:"))
         XCTAssertEqual(dashboardSource.components(separatedBy: "NSHostingView(").count - 1, 1)
         XCTAssertTrue(

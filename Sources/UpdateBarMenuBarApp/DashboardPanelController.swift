@@ -247,7 +247,7 @@
             window.delegate = self
 
             overviewViewController.view = overviewHostingView
-            tabViewController.tabStyle = .toolbar
+            tabViewController.tabStyle = .segmentedControlOnTop
             tabViewController.canPropagateSelectedChildViewControllerTitle = false
 
             let overviewItem = NSTabViewItem(viewController: overviewViewController)
