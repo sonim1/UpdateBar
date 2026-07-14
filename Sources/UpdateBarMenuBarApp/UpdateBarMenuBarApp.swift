@@ -31,7 +31,7 @@
         )
         private var approvalStatuses: [String: [CommandApprovalStatus]] = [:]
         private var lastDashboardError: String?
-        private var pendingDashboardPresentation = false
+        private weak var pendingDashboardMenu: NSMenu?
 
         static func main() {
             let app = NSApplication.shared
@@ -192,15 +192,14 @@
             scanPanelController?.showScanWindow()
         }
 
-        @objc private func showDashboardPopover() {
-            guard !pendingDashboardPresentation else { return }
-            pendingDashboardPresentation = true
+        @objc private func showDashboardPopover(_ sender: NSMenuItem) {
+            guard let menu = sender.menu else { return }
+            pendingDashboardMenu = menu
         }
 
         func menuDidClose(_ menu: NSMenu) {
-            guard statusItem?.menu === menu else { return }
-            guard pendingDashboardPresentation else { return }
-            pendingDashboardPresentation = false
+            guard pendingDashboardMenu === menu else { return }
+            pendingDashboardMenu = nil
             DispatchQueue.main.async { [weak self] in
                 self?.presentDashboardPopover()
             }
@@ -698,7 +697,7 @@
             case .openTUI:
                 return #selector(openTUI)
             case .overview:
-                return #selector(showDashboardPopover)
+                return #selector(showDashboardPopover(_:))
             case .manageItems:
                 return #selector(manageItems)
             case .scanAndAdd:

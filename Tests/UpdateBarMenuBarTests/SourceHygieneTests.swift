@@ -265,7 +265,7 @@ final class SourceHygieneTests: XCTestCase {
             in: source
         )
         let dashboardSelectorSource = try functionSource(
-            named: "@objc private func showDashboardPopover()",
+            named: "@objc private func showDashboardPopover(_ sender: NSMenuItem)",
             endingAt: "func menuDidClose(",
             in: source
         )
@@ -296,28 +296,37 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(
             compact.contains("privateletdashboardPopoverController=DashboardPopoverController()"))
         XCTAssertTrue(compact.contains("privatevarlastDashboardError:String?"))
-        XCTAssertTrue(compact.contains("privatevarpendingDashboardPresentation=false"))
+        XCTAssertTrue(compact.contains("privateweakvarpendingDashboardMenu:NSMenu?"))
         XCTAssertTrue(
             compact.contains(
                 "finalclassUpdateBarMenuBarApp:NSObject,NSApplicationDelegate,NSMenuDelegate"))
         XCTAssertTrue(launchSource.contains("rebuildMenu()"))
         XCTAssertFalse(launchSource.contains("dashboardPopoverController.show("))
         XCTAssertTrue(
-            selectorSource.contains("case.overview:return#selector(showDashboardPopover)"))
+            selectorSource.contains("case.overview:return#selector(showDashboardPopover(_:))"))
         XCTAssertFalse(selectorSource.contains("case.overview:return#selector(showOverview)"))
-        XCTAssertTrue(
-            dashboardSelectorSource.contains("guard!pendingDashboardPresentationelse{return}"))
-        XCTAssertTrue(
-            dashboardSelectorSource.contains("pendingDashboardPresentation=true"))
+        XCTAssertTrue(dashboardSelectorSource.contains("guardletmenu=sender.menuelse{return}"))
+        XCTAssertTrue(dashboardSelectorSource.contains("pendingDashboardMenu=menu"))
         XCTAssertFalse(dashboardSelectorSource.contains("DispatchQueue.main.async"))
         XCTAssertFalse(dashboardSelectorSource.contains("presentDashboardPopover("))
         XCTAssertFalse(dashboardSelectorSource.contains("dashboardPopoverController.show("))
-        XCTAssertTrue(menuDidCloseSource.contains("guardstatusItem?.menu===menuelse{return}"))
-        XCTAssertTrue(menuDidCloseSource.contains("guardpendingDashboardPresentationelse{return}"))
-        XCTAssertTrue(menuDidCloseSource.contains("pendingDashboardPresentation=false"))
+        XCTAssertTrue(menuDidCloseSource.contains("guardpendingDashboardMenu===menuelse{return}"))
+        XCTAssertTrue(menuDidCloseSource.contains("pendingDashboardMenu=nil"))
+        XCTAssertFalse(menuDidCloseSource.contains("statusItem?.menu===menu"))
         XCTAssertTrue(menuDidCloseSource.contains("DispatchQueue.main.async"))
         XCTAssertTrue(menuDidCloseSource.contains("[weakself]"))
         XCTAssertTrue(menuDidCloseSource.contains("self?.presentDashboardPopover()"))
+        let initiatingMenuGuard = try XCTUnwrap(
+            menuDidCloseSource.range(of: "guardpendingDashboardMenu===menuelse{return}")
+        )
+        let pendingMenuClear = try XCTUnwrap(
+            menuDidCloseSource.range(of: "pendingDashboardMenu=nil")
+        )
+        let deferredPresentation = try XCTUnwrap(
+            menuDidCloseSource.range(of: "DispatchQueue.main.async")
+        )
+        XCTAssertLessThan(initiatingMenuGuard.lowerBound, pendingMenuClear.lowerBound)
+        XCTAssertLessThan(pendingMenuClear.lowerBound, deferredPresentation.lowerBound)
         XCTAssertTrue(dashboardPresentationSource.contains("statusItem?.button"))
         XCTAssertTrue(dashboardPresentationSource.contains("showOverview()"))
         XCTAssertTrue(dashboardPresentationSource.contains("dashboardPopoverController.show("))
