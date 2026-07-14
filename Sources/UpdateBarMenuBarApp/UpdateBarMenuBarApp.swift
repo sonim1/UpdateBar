@@ -13,6 +13,8 @@
         private var cliPath = ""
         private let formatter = MenuBarStatusFormatter()
         private let menuBuilder = MenuBarMenuModelBuilder()
+        private let dashboardPopoverModelBuilder = DashboardPopoverModelBuilder()
+        private let dashboardPopoverController = DashboardPopoverController()
         private let actionCoordinator = MenuBarActionCoordinator()
         private var refreshGenerationGate = MenuBarRefreshGenerationGate()
         private var scanPanelController: ScanPanelController?
@@ -28,6 +30,7 @@
             okItems: []
         )
         private var approvalStatuses: [String: [CommandApprovalStatus]] = [:]
+        private var lastDashboardError: String?
 
         static func main() {
             let app = NSApplication.shared
@@ -186,6 +189,21 @@
                 )
             }
             scanPanelController?.showScanWindow()
+        }
+
+        @objc private func showDashboardPopover() {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                guard let statusButton = self.statusItem?.button else {
+                    self.showOverview()
+                    return
+                }
+                self.dashboardPopoverController.show(
+                    relativeTo: statusButton,
+                    model: self.makeDashboardPopoverModel(),
+                    onOpenFullDashboard: self.makeOpenFullDashboardAction()
+                )
+            }
         }
 
         @objc private func showOverview() {
@@ -366,6 +384,7 @@
                         guard self.refreshGenerationGate.isCurrent(refreshToken) else { return }
                         self.latestState = state
                         self.approvalStatuses = approvals
+                        self.lastDashboardError = nil
                         self.rebuildMenu()
                     }
                 } catch {
@@ -440,6 +459,34 @@
                 selectedTerminalID: selectedTerminal().id
             )
             statusItem.menu = makeMenu(from: model)
+            updateDashboardPopoverIfShown()
+        }
+
+        private func makeDashboardPopoverModel() -> DashboardPopoverModel {
+            let activeAction = actionCoordinator.activeAction
+            return dashboardPopoverModelBuilder.makeModel(
+                state: latestState,
+                approvalStatuses: approvalStatuses,
+                activeActionTitle: activeAction?.title,
+                lastActionNotice: activeAction == nil ? actionCoordinator.lastActionNotice : nil,
+                errorDescription: lastDashboardError
+            )
+        }
+
+        private func updateDashboardPopoverIfShown() {
+            guard dashboardPopoverController.isShown else { return }
+            dashboardPopoverController.update(
+                model: makeDashboardPopoverModel(),
+                onOpenFullDashboard: makeOpenFullDashboardAction()
+            )
+        }
+
+        private func makeOpenFullDashboardAction() -> () -> Void {
+            { [weak self] in
+                guard let self else { return }
+                self.dashboardPopoverController.close()
+                self.showOverview()
+            }
         }
 
         private func makeMenu(from model: MenuBarMenuModel) -> NSMenu {
@@ -499,6 +546,7 @@
         private func showError(_ error: Error) {
             let errorDescription = SecretRedactor.redact(String(describing: error))
             Self.debugLog("showing error: \(errorDescription)")
+            lastDashboardError = errorDescription
             guard actionCoordinator.activeAction == nil else {
                 rebuildMenu()
                 return
@@ -510,6 +558,7 @@
                 errorDescription: errorDescription
             )
             statusItem.menu = makeMenu(from: model)
+            updateDashboardPopoverIfShown()
         }
 
         private func setTitle(_ title: String, accessibilityLabel: String? = nil) {
@@ -632,7 +681,7 @@
             case .openTUI:
                 return #selector(openTUI)
             case .overview:
-                return #selector(showOverview)
+                return #selector(showDashboardPopover)
             case .manageItems:
                 return #selector(manageItems)
             case .scanAndAdd:

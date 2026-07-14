@@ -252,6 +252,110 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertEqual(source.components(separatedBy: "NSHostingView(").count - 1, 1)
     }
 
+    func testDashboardMenuRoutesToPopoverWithoutReplacingNativeMenu() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
+            encoding: .utf8
+        )
+        let compact = source.filter { !$0.isWhitespace }
+        let launchSource = try functionSource(
+            named: "func applicationDidFinishLaunching(",
+            endingAt: "func applicationWillTerminate(",
+            in: source
+        )
+        let dashboardSource = try functionSource(
+            named: "@objc private func showDashboardPopover()",
+            endingAt: "@objc private func showOverview()",
+            in: source
+        )
+        let selectorSource = try functionSource(
+            named: "private func selector(for action: MenuBarMenuAction)",
+            endingAt: "private func disabledItem(",
+            in: source
+        )
+
+        XCTAssertTrue(
+            compact.contains(
+                "privateletdashboardPopoverModelBuilder=DashboardPopoverModelBuilder()"))
+        XCTAssertTrue(
+            compact.contains("privateletdashboardPopoverController=DashboardPopoverController()"))
+        XCTAssertTrue(compact.contains("privatevarlastDashboardError:String?"))
+        XCTAssertTrue(launchSource.contains("rebuildMenu()"))
+        XCTAssertFalse(launchSource.contains("dashboardPopoverController.show("))
+        XCTAssertTrue(
+            selectorSource.contains("case.overview:return#selector(showDashboardPopover)"))
+        XCTAssertFalse(selectorSource.contains("case.overview:return#selector(showOverview)"))
+        XCTAssertTrue(dashboardSource.contains("DispatchQueue.main.async"))
+        XCTAssertTrue(dashboardSource.contains("[weakself]"))
+        XCTAssertTrue(dashboardSource.contains("statusItem?.button"))
+        XCTAssertTrue(dashboardSource.contains("self.showOverview()"))
+        XCTAssertTrue(dashboardSource.contains("dashboardPopoverController.show("))
+        XCTAssertEqual(
+            source.components(separatedBy: "dashboardPopoverController.show(").count - 1, 1)
+        XCTAssertFalse(source.contains("statusButton.target"))
+        XCTAssertFalse(source.contains("statusButton.action"))
+        XCTAssertFalse(source.contains("statusButton.sendAction"))
+    }
+
+    func testDashboardPopoverTracksRefreshMenuAndErrorTransitions() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
+            encoding: .utf8
+        )
+        let refreshSource = try functionSource(
+            named: "private func refreshStatus(",
+            endingAt: "private func runAction(",
+            in: source
+        )
+        let rebuildSource = try functionSource(
+            named: "private func rebuildMenu()",
+            endingAt: "private func makeMenu(from",
+            in: source
+        )
+        let errorSource = try functionSource(
+            named: "private func showError(",
+            endingAt: "private func setTitle(",
+            in: source
+        )
+
+        let clearedError = try XCTUnwrap(refreshSource.range(of: "self.lastDashboardError=nil"))
+        let refreshedMenu = try XCTUnwrap(refreshSource.range(of: "self.rebuildMenu()"))
+        XCTAssertLessThan(clearedError.lowerBound, refreshedMenu.lowerBound)
+
+        let nativeMenu = try XCTUnwrap(
+            rebuildSource.range(of: "statusItem.menu=makeMenu(from:model)"))
+        let popoverUpdate = try XCTUnwrap(
+            rebuildSource.range(of: "updateDashboardPopoverIfShown()")
+        )
+        XCTAssertLessThan(nativeMenu.lowerBound, popoverUpdate.lowerBound)
+
+        let redactedError = try XCTUnwrap(
+            errorSource.range(
+                of: "leterrorDescription=SecretRedactor.redact(String(describing:error))"
+            )
+        )
+        let storedError = try XCTUnwrap(
+            errorSource.range(of: "lastDashboardError=errorDescription")
+        )
+        let activeActionGuard = try XCTUnwrap(
+            errorSource.range(
+                of: "guardactionCoordinator.activeAction==nilelse{rebuildMenu()return}"
+            )
+        )
+        let invalidate = try XCTUnwrap(errorSource.range(of: "refreshGenerationGate.invalidate()"))
+        let errorMenu = try XCTUnwrap(errorSource.range(of: "statusItem.menu=makeMenu(from:model)"))
+        let errorPopoverUpdate = try XCTUnwrap(
+            errorSource.range(of: "updateDashboardPopoverIfShown()")
+        )
+
+        XCTAssertLessThan(redactedError.lowerBound, storedError.lowerBound)
+        XCTAssertLessThan(storedError.lowerBound, activeActionGuard.lowerBound)
+        XCTAssertLessThan(activeActionGuard.lowerBound, invalidate.lowerBound)
+        XCTAssertLessThan(errorMenu.lowerBound, errorPopoverUpdate.lowerBound)
+    }
+
     private func functionSource(
         named startMarker: String,
         endingAt endMarker: String,
