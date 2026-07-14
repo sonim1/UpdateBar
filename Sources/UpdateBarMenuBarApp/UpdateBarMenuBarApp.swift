@@ -6,7 +6,7 @@
 
     @main
     @MainActor
-    final class UpdateBarMenuBarApp: NSObject, NSApplicationDelegate {
+    final class UpdateBarMenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         private static var bootstrapDelegate: UpdateBarMenuBarApp?
         private var statusItem: NSStatusItem?
         private var service: (any MenuBarServicing)?
@@ -31,6 +31,7 @@
         )
         private var approvalStatuses: [String: [CommandApprovalStatus]] = [:]
         private var lastDashboardError: String?
+        private var pendingDashboardPresentation = false
 
         static func main() {
             let app = NSApplication.shared
@@ -192,18 +193,33 @@
         }
 
         @objc private func showDashboardPopover() {
+            guard !pendingDashboardPresentation else { return }
+            pendingDashboardPresentation = true
+        }
+
+        func menuDidClose(_ menu: NSMenu) {
+            guard statusItem?.menu === menu else { return }
+            guard pendingDashboardPresentation else { return }
+            pendingDashboardPresentation = false
             DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                guard let statusButton = self.statusItem?.button else {
-                    self.showOverview()
-                    return
-                }
-                self.dashboardPopoverController.show(
-                    relativeTo: statusButton,
-                    model: self.makeDashboardPopoverModel(),
-                    onOpenFullDashboard: self.makeOpenFullDashboardAction()
-                )
+                self?.presentDashboardPopover()
             }
+        }
+
+        private func presentDashboardPopover() {
+            guard !dashboardPopoverController.isShown else {
+                updateDashboardPopoverIfShown()
+                return
+            }
+            guard let statusButton = statusItem?.button else {
+                showOverview()
+                return
+            }
+            dashboardPopoverController.show(
+                relativeTo: statusButton,
+                model: makeDashboardPopoverModel(),
+                onOpenFullDashboard: makeOpenFullDashboardAction()
+            )
         }
 
         @objc private func showOverview() {
@@ -491,6 +507,7 @@
 
         private func makeMenu(from model: MenuBarMenuModel) -> NSMenu {
             let menu = NSMenu()
+            menu.delegate = self
             for entry in model.entries {
                 switch entry {
                 case .separator:
