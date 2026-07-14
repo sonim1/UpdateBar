@@ -30,6 +30,8 @@
                     }
                 }
                 .pickerStyle(.segmented)
+                .labelsHidden()
+                .accessibilityLabel("Section")
 
                 Divider()
 
