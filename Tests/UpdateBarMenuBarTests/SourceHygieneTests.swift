@@ -202,6 +202,56 @@ final class SourceHygieneTests: XCTestCase {
         }
     }
 
+    func testDashboardPopoverViewUsesCompactReadOnlySystemControls() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/DashboardPopoverView.swift"),
+            encoding: .utf8
+        )
+        let compact = source.filter { !$0.isWhitespace }
+
+        XCTAssertTrue(compact.contains("CGSize(width:340,height:420)"))
+        XCTAssertTrue(source.contains("case overview = \"Overview\""))
+        XCTAssertTrue(source.contains("case updates = \"Updates\""))
+        XCTAssertTrue(source.contains("case approvals = \"Approvals\""))
+        XCTAssertTrue(compact.contains("Picker(\"Section\",selection:$selection)"))
+        XCTAssertTrue(compact.contains(".pickerStyle(.segmented)"))
+        XCTAssertTrue(source.contains("ScrollView"))
+        XCTAssertTrue(source.contains("Image(systemName: \"arrow.up.right.square\")"))
+        XCTAssertTrue(compact.contains(".buttonStyle(.borderless)"))
+        XCTAssertTrue(source.contains(".help(\"Open Full Dashboard\")"))
+        XCTAssertTrue(source.contains(".accessibilityLabel(\"Open Full Dashboard\")"))
+        XCTAssertEqual(source.components(separatedBy: "Button(").count - 1, 1)
+
+        for forbidden in [
+            "onRefresh", "onUpdate", "onApprove", "onSettings", "onQuit",
+            "CommandGrid", "Text(\"Refresh\")", "Text(\"Settings\")", "Text(\"Quit\")",
+        ] {
+            XCTAssertFalse(source.contains(forbidden), forbidden)
+        }
+    }
+
+    func testDashboardPopoverControllerUsesOneTransientSystemMaterialPopover() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/DashboardPopoverController.swift"),
+            encoding: .utf8
+        )
+        let compact = source.filter { !$0.isWhitespace }
+
+        XCTAssertTrue(compact.contains("privateletpopover=NSPopover()"))
+        XCTAssertTrue(source.contains("private let hostingView:"))
+        XCTAssertTrue(compact.contains("popover.behavior=.transient"))
+        XCTAssertTrue(compact.contains("effectView.material=.popover"))
+        XCTAssertTrue(compact.contains("effectView.blendingMode=.behindWindow"))
+        XCTAssertTrue(compact.contains("effectView.state=.followsWindowActiveState"))
+        XCTAssertTrue(source.contains("func show("))
+        XCTAssertTrue(source.contains("func update("))
+        XCTAssertTrue(source.contains("func close()"))
+        XCTAssertTrue(source.contains("var isShown:"))
+        XCTAssertEqual(source.components(separatedBy: "NSHostingView(").count - 1, 1)
+    }
+
     private func functionSource(
         named startMarker: String,
         endingAt endMarker: String,
