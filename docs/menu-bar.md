@@ -24,17 +24,17 @@ Current scope:
 - keeps bulk-update confirmation in the app dispatcher before approved update
   commands run
 
-`Dashboard` waits for the initiating native menu to close, then opens a
-compact read-only popover using the macOS system material. Its
-Overview, Updates, and Approvals views summarize current state. All
-commands and actions remain in the native menu. An icon-only full-dashboard
-control opens a separate detailed Dashboard window with pending-update and
-awaiting-approval counts, last check/update times, and a bar chart of successful
-updates over the last four weeks (from `~/.updatebar/history.jsonl`). `Manage
-Items...` opens a panel listing every registered item grouped by category with
-an enable/disable checkbox per item. `Scan & Add` opens a panel that scans only
-when you press Scan, marks already-registered candidates, and registers selected
-ones without approving any commands.
+`Dashboard` opens the Dashboard window directly. The window has Overview and Items tabs
+built with native AppKit controls. Overview shows pending-update and awaiting-approval counts, last
+check/update times, and a bar chart of successful updates over the last four
+weeks (from `~/.updatebar/history.jsonl`). Items lists every registered item
+grouped by category with an enable/disable checkbox per item. `Manage Items...`
+opens the same Dashboard window with Items selected, so item management never
+creates another panel. While the Dashboard window is visible, UpdateBar appears
+in Cmd-Tab and the Dock. Closing the last visible titled UpdateBar window returns
+the process to menu-bar-only mode. `Scan & Add` remains a separate panel that
+scans only when you press Scan, marks already-registered candidates, and
+registers selected ones without approving any commands.
 
 If an operation or status refresh fails, the status badge changes to `!` and the
 app directly assigns a native error-recovery menu. Refresh Status, Check Now,

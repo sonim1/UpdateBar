@@ -9,7 +9,6 @@
 
     private struct DashboardView: View {
         var summary: DashboardSummary
-        var onOpenItems: () -> Void
 
         private let metricColumns = [
             GridItem(.flexible(), spacing: 12),
@@ -18,22 +17,13 @@
 
         var body: some View {
             VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .center, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("UpdateBar")
-                            .font(.title2.weight(.semibold))
-                        Text(statusText)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                    }
-
-                    Spacer(minLength: 16)
-
-                    Button(action: onOpenItems) {
-                        Label("Manage Items", systemImage: "slider.horizontal.3")
-                    }
-                    .accessibilityLabel("Manage Items")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("UpdateBar")
+                        .font(.title2.weight(.semibold))
+                    Text(statusText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
 
                 LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 12) {
@@ -219,17 +209,31 @@
         }
     }
 
-    final class DashboardPanelController: NSWindowController {
+    enum DashboardTab: Int {
+        case overview
+        case items
+    }
+
+    final class DashboardPanelController: NSWindowController, NSWindowDelegate {
         private let service: any MenuBarServicing
-        private let onOpenItems: () -> Void
         private let model = DashboardModel()
+        private let tabViewController = NSTabViewController()
+        private let overviewViewController = NSViewController()
+        private let overviewHostingView: NSHostingView<AnyView> = NSHostingView(
+            rootView: AnyView(ProgressView().frame(minWidth: 620, minHeight: 420))
+        )
+        private let manageItemsViewController: ManageItemsViewController
+        private var reloadGeneration = 0
 
         init(
             service: any MenuBarServicing,
-            onOpenItems: @escaping () -> Void
+            onItemsChanged: @escaping () -> Void
         ) {
             self.service = service
-            self.onOpenItems = onOpenItems
+            manageItemsViewController = ManageItemsViewController(
+                service: service,
+                onChanged: onItemsChanged
+            )
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 720, height: 520),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -240,13 +244,34 @@
             window.isReleasedWhenClosed = false
             window.contentMinSize = NSSize(width: 620, height: 420)
             super.init(window: window)
+            window.delegate = self
+
+            overviewViewController.view = overviewHostingView
+            tabViewController.tabStyle = .toolbar
+            tabViewController.canPropagateSelectedChildViewControllerTitle = false
+
+            let overviewItem = NSTabViewItem(viewController: overviewViewController)
+            overviewItem.label = "Overview"
+            let itemsItem = NSTabViewItem(viewController: manageItemsViewController)
+            itemsItem.label = "Items"
+            tabViewController.addTabViewItem(overviewItem)
+            tabViewController.addTabViewItem(itemsItem)
+            window.contentViewController = tabViewController
+
+            manageItemsViewController.onRefresh = { [weak self] in
+                self?.reload()
+            }
+            manageItemsViewController.onError = { [weak self] error in
+                self?.showErrorIfShown(error)
+            }
         }
 
         required init?(coder: NSCoder) {
             nil
         }
 
-        func showWindowAndReload() {
+        func showWindowAndReload(selecting tab: DashboardTab) {
+            tabViewController.selectedTabViewItemIndex = tab.rawValue
             showWindow(nil)
             window?.center()
             window?.makeKeyAndOrderFront(nil)
@@ -254,7 +279,22 @@
             reload()
         }
 
-        private func reload() {
+        func reloadIfShown() {
+            guard window?.isVisible == true else { return }
+            reload()
+        }
+
+        func showErrorIfShown(_ error: Error) {
+            guard window?.isVisible == true else { return }
+            reloadGeneration &+= 1
+            manageItemsViewController.showError(error)
+            presentDashboardError(error)
+        }
+
+        func reload() {
+            reloadGeneration &+= 1
+            let generation = reloadGeneration
+            manageItemsViewController.setLoading()
             DispatchQueue.global(qos: .userInitiated).async { [service, model] in
                 do {
                     let now = Date()
@@ -263,28 +303,31 @@
                     let events = try service.history(since: since)
                     let summary = model.summary(snapshot: snapshot, events: events, now: now)
                     DispatchQueue.main.async {
+                        guard generation == self.reloadGeneration else { return }
                         self.apply(summary)
+                        self.manageItemsViewController.apply(items: snapshot.items)
                     }
                 } catch {
                     DispatchQueue.main.async {
-                        self.presentError(error)
+                        guard generation == self.reloadGeneration else { return }
+                        self.manageItemsViewController.showError(error)
+                        self.presentDashboardError(error)
                     }
                 }
             }
         }
 
-        private func apply(_ summary: DashboardSummary) {
-            let view = DashboardView(
-                summary: summary,
-                onOpenItems: { [weak self] in
-                    self?.onOpenItems()
-                }
-            )
-            window?.contentView = NSHostingView(rootView: view)
+        func windowWillClose(_ notification: Notification) {
+            reloadGeneration &+= 1
         }
 
-        private func presentError(_ error: Error) {
-            guard let window else { return }
+        private func apply(_ summary: DashboardSummary) {
+            let view = DashboardView(summary: summary)
+            overviewHostingView.rootView = AnyView(view)
+        }
+
+        private func presentDashboardError(_ error: Error) {
+            guard let window, window.isVisible, window.attachedSheet == nil else { return }
             let alert = NSAlert()
             alert.alertStyle = .warning
             alert.messageText = "UpdateBar"

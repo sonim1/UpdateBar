@@ -42,7 +42,7 @@
   Overview item and `ManageItemsViewController` in the Items item.
 - [ ] Remove the Overview header's Manage Items button and callback.
 - [ ] Add `showWindowAndReload(selecting:)`; select the requested tab, reuse the
-  same window, reload Overview and Items, and report window close.
+  same window, and reload Overview and Items.
 - [ ] Run `rtk test swift test --filter SourceHygieneTests` and
   `rtk err swift build --target UpdateBarMenuBarApp`.
 
@@ -60,8 +60,8 @@
 - [ ] Add `showDashboard(tab:)`; create one Dashboard controller, switch to
   `.regular`, show the requested tab, and refresh menu state after item changes.
 - [ ] Route Dashboard to `.overview` and Manage Items to `.items`.
-- [ ] On Dashboard close, defer a visible-titled-window check and restore
-  `.accessory` only when none remain.
+- [ ] Observe native window-close notifications, defer a visible-titled-window
+  check, and restore `.accessory` only when none remain.
 - [ ] Run `rtk test swift test --filter UpdateBarMenuBarTests`, build the app,
   lint changed Swift files strictly, and run `rtk git diff --check`.
 

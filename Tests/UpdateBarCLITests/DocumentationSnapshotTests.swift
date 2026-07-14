@@ -1389,19 +1389,21 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(menuBarSpec.contains("Update All Approved Outdated"))
     }
 
-    func testMenuBarDocsDescribeCurrentNativeMenuAndDashboardPopover() throws {
+    func testMenuBarDocsDescribeCurrentNativeMenuAndUnifiedDashboardWindow() throws {
         let docs = try String(contentsOfFile: "docs/menu-bar.md", encoding: .utf8)
 
         XCTAssertTrue(docs.contains("native `NSMenu`"))
         XCTAssertTrue(docs.contains("standard menu items, separators, submenus"))
         XCTAssertTrue(docs.contains("`Check Now` and `Run Updates`"))
-        XCTAssertTrue(docs.contains("compact read-only popover"))
-        XCTAssertTrue(docs.contains("Overview, Updates, and Approvals"))
-        XCTAssertTrue(docs.contains("commands and actions remain in the native menu"))
-        XCTAssertTrue(docs.contains("separate detailed Dashboard window"))
+        XCTAssertTrue(docs.contains("opens the Dashboard window directly"))
+        XCTAssertTrue(docs.contains("Overview and Items tabs"))
+        XCTAssertTrue(docs.contains("same Dashboard window"))
+        XCTAssertTrue(docs.contains("Cmd-Tab"))
+        XCTAssertTrue(docs.contains("menu-bar-only mode"))
         XCTAssertTrue(docs.contains("native error-recovery menu"))
         XCTAssertTrue(docs.contains("system appearance"))
-        XCTAssertFalse(docs.contains("primary click opens a popover"))
+        XCTAssertFalse(docs.contains("compact read-only popover"))
+        XCTAssertFalse(docs.contains("separate detailed Dashboard window"))
     }
 
     func testMenuBarTroubleshootingAvoidsBroadPkill() throws {

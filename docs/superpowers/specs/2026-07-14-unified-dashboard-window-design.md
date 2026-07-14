@@ -44,9 +44,9 @@ logic, and focused tests are removed because there is no popover path.
 
 The process starts as `.accessory`. Before the Dashboard window is shown, the
 app changes to `.regular` and activates, making the open window available in
-Cmd-Tab/Alt-Tab and the Dock. `DashboardPanelController` reports window close.
-On the next main-loop turn, the app returns to `.accessory` only when no visible
-titled UpdateBar window remains.
+Cmd-Tab/Alt-Tab and the Dock. The app observes native window-close notifications.
+On the next main-loop turn, it returns to `.accessory` only when no visible titled
+UpdateBar window remains.
 
 ## Data And Errors
 

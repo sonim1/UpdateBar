@@ -6,20 +6,17 @@
 
     @main
     @MainActor
-    final class UpdateBarMenuBarApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    final class UpdateBarMenuBarApp: NSObject, NSApplicationDelegate {
         private static var bootstrapDelegate: UpdateBarMenuBarApp?
         private var statusItem: NSStatusItem?
         private var service: (any MenuBarServicing)?
         private var cliPath = ""
         private let formatter = MenuBarStatusFormatter()
         private let menuBuilder = MenuBarMenuModelBuilder()
-        private let dashboardPopoverModelBuilder = DashboardPopoverModelBuilder()
-        private let dashboardPopoverController = DashboardPopoverController()
         private let actionCoordinator = MenuBarActionCoordinator()
         private var refreshGenerationGate = MenuBarRefreshGenerationGate()
         private var scanPanelController: ScanPanelController?
         private var configPanelController: ConfigPanelController?
-        private var manageItemsPanelController: ManageItemsPanelController?
         private var dashboardPanelController: DashboardPanelController?
         private var latestState = MenuBarState(
             title: "Checking...",
@@ -30,8 +27,6 @@
             okItems: []
         )
         private var approvalStatuses: [String: [CommandApprovalStatus]] = [:]
-        private var lastDashboardError: String?
-        private weak var pendingDashboardMenu: NSMenu?
 
         static func main() {
             let app = NSApplication.shared
@@ -44,6 +39,12 @@
         }
 
         func applicationDidFinishLaunching(_ notification: Notification) {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(applicationWindowWillClose(_:)),
+                name: NSWindow.willCloseNotification,
+                object: nil
+            )
             let useCLIAdapter = Self.shouldUseCLIAdapter()
             if useCLIAdapter {
                 let resolvedPath = Self.resolveCLIPath()
@@ -79,6 +80,11 @@
         }
 
         func applicationWillTerminate(_ notification: Notification) {
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSWindow.willCloseNotification,
+                object: nil
+            )
             ProcessInfo.processInfo.enableAutomaticTermination("UpdateBar menu bar app terminated")
             Self.bootstrapDelegate = nil
         }
@@ -192,65 +198,43 @@
             scanPanelController?.showScanWindow()
         }
 
-        @objc private func showDashboardPopover(_ sender: NSMenuItem) {
-            guard let menu = sender.menu else { return }
-            pendingDashboardMenu = menu
-        }
-
-        func menuDidClose(_ menu: NSMenu) {
-            guard pendingDashboardMenu === menu else { return }
-            pendingDashboardMenu = nil
-            DispatchQueue.main.async { [weak self] in
-                self?.presentDashboardPopover()
-            }
-        }
-
-        private func presentDashboardPopover() {
-            guard !dashboardPopoverController.isShown else {
-                updateDashboardPopoverIfShown()
-                return
-            }
-            guard let statusButton = statusItem?.button else {
-                showOverview()
-                return
-            }
-            dashboardPopoverController.show(
-                relativeTo: statusButton,
-                model: makeDashboardPopoverModel(),
-                onOpenFullDashboard: makeOpenFullDashboardAction()
-            )
-        }
-
         @objc private func showOverview() {
-            guard let service else {
-                showError(MenuBarStartupError.serviceUnavailable)
-                return
-            }
-            if dashboardPanelController == nil {
-                dashboardPanelController = DashboardPanelController(
-                    service: service,
-                    onOpenItems: { [weak self] in
-                        self?.manageItems()
-                    }
-                )
-            }
-            dashboardPanelController?.showWindowAndReload()
+            showDashboard(.overview)
         }
 
         @objc private func manageItems() {
+            showDashboard(.items)
+        }
+
+        private func showDashboard(_ tab: DashboardTab) {
             guard let service else {
                 showError(MenuBarStartupError.serviceUnavailable)
                 return
             }
-            if manageItemsPanelController == nil {
-                manageItemsPanelController = ManageItemsPanelController(
+            NSApp.setActivationPolicy(.regular)
+            if dashboardPanelController == nil {
+                dashboardPanelController = DashboardPanelController(
                     service: service,
-                    onChanged: { [weak self] in
+                    onItemsChanged: { [weak self] in
                         self?.refreshStatus(refresh: false)
                     }
                 )
             }
-            manageItemsPanelController?.showWindowAndReload()
+            dashboardPanelController?.showWindowAndReload(selecting: tab)
+        }
+
+        @objc private func applicationWindowWillClose(_ notification: Notification) {
+            restoreAccessoryActivationPolicyIfNeeded()
+        }
+
+        private func restoreAccessoryActivationPolicyIfNeeded() {
+            DispatchQueue.main.async {
+                let hasVisibleTitledWindow = NSApp.windows.contains {
+                    $0.isVisible && $0.styleMask.contains(.titled)
+                }
+                guard !hasVisibleTitledWindow else { return }
+                NSApp.setActivationPolicy(.accessory)
+            }
         }
 
         @objc private func openTUIInTerminal(_ sender: NSMenuItem) {
@@ -399,8 +383,8 @@
                         guard self.refreshGenerationGate.isCurrent(refreshToken) else { return }
                         self.latestState = state
                         self.approvalStatuses = approvals
-                        self.lastDashboardError = nil
                         self.rebuildMenu()
+                        self.dashboardPanelController?.reloadIfShown()
                     }
                 } catch {
                     DispatchQueue.main.async {
@@ -474,39 +458,10 @@
                 selectedTerminalID: selectedTerminal().id
             )
             statusItem.menu = makeMenu(from: model)
-            updateDashboardPopoverIfShown()
-        }
-
-        private func makeDashboardPopoverModel() -> DashboardPopoverModel {
-            let activeAction = actionCoordinator.activeAction
-            return dashboardPopoverModelBuilder.makeModel(
-                state: latestState,
-                approvalStatuses: approvalStatuses,
-                activeActionTitle: activeAction?.title,
-                lastActionNotice: activeAction == nil ? actionCoordinator.lastActionNotice : nil,
-                errorDescription: lastDashboardError
-            )
-        }
-
-        private func updateDashboardPopoverIfShown() {
-            guard dashboardPopoverController.isShown else { return }
-            dashboardPopoverController.update(
-                model: makeDashboardPopoverModel(),
-                onOpenFullDashboard: makeOpenFullDashboardAction()
-            )
-        }
-
-        private func makeOpenFullDashboardAction() -> () -> Void {
-            { [weak self] in
-                guard let self else { return }
-                self.dashboardPopoverController.close()
-                self.showOverview()
-            }
         }
 
         private func makeMenu(from model: MenuBarMenuModel) -> NSMenu {
             let menu = NSMenu()
-            menu.delegate = self
             for entry in model.entries {
                 switch entry {
                 case .separator:
@@ -562,7 +517,6 @@
         private func showError(_ error: Error) {
             let errorDescription = SecretRedactor.redact(String(describing: error))
             Self.debugLog("showing error: \(errorDescription)")
-            lastDashboardError = errorDescription
             guard actionCoordinator.activeAction == nil else {
                 rebuildMenu()
                 return
@@ -574,7 +528,7 @@
                 errorDescription: errorDescription
             )
             statusItem.menu = makeMenu(from: model)
-            updateDashboardPopoverIfShown()
+            dashboardPanelController?.showErrorIfShown(error)
         }
 
         private func setTitle(_ title: String, accessibilityLabel: String? = nil) {
@@ -697,7 +651,7 @@
             case .openTUI:
                 return #selector(openTUI)
             case .overview:
-                return #selector(showDashboardPopover(_:))
+                return #selector(showOverview)
             case .manageItems:
                 return #selector(manageItems)
             case .scanAndAdd:

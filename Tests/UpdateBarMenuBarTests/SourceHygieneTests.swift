@@ -195,6 +195,10 @@ final class SourceHygieneTests: XCTestCase {
             "Sources/UpdateBarMenuBarApp/MenuBarPopoverController.swift",
             "Sources/UpdateBarMenuBar/MenuBarPopoverModel.swift",
             "Tests/UpdateBarMenuBarTests/MenuBarPopoverModelTests.swift",
+            "Sources/UpdateBarMenuBarApp/DashboardPopoverView.swift",
+            "Sources/UpdateBarMenuBarApp/DashboardPopoverController.swift",
+            "Sources/UpdateBarMenuBar/DashboardPopoverModel.swift",
+            "Tests/UpdateBarMenuBarTests/DashboardPopoverModelTests.swift",
         ]
 
         for path in paths {
@@ -202,157 +206,149 @@ final class SourceHygieneTests: XCTestCase {
         }
     }
 
-    func testDashboardPopoverViewUsesCompactReadOnlySystemControls() throws {
-        let source = try String(
+    func testDashboardUsesOneTabbedWindowWithEmbeddedItems() throws {
+        let dashboardSource = try String(
             contentsOf: URL(
-                fileURLWithPath: "Sources/UpdateBarMenuBarApp/DashboardPopoverView.swift"),
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/DashboardPanelController.swift"),
             encoding: .utf8
         )
-        let compact = source.filter { !$0.isWhitespace }
-
-        XCTAssertTrue(compact.contains("CGSize(width:340,height:420)"))
-        XCTAssertTrue(source.contains("case overview = \"Overview\""))
-        XCTAssertTrue(source.contains("case updates = \"Updates\""))
-        XCTAssertTrue(source.contains("case approvals = \"Approvals\""))
-        XCTAssertTrue(compact.contains("Picker(\"Section\",selection:$selection)"))
-        XCTAssertTrue(compact.contains(".pickerStyle(.segmented)"))
-        XCTAssertTrue(source.contains("ScrollView"))
-        XCTAssertTrue(source.contains("Image(systemName: \"arrow.up.right.square\")"))
-        XCTAssertTrue(compact.contains(".buttonStyle(.borderless)"))
-        XCTAssertTrue(source.contains(".help(\"Open Full Dashboard\")"))
-        XCTAssertTrue(source.contains(".accessibilityLabel(\"Open Full Dashboard\")"))
-        XCTAssertEqual(source.components(separatedBy: "Button(").count - 1, 1)
-
-        for forbidden in [
-            "onRefresh", "onUpdate", "onApprove", "onSettings", "onQuit",
-            "CommandGrid", "Text(\"Refresh\")", "Text(\"Settings\")", "Text(\"Quit\")",
-        ] {
-            XCTAssertFalse(source.contains(forbidden), forbidden)
-        }
-    }
-
-    func testDashboardPopoverControllerUsesOneTransientSystemMaterialPopover() throws {
-        let source = try String(
+        let manageItemsSource = try String(
             contentsOf: URL(
-                fileURLWithPath: "Sources/UpdateBarMenuBarApp/DashboardPopoverController.swift"),
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/ManageItemsPanelController.swift"),
             encoding: .utf8
         )
-        let compact = source.filter { !$0.isWhitespace }
+        let dashboardCompact = dashboardSource.filter { !$0.isWhitespace }
+        let manageItemsCompact = manageItemsSource.filter { !$0.isWhitespace }
 
-        XCTAssertTrue(compact.contains("privateletpopover=NSPopover()"))
-        XCTAssertTrue(source.contains("private let hostingView:"))
-        XCTAssertTrue(compact.contains("popover.behavior=.transient"))
-        XCTAssertTrue(compact.contains("effectView.material=.popover"))
-        XCTAssertTrue(compact.contains("effectView.blendingMode=.behindWindow"))
-        XCTAssertTrue(compact.contains("effectView.state=.followsWindowActiveState"))
-        XCTAssertTrue(source.contains("func show("))
-        XCTAssertTrue(source.contains("func update("))
-        XCTAssertTrue(source.contains("func close()"))
-        XCTAssertTrue(source.contains("var isShown:"))
-        XCTAssertEqual(source.components(separatedBy: "NSHostingView(").count - 1, 1)
+        XCTAssertTrue(dashboardSource.contains("enum DashboardTab: Int"))
+        XCTAssertTrue(dashboardSource.contains("case overview"))
+        XCTAssertTrue(dashboardSource.contains("case items"))
+        XCTAssertTrue(
+            dashboardCompact.contains("privatelettabViewController=NSTabViewController()"))
+        XCTAssertTrue(dashboardCompact.contains("tabViewController.tabStyle=.toolbar"))
+        XCTAssertTrue(dashboardSource.contains("private let overviewHostingView:"))
+        XCTAssertEqual(dashboardSource.components(separatedBy: "NSHostingView(").count - 1, 1)
+        XCTAssertTrue(
+            dashboardCompact.contains("overviewViewController.view=overviewHostingView"))
+        XCTAssertTrue(
+            dashboardCompact.contains("overviewHostingView.rootView=AnyView(view)"))
+        XCTAssertTrue(dashboardSource.contains("overviewItem.label = \"Overview\""))
+        XCTAssertTrue(dashboardSource.contains("itemsItem.label = \"Items\""))
+        XCTAssertTrue(dashboardSource.contains("ManageItemsViewController"))
+        XCTAssertTrue(
+            dashboardCompact.contains("funcshowWindowAndReload(selectingtab:DashboardTab)"))
+        XCTAssertTrue(
+            dashboardSource.contains("final class DashboardPanelController: NSWindowController"))
+        XCTAssertFalse(dashboardSource.contains("Label(\"Manage Items\""))
+        XCTAssertFalse(dashboardSource.contains("onOpenItems"))
+
+        XCTAssertTrue(
+            manageItemsCompact.contains(
+                "finalclassManageItemsViewController:NSViewController,NSTableViewDataSource,NSTableViewDelegate"
+            ))
+        XCTAssertTrue(manageItemsSource.contains("func apply(items: [StatusItem]"))
+        XCTAssertTrue(manageItemsSource.contains("var onRefresh: () -> Void"))
+        XCTAssertFalse(manageItemsSource.contains("service.status("))
+        XCTAssertFalse(manageItemsSource.contains("private func present("))
+        XCTAssertFalse(manageItemsSource.contains("ManageItemsPanelController"))
+        XCTAssertFalse(manageItemsSource.contains("NSPanel("))
+        XCTAssertFalse(manageItemsSource.contains("showWindowAndReload"))
     }
 
-    func testDashboardMenuRoutesToPopoverWithoutReplacingNativeMenu() throws {
+    func testNativeMenuRoutesDashboardAndItemsToOneWindow() throws {
         let source = try String(
             contentsOf: URL(
                 fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
             encoding: .utf8
         )
         let compact = source.filter { !$0.isWhitespace }
-        let launchSource = try functionSource(
-            named: "func applicationDidFinishLaunching(",
-            endingAt: "func applicationWillTerminate(",
-            in: source
-        )
-        let dashboardSelectorSource = try functionSource(
-            named: "@objc private func showDashboardPopover(_ sender: NSMenuItem)",
-            endingAt: "func menuDidClose(",
-            in: source
-        )
-        let menuDidCloseSource = try functionSource(
-            named: "func menuDidClose(",
-            endingAt: "private func presentDashboardPopover()",
-            in: source
-        )
-        let dashboardPresentationSource = try functionSource(
-            named: "private func presentDashboardPopover()",
-            endingAt: "@objc private func showOverview()",
-            in: source
-        )
-        let makeMenuSource = try functionSource(
-            named: "private func makeMenu(from",
-            endingAt: "private func menuItem(from",
-            in: source
-        )
         let selectorSource = try functionSource(
             named: "private func selector(for action: MenuBarMenuAction)",
             endingAt: "private func disabledItem(",
             in: source
         )
 
+        XCTAssertTrue(compact.contains("@objcprivatefuncshowOverview(){showDashboard(.overview)}"))
+        XCTAssertTrue(compact.contains("@objcprivatefuncmanageItems(){showDashboard(.items)}"))
         XCTAssertTrue(
-            compact.contains(
-                "privateletdashboardPopoverModelBuilder=DashboardPopoverModelBuilder()"))
+            selectorSource.contains("case.overview:return#selector(showOverview)"))
         XCTAssertTrue(
-            compact.contains("privateletdashboardPopoverController=DashboardPopoverController()"))
-        XCTAssertTrue(compact.contains("privatevarlastDashboardError:String?"))
-        XCTAssertTrue(compact.contains("privateweakvarpendingDashboardMenu:NSMenu?"))
-        XCTAssertTrue(
-            compact.contains(
-                "finalclassUpdateBarMenuBarApp:NSObject,NSApplicationDelegate,NSMenuDelegate"))
-        XCTAssertTrue(launchSource.contains("rebuildMenu()"))
-        XCTAssertFalse(launchSource.contains("dashboardPopoverController.show("))
-        XCTAssertTrue(
-            selectorSource.contains("case.overview:return#selector(showDashboardPopover(_:))"))
-        XCTAssertFalse(selectorSource.contains("case.overview:return#selector(showOverview)"))
-        XCTAssertTrue(dashboardSelectorSource.contains("guardletmenu=sender.menuelse{return}"))
-        XCTAssertTrue(dashboardSelectorSource.contains("pendingDashboardMenu=menu"))
-        XCTAssertFalse(dashboardSelectorSource.contains("DispatchQueue.main.async"))
-        XCTAssertFalse(dashboardSelectorSource.contains("presentDashboardPopover("))
-        XCTAssertFalse(dashboardSelectorSource.contains("dashboardPopoverController.show("))
-        XCTAssertTrue(menuDidCloseSource.contains("guardpendingDashboardMenu===menuelse{return}"))
-        XCTAssertTrue(menuDidCloseSource.contains("pendingDashboardMenu=nil"))
-        XCTAssertFalse(menuDidCloseSource.contains("statusItem?.menu===menu"))
-        XCTAssertTrue(menuDidCloseSource.contains("DispatchQueue.main.async"))
-        XCTAssertTrue(menuDidCloseSource.contains("[weakself]"))
-        XCTAssertTrue(menuDidCloseSource.contains("self?.presentDashboardPopover()"))
-        let initiatingMenuGuard = try XCTUnwrap(
-            menuDidCloseSource.range(of: "guardpendingDashboardMenu===menuelse{return}")
-        )
-        let pendingMenuClear = try XCTUnwrap(
-            menuDidCloseSource.range(of: "pendingDashboardMenu=nil")
-        )
-        let deferredPresentation = try XCTUnwrap(
-            menuDidCloseSource.range(of: "DispatchQueue.main.async")
-        )
-        XCTAssertLessThan(initiatingMenuGuard.lowerBound, pendingMenuClear.lowerBound)
-        XCTAssertLessThan(pendingMenuClear.lowerBound, deferredPresentation.lowerBound)
-        XCTAssertTrue(dashboardPresentationSource.contains("statusItem?.button"))
-        XCTAssertTrue(dashboardPresentationSource.contains("showOverview()"))
-        XCTAssertTrue(dashboardPresentationSource.contains("dashboardPopoverController.show("))
-        XCTAssertTrue(makeMenuSource.contains("menu.delegate=self"))
-        XCTAssertEqual(source.components(separatedBy: "presentDashboardPopover()").count - 1, 2)
-        XCTAssertEqual(
-            source.components(separatedBy: "dashboardPopoverController.show(").count - 1, 1)
+            selectorSource.contains("case.manageItems:return#selector(manageItems)"))
+        XCTAssertFalse(source.contains("DashboardPopover"))
+        XCTAssertFalse(source.contains("ManageItemsPanelController"))
+        XCTAssertFalse(source.contains("NSMenuDelegate"))
+        XCTAssertFalse(source.contains("menu.delegate = self"))
         XCTAssertFalse(source.contains("statusButton.target"))
         XCTAssertFalse(source.contains("statusButton.action"))
         XCTAssertFalse(source.contains("statusButton.sendAction"))
+        XCTAssertTrue(compact.contains("dashboardPanelController?.reloadIfShown()"))
     }
 
-    func testDashboardPopoverTracksRefreshMenuAndErrorTransitions() throws {
+    func testDashboardSharesOneRefreshAcrossTabsAndRejectsStaleResults() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/DashboardPanelController.swift"),
+            encoding: .utf8
+        )
+        let compact = source.filter { !$0.isWhitespace }
+        let reloadSource = try functionSource(
+            named: "func reload()",
+            endingAt: "private func apply(",
+            in: source
+        )
+
+        XCTAssertEqual(reloadSource.components(separatedBy: "service.status(").count - 1, 1)
+        XCTAssertTrue(compact.contains("privatevarreloadGeneration=0"))
+        XCTAssertTrue(reloadSource.contains("reloadGeneration&+=1"))
+        XCTAssertTrue(reloadSource.contains("letgeneration=reloadGeneration"))
+        XCTAssertTrue(reloadSource.contains("guardgeneration==self.reloadGenerationelse{return}"))
+        XCTAssertTrue(reloadSource.contains("manageItemsViewController.apply(items:snapshot.items"))
+        XCTAssertTrue(source.contains("func reloadIfShown()"))
+        XCTAssertTrue(source.contains("func showErrorIfShown(_ error: Error)"))
+        XCTAssertTrue(source.contains("NSWindowDelegate"))
+        XCTAssertTrue(compact.contains("window.delegate=self"))
+
+        let closeSource = try functionSource(
+            named: "func windowWillClose(",
+            endingAt: "private func apply(",
+            in: source
+        )
+        let errorSource = try functionSource(
+            named: "private func presentDashboardError(",
+            endingAt: "    }\n#endif",
+            in: source
+        )
+        XCTAssertTrue(closeSource.contains("reloadGeneration&+=1"))
+        XCTAssertTrue(errorSource.contains("window.isVisible"))
+    }
+
+    func testItemToggleStaysDisabledUntilSharedSnapshotArrives() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/ManageItemsPanelController.swift"),
+            encoding: .utf8
+        )
+        let toggleSource = try functionSource(
+            named: "@objc private func toggleItem(",
+            endingAt: "func setLoading()",
+            in: source
+        )
+
+        let waiting = try XCTUnwrap(toggleSource.range(of: "self.setRunning(true"))
+        let changed = try XCTUnwrap(toggleSource.range(of: "self.onChanged()"))
+        XCTAssertLessThan(waiting.lowerBound, changed.lowerBound)
+        XCTAssertFalse(toggleSource.contains("self.setRunning(false"))
+    }
+
+    func testMenuRefreshPropagatesResultToVisibleDashboard() throws {
         let source = try String(
             contentsOf: URL(
                 fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
             encoding: .utf8
         )
         let refreshSource = try functionSource(
-            named: "private func refreshStatus(",
+            named: "private func refreshStatus(refresh: Bool)",
             endingAt: "private func runAction(",
-            in: source
-        )
-        let rebuildSource = try functionSource(
-            named: "private func rebuildMenu()",
-            endingAt: "private func makeMenu(from",
             in: source
         )
         let errorSource = try functionSource(
@@ -361,40 +357,45 @@ final class SourceHygieneTests: XCTestCase {
             in: source
         )
 
-        let clearedError = try XCTUnwrap(refreshSource.range(of: "self.lastDashboardError=nil"))
-        let refreshedMenu = try XCTUnwrap(refreshSource.range(of: "self.rebuildMenu()"))
-        XCTAssertLessThan(clearedError.lowerBound, refreshedMenu.lowerBound)
+        XCTAssertTrue(refreshSource.contains("dashboardPanelController?.reloadIfShown()"))
+        XCTAssertTrue(errorSource.contains("dashboardPanelController?.showErrorIfShown(error)"))
+    }
 
-        let nativeMenu = try XCTUnwrap(
-            rebuildSource.range(of: "statusItem.menu=makeMenu(from:model)"))
-        let popoverUpdate = try XCTUnwrap(
-            rebuildSource.range(of: "updateDashboardPopoverIfShown()")
+    func testDashboardWindowControlsApplicationSwitcherVisibility() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
+            encoding: .utf8
         )
-        XCTAssertLessThan(nativeMenu.lowerBound, popoverUpdate.lowerBound)
-
-        let redactedError = try XCTUnwrap(
-            errorSource.range(
-                of: "leterrorDescription=SecretRedactor.redact(String(describing:error))"
-            )
+        let showDashboardSource = try functionSource(
+            named: "private func showDashboard(_ tab: DashboardTab)",
+            endingAt: "@objc private func applicationWindowWillClose(",
+            in: source
         )
-        let storedError = try XCTUnwrap(
-            errorSource.range(of: "lastDashboardError=errorDescription")
+        let windowCloseSource = try functionSource(
+            named: "@objc private func applicationWindowWillClose(",
+            endingAt: "private func restoreAccessoryActivationPolicyIfNeeded()",
+            in: source
         )
-        let activeActionGuard = try XCTUnwrap(
-            errorSource.range(
-                of: "guardactionCoordinator.activeAction==nilelse{rebuildMenu()return}"
-            )
-        )
-        let invalidate = try XCTUnwrap(errorSource.range(of: "refreshGenerationGate.invalidate()"))
-        let errorMenu = try XCTUnwrap(errorSource.range(of: "statusItem.menu=makeMenu(from:model)"))
-        let errorPopoverUpdate = try XCTUnwrap(
-            errorSource.range(of: "updateDashboardPopoverIfShown()")
+        let restoreSource = try functionSource(
+            named: "private func restoreAccessoryActivationPolicyIfNeeded()",
+            endingAt: "@objc private func openTUIInTerminal(",
+            in: source
         )
 
-        XCTAssertLessThan(redactedError.lowerBound, storedError.lowerBound)
-        XCTAssertLessThan(storedError.lowerBound, activeActionGuard.lowerBound)
-        XCTAssertLessThan(activeActionGuard.lowerBound, invalidate.lowerBound)
-        XCTAssertLessThan(errorMenu.lowerBound, errorPopoverUpdate.lowerBound)
+        let regular = try XCTUnwrap(
+            showDashboardSource.range(of: "NSApp.setActivationPolicy(.regular)"))
+        let show = try XCTUnwrap(
+            showDashboardSource.range(of: "showWindowAndReload(selecting:tab)"))
+        XCTAssertLessThan(regular.lowerBound, show.lowerBound)
+        XCTAssertTrue(source.contains("name: NSWindow.willCloseNotification"))
+        XCTAssertTrue(windowCloseSource.contains("restoreAccessoryActivationPolicyIfNeeded()"))
+
+        XCTAssertTrue(restoreSource.contains("DispatchQueue.main.async"))
+        XCTAssertTrue(restoreSource.contains("$0.isVisible"))
+        XCTAssertTrue(restoreSource.contains("$0.styleMask.contains(.titled)"))
+        XCTAssertTrue(restoreSource.contains("guard!hasVisibleTitledWindowelse{return}"))
+        XCTAssertTrue(restoreSource.contains("NSApp.setActivationPolicy(.accessory)"))
     }
 
     private func functionSource(
