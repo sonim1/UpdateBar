@@ -1389,13 +1389,16 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(menuBarSpec.contains("Update All Approved Outdated"))
     }
 
-    func testMenuBarDocsDescribeCurrentNativeMenu() throws {
+    func testMenuBarDocsDescribeCurrentNativeMenuAndDashboardPopover() throws {
         let docs = try String(contentsOfFile: "docs/menu-bar.md", encoding: .utf8)
 
         XCTAssertTrue(docs.contains("native `NSMenu`"))
         XCTAssertTrue(docs.contains("standard menu items, separators, submenus"))
         XCTAssertTrue(docs.contains("`Check Now` and `Run Updates`"))
-        XCTAssertTrue(docs.contains("separate Dashboard window"))
+        XCTAssertTrue(docs.contains("compact read-only popover"))
+        XCTAssertTrue(docs.contains("Overview, Updates, and Approvals"))
+        XCTAssertTrue(docs.contains("commands and actions remain in the native menu"))
+        XCTAssertTrue(docs.contains("separate detailed Dashboard window"))
         XCTAssertTrue(docs.contains("native error-recovery menu"))
         XCTAssertTrue(docs.contains("system appearance"))
         XCTAssertFalse(docs.contains("primary click opens a popover"))

@@ -24,7 +24,11 @@ Current scope:
 - keeps bulk-update confirmation in the app dispatcher before approved update
   commands run
 
-`Dashboard` opens a separate Dashboard window with pending-update and
+`Dashboard` waits for the initiating native menu to close, then opens a
+compact read-only popover using the macOS system material. Its
+Overview, Updates, and Approvals views summarize current state. All
+commands and actions remain in the native menu. An icon-only full-dashboard
+control opens a separate detailed Dashboard window with pending-update and
 awaiting-approval counts, last check/update times, and a bar chart of successful
 updates over the last four weeks (from `~/.updatebar/history.jsonl`). `Manage
 Items...` opens a panel listing every registered item grouped by category with
