@@ -10,6 +10,11 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertFalse(ScanService.brewListCommand.contains("brew list --formula --versions;"))
     }
 
+    func testKnownToolsCommandIncludesAgentCLIs() {
+        XCTAssertTrue(ScanService.knownToolsCommand.contains(" openclaw "))
+        XCTAssertTrue(ScanService.knownToolsCommand.contains(" hermes "))
+    }
+
     func testScanParsesBrewAndNPMGlobalCandidatesAsUntrustedRecipes() throws {
         let commands = MockCommandExecutor(results: [
             ScanService.brewListCommand: CommandResult(
@@ -61,7 +66,12 @@ final class ScanServiceTests: XCTestCase {
                 exitCode: 0, stdout: #"{"dependencies":{}}"#, stderr: ""),
             ScanService.knownToolsCommand: CommandResult(
                 exitCode: 0,
-                stdout: "gh\tgh version 2.74.0\nrtk\trtk 0.9.0\n",
+                stdout: """
+                    gh\tgh version 2.74.0
+                    rtk\trtk 0.9.0
+                    openclaw\t2026.5.27
+                    hermes\t0.9.0
+                    """,
                 stderr: ""
             ),
         ])
@@ -75,6 +85,13 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertEqual(rtk.category, "ai-agent")
         XCTAssertEqual(rtk.capability, .checkOnly)
         XCTAssertNil(rtk.recipe)
+        let openClaw = try XCTUnwrap(
+            report.candidates.first { $0.id == "known.openclaw" })
+        XCTAssertEqual(openClaw.category, "ai-agent")
+        XCTAssertEqual(openClaw.capability, .checkOnly)
+        let hermes = try XCTUnwrap(report.candidates.first { $0.id == "known.hermes" })
+        XCTAssertEqual(hermes.category, "ai-agent")
+        XCTAssertEqual(hermes.capability, .checkOnly)
     }
 
     func testKnownToolsAreDedupedWhenManagerNamesAreVersionedOrScoped() throws {
@@ -201,7 +218,7 @@ final class ScanServiceTests: XCTestCase {
             ScanService.npmGlobalListCommand: CommandResult(
                 exitCode: 0,
                 stdout: """
-                    {"dependencies":{"@openai/codex":{"version":"0.140.0"},"@google/gemini-cli":{"version":"1.2.3"},"typescript":{"version":"5.8.3"}}}
+                    {"dependencies":{"@openai/codex":{"version":"0.140.0"},"@google/gemini-cli":{"version":"1.2.3"},"openclaw":{"version":"2026.5.27"},"hermes-agent":{"version":"0.9.0"},"typescript":{"version":"5.8.3"}}}
                     """,
                 stderr: ""
             ),
@@ -217,6 +234,8 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertEqual(try category("brew.supabase", in: report), "cloud-devops")
         XCTAssertEqual(try category("npm.openai.codex", in: report), "ai-agent")
         XCTAssertEqual(try category("npm.google.gemini-cli", in: report), "ai-agent")
+        XCTAssertEqual(try category("npm.openclaw", in: report), "ai-agent")
+        XCTAssertEqual(try category("npm.hermes-agent", in: report), "ai-agent")
         XCTAssertEqual(try category("npm.typescript", in: report), "library")
     }
 

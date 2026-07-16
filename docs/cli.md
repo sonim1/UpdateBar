@@ -154,6 +154,8 @@ Scans installed local tools and prints recipe candidates without changing `manif
 
 Supported categories are `ai-agent`, `package-manager`, `runtime-sdk`,
 `shell-utility`, `cloud-devops`, `library`, `codex-skill`, and `mcp-server`.
+The `ai-agent` category includes Codex, Claude Code, gstack, OpenClaw, Hermes,
+and other supported agent CLIs.
 Aliases: `ai` for `ai-agent` and `mcp` for `mcp-server`.
 `--category` is normalized (`CLOUD-DEVOPS`, `CLOUD DEVOPS`, `cloud_devops`, etc.
 all map to `cloud-devops`), rejects unknown values, and filters the displayed

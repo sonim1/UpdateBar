@@ -28,7 +28,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Run Updates",
                 "---",
                 "Open TUI",
-                "Overview",
+                "Dashboard",
                 "Manage Items...",
                 "Scan & Add",
                 "Open Config",
@@ -171,6 +171,71 @@ final class MenuBarMenuModelTests: XCTestCase {
             finishedModel.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
     }
 
+    func testLoadingMenuContainsOnlySafeDashboardAndQuitActions() {
+        let model = MenuBarMenuModelBuilder().makeLoadingMenu()
+
+        XCTAssertEqual(
+            model.entries.labels,
+            [
+                "Checking for updates...",
+                "---",
+                "Dashboard",
+                "Quit",
+            ])
+        XCTAssertEqual(
+            model.entries.actions,
+            [
+                .menu(.overview),
+                .menu(.quit),
+            ])
+    }
+
+    func testActiveActionMenuContainsCancelAndOnlySafeFooterActions() {
+        let state = MenuBarState(
+            title: "Needs attention",
+            badgeValue: "!",
+            outdatedItems: [
+                statusItem(
+                    id: "old",
+                    name: "Old Tool",
+                    current: "1.0.0",
+                    latest: "1.1.0",
+                    status: .outdated
+                )
+            ],
+            approvalItems: [
+                statusItem(id: "fresh", name: "Fresh Tool", status: .untrusted)
+            ],
+            errorItems: [],
+            okItems: []
+        )
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:],
+            activeActionTitle: "Update Old Tool"
+        )
+
+        XCTAssertEqual(
+            model.entries.labels,
+            [
+                "Running: Update Old Tool",
+                "Cancel Current Action",
+                "---",
+                "Dashboard",
+                "View Logs",
+                "Quit",
+            ])
+        XCTAssertEqual(
+            model.entries.actions,
+            [
+                .cancelCurrentAction,
+                .menu(.overview),
+                .menu(.viewLogs),
+                .menu(.quit),
+            ])
+    }
+
     func testBuildsActionableSectionsForUpdatesApprovalsErrorsAndInstalledItems() {
         let state = MenuBarState(
             title: "1 update",
@@ -244,7 +309,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Ready Tool 2.0.0",
                 "---",
                 "Open TUI",
-                "Overview",
+                "Dashboard",
                 "Manage Items...",
                 "Scan & Add",
                 "Open Config",
@@ -546,7 +611,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Refresh Status",
                 "Check Now",
                 "Open TUI",
-                "Overview",
+                "Dashboard",
                 "Manage Items...",
                 "Scan & Add",
                 "Open Config",
@@ -567,6 +632,32 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.quit),
             ])
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
+    }
+
+    func testDashboardTitleRoutesOverviewInNormalAndErrorMenus() {
+        let state = MenuBarState(
+            title: "Up to date",
+            badgeValue: nil,
+            outdatedItems: [],
+            approvalItems: [],
+            errorItems: [],
+            okItems: []
+        )
+        let builder = MenuBarMenuModelBuilder()
+
+        let normalMenu = builder.makeMenu(state: state, approvalStatuses: [:])
+        let errorMenu = builder.makeErrorMenu(errorDescription: "manifest invalid")
+
+        XCTAssertEqual(
+            normalMenu.entries.item(titled: "Dashboard")?.action,
+            .menu(.overview)
+        )
+        XCTAssertEqual(
+            errorMenu.entries.item(titled: "Dashboard")?.action,
+            .menu(.overview)
+        )
+        XCTAssertFalse(normalMenu.entries.labels.contains("Overview"))
+        XCTAssertFalse(errorMenu.entries.labels.contains("Overview"))
     }
 
     func testErrorRecoveryMenuRedactsSecretLikeValues() {

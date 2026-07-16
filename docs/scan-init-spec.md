@@ -64,7 +64,8 @@ Fields:
 
 User-facing categories:
 
-- `ai-agent`: Claude Code, Codex, Gemini CLI, OpenCode, Aider, gstack, rtk, agent-browser.
+- `ai-agent`: Claude Code, Codex, Gemini CLI, OpenCode, Aider, gstack, OpenClaw,
+  Hermes, rtk, agent-browser.
 - `package-manager`: brew, npm, pnpm, yarn, bun, pipx, uv, cargo, rustup.
 - `runtime-sdk`: node, python, ruby, go, rust, swift, java.
 - `cloud-devops`: gh, aws, gcloud, vercel, wrangler, flyctl, kubectl, docker, terraform.

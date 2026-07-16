@@ -21,7 +21,7 @@ public enum MenuBarMenuAction: Equatable, Sendable {
         case .openTUI:
             return "Open TUI"
         case .overview:
-            return "Overview"
+            return "Dashboard"
         case .manageItems:
             return "Manage Items..."
         case .scanAndAdd:
