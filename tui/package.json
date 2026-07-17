@@ -20,7 +20,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
-    "ink": "7.1.0",
+    "ink": "7.1.1",
     "react": "19.2.7"
   },
   "devDependencies": {
