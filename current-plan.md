@@ -1,6 +1,9 @@
 # UpdateBar — Current Plan: CLI-First + Optional Menu Bar
 
-Status: draft decision plan as of 2026-06-15 (kept in sync with current implementation).
+Status: historical decision plan as of 2026-06-15. It records the product
+direction that led to the current implementation; use `README.md`,
+`docs/architecture.md`, and `current-architecture.md` for current operating
+state.
 
 This plan intentionally replaces the previous AI/OpenRouter-centric direction with a simpler product stance:
 

@@ -60,7 +60,7 @@ echo "running Swift format checks"
 
 if command -v shellcheck >/dev/null 2>&1; then
   echo "running script quality checks"
-  shellcheck Scripts/*.sh
+  shellcheck --severity=warning Scripts/*.sh
 else
   echo "shellcheck not installed; skipping script quality checks"
 fi

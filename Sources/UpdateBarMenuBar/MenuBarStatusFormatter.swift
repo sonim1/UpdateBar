@@ -14,6 +14,17 @@ public struct MenuBarState: Equatable {
         approvalItems.count + errorItems.count
     }
 
+    public var needsAttentionSummary: String? {
+        switch needsAttentionCount {
+        case 0:
+            nil
+        case 1:
+            "1 needs attention"
+        default:
+            "\(needsAttentionCount) need attention"
+        }
+    }
+
     public init(
         title: String,
         badgeValue: String?,

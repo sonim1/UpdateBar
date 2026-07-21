@@ -4,14 +4,18 @@
     import UpdateBarCore
     import UpdateBarMenuBar
 
-    final class ManageItemsPanelController: NSWindowController, NSTableViewDataSource,
+    final class ManageItemsViewController: NSViewController, NSTableViewDataSource,
         NSTableViewDelegate
     {
         private let service: any MenuBarServicing
         private let onChanged: () -> Void
         private let model = ManageItemsModel()
+        private var mutationGate = ManageItemsMutationGate()
         private var rows: [ManageItemsRow] = []
         private var isRunning = false
+
+        var onRefresh: () -> Void = {}
+        var onError: (Error) -> Void = { _ in }
 
         private let tableView = NSTableView()
         private let refreshButton = NSButton(title: "Refresh", target: nil, action: nil)
@@ -23,29 +27,17 @@
         ) {
             self.service = service
             self.onChanged = onChanged
-            let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 760, height: 460),
-                styleMask: [.titled, .closable, .resizable, .utilityWindow],
-                backing: .buffered,
-                defer: false
-            )
-            panel.title = "Manage Items"
-            panel.isReleasedWhenClosed = false
-            panel.minSize = NSSize(width: 640, height: 320)
-            super.init(window: panel)
-            buildInterface()
+            super.init(nibName: nil, bundle: nil)
         }
 
         required init?(coder: NSCoder) {
             nil
         }
 
-        func showWindowAndReload() {
-            showWindow(nil)
-            window?.center()
-            window?.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            reload()
+        override func loadView() {
+            let content = NSView()
+            buildInterface(in: content)
+            view = content
         }
 
         func numberOfRows(in tableView: NSTableView) -> Int {
@@ -79,7 +71,7 @@
         }
 
         @objc private func reloadFromButton() {
-            reload()
+            onRefresh()
         }
 
         @objc private func toggleItem(_ sender: NSButton) {
@@ -87,45 +79,41 @@
                 case .item(let item) = rows[sender.tag]
             else { return }
             let enabled = sender.state == .on
+            mutationGate.begin(id: item.id, enabled: enabled)
             setRunning(true, message: "\(enabled ? "Enabling" : "Disabling") \(item.name)...")
             DispatchQueue.global(qos: .userInitiated).async { [service] in
                 do {
                     try service.setEnabled(id: item.id, enabled: enabled)
                     DispatchQueue.main.async {
-                        self.onChanged()
-                        self.reload(message: "\(item.name) \(enabled ? "enabled" : "disabled").")
-                    }
-                } catch {
-                    DispatchQueue.main.async {
-                        self.finishWithError(error)
-                    }
-                }
-            }
-        }
-
-        private func reload(message: String? = nil) {
-            setRunning(true, message: "Loading...")
-            DispatchQueue.global(qos: .userInitiated).async { [service, model] in
-                do {
-                    let snapshot = try service.status(refresh: false)
-                    let rows = model.rows(from: snapshot.items)
-                    DispatchQueue.main.async {
-                        self.rows = rows
-                        self.tableView.reloadData()
                         self.setRunning(
-                            false,
-                            message: message ?? "\(snapshot.items.count) item(s)."
+                            true,
+                            message: "\(item.name) updated. Refreshing..."
                         )
+                        self.onChanged()
                     }
                 } catch {
                     DispatchQueue.main.async {
-                        self.finishWithError(error)
+                        self.showMutationError(error)
+                        self.onError(error)
                     }
                 }
             }
         }
 
-        private func buildInterface() {
+        func setLoading() {
+            _ = view
+            setRunning(true, message: "Loading...")
+        }
+
+        func apply(items: [StatusItem], message: String? = nil) {
+            _ = view
+            guard mutationGate.accepts(items) else { return }
+            rows = model.rows(from: items)
+            tableView.reloadData()
+            setRunning(false, message: message ?? "\(items.count) item(s).")
+        }
+
+        private func buildInterface(in content: NSView) {
             refreshButton.target = self
             refreshButton.action = #selector(reloadFromButton)
             statusLabel.lineBreakMode = .byTruncatingTail
@@ -168,9 +156,7 @@
             controls.translatesAutoresizingMaskIntoConstraints = false
             scrollView.translatesAutoresizingMaskIntoConstraints = false
 
-            let content = NSView()
             content.addSubview(stack)
-            window?.contentView = content
             NSLayoutConstraint.activate([
                 stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
                 stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
@@ -182,9 +168,17 @@
             ])
         }
 
-        private func finishWithError(_ error: Error) {
-            setRunning(false, message: SecretRedactor.redact(String(describing: error)))
-            present(error)
+        func showError(_ error: Error) {
+            _ = view
+            setRunning(
+                mutationGate.isPending,
+                message: SecretRedactor.redact(String(describing: error))
+            )
+        }
+
+        private func showMutationError(_ error: Error) {
+            mutationGate.cancel()
+            showError(error)
         }
 
         private func setRunning(_ running: Bool, message: String) {
@@ -255,13 +249,5 @@
             return cell
         }
 
-        private func present(_ error: Error) {
-            guard let window else { return }
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = "UpdateBar"
-            alert.informativeText = SecretRedactor.redact(String(describing: error))
-            alert.beginSheetModal(for: window)
-        }
     }
 #endif

@@ -1,0 +1,4 @@
+# Keep release automation and packaging changes visible to the repository owner.
+.github/workflows/* @sonim1
+Scripts/* @sonim1
+Packaging/homebrew/** @sonim1

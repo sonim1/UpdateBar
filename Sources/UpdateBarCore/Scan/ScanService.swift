@@ -21,7 +21,7 @@ public struct ScanService {
     public static let npmGlobalListCommand =
         "if command -v npm >/dev/null 2>&1; then npm ls -g --depth=0 --json; fi"
     public static let knownToolsCommand =
-        #"for tool in rtk gstack gh claude codex node swift brew npm; do if command -v "$tool" >/dev/null 2>&1; then version=$("$tool" --version 2>/dev/null | head -n 1 || true); printf "%s\t%s\n" "$tool" "$version"; fi; done"#
+        #"for tool in rtk gstack openclaw hermes gh claude codex node swift brew npm; do if command -v "$tool" >/dev/null 2>&1; then version=$("$tool" --version 2>/dev/null | head -n 1 || true); printf "%s\t%s\n" "$tool" "$version"; fi; done"#
 
     private let commandRunner: CommandRunning
     private let homeDirectory: URL
@@ -352,7 +352,7 @@ public struct ScanService {
             names.insert(packageLeafName)
         }
         if candidate.detector == .npmGlobal {
-            names.formUnion(scopedPackageCommandAliases(candidate.name))
+            names.formUnion(npmPackageCommandAliases(candidate.name))
         }
         return names
     }
@@ -375,10 +375,12 @@ public struct ScanService {
         return leafName.isEmpty ? nil : String(leafName)
     }
 
-    private func scopedPackageCommandAliases(_ name: String) -> Set<String> {
+    private func npmPackageCommandAliases(_ name: String) -> Set<String> {
         switch name.lowercased() {
         case "@anthropic-ai/claude-code":
             return ["claude"]
+        case "hermes-agent":
+            return ["hermes"]
         default:
             return []
         }
@@ -428,7 +430,7 @@ public struct ScanService {
 
         if [
             "claude", "claude-code", "codex", "rtk", "gstack", "aider", "opencode",
-            "gemini", "gemini-cli", "agent-browser",
+            "gemini", "gemini-cli", "agent-browser", "openclaw", "hermes", "hermes-agent",
         ].contains(simpleName) || normalized == "@anthropic-ai/claude-code" {
             return "ai-agent"
         }

@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-07-20
+
+### Added
+
+- Local scans now recognize OpenClaw and Hermes alongside the existing AI-agent tools.
+- Added contributor-facing operating guidance, release/verification skills, ownership rules,
+  and issue-reporting templates for safer maintenance.
+
+### Changed
+
+- Unified Dashboard and Manage Items into one native tabbed window. Dashboard opens
+  Overview, Manage Items opens Items, and the app appears in the Dock and Cmd-Tab only
+  while a titled window is visible.
+- Kept the status item on the native macOS menu while tightening loading, active-action,
+  recovery, confirmation, focus, hit-target, and chart-accessibility behavior.
+- Updated supported Ink TUI dependencies while keeping TypeScript on the newest compiler
+  line supported by the current `typescript-eslint` release.
+
+### Fixed
+
+- Ignored stale refresh completions, preserved active menu state across callbacks, and
+  refreshed state after cancellation so outdated actions cannot reappear.
+- Kept item toggles disabled until a post-mutation snapshot confirms the requested state,
+  preventing concurrent refreshes from restoring stale rows.
+- Deduplicated the `hermes` command when the globally installed `hermes-agent` npm package
+  already owns it.
+- Kept test history writes inside each isolated test home directory.
+
+### Security
+
+- Protected `main` with required macOS/Linux CI checks, pull-request and CODEOWNERS review,
+  stale-review dismissal, conversation resolution, and force-push/deletion prevention.
+
 ## 0.4.0 - 2026-07-10
 
 ### Added

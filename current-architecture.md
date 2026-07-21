@@ -354,10 +354,11 @@ agent checks status
 
 ## 13. Near-Term Gaps
 
-Before app/daemon work:
+The app is distributed with Developer ID signing and notarization. Remaining product
+decisions are deliberately outside the current release:
 
-- Apple Developer Program go/no-go for menu bar app
-- Sparkle/notarization decision for public app distribution
-- shared/community registry design, if UpdateBar starts distributing curated recipes
+- whether to add Sparkle self-updates instead of keeping Homebrew as the app update path
+- whether demand justifies a shared/community recipe registry
+- whether to add Intel macOS or additional Linux architectures
 
-These are captured in `next-plan.md`.
+Historical sequencing and earlier signed-app decisions remain in `next-plan.md`.

@@ -1,5 +1,9 @@
 # UpdateBar — 실서비스 배포 전 남은 작업
 
+> Historical note (2026-07-12): 이 문서는 v0.3.0 이전 배포 점검 기록으로
+> 보관한다. 현재 운영 기준은 `version.env`, `README.md`, `docs/release.md`,
+> `.github/workflows/release.yml`, `Packaging/homebrew/`를 우선한다.
+
 작성일: 2026-07-08. 기준 커밋: `4642649` (main).
 7개 영역 병렬 감사(릴리스 엔지니어링 / 서명·배포 / 제품 완성도 / 테스트·품질 / 보안 / 문서·UX / 앱·TUI 폴리시) 결과를 종합한 문서.
 

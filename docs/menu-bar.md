@@ -1,24 +1,45 @@
 # Menu Bar App
 
 The menu bar app is a native Swift/AppKit presentation layer for UpdateBar.
+Clicking the status item opens a native `NSMenu`.
+The menu follows the macOS system appearance and is rebuilt from current state using
+standard menu items, separators, submenus, application icons, and checkmarks.
 
 Current scope:
 
 - prefers direct `UpdateBarCore` calls through `CoreMenuBarService`
 - keeps `UpdateBarCLIClient` as a subprocess fallback with JSON-only contracts
-- shows outdated items separately from recipes that need command approval
+- shows outdated items separately from recipes that need command approval, with
+  per-item update and approve/revoke actions
 - shows command text before approve/revoke actions
-- supports Check Now, Refresh Status, update selected, update all approved outdated,
-  approve/revoke command fields, cancel current action, Open TUI, Overview,
-  Manage Items, Scan & Add, Open Config, View Logs, and Quit
+- provides `Check Now` and `Run Updates`, Refresh Status, Open TUI, Dashboard,
+  Manage Items, Scan & Add, Open Config, View Logs, and Quit through native menu
+  items; Run Updates is disabled when there are no outdated items
+- expands Open TUI into a native submenu when multiple supported terminals are
+  installed, with the selected terminal marked by a checkmark
+- replaces actionable rows with `Checking for updates...`, Dashboard, and Quit
+  while a refresh is in flight, so stale update and approval actions cannot run
+- limits an active-action menu to Running, Cancel Current Action, Dashboard,
+  View Logs, and Quit until the action finishes
+- keeps bulk-update confirmation in the app dispatcher before approved update
+  commands run
 
-`Overview` opens a dashboard with pending-update and awaiting-approval counts,
-last check/update times, and a bar chart of successful updates over the last
-four weeks (from `~/.updatebar/history.jsonl`). `Manage Items...` opens a panel
-listing every registered item grouped by category with an enable/disable
-checkbox per item. `Scan & Add` opens a panel that scans only when you press
-Scan, marks already-registered candidates, and registers selected ones without
-approving any commands.
+`Dashboard` opens the Dashboard window directly. The window has Overview and Items tabs
+built with native AppKit controls. Overview shows pending-update and awaiting-approval counts, last
+check/update times, and a bar chart of successful updates over the last four
+weeks (from `~/.updatebar/history.jsonl`). Items lists every registered item
+grouped by category with an enable/disable checkbox per item. `Manage Items...`
+opens the same Dashboard window with Items selected, so item management never
+creates another panel. While the Dashboard window is visible, UpdateBar appears
+in Cmd-Tab and the Dock. Closing the last visible titled UpdateBar window returns
+the process to menu-bar-only mode. `Scan & Add` remains a separate panel that
+scans only when you press Scan, marks already-registered candidates, and
+registers selected ones without approving any commands.
+
+If an operation or status refresh fails, the status badge changes to `!` and the
+app directly assigns a native error-recovery menu. Refresh Status, Check Now,
+Open TUI, Dashboard, item management, configuration, logs, and Quit remain
+reachable.
 
 Build a local unsigned app:
 

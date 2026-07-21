@@ -968,8 +968,8 @@ final class DocumentationSnapshotTests: XCTestCase {
             releaseDocs.contains("UPDATEBAR_TEST_BIN=$PWD/.build/debug/updatebar swift test"))
         XCTAssertTrue(releaseDocs.contains("npm --prefix tui run build"))
         XCTAssertTrue(releaseDocs.contains("UPDATEBAR_VERIFY_STATIC_ONLY=1"))
-        XCTAssertTrue(releaseDocs.contains("Build or install the Ink TUI from source with npm"))
-        XCTAssertTrue(releaseDocs.contains("macOS app archive for the build\n  host architecture"))
+        XCTAssertTrue(releaseDocs.contains("For source checkouts, build the Ink TUI with npm"))
+        XCTAssertTrue(releaseDocs.contains("macOS app archive for the build host"))
         XCTAssertFalse(releaseDocs.contains("Apple Silicon macOS app archive"))
         XCTAssertTrue(readme.contains("macOS app archive for the build host architecture"))
         XCTAssertFalse(readme.contains("Apple Silicon app archive"))
@@ -1368,8 +1368,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         let releaseDocs = try String(contentsOfFile: "docs/release.md", encoding: .utf8)
         let nextPlan = try String(contentsOfFile: "next-plan.md", encoding: .utf8)
         let menuBarSpec = try String(
-            contentsOfFile:
-                "openspec/changes/add-ink-tui-menubar-architecture/specs/macos-menubar/spec.md",
+            contentsOfFile: "openspec/specs/macos-menubar/spec.md",
             encoding: .utf8
         )
         let readmeMenuBarSection = try readmeSection(
@@ -1390,6 +1389,23 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(menuBarSpec.contains("Update All Approved Outdated"))
     }
 
+    func testMenuBarDocsDescribeCurrentNativeMenuAndUnifiedDashboardWindow() throws {
+        let docs = try String(contentsOfFile: "docs/menu-bar.md", encoding: .utf8)
+
+        XCTAssertTrue(docs.contains("native `NSMenu`"))
+        XCTAssertTrue(docs.contains("standard menu items, separators, submenus"))
+        XCTAssertTrue(docs.contains("`Check Now` and `Run Updates`"))
+        XCTAssertTrue(docs.contains("opens the Dashboard window directly"))
+        XCTAssertTrue(docs.contains("Overview and Items tabs"))
+        XCTAssertTrue(docs.contains("same Dashboard window"))
+        XCTAssertTrue(docs.contains("Cmd-Tab"))
+        XCTAssertTrue(docs.contains("menu-bar-only mode"))
+        XCTAssertTrue(docs.contains("native error-recovery menu"))
+        XCTAssertTrue(docs.contains("system appearance"))
+        XCTAssertFalse(docs.contains("compact read-only popover"))
+        XCTAssertFalse(docs.contains("separate detailed Dashboard window"))
+    }
+
     func testMenuBarTroubleshootingAvoidsBroadPkill() throws {
         let menuBarDocs = try String(contentsOfFile: "docs/menu-bar.md", encoding: .utf8)
         let troubleshootingDocs = try String(
@@ -1403,7 +1419,8 @@ final class DocumentationSnapshotTests: XCTestCase {
 
     func testOpenSpecDesignDoesNotLeaveResolvedTUIDecisionsOpen() throws {
         let design = try String(
-            contentsOfFile: "openspec/changes/add-ink-tui-menubar-architecture/design.md",
+            contentsOfFile:
+                "openspec/changes/archive/2026-07-12-add-ink-tui-menubar-architecture/design.md",
             encoding: .utf8
         )
 

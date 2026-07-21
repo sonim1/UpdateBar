@@ -14,9 +14,9 @@
         private let formatter = MenuBarStatusFormatter()
         private let menuBuilder = MenuBarMenuModelBuilder()
         private let actionCoordinator = MenuBarActionCoordinator()
+        private var refreshGenerationGate = MenuBarRefreshGenerationGate()
         private var scanPanelController: ScanPanelController?
         private var configPanelController: ConfigPanelController?
-        private var manageItemsPanelController: ManageItemsPanelController?
         private var dashboardPanelController: DashboardPanelController?
         private var latestState = MenuBarState(
             title: "Checking...",
@@ -39,6 +39,12 @@
         }
 
         func applicationDidFinishLaunching(_ notification: Notification) {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(applicationWindowWillClose(_:)),
+                name: NSWindow.willCloseNotification,
+                object: nil
+            )
             let useCLIAdapter = Self.shouldUseCLIAdapter()
             if useCLIAdapter {
                 let resolvedPath = Self.resolveCLIPath()
@@ -74,6 +80,11 @@
         }
 
         func applicationWillTerminate(_ notification: Notification) {
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSWindow.willCloseNotification,
+                object: nil
+            )
             ProcessInfo.processInfo.enableAutomaticTermination("UpdateBar menu bar app terminated")
             Self.bootstrapDelegate = nil
         }
@@ -85,13 +96,18 @@
         }
 
         @objc private func updateAllApproved(_ sender: NSMenuItem) {
-            let fallback = MenuBarActionConfirmation.updateAllApprovedOutdated(
-                itemNames: latestState.outdatedItems.map(\.name)
+            updateAllApproved(
+                confirmation: sender.representedObject as? MenuBarActionConfirmation
             )
-            guard confirm((sender.representedObject as? MenuBarActionConfirmation) ?? fallback)
-            else {
-                return
-            }
+        }
+
+        private func updateAllApproved(confirmation: MenuBarActionConfirmation? = nil) {
+            let fallback = MenuBarActionConfirmation.updateAllApprovedOutdated(
+                itemNames: latestState.outdatedItems.map {
+                    SecretRedactor.redact($0.name)
+                }
+            )
+            guard confirm(confirmation ?? fallback) else { return }
             runAction("Run Updates") { [service] token in
                 try service?.updateAllApproved(cancellationToken: token)
             }
@@ -99,9 +115,11 @@
 
         @objc private func updateSelected(_ sender: NSMenuItem) {
             guard let action = sender.representedObject as? ItemAction else { return }
-            let id = action.id
-            guard confirm(action.confirmation ?? MenuBarActionConfirmation.updateItem(id: id))
-            else {
+            update(id: action.id, confirmation: action.confirmation)
+        }
+
+        private func update(id: String, confirmation: MenuBarActionConfirmation?) {
+            guard confirm(confirmation ?? MenuBarActionConfirmation.updateItem(id: id)) else {
                 return
             }
             runAction("Update \(id)") { [service] token in
@@ -111,32 +129,44 @@
 
         @objc private func approveField(_ sender: NSMenuItem) {
             guard let action = sender.representedObject as? ApprovalAction else { return }
-            let id = action.id
-            let field = action.field
+            setApproval(
+                id: action.id,
+                field: action.field,
+                approving: true,
+                confirmation: action.confirmation
+            )
+        }
+
+        private func setApproval(
+            id: String,
+            field: String,
+            approving: Bool,
+            confirmation: MenuBarActionConfirmation?
+        ) {
             let fallback = MenuBarActionConfirmation.commandApproval(
                 id: id,
                 field: field,
-                approving: true
+                approving: approving
             )
-            guard confirm(action.confirmation ?? fallback) else { return }
-            runAction("Approve \(id) \(field)") { [service] token in
-                try service?.approve(id: id, field: field, cancellationToken: token)
+            guard confirm(confirmation ?? fallback) else { return }
+            let verb = approving ? "Approve" : "Revoke"
+            runAction("\(verb) \(id) \(field)") { [service] token in
+                if approving {
+                    try service?.approve(id: id, field: field, cancellationToken: token)
+                } else {
+                    try service?.revoke(id: id, field: field, cancellationToken: token)
+                }
             }
         }
 
         @objc private func revokeField(_ sender: NSMenuItem) {
             guard let action = sender.representedObject as? ApprovalAction else { return }
-            let id = action.id
-            let field = action.field
-            let fallback = MenuBarActionConfirmation.commandApproval(
-                id: id,
-                field: field,
-                approving: false
+            setApproval(
+                id: action.id,
+                field: action.field,
+                approving: false,
+                confirmation: action.confirmation
             )
-            guard confirm(action.confirmation ?? fallback) else { return }
-            runAction("Revoke \(id) \(field)") { [service] token in
-                try service?.revoke(id: id, field: field, cancellationToken: token)
-            }
         }
 
         @objc private func refreshFromMenu() {
@@ -169,41 +199,53 @@
         }
 
         @objc private func showOverview() {
-            guard let service else {
-                showError(MenuBarStartupError.serviceUnavailable)
-                return
-            }
-            if dashboardPanelController == nil {
-                dashboardPanelController = DashboardPanelController(
-                    service: service,
-                    onOpenItems: { [weak self] in
-                        self?.manageItems()
-                    }
-                )
-            }
-            dashboardPanelController?.showWindowAndReload()
+            showDashboard(.overview)
         }
 
         @objc private func manageItems() {
+            showDashboard(.items)
+        }
+
+        private func showDashboard(_ tab: DashboardTab) {
             guard let service else {
                 showError(MenuBarStartupError.serviceUnavailable)
                 return
             }
-            if manageItemsPanelController == nil {
-                manageItemsPanelController = ManageItemsPanelController(
+            NSApp.setActivationPolicy(.regular)
+            if dashboardPanelController == nil {
+                dashboardPanelController = DashboardPanelController(
                     service: service,
-                    onChanged: { [weak self] in
+                    onItemsChanged: { [weak self] in
                         self?.refreshStatus(refresh: false)
                     }
                 )
             }
-            manageItemsPanelController?.showWindowAndReload()
+            dashboardPanelController?.showWindowAndReload(selecting: tab)
+        }
+
+        @objc private func applicationWindowWillClose(_ notification: Notification) {
+            restoreAccessoryActivationPolicyIfNeeded()
+        }
+
+        private func restoreAccessoryActivationPolicyIfNeeded() {
+            DispatchQueue.main.async {
+                let hasVisibleTitledWindow = NSApp.windows.contains {
+                    $0.isVisible && $0.styleMask.contains(.titled)
+                }
+                guard !hasVisibleTitledWindow else { return }
+                NSApp.setActivationPolicy(.accessory)
+            }
         }
 
         @objc private func openTUIInTerminal(_ sender: NSMenuItem) {
-            guard let bundleID = sender.representedObject as? String,
-                let terminal = installedTerminals().first(where: { $0.id == bundleID })
-            else { return }
+            guard let bundleID = sender.representedObject as? String else { return }
+            launchTUI(inTerminalWithBundleID: bundleID)
+        }
+
+        private func launchTUI(inTerminalWithBundleID bundleID: String) {
+            guard let terminal = installedTerminals().first(where: { $0.id == bundleID }) else {
+                return
+            }
             UserDefaults.standard.set(bundleID, forKey: Self.tuiTerminalDefaultsKey)
             launchTUI(in: terminal)
         }
@@ -314,7 +356,14 @@
         }
 
         private func refreshStatus(refresh: Bool) {
+            guard actionCoordinator.activeAction == nil else {
+                rebuildMenu()
+                return
+            }
+            let refreshToken = refreshGenerationGate.begin()
             setTitle("...", accessibilityLabel: "UpdateBar checking")
+            let loadingMenu = menuBuilder.makeLoadingMenu()
+            statusItem?.menu = makeMenu(from: loadingMenu)
             DispatchQueue.global(qos: .userInitiated).async { [service, formatter] in
                 do {
                     guard let service else { return }
@@ -331,12 +380,15 @@
                         approvalsByItemID: approvals
                     )
                     DispatchQueue.main.async {
+                        guard self.refreshGenerationGate.isCurrent(refreshToken) else { return }
                         self.latestState = state
                         self.approvalStatuses = approvals
                         self.rebuildMenu()
+                        self.dashboardPanelController?.reloadIfShown()
                     }
                 } catch {
                     DispatchQueue.main.async {
+                        guard self.refreshGenerationGate.isCurrent(refreshToken) else { return }
                         self.showError(error)
                     }
                 }
@@ -351,6 +403,7 @@
                 rebuildMenu()
                 return
             }
+            refreshGenerationGate.invalidate()
             rebuildMenu()
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
@@ -361,21 +414,17 @@
                             activeAction,
                             outcome: wasCancelled ? .cancelled : .finished
                         )
-                        if wasCancelled {
-                            self.rebuildMenu()
-                        } else {
-                            self.refreshStatus(refresh: false)
-                        }
+                        self.refreshStatus(refresh: false)
                     }
                 } catch let error as ExecutionError where error.isCancellation {
                     DispatchQueue.main.async {
                         self.actionCoordinator.finish(activeAction, outcome: .cancelled)
-                        self.rebuildMenu()
+                        self.refreshStatus(refresh: false)
                     }
                 } catch let error as UpdateBarCLIClientError where error == .cancelled {
                     DispatchQueue.main.async {
                         self.actionCoordinator.finish(activeAction, outcome: .cancelled)
-                        self.rebuildMenu()
+                        self.refreshStatus(refresh: false)
                     }
                 } catch {
                     DispatchQueue.main.async {
@@ -392,7 +441,6 @@
                 return
             }
             let activeAction = actionCoordinator.activeAction
-            let lastActionNotice = actionCoordinator.lastActionNotice
             if let activeAction {
                 setTitle("...", accessibilityLabel: "UpdateBar running \(activeAction.title)")
             } else {
@@ -405,7 +453,7 @@
                 state: latestState,
                 approvalStatuses: approvalStatuses,
                 activeActionTitle: activeAction?.title,
-                lastActionNotice: activeAction == nil ? lastActionNotice : nil,
+                lastActionNotice: activeAction == nil ? actionCoordinator.lastActionNotice : nil,
                 installedTerminals: installedTerminals(),
                 selectedTerminalID: selectedTerminal().id
             )
@@ -469,14 +517,18 @@
         private func showError(_ error: Error) {
             let errorDescription = SecretRedactor.redact(String(describing: error))
             Self.debugLog("showing error: \(errorDescription)")
-            setTitle("!", accessibilityLabel: "UpdateBar error")
-            guard let statusItem else {
+            guard actionCoordinator.activeAction == nil else {
+                rebuildMenu()
                 return
             }
+            refreshGenerationGate.invalidate()
+            setTitle("!", accessibilityLabel: "UpdateBar error")
+            guard let statusItem else { return }
             let model = menuBuilder.makeErrorMenu(
                 errorDescription: errorDescription
             )
             statusItem.menu = makeMenu(from: model)
+            dashboardPanelController?.showErrorIfShown(error)
         }
 
         private func setTitle(_ title: String, accessibilityLabel: String? = nil) {
@@ -485,8 +537,8 @@
         }
 
         private func accessibilityLabel(for state: MenuBarState) -> String {
-            if state.needsAttentionCount > 0 {
-                return "UpdateBar \(state.title), \(state.needsAttentionCount) need attention"
+            if let needsAttentionSummary = state.needsAttentionSummary {
+                return "UpdateBar \(state.title), \(needsAttentionSummary)"
             }
             return "UpdateBar \(state.title)"
         }

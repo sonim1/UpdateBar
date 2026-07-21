@@ -1,3 +1,5 @@
+import UpdateBarCore
+
 public struct MenuBarActionConfirmation: Equatable, Sendable {
     public var title: String
     public var message: String
@@ -97,6 +99,33 @@ public struct MenuBarActionConfirmation: Equatable, Sendable {
             message: message,
             toolTip: "\(verb)s \(field) for \(id) after confirmation.",
             confirmButton: verb
+        )
+    }
+}
+
+extension MenuBarActionConfirmation {
+    static func updateItem(
+        for item: StatusItem,
+        approvalStatuses: [String: [CommandApprovalStatus]]
+    ) -> MenuBarActionConfirmation {
+        let updateCommand = approvalStatuses[item.id]?.first { $0.field == "update.cmd" }
+        return updateItem(
+            id: SecretRedactor.redact(item.id),
+            command: updateCommand.map { SecretRedactor.redact($0.command) },
+            cwd: updateCommand?.cwd.map(SecretRedactor.redact)
+        )
+    }
+
+    static func commandApproval(
+        for item: StatusItem,
+        status: CommandApprovalStatus
+    ) -> MenuBarActionConfirmation {
+        commandApproval(
+            id: SecretRedactor.redact(item.id),
+            field: status.field,
+            approving: !status.approved,
+            command: SecretRedactor.redact(status.command),
+            cwd: status.cwd.map(SecretRedactor.redact)
         )
     }
 }

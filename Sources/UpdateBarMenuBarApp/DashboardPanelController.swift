@@ -1,4 +1,5 @@
 #if os(macOS)
+    import Accessibility
     import AppKit
     import Charts
     import Foundation
@@ -8,62 +9,140 @@
 
     private struct DashboardView: View {
         var summary: DashboardSummary
-        var onOpenItems: () -> Void
+
+        private let metricColumns = [
+            GridItem(.flexible(), spacing: 12),
+            GridItem(.flexible(), spacing: 12),
+        ]
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("UpdateBar")
+                        .font(.title2.weight(.semibold))
+                    Text(statusText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 12) {
                     tile(
-                        title: "Pending Updates",
-                        value: "\(summary.pendingUpdates)"
+                        title: "Updates",
+                        value: "\(summary.pendingUpdates)",
+                        systemImage: "arrow.down.circle"
                     )
                     tile(
                         title: "Awaiting Approval",
-                        value: "\(summary.approvalsWaiting)"
+                        value: "\(summary.approvalsWaiting)",
+                        systemImage: "hourglass"
                     )
                     tile(
                         title: "Last Checked",
-                        value: shortDate(summary.lastChecked)
+                        value: shortDate(summary.lastChecked),
+                        systemImage: "magnifyingglass"
                     )
                     tile(
                         title: "Last Updated",
-                        value: shortDate(summary.lastUpdated)
+                        value: shortDate(summary.lastUpdated),
+                        systemImage: "clock"
                     )
                 }
 
-                Text("Updates · last 4 weeks")
-                    .font(.headline)
-                Chart(summary.updatesPerDay, id: \.day) { bucket in
-                    BarMark(
-                        x: .value("Day", bucket.day, unit: .day),
-                        y: .value("Updates", bucket.count)
-                    )
-                }
-                .chartYAxis {
-                    AxisMarks(values: .automatic(desiredCount: 3))
-                }
-                .frame(minHeight: 160)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Updates · last 4 weeks")
+                        .font(.headline)
 
-                HStack {
-                    Spacer()
-                    Button("Manage Items...", action: onOpenItems)
+                    ZStack {
+                        Chart(summary.updatesPerDay, id: \.day) { bucket in
+                            BarMark(
+                                x: .value("Day", bucket.day, unit: .day),
+                                y: .value("Updates", bucket.count)
+                            )
+                        }
+                        .chartYAxis {
+                            AxisMarks(values: .automatic(desiredCount: 3))
+                        }
+                        .chartXScale(
+                            range: .plotDimension(startPadding: 20, endPadding: 20)
+                        )
+                        .accessibilityChartDescriptor(
+                            UpdatesChartDescriptor(buckets: summary.updatesPerDay)
+                        )
+
+                        if let chartEmptyMessage {
+                            Text(chartEmptyMessage)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(minHeight: 120, maxHeight: .infinity)
                 }
+                .frame(maxHeight: .infinity, alignment: .top)
             }
-            .padding(16)
+            .padding(20)
+            .frame(minWidth: 620, minHeight: 420, alignment: .topLeading)
         }
 
-        private func tile(title: String, value: String) -> some View {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(value)
-                    .font(.title2.weight(.semibold))
-                    .lineLimit(1)
+        private var statusText: String {
+            if summary.pendingUpdates == 0, summary.approvalsWaiting == 0 {
+                return "Everything is up to date."
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            var parts: [String] = []
+            if summary.pendingUpdates > 0 {
+                let noun = summary.pendingUpdates == 1 ? "update" : "updates"
+                parts.append("\(summary.pendingUpdates) \(noun) available")
+            }
+            if summary.approvalsWaiting > 0 {
+                let noun = summary.approvalsWaiting == 1 ? "item" : "items"
+                parts.append("\(summary.approvalsWaiting) \(noun) awaiting approval")
+            }
+            return parts.joined(separator: " · ")
+        }
+
+        private var totalUpdates: Int {
+            summary.updatesPerDay.reduce(0) { $0 + $1.count }
+        }
+
+        private var chartEmptyMessage: String? {
+            if summary.updatesPerDay.isEmpty {
+                return "No update history available"
+            }
+            if totalUpdates == 0 {
+                return "No updates in the last 4 weeks"
+            }
+            return nil
+        }
+
+        private func tile(title: String, value: String, systemImage: String) -> some View {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: systemImage)
+                        .frame(width: 16)
+                        .accessibilityHidden(true)
+                    Text(title)
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+
+                Text(value)
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(height: 24, alignment: .leading)
+                    .help(value)
+            }
             .padding(12)
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+            .background(
+                .quaternary.opacity(0.5),
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue(value)
         }
 
         private func shortDate(_ date: Date?) -> String {
@@ -72,34 +151,127 @@
         }
     }
 
-    final class DashboardPanelController: NSWindowController {
+    private struct UpdatesChartDescriptor: AXChartDescriptorRepresentable {
+        var buckets: [DashboardDayCount]
+
+        func makeChartDescriptor() -> AXChartDescriptor {
+            let dateLabels = buckets.map { dateLabel($0.day) }
+            let xAxis = AXCategoricalDataAxisDescriptor(
+                title: "Date",
+                categoryOrder: dateLabels
+            )
+            let maximumCount = buckets.map(\.count).max() ?? 0
+            let yAxis = AXNumericDataAxisDescriptor(
+                title: "Update count",
+                range: 0...Double(max(1, maximumCount)),
+                gridlinePositions: []
+            ) { value in
+                countLabel(Int(value.rounded()))
+            }
+            let dataPoints = zip(buckets, dateLabels).map { bucket, dateLabel in
+                AXDataPoint(
+                    x: dateLabel,
+                    y: Double(bucket.count),
+                    label: "\(dateLabel): \(countLabel(bucket.count))"
+                )
+            }
+            let series = AXDataSeriesDescriptor(
+                name: "Daily updates",
+                isContinuous: false,
+                dataPoints: dataPoints
+            )
+
+            return AXChartDescriptor(
+                title: "Updates in the last 4 weeks",
+                summary: descriptorSummary,
+                xAxis: xAxis,
+                yAxis: yAxis,
+                series: [series]
+            )
+        }
+
+        private var descriptorSummary: String {
+            guard let first = buckets.first, let last = buckets.last else {
+                return "No daily update data is available."
+            }
+            let firstDate = dateLabel(first.day)
+            let lastDate = dateLabel(last.day)
+            return "Daily update counts from \(firstDate) through \(lastDate)."
+        }
+
+        private func dateLabel(_ date: Date) -> String {
+            date.formatted(.dateTime.weekday(.wide).month(.wide).day().year())
+        }
+
+        private func countLabel(_ count: Int) -> String {
+            let noun = count == 1 ? "update" : "updates"
+            return "\(count) \(noun)"
+        }
+    }
+
+    enum DashboardTab: Int {
+        case overview
+        case items
+    }
+
+    final class DashboardPanelController: NSWindowController, NSWindowDelegate {
         private let service: any MenuBarServicing
-        private let onOpenItems: () -> Void
         private let model = DashboardModel()
+        private let tabViewController = NSTabViewController()
+        private let overviewViewController = NSViewController()
+        private let overviewHostingView: NSHostingView<AnyView> = NSHostingView(
+            rootView: AnyView(ProgressView().frame(minWidth: 620, minHeight: 420))
+        )
+        private let manageItemsViewController: ManageItemsViewController
+        private var reloadGeneration = 0
 
         init(
             service: any MenuBarServicing,
-            onOpenItems: @escaping () -> Void
+            onItemsChanged: @escaping () -> Void
         ) {
             self.service = service
-            self.onOpenItems = onOpenItems
-            let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 620, height: 380),
-                styleMask: [.titled, .closable, .resizable, .utilityWindow],
+            manageItemsViewController = ManageItemsViewController(
+                service: service,
+                onChanged: onItemsChanged
+            )
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 720, height: 520),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
             )
-            panel.title = "Overview"
-            panel.isReleasedWhenClosed = false
-            panel.minSize = NSSize(width: 520, height: 320)
-            super.init(window: panel)
+            window.title = "Dashboard"
+            window.isReleasedWhenClosed = false
+            window.contentMinSize = NSSize(width: 620, height: 420)
+            super.init(window: window)
+            window.delegate = self
+
+            overviewViewController.view = overviewHostingView
+            tabViewController.tabStyle = .segmentedControlOnTop
+            tabViewController.canPropagateSelectedChildViewControllerTitle = false
+
+            let overviewItem = NSTabViewItem(viewController: overviewViewController)
+            overviewItem.label = "Overview"
+            let itemsItem = NSTabViewItem(viewController: manageItemsViewController)
+            itemsItem.label = "Items"
+            tabViewController.addTabViewItem(overviewItem)
+            tabViewController.addTabViewItem(itemsItem)
+            window.contentViewController = tabViewController
+
+            manageItemsViewController.onRefresh = { [weak self] in
+                self?.reload()
+            }
+            manageItemsViewController.onError = { [weak self] error in
+                self?.showErrorIfShown(error)
+            }
         }
 
         required init?(coder: NSCoder) {
             nil
         }
 
-        func showWindowAndReload() {
+        func showWindowAndReload(selecting tab: DashboardTab) {
+            tabViewController.selectedTabViewItemIndex = tab.rawValue
             showWindow(nil)
             window?.center()
             window?.makeKeyAndOrderFront(nil)
@@ -107,7 +279,22 @@
             reload()
         }
 
-        private func reload() {
+        func reloadIfShown() {
+            guard window?.isVisible == true else { return }
+            reload()
+        }
+
+        func showErrorIfShown(_ error: Error) {
+            guard window?.isVisible == true else { return }
+            reloadGeneration &+= 1
+            manageItemsViewController.showError(error)
+            presentDashboardError(error)
+        }
+
+        func reload() {
+            reloadGeneration &+= 1
+            let generation = reloadGeneration
+            manageItemsViewController.setLoading()
             DispatchQueue.global(qos: .userInitiated).async { [service, model] in
                 do {
                     let now = Date()
@@ -116,28 +303,31 @@
                     let events = try service.history(since: since)
                     let summary = model.summary(snapshot: snapshot, events: events, now: now)
                     DispatchQueue.main.async {
+                        guard generation == self.reloadGeneration else { return }
                         self.apply(summary)
+                        self.manageItemsViewController.apply(items: snapshot.items)
                     }
                 } catch {
                     DispatchQueue.main.async {
-                        self.presentError(error)
+                        guard generation == self.reloadGeneration else { return }
+                        self.manageItemsViewController.showError(error)
+                        self.presentDashboardError(error)
                     }
                 }
             }
         }
 
-        private func apply(_ summary: DashboardSummary) {
-            let view = DashboardView(
-                summary: summary,
-                onOpenItems: { [weak self] in
-                    self?.onOpenItems()
-                }
-            )
-            window?.contentView = NSHostingView(rootView: view)
+        func windowWillClose(_ notification: Notification) {
+            reloadGeneration &+= 1
         }
 
-        private func presentError(_ error: Error) {
-            guard let window else { return }
+        private func apply(_ summary: DashboardSummary) {
+            let view = DashboardView(summary: summary)
+            overviewHostingView.rootView = AnyView(view)
+        }
+
+        private func presentDashboardError(_ error: Error) {
+            guard let window, window.isVisible, window.attachedSheet == nil else { return }
             let alert = NSAlert()
             alert.alertStyle = .warning
             alert.messageText = "UpdateBar"

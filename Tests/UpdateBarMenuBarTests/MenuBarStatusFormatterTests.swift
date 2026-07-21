@@ -48,6 +48,50 @@ final class MenuBarStatusFormatterTests: XCTestCase {
         XCTAssertEqual(state.needsAttentionCount, 0)
     }
 
+    func testAttentionSummaryUsesSingularAndPluralCopy() {
+        let single = MenuBarState(
+            title: "Needs attention",
+            badgeValue: "!",
+            outdatedItems: [],
+            approvalItems: [
+                StatusItem(
+                    id: "one",
+                    name: "One",
+                    category: "cli",
+                    current: nil,
+                    latest: nil,
+                    status: .untrusted,
+                    pinned: false,
+                    lastChecked: nil,
+                    error: nil)
+            ],
+            errorItems: [],
+            okItems: []
+        )
+        let plural = MenuBarState(
+            title: "Needs attention",
+            badgeValue: "!",
+            outdatedItems: [],
+            approvalItems: single.approvalItems,
+            errorItems: [
+                StatusItem(
+                    id: "two",
+                    name: "Two",
+                    category: "cli",
+                    current: nil,
+                    latest: nil,
+                    status: .error,
+                    pinned: false,
+                    lastChecked: nil,
+                    error: nil)
+            ],
+            okItems: []
+        )
+
+        XCTAssertEqual(single.needsAttentionSummary, "1 needs attention")
+        XCTAssertEqual(plural.needsAttentionSummary, "2 need attention")
+    }
+
     func testAttentionOnlySnapshotDoesNotLookUpToDate() throws {
         let snapshot = try decodeSnapshot(
             """
