@@ -24,6 +24,7 @@ tar -xzf "$ARCHIVE" -C "$TMP_DIR"
 APP_DIR="$TMP_DIR/UpdateBar.app"
 MACOS_BIN="$APP_DIR/Contents/MacOS/UpdateBar"
 CLI_BIN="$APP_DIR/Contents/Resources/updatebar"
+APP_ICON="$APP_DIR/Contents/Resources/UpdateBar.icns"
 INFO_PLIST="$APP_DIR/Contents/Info.plist"
 
 plist_value() {
@@ -55,6 +56,10 @@ if [[ ! -f "$INFO_PLIST" ]]; then
   echo "missing Info.plist: $INFO_PLIST" >&2
   exit 1
 fi
+if [[ ! -f "$APP_ICON" ]]; then
+  echo "missing app icon: $APP_ICON" >&2
+  exit 1
+fi
 
 if command -v plutil >/dev/null 2>&1; then
   plutil -lint "$INFO_PLIST" >/dev/null
@@ -65,6 +70,14 @@ if [[ "$APP_EXECUTABLE" != "UpdateBar" ]]; then
   echo "app archive has unexpected executable name: $ARCHIVE" >&2
   echo "  expected: UpdateBar" >&2
   echo "  actual:   ${APP_EXECUTABLE:-missing}" >&2
+  exit 1
+fi
+
+APP_ICON_FILE="$(plist_value CFBundleIconFile)"
+if [[ "$APP_ICON_FILE" != "UpdateBar.icns" ]]; then
+  echo "app archive has unexpected icon file: $ARCHIVE" >&2
+  echo "  expected: UpdateBar.icns" >&2
+  echo "  actual:   ${APP_ICON_FILE:-missing}" >&2
   exit 1
 fi
 
