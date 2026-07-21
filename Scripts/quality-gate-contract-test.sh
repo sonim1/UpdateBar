@@ -84,7 +84,12 @@ if ! grep -Fq '"$SWIFT_BIN" format --version' "$QUALITY_GATE"; then
 fi
 
 if grep -Fq 'skipping Swift format checks' "$QUALITY_GATE"; then
-  echo "quality-gate.sh must fail when Swift format checks are unavailable" >&2
+    echo "quality-gate.sh must fail when Swift format checks are unavailable" >&2
+    exit 1
+fi
+
+if ! grep -Fq 'shellcheck --severity=warning Scripts/*.sh' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must fail on ShellCheck warnings and errors" >&2
   exit 1
 fi
 
