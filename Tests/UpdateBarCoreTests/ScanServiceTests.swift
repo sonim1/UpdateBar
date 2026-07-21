@@ -143,6 +143,27 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertNotNil(report.candidates.first { $0.id == "known.codex" })
     }
 
+    func testKnownHermesCommandIsDedupedWhenNPMPackageOwnsIt() throws {
+        let commands = MockCommandExecutor(results: [
+            ScanService.npmGlobalListCommand: CommandResult(
+                exitCode: 0,
+                stdout: #"{"dependencies":{"hermes-agent":{"version":"0.9.0"}}}"#,
+                stderr: ""
+            ),
+            ScanService.knownToolsCommand: CommandResult(
+                exitCode: 0,
+                stdout: "hermes\t0.9.0\n",
+                stderr: ""
+            ),
+        ])
+        let service = ScanService(commandRunner: commands)
+
+        let report = try service.scan(detectors: [.npmGlobal, .known])
+
+        XCTAssertNotNil(report.candidates.first { $0.id == "npm.hermes-agent" })
+        XCTAssertNil(report.candidates.first { $0.id == "known.hermes" })
+    }
+
     func testScanDeduplicatesRepeatedManagerOutputByID() throws {
         let commands = MockCommandExecutor(results: [
             ScanService.brewListCommand: CommandResult(

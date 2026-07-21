@@ -10,6 +10,7 @@
         private let service: any MenuBarServicing
         private let onChanged: () -> Void
         private let model = ManageItemsModel()
+        private var mutationGate = ManageItemsMutationGate()
         private var rows: [ManageItemsRow] = []
         private var isRunning = false
 
@@ -78,6 +79,7 @@
                 case .item(let item) = rows[sender.tag]
             else { return }
             let enabled = sender.state == .on
+            mutationGate.begin(id: item.id, enabled: enabled)
             setRunning(true, message: "\(enabled ? "Enabling" : "Disabling") \(item.name)...")
             DispatchQueue.global(qos: .userInitiated).async { [service] in
                 do {
@@ -91,7 +93,7 @@
                     }
                 } catch {
                     DispatchQueue.main.async {
-                        self.showError(error)
+                        self.showMutationError(error)
                         self.onError(error)
                     }
                 }
@@ -105,6 +107,7 @@
 
         func apply(items: [StatusItem], message: String? = nil) {
             _ = view
+            guard mutationGate.accepts(items) else { return }
             rows = model.rows(from: items)
             tableView.reloadData()
             setRunning(false, message: message ?? "\(items.count) item(s).")
@@ -167,7 +170,15 @@
 
         func showError(_ error: Error) {
             _ = view
-            setRunning(false, message: SecretRedactor.redact(String(describing: error)))
+            setRunning(
+                mutationGate.isPending,
+                message: SecretRedactor.redact(String(describing: error))
+            )
+        }
+
+        private func showMutationError(_ error: Error) {
+            mutationGate.cancel()
+            showError(error)
         }
 
         private func setRunning(_ running: Bool, message: String) {

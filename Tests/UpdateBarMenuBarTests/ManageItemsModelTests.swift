@@ -1,6 +1,6 @@
 import UpdateBarCore
-import UpdateBarMenuBar
 import XCTest
+@testable import UpdateBarMenuBar
 
 final class ManageItemsModelTests: XCTestCase {
     func testGroupsItemsByCategorySortedWithCounts() {
@@ -103,6 +103,41 @@ final class ManageItemsModelTests: XCTestCase {
             pinned: false,
             lastChecked: nil,
             error: error
+        )
+    }
+}
+
+final class ManageItemsMutationGateTests: XCTestCase {
+    func testRejectsStaleSnapshotUntilToggledStateAppears() {
+        var gate = ManageItemsMutationGate()
+        gate.begin(id: "tool", enabled: true)
+
+        XCTAssertFalse(gate.accepts([item(status: .disabled)]))
+        XCTAssertTrue(gate.isPending)
+        XCTAssertTrue(gate.accepts([item(status: .ok)]))
+        XCTAssertFalse(gate.isPending)
+    }
+
+    func testCancelAllowsSnapshotsAfterMutationFailure() {
+        var gate = ManageItemsMutationGate()
+        gate.begin(id: "tool", enabled: false)
+        gate.cancel()
+
+        XCTAssertTrue(gate.accepts([item(status: .ok)]))
+        XCTAssertFalse(gate.isPending)
+    }
+
+    private func item(status: ItemStatus) -> StatusItem {
+        StatusItem(
+            id: "tool",
+            name: "Tool",
+            category: "cli",
+            current: nil,
+            latest: nil,
+            status: status,
+            pinned: false,
+            lastChecked: nil,
+            error: nil
         )
     }
 }

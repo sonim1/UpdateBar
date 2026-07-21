@@ -352,7 +352,7 @@ public struct ScanService {
             names.insert(packageLeafName)
         }
         if candidate.detector == .npmGlobal {
-            names.formUnion(scopedPackageCommandAliases(candidate.name))
+            names.formUnion(npmPackageCommandAliases(candidate.name))
         }
         return names
     }
@@ -375,10 +375,12 @@ public struct ScanService {
         return leafName.isEmpty ? nil : String(leafName)
     }
 
-    private func scopedPackageCommandAliases(_ name: String) -> Set<String> {
+    private func npmPackageCommandAliases(_ name: String) -> Set<String> {
         switch name.lowercased() {
         case "@anthropic-ai/claude-code":
             return ["claude"]
+        case "hermes-agent":
+            return ["hermes"]
         default:
             return []
         }
