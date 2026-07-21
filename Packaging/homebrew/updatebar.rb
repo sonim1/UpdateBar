@@ -7,7 +7,7 @@ class Updatebar < Formula
   homepage "https://github.com/sonim1/UpdateBar"
   url "https://github.com/sonim1/UpdateBar/releases/download/v0.5.0/updatebar-0.5.0-macos-arm64.tar.gz"
   version "0.5.0"
-  sha256 "29aa7ca8b74c85162c6bb5b983ac58597028d3aba53de5b2e8bc273c44a2636f"
+  sha256 "8acaf19ee8a54fe4778e76d7c1e0eaf5b171883f146cd792f80542c5b5586cda"
 
   depends_on arch: :arm64
   depends_on macos: :ventura

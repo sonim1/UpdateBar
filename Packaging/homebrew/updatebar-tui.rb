@@ -6,7 +6,7 @@ class UpdatebarTui < Formula
   desc "Ink terminal UI for UpdateBar"
   homepage "https://github.com/sonim1/UpdateBar"
   url "https://github.com/sonim1/UpdateBar/archive/refs/tags/v0.5.0.tar.gz"
-  sha256 "2a03c2c8ee0ebdc4fa3bad52f5348cfa73ece829fcc4b446160db89e2c9a431f"
+  sha256 "0e2d6dc21a9642bd3e54b257e6be5b09117822b8cc80e1d6064c122013cf056b"
   license "MIT"
 
   depends_on "node"
