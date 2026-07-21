@@ -3,11 +3,22 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FORMULA="$ROOT/Packaging/homebrew/updatebar.rb"
+TUI_FORMULA="$ROOT/Packaging/homebrew/updatebar-tui.rb"
 CASK_DIR="$ROOT/Packaging/homebrew/Casks"
 FORMULA_TOKEN="$(basename "$FORMULA" .rb)"
 
 if [[ ! -f "$FORMULA" ]]; then
   echo "missing Homebrew formula: $FORMULA" >&2
+  exit 1
+fi
+
+if ! grep -Eq 'assert_match[[:space:]]+version\.to_s,' "$FORMULA"; then
+  echo "Homebrew formula version matcher must compare a string" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'assert_predicate bin/"updatebar-tui", :executable?' "$TUI_FORMULA"; then
+  echo "Homebrew TUI formula test must not launch the interactive UI" >&2
   exit 1
 fi
 
