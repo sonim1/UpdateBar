@@ -12,9 +12,10 @@ BIN_DIR="$TMP_DIR/bin"
 CODESIGN_LOG="$TMP_DIR/codesign.log"
 DITTO_LOG="$TMP_DIR/ditto.log"
 XCRUN_LOG="$TMP_DIR/xcrun.log"
-mkdir -p "$TEST_ROOT/Scripts" "$BIN_DIR"
+mkdir -p "$TEST_ROOT/Scripts" "$TEST_ROOT/Assets/AppIcon" "$BIN_DIR"
 
 cp "$ROOT/Scripts/package-app.sh" "$TEST_ROOT/Scripts/package-app.sh"
+cp "$ROOT/Assets/AppIcon/UpdateBar.icns" "$TEST_ROOT/Assets/AppIcon/UpdateBar.icns"
 cp "$ROOT/version.env" "$TEST_ROOT/version.env"
 
 cat >"$TEST_ROOT/Scripts/generate-version-source.sh" <<'SH'
@@ -102,8 +103,20 @@ chmod +x "$BIN_DIR/uname" "$BIN_DIR/swift" "$BIN_DIR/plutil" "$BIN_DIR/codesign"
     UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE="UpdateBar Notary Test" \
     UPDATEBAR_NOTARYTOOL_KEYCHAIN="/tmp/updatebar-test.keychain-db" \
     UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE=1 \
-    bash Scripts/package-app.sh >/dev/null
+  bash Scripts/package-app.sh >/dev/null
 )
+
+PACKAGED_ICON="$TEST_ROOT/dist/UpdateBar.app/Contents/Resources/UpdateBar.icns"
+PACKAGED_PLIST="$TEST_ROOT/dist/UpdateBar.app/Contents/Info.plist"
+
+if [[ ! -f "$PACKAGED_ICON" ]]; then
+  echo "package app should copy UpdateBar.icns" >&2
+  exit 1
+fi
+if ! grep -A1 -F '<key>CFBundleIconFile</key>' "$PACKAGED_PLIST" | grep -Fq '<string>UpdateBar.icns</string>'; then
+  echo "package app should declare CFBundleIconFile" >&2
+  exit 1
+fi
 
 if grep -F -- "--deep" "$CODESIGN_LOG" >/dev/null; then
   echo "package-app signing must not use codesign --deep" >&2

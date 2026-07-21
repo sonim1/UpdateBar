@@ -17,6 +17,7 @@ APP_DIR="dist/UpdateBar.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+ICON_SOURCE="$ROOT/Assets/AppIcon/UpdateBar.icns"
 TMP_DIR=""
 
 log() {
@@ -95,6 +96,11 @@ notarize_app_if_requested() {
   xcrun stapler staple "$APP_DIR"
 }
 
+if [[ ! -f "$ICON_SOURCE" ]]; then
+  echo "missing app icon: $ICON_SOURCE" >&2
+  exit 1
+fi
+
 Scripts/generate-version-source.sh
 "$SWIFT_BIN" build -c release --product updatebar
 "$SWIFT_BIN" build -c release --product updatebar-menubar
@@ -104,6 +110,7 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
 cp .build/release/updatebar-menubar "$MACOS_DIR/UpdateBar"
 cp .build/release/updatebar "$RESOURCES_DIR/updatebar"
+cp "$ICON_SOURCE" "$RESOURCES_DIR/UpdateBar.icns"
 chmod 0755 "$MACOS_DIR/UpdateBar" "$RESOURCES_DIR/updatebar"
 
 cat >"$CONTENTS_DIR/Info.plist" <<PLIST
@@ -115,6 +122,8 @@ cat >"$CONTENTS_DIR/Info.plist" <<PLIST
   <string>en</string>
   <key>CFBundleExecutable</key>
   <string>UpdateBar</string>
+  <key>CFBundleIconFile</key>
+  <string>UpdateBar.icns</string>
   <key>CFBundleIdentifier</key>
   <string>com.sonim1.UpdateBar</string>
   <key>CFBundleInfoDictionaryVersion</key>
