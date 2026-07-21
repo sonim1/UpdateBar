@@ -1,6 +1,6 @@
 # Repo Maintenance Audit
 
-Last updated: 2026-07-12.
+Last updated: 2026-07-20.
 
 This note records the current cleanup pass for documentation, security,
 dependencies, CI, and local repository hygiene. It is evidence-oriented: prefer
@@ -18,7 +18,7 @@ the listed files and commands over older planning notes.
 
 ## Documentation Cleanup
 
-- Release and install examples now use the current `0.4.0` release line.
+- Release and install examples now use the current `0.5.0` release line.
 - `docs/release.md` reflects the current CLI/app/TUI release metadata and
   includes a rollback/yank procedure.
 - Historical root planning docs are marked as historical so they are not
@@ -45,8 +45,9 @@ the listed files and commands over older planning notes.
   `0 vulnerabilities`.
 - Safe TUI patch/minor devDependency updates were applied:
   `@types/node`, `eslint`, `tsx`, `typescript-eslint`, and `vitest`.
-- `typescript` has a newer major version available and is intentionally left
-  pinned pending explicit upgrade approval. See `BLOCKERS.md`.
+- TypeScript 7.0.2 is intentionally deferred because the current
+  `typescript-eslint` peer range is `<6.1.0`; TypeScript 6.0.3 remains the newest
+  supported compiler line for this TUI toolchain.
 - Swift dependency inspection showed `swift-argument-parser` at `1.8.2`, which
   matches the latest tag observed from the upstream repository.
 
@@ -54,11 +55,10 @@ the listed files and commands over older planning notes.
 
 - Current checkout has one worktree on `main`, no stashes, and active cleanup
   changes.
-- Ignored build outputs and local artifacts are present, including `.build/`,
-  `dist/`, `tui/node_modules/`, `tui/dist/`, and `.DS_Store` files.
-- `git clean` was used only in dry-run mode. Cleanup is blocked on explicit
-  user approval because those files may belong to active local work. See
-  `BLOCKERS.md`.
+- Ignored build outputs and local tool state are present, including `.build/`,
+  `dist/`, `tui/node_modules/`, `tui/dist/`, `.omo/`, and `.superpowers/`.
+- `git clean -ndX` was used only as a preview. These paths are intentionally
+  retained because cleanup is local housekeeping, not a release requirement.
 
 ## Verification Commands
 

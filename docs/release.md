@@ -181,7 +181,7 @@ Scripts/tui-smoke-test.sh
 Release identity:
 
 - GitHub repo slug: `sonim1/UpdateBar`.
-- Current release metadata in this repo targets `v0.4.0`.
+- Current release metadata in this repo targets `v0.5.0`.
 - Published prebuilt CLI archives cover Apple Silicon macOS and Linux x86_64.
   Release tags also publish a macOS app archive for the build host
   architecture, signed and notarized when the release signing secrets are

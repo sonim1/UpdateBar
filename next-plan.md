@@ -1,7 +1,7 @@
 # UpdateBar — Next Plan After Local Menu Bar MVP
 
 > Historical note (2026-07-12): this document is retained for planning context,
-> not as the current operating plan. Current release metadata is `0.4.0`; use
+> not as the current operating plan. Current release metadata is `0.5.0`; use
 > `README.md`, `docs/release.md`, and `current-architecture.md` for current
 > repo state.
 

@@ -13,11 +13,11 @@ Releases are scripted + workflow-driven (`.github/workflows/release.yml`); signe
 2. `CHANGELOG.md`: add the version section (script `Scripts/extract-changelog-section.sh` must be able to extract it — its `-test.sh` shows the expected format). Update `version.env`.
 3. Local archive sanity:
    ```bash
-   Scripts/build-release.sh          # or build-app-archive.sh path
-   Scripts/verify-archive-checksum.sh
+   archive="$(Scripts/build-release.sh)"
+   Scripts/verify-archive-checksum.sh "$archive"
    Scripts/verify-homebrew-metadata.sh
    ```
-4. Install-path smoke: `Scripts/install-release-smoke.sh` (it's the big one — 18K) or at minimum `install-local-smoke-test.sh`.
+4. Install-path smoke: `Scripts/install-release-smoke-test.sh` (it's the big one — 18K) or at minimum `Scripts/install-local-smoke-test.sh`.
 
 ## Publish (explicit request only)
 
