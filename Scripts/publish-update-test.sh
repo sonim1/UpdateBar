@@ -80,7 +80,7 @@ run_case() {
 run_case absent 0
 [[ -f "$REMOTE/appcast.xml" ]] || { cat "$T/absent.out" >&2; cat "$LOG" >&2; exit 1; }
 cmp "$R/dist/updates/appcast.xml" "$REMOTE/appcast.xml"
-last_put="$(grep 'request PUT' "$LOG" | tail -1)"; [[ "$last_put" == *appcast.xml* ]]
+last_put="$(awk '/request PUT/ { line=$0 } END { print line }' "$LOG")"; [[ "$last_put" == *appcast.xml* ]]
 run_case identical 0
 ! grep -Fq 'request PUT' "$LOG"
 

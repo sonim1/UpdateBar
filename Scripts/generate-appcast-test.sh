@@ -65,6 +65,27 @@ if [[ -n "${FAKE_INTERLEAVE:-}" ]]; then
 fi
 exec /usr/bin/ruby "${arguments[@]}"
 SH
+cat >"$B/remove" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+"$OBSERVER" remove "$@"
+arguments=("$@")
+if [[ "${FAKE_REMOVE_INTERLEAVE:-0}" == 1 ]]; then
+  arguments[2]="$(/usr/bin/ruby -e '
+    code = ARGV.fetch(0)
+    needle = "    FileUtils.remove_entry_secure(path, true)"
+    injection = <<~RUBY
+      File.rename(path, ENV.fetch("FAKE_REMOVE_SAVED"))
+      Dir.mkdir(path)
+      File.write(File.join(path, "foreign"), "preserve\\n")
+      File.write(ENV.fetch("FAKE_REMOVE_CALLED"), path)
+    RUBY
+    abort "remove interleave needle missing" unless code.include?(needle)
+    print code.sub(needle, injection + needle)
+  ' "${arguments[2]}")"
+fi
+exec /usr/bin/ruby "${arguments[@]}"
+SH
 
 cat >"$B/smoke" <<'SH'
 #!/usr/bin/env bash
@@ -154,17 +175,22 @@ chmod +x "$T/evil/generate_appcast"
 run_case() {
   local name="$1" expected="$2"; shift 2; rm -rf "$R/dist/updates"; : >"$LOG"
   [[ "$name" != dest-conflict ]] || ln -s "$T/elsewhere" "$R/dist/updates"
-  case "$name" in replace-existing|interleave-swap|interleave-destination-swap) mkdir "$R/dist/updates"; printf 'old\n' >"$R/dist/updates/old";; esac
+  case "$name" in replace-existing|removal-interleave|interleave-swap|interleave-destination-swap) mkdir "$R/dist/updates"; printf 'old\n' >"$R/dist/updates/old";; esac
   set +e
   : >"$T/children"
-  env PATH="$B:$PATH" OBSERVER="$B/observe" CHILD_LOG="$T/children" CALL_LOG="$LOG" SPARKLE_PUBLIC_ED_KEY="$KEY" APP_DMG_SMOKE_BIN="$B/smoke" CODESIGN_BIN="$B/codesign" SPCTL_BIN="$B/spctl" XCRUN_BIN="$B/xcrun" FILE_BIN="$B/file" HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN="$B/plutil" "$@" "$R/Scripts/generate-appcast.sh" >"$T/$name.out" 2>&1
+  env PATH="$B:$PATH" OBSERVER="$B/observe" CHILD_LOG="$T/children" CALL_LOG="$LOG" SPARKLE_PUBLIC_ED_KEY="$KEY" APP_DMG_SMOKE_BIN="$B/smoke" CODESIGN_BIN="$B/codesign" SPCTL_BIN="$B/spctl" XCRUN_BIN="$B/xcrun" FILE_BIN="$B/file" HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN="$B/plutil" "$@" "$R/Scripts/generate-appcast.sh" >"$T/$name.out" 2>"$T/$name.err"
   status=$?; set -e
-  [[ "$status" == "$expected" ]] || { cat "$T/$name.out" >&2; echo "$name expected $expected got $status" >&2; exit 1; }
+  [[ "$status" == "$expected" ]] || { cat "$T/$name.out" >&2; cat "$T/$name.err" >&2; echo "$name expected $expected got $status" >&2; exit 1; }
+}
+
+preserved_previous_path() {
+  awk '/^Preserved previous update output at: / { sub(/^Preserved previous update output at: /, ""); path=$0 } END { print path }' "$1"
 }
 
 # RED: copied implementation is absent before production script exists.
 run_case keychain 0
 test -f "$R/dist/updates/appcast.xml"
+test -z "$(find "$R/dist" -maxdepth 1 -name '.generate-appcast-final.*' -print -quit)"
 grep -Fq -- '--account updatebar' "$LOG"
 run_case ci 0 SPARKLE_PRIVATE_ED_KEY="$PRIVATE"
 [[ "$(cat "$LOG.mode")" == 600 ]]
@@ -236,9 +262,26 @@ test -f "$interleaved_source/foreign"
 rm -rf "$R/dist/updates" "$saved_destination" "$interleaved_source"; rm -f "$source_log"
 run_case rename-failure 47 RENAME_BIN="$B/rename" FAKE_RENAME_EXIT=47
 ! grep -Fq "$R/dist/updates/appcast.xml" "$T/rename-failure.out"
+remove_saved="$T/remove-saved"
+remove_called="$T/remove-called"
+run_case removal-interleave 0 RENAME_BIN="$B/rename" REMOVE_BIN="$B/remove" FAKE_REMOVE_INTERLEAVE=1 FAKE_REMOVE_SAVED="$remove_saved" FAKE_REMOVE_CALLED="$remove_called"
+if [[ -e "$remove_called" ]]; then
+  removed_path="$(cat "$remove_called")"
+  test ! -e "$removed_path/foreign"
+  echo "recursive cleanup deleted the replacement at $removed_path" >&2
+  exit 1
+fi
+removal_backup="$(preserved_previous_path "$T/removal-interleave.err")"
+[[ "$removal_backup" == "$R/dist/.generate-appcast-final."* ]]
+test -f "$removal_backup/old"
+rm -rf "$removal_backup"
 run_case replace-existing 0 RENAME_BIN="$B/rename"
 test -f "$R/dist/updates/appcast.xml"
 test ! -e "$R/dist/updates/old"
+replace_backup="$(preserved_previous_path "$T/replace-existing.err")"
+[[ "$replace_backup" == "$R/dist/.generate-appcast-final."* ]]
+test -f "$replace_backup/old"
+rm -rf "$replace_backup"
 mkdir "$R/dist/.generate-appcast.lock"
 run_case concurrent-output 1
 rmdir "$R/dist/.generate-appcast.lock"

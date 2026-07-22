@@ -65,17 +65,18 @@ public_get() {
   [[ -z "$headers" ]] || args+=(--dump-header "$headers")
   if status="$("$CURL_BIN" "${args[@]}" "$url")"; then printf '%s' "$status"; else code=$?; echo "Public GET failed" >&2; return "$code"; fi
 }
+authenticated_curl() { printf '%s\n' "$AUTH" | "$CURL_BIN" "$@"; }
 signed_get() {
   local key="$1" out="$2" headers="${3:-}" args status
   args=(--config - --silent --show-error --aws-sigv4 aws:amz:auto:s3 --request GET --output "$out" --write-out '%{http_code}')
   [[ -z "$headers" ]] || args+=(--dump-header "$headers")
-  if status="$(printf '%s\n' "$AUTH" | "$CURL_BIN" "${args[@]}" "$ORIGIN$key")"; then printf '%s' "$status"; else code=$?; echo "Authenticated R2 GET failed" >&2; return "$code"; fi
+  if status="$(authenticated_curl "${args[@]}" "$ORIGIN$key")"; then printf '%s' "$status"; else code=$?; echo "Authenticated R2 GET failed" >&2; return "$code"; fi
 }
 signed_put() {
   local key="$1" file="$2" type="$3" cache="$4" condition="$5" status
   local out="$TMP/put-${key//\//-}"
   [[ "$condition" == 'If-None-Match: *' || "$condition" =~ ^If-Match:[[:space:]]\"[A-Za-z0-9._:-]+\"$ ]] || return 64
-  if status="$(printf '%s\n' "$AUTH" | "$CURL_BIN" --config - --silent --show-error --aws-sigv4 aws:amz:auto:s3 --request PUT --header "$condition" --header "Content-Type: $type" --header "Cache-Control: $cache" --upload-file "$file" --output "$out" --write-out '%{http_code}' "$ORIGIN$key")"; then printf '%s' "$status"; else code=$?; echo "Authenticated R2 PUT failed" >&2; return "$code"; fi
+  if status="$(authenticated_curl --config - --silent --show-error --aws-sigv4 aws:amz:auto:s3 --request PUT --header "$condition" --header "Content-Type: $type" --header "Cache-Control: $cache" --upload-file "$file" --output "$out" --write-out '%{http_code}' "$ORIGIN$key")"; then printf '%s' "$status"; else code=$?; echo "Authenticated R2 PUT failed" >&2; return "$code"; fi
 }
 etag() {
   ruby -e '
