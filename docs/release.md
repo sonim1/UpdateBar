@@ -101,11 +101,15 @@ open dist/UpdateBar.app
 
 The app packaging script creates `dist/UpdateBar.app` with the menu bar executable
 in `Contents/MacOS/UpdateBar` and the CLI in `Contents/Resources/updatebar`.
-Tagged macOS releases upload the canonical Apple Silicon asset
+The current `v0.5.0` app release remains the published legacy asset
+`UpdateBar-0.5.0-macos-arm64.app.tar.gz`. Starting with the next published app
+release, tagged macOS releases upload the canonical Apple Silicon asset
 `UpdateBar-<version>-macos-arm64.dmg` and its `.sha256` checksum.
 `Scripts/build-app-dmg.sh` verifies the selected Developer ID identity and
 notary profile before packaging, then signs the app and DMG, notarizes, staples,
-performs Gatekeeper assessments, and publishes the final files atomically.
+performs Gatekeeper assessments, and publishes the checksum first and the DMG
+last as the commit marker under a same-release lock. Any interrupted publish
+removes only outputs created by that invocation.
 `Scripts/app-dmg-smoke-test.sh` mounts the DMG read-only and verifies its app,
 Applications shortcut, Sparkle framework, feed URL, public key, and checksum.
 Because notarization stapling and toolchain drift change rebuilt DMG contents,
@@ -113,7 +117,10 @@ the release workflow does
 not require the committed formula/cask SHA to equal the fresh build
 (`UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1`); Homebrew SHAs are taken from the
 published release assets when the tap is updated after publishing.
-The published Homebrew cask targets this arm64 DMG.
+The in-repository `v0.5.0` Homebrew cask must keep targeting the published
+legacy app archive until a canonical DMG and manifest for a later release are
+public. Tap automation then updates the authoritative cask from those published
+assets.
 Signing/notarization are not part of the CLI release.
 
 The DMG builder requires these environment values on Apple Silicon macOS:
@@ -178,9 +185,10 @@ Release identity:
 - GitHub repo slug: `sonim1/UpdateBar`.
 - Current release metadata in this repo targets `v0.6.1`.
 - Published prebuilt CLI archives cover Apple Silicon macOS and Linux x86_64.
-  Release tags also publish `UpdateBar-<version>-macos-arm64.dmg`, and the
-  workflow fails if signing, notarization, or Sparkle public-key inputs are
-  unavailable.
+  The current app asset is `UpdateBar-0.5.0-macos-arm64.app.tar.gz`; starting
+  with the next published app release, tags also publish
+  `UpdateBar-<version>-macos-arm64.dmg`. The workflow fails if signing,
+  notarization, or Sparkle public-key inputs are unavailable.
 - Homebrew tap target: `sonim1/homebrew-tap`.
 - Formula source lives in `Packaging/homebrew/updatebar.rb`; copy it to the tap as
   `Formula/updatebar.rb` when publishing a Homebrew release. The formula SHA must
@@ -210,8 +218,9 @@ Before tagging:
 - Clean source-copy release dry run passes.
 - Formula URL/version match the tag and formula SHA matches the uploaded release
   asset's `.sha256`.
-- Cask URL/version match the tag and cask SHA matches the uploaded app DMG's
-  `.sha256`.
+- For `v0.5.0`, the Cask URL and SHA still match the published legacy app
+  archive. For the next app release, the Cask URL/version match the tag and its
+  SHA matches the uploaded app DMG's `.sha256`.
 - `UPDATEBAR_VERIFY_STRICT=1 Scripts/verify-homebrew-metadata.sh` verifies release
   metadata checksums for a prepared dist directory.
 - `bash Scripts/homebrew-packaging-test.sh` passes.

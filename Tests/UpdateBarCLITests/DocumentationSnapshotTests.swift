@@ -983,8 +983,10 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(releaseDocs.contains("For source checkouts, build the Ink TUI with npm"))
         XCTAssertTrue(releaseDocs.contains("UpdateBar-<version>-macos-arm64.dmg"))
         XCTAssertTrue(readme.contains("UpdateBar-<version>-macos-arm64.dmg"))
-        XCTAssertFalse(releaseDocs.contains(".app.tar.gz"))
-        XCTAssertFalse(readme.contains(".app.tar.gz"))
+        XCTAssertTrue(releaseDocs.contains("UpdateBar-0.5.0-macos-arm64.app.tar.gz"))
+        XCTAssertTrue(readme.contains("UpdateBar-0.5.0-macos-arm64.app.tar.gz"))
+        XCTAssertTrue(releaseDocs.contains("next published app release"))
+        XCTAssertFalse(releaseDocs.contains("The published Homebrew cask targets this arm64 DMG"))
         XCTAssertFalse(releaseDocs.contains("Install the Ink TUI separately through npm"))
         XCTAssertFalse(combined.contains("npm link"))
     }

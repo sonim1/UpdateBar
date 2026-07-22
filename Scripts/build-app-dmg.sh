@@ -8,6 +8,7 @@ source version.env
 CODESIGN_BIN="${CODESIGN_BIN:-codesign}"
 DITTO_BIN="${DITTO_BIN:-ditto}"
 HDIUTIL_BIN="${HDIUTIL_BIN:-hdiutil}"
+LN_BIN="${LN_BIN:-ln}"
 PLUTIL_BIN="${PLUTIL_BIN:-plutil}"
 REALPATH_BIN="${REALPATH_BIN:-realpath}"
 RUBY_BIN="${RUBY_BIN:-ruby}"
@@ -21,17 +22,22 @@ PUBLIC_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
 SIGNING_IDENTITY="${DEVELOPER_ID_APPLICATION:-}"
 NOTARY_PROFILE="${NOTARYTOOL_KEYCHAIN_PROFILE:-}"
 NOTARY_KEYCHAIN="${NOTARYTOOL_KEYCHAIN:-}"
-SYSTEM_NAME="${UPDATEBAR_TEST_SYSTEM:-$(uname -s)}"
-ARCHITECTURE="${UPDATEBAR_TEST_ARCH:-$(uname -m)}"
+SYSTEM_NAME="$(/usr/bin/uname -s)"
+ARCHITECTURE="$(/usr/bin/uname -m)"
 DIST_DIR="$ROOT/dist"
 FINAL_DMG="$DIST_DIR/UpdateBar-${VERSION}-macos-arm64.dmg"
 FINAL_CHECKSUM="$FINAL_DMG.sha256"
+LOCK_DIR="$DIST_DIR/.UpdateBar-${VERSION}-macos-arm64.release.lock"
 
 WORK_DIR=""
 MOUNT_POINT=""
+PRIVATE_MOUNT=""
 ATTACHED_DEVICE=""
+ATTACH_SUCCEEDED=0
 TEMP_DMG=""
 TEMP_CHECKSUM=""
+LOCK_OWNED=0
+TRANSACTION_COMMITTED=0
 
 fail() {
   echo "$*" >&2
@@ -47,16 +53,35 @@ cleanup() {
   local original_status=$?
   local detach_status=0
   trap - EXIT HUP INT TERM
-  if [[ -n "$ATTACHED_DEVICE" ]]; then
+  if [[ "$ATTACH_SUCCEEDED" == "1" ]]; then
     set +e
-    "$HDIUTIL_BIN" detach "$ATTACHED_DEVICE" >&2
+    if [[ -n "$ATTACHED_DEVICE" ]]; then
+      "$HDIUTIL_BIN" detach "$ATTACHED_DEVICE" >&2
+    else
+      "$HDIUTIL_BIN" detach "$PRIVATE_MOUNT" >&2
+    fi
     detach_status=$?
     set -e
     ATTACHED_DEVICE=""
+    ATTACH_SUCCEEDED=0
     MOUNT_POINT=""
+  fi
+  if [[ "$TRANSACTION_COMMITTED" != "1" ]]; then
+    if [[ -n "$TEMP_DMG" && -f "$TEMP_DMG" && ! -L "$TEMP_DMG" && \
+      -f "$FINAL_DMG" && ! -L "$FINAL_DMG" && "$FINAL_DMG" -ef "$TEMP_DMG" ]]; then
+      rm -f "$FINAL_DMG"
+    fi
+    if [[ -n "$TEMP_CHECKSUM" && -f "$TEMP_CHECKSUM" && ! -L "$TEMP_CHECKSUM" && \
+      -f "$FINAL_CHECKSUM" && ! -L "$FINAL_CHECKSUM" && "$FINAL_CHECKSUM" -ef "$TEMP_CHECKSUM" ]]; then
+      rm -f "$FINAL_CHECKSUM"
+    fi
   fi
   if [[ -n "$WORK_DIR" && -d "$WORK_DIR" && ! -L "$WORK_DIR" ]]; then
     rm -rf "$WORK_DIR"
+  fi
+  if [[ "$LOCK_OWNED" == "1" && -d "$LOCK_DIR" && ! -L "$LOCK_DIR" ]]; then
+    rmdir "$LOCK_DIR" || true
+    LOCK_OWNED=0
   fi
   if [[ "$original_status" -eq 0 && "$detach_status" -ne 0 ]]; then
     original_status="$detach_status"
@@ -138,6 +163,7 @@ validate_inputs() {
   require_command "$CODESIGN_BIN" "sign and verify the app DMG"
   require_command "$DITTO_BIN" "stage the app bundle"
   require_command "$HDIUTIL_BIN" "create and mount the app DMG"
+  require_command "$LN_BIN" "publish the app DMG transaction"
   require_command "$PLUTIL_BIN" "parse hdiutil output"
   require_command "$REALPATH_BIN" "validate the DMG mount point"
   require_command "$SHASUM_BIN" "checksum the app DMG"
@@ -147,9 +173,6 @@ validate_inputs() {
 
   if [[ -e "$DIST_DIR" && ( ! -d "$DIST_DIR" || -L "$DIST_DIR" ) ]]; then
     fail "unsafe distribution directory: $DIST_DIR"
-  fi
-  if [[ -e "$FINAL_DMG" || -L "$FINAL_DMG" || -e "$FINAL_CHECKSUM" || -L "$FINAL_CHECKSUM" ]]; then
-    fail "refusing to overwrite existing app DMG output"
   fi
 }
 
@@ -207,10 +230,15 @@ extract_attached_device() {
   ' "$plist_path"
 }
 
-detach_attached_device() {
-  [[ -n "$ATTACHED_DEVICE" ]] || return 0
-  "$HDIUTIL_BIN" detach "$ATTACHED_DEVICE" >&2
+detach_attachment() {
+  [[ "$ATTACH_SUCCEEDED" == "1" ]] || return 0
+  if [[ -n "$ATTACHED_DEVICE" ]]; then
+    "$HDIUTIL_BIN" detach "$ATTACHED_DEVICE" >&2
+  else
+    "$HDIUTIL_BIN" detach "$PRIVATE_MOUNT" >&2
+  fi
   ATTACHED_DEVICE=""
+  ATTACH_SUCCEEDED=0
   MOUNT_POINT=""
 }
 
@@ -233,21 +261,32 @@ extract_mount_point() {
 }
 
 publish_outputs() {
-  local status=0
-  ln "$TEMP_DMG" "$FINAL_DMG" || return $?
-  ln "$TEMP_CHECKSUM" "$FINAL_CHECKSUM" || {
-    status=$?
-    if [[ -f "$FINAL_DMG" && ! -L "$FINAL_DMG" && "$FINAL_DMG" -ef "$TEMP_DMG" ]]; then
-      rm -f "$FINAL_DMG"
-    fi
-    return "$status"
-  }
-  rm -f "$TEMP_DMG" "$TEMP_CHECKSUM"
+  "$LN_BIN" "$TEMP_CHECKSUM" "$FINAL_CHECKSUM" >&2
+  "$LN_BIN" "$TEMP_DMG" "$FINAL_DMG" >&2
+  TRANSACTION_COMMITTED=1
+}
+
+acquire_release_lock() {
+  if ! mkdir "$LOCK_DIR"; then
+    fail "another app DMG release transaction is active"
+  fi
+  LOCK_OWNED=1
+  if [[ -e "$FINAL_DMG" || -L "$FINAL_DMG" || -e "$FINAL_CHECKSUM" || -L "$FINAL_CHECKSUM" ]]; then
+    fail "refusing incomplete, conflicting, or existing app DMG outputs"
+  fi
+}
+
+release_lock() {
+  if [[ "$LOCK_OWNED" == "1" ]]; then
+    rmdir "$LOCK_DIR"
+    LOCK_OWNED=0
+  fi
 }
 
 validate_inputs
 preflight_release_credentials
 mkdir -p "$DIST_DIR"
+acquire_release_lock
 WORK_DIR="$(mktemp -d "$DIST_DIR/.updatebar-dmg.XXXXXX")"
 if [[ ! -d "$WORK_DIR" || -L "$WORK_DIR" ]]; then
   fail "failed to create a safe DMG work directory"
@@ -258,6 +297,9 @@ ATTACH_PLIST="$WORK_DIR/attach.plist"
 ATTACH_JSON="$WORK_DIR/attach.json"
 TEMP_DMG="$WORK_DIR/UpdateBar-${VERSION}-macos-arm64.dmg"
 TEMP_CHECKSUM="$WORK_DIR/UpdateBar-${VERSION}-macos-arm64.dmg.sha256"
+PRIVATE_MOUNT="$WORK_DIR/mount"
+mkdir "$PRIVATE_MOUNT"
+PRIVATE_MOUNT="$("$REALPATH_BIN" "$PRIVATE_MOUNT")"
 
 UPDATEBAR_SIGN_APP=1 \
 DEVELOPER_ID_APPLICATION="$SIGNING_IDENTITY" \
@@ -299,14 +341,9 @@ fi
 "$XCRUN_BIN" stapler validate "$TEMP_DMG" >&2
 "$SPCTL_BIN" -a -vv -t open --context context:primary-signature "$TEMP_DMG" >&2
 
-"$HDIUTIL_BIN" attach -plist -nobrowse -readonly "$TEMP_DMG" >"$ATTACH_PLIST"
-if ATTACHED_DEVICE="$(extract_attached_device "$ATTACH_PLIST")"; then
-  :
-else
-  device_status=$?
-  echo "unable to identify exactly one safe attached DMG device" >&2
-  exit "$device_status"
-fi
+"$HDIUTIL_BIN" attach -mountpoint "$PRIVATE_MOUNT" -plist -nobrowse -readonly "$TEMP_DMG" >"$ATTACH_PLIST"
+ATTACH_SUCCEEDED=1
+ATTACHED_DEVICE="$(extract_attached_device "$ATTACH_PLIST")" || ATTACHED_DEVICE=""
 if MOUNT_POINT="$(extract_mount_point "$ATTACH_PLIST" "$ATTACH_JSON")"; then
   :
 else
@@ -314,19 +351,16 @@ else
   echo "unable to identify exactly one safe DMG mount point" >&2
   exit "$mount_status"
 fi
-if [[ "${UPDATEBAR_TEST_ALLOW_NON_VOLUMES_MOUNT:-0}" != "1" && "$MOUNT_POINT" != /Volumes/* ]]; then
-  fail "unsafe DMG mount point: $MOUNT_POINT"
-fi
 MOUNT_REAL="$("$REALPATH_BIN" "$MOUNT_POINT")"
-if [[ "${UPDATEBAR_TEST_ALLOW_NON_VOLUMES_MOUNT:-0}" != "1" && "$MOUNT_REAL" != "$MOUNT_POINT" ]]; then
-  fail "noncanonical DMG mount point: $MOUNT_POINT"
+if [[ "$MOUNT_POINT" != "$PRIVATE_MOUNT" || "$MOUNT_REAL" != "$PRIVATE_MOUNT" ]]; then
+  fail "DMG did not mount at its private requested mount point"
 fi
 MOUNTED_APP="$MOUNT_POINT/UpdateBar.app"
 if [[ ! -d "$MOUNTED_APP" || -L "$MOUNTED_APP" ]]; then
   fail "mounted DMG does not contain a safe UpdateBar.app"
 fi
 "$SPCTL_BIN" -a -vv -t execute "$MOUNTED_APP" >&2
-detach_attached_device
+detach_attachment
 
 DMG_SHA="$("$SHASUM_BIN" -a 256 "$TEMP_DMG" | awk '{print $1}')"
 if [[ ! "$DMG_SHA" =~ ^[0-9a-f]{64}$ ]]; then
@@ -338,6 +372,8 @@ if [[ ! -f "$TEMP_CHECKSUM" || -L "$TEMP_CHECKSUM" ]]; then
 fi
 
 publish_outputs
+release_lock
+rm -f "$TEMP_DMG" "$TEMP_CHECKSUM"
 trap - EXIT
 rm -rf "$WORK_DIR"
 WORK_DIR=""

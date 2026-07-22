@@ -68,10 +68,12 @@ before installing `updatebar`.
 
 ### Menu bar app
 
-`updatebar-menubar` ships as an optional macOS wrapper. Release tags publish the
-signed and notarized Apple Silicon asset
-`UpdateBar-<version>-macos-arm64.dmg`; `Scripts/package-app.sh` builds the local
-app bundle used by the DMG release builder.
+`updatebar-menubar` ships as an optional macOS wrapper. The current `v0.5.0`
+release provides the signed and notarized Apple Silicon asset
+`UpdateBar-0.5.0-macos-arm64.app.tar.gz`. Starting with the next published app
+release, tags publish the canonical `UpdateBar-<version>-macos-arm64.dmg` and
+its checksum. `Scripts/package-app.sh` builds the local app bundle used by the
+DMG release builder.
 It prefers direct `UpdateBarCore` calls, keeps a CLI subprocess fallback, and exposes:
 
 - check now

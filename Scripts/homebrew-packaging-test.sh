@@ -47,12 +47,12 @@ for cask in "${casks[@]}"; do
     exit 1
   fi
 
-  if ! grep -Fq 'UpdateBar-#{version}-macos-arm64.dmg' "$cask"; then
-    echo "app cask must use the canonical arm64 DMG release asset: $cask" >&2
+  if ! grep -Fq 'UpdateBar-#{version}-macos-arm64.app.tar.gz' "$cask"; then
+    echo "current v0.5.0 app cask must remain on its published legacy archive: $cask" >&2
     exit 1
   fi
-  if grep -Fq '.app.tar.gz' "$cask" || grep -Fq 'macos-x86_64.dmg' "$cask"; then
-    echo "app cask must not reference an obsolete or wrong-architecture app asset: $cask" >&2
+  if grep -Fq 'UpdateBar-#{version}-macos-arm64.dmg' "$cask"; then
+    echo "current v0.5.0 cask must not point at the not-yet-published DMG: $cask" >&2
     exit 1
   fi
 done

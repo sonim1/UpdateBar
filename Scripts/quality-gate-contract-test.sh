@@ -210,6 +210,12 @@ if ! grep -Fq 'SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}' "$RELEA
   exit 1
 fi
 
+if ! grep -Fq '$(/usr/bin/uname -m)' "$RELEASE_WORKFLOW" \
+  || ! grep -Fq 'arm64 macOS runner' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must fail closed unless the macOS app runner is arm64" >&2
+  exit 1
+fi
+
 if grep -Fq 'building unsigned app' "$RELEASE_WORKFLOW" \
   || grep -Fq 'app will be signed but not notarized' "$RELEASE_WORKFLOW"; then
   echo "release.yml must fail closed rather than publish unsigned or unnotarized apps" >&2

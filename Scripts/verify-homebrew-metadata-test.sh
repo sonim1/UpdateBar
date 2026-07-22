@@ -13,7 +13,7 @@ trap cleanup EXIT
 source version.env
 
 formula_asset="updatebar-${UPDATEBAR_VERSION}-macos-arm64.tar.gz"
-cask_asset="UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.dmg"
+cask_asset="UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.app.tar.gz"
 
 printf 'not a release archive\n' > "$TMP_DIR/$formula_asset"
 printf 'not a cask DMG\n' > "$TMP_DIR/$cask_asset"
@@ -66,7 +66,7 @@ fi
 cat > "$TMP_DIR/bad-cask.rb" <<EOF
 cask "updatebar-app" do
   version "$UPDATEBAR_VERSION"
-  url "https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/UpdateBar-#{version}-macos-arm64.dmg"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/UpdateBar-#{version}-macos-arm64.app.tar.gz"
   sha256 "not-a-sha"
 end
 EOF
@@ -122,7 +122,7 @@ fi
 cat > "$TMP_DIR/bad-cask-url.rb" <<EOF
 cask "updatebar-app" do
   version "$UPDATEBAR_VERSION"
-  url "https://example.test/releases/v#{version}/UpdateBar-#{version}-macos-arm64.dmg"
+  url "https://example.test/releases/v#{version}/UpdateBar-#{version}-macos-arm64.app.tar.gz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 end
 EOF
@@ -203,10 +203,9 @@ if ! grep -Fq "cask URL must end with $cask_asset" "$BAD_CASK_ASSET_OUTPUT"; the
   exit 1
 fi
 
-# Obsolete app archives, wrong architectures, and shortened names must never
-# satisfy the canonical app DMG contract.
+# The current cask must not move to a DMG until that asset is published.
 for rejected_cask_asset in \
-  "UpdateBar-#{version}-macos-arm64.app.tar.gz" \
+  "UpdateBar-#{version}-macos-arm64.dmg" \
   "UpdateBar-#{version}-macos-x86_64.dmg" \
   "UpdateBar-#{version}.dmg"; do
   cat > "$TMP_DIR/rejected-cask.rb" <<EOF

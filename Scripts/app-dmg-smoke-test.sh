@@ -16,7 +16,9 @@ EXPECTED_NAME="UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.dmg"
 
 TMP_DIR=""
 MOUNT_POINT=""
+PRIVATE_MOUNT=""
 ATTACHED_DEVICE=""
+ATTACH_SUCCEEDED=0
 
 fail() {
   echo "$*" >&2
@@ -27,12 +29,17 @@ cleanup() {
   local original_status=$?
   local detach_status=0
   trap - EXIT HUP INT TERM
-  if [[ -n "$ATTACHED_DEVICE" ]]; then
+  if [[ "$ATTACH_SUCCEEDED" == "1" ]]; then
     set +e
-    "$HDIUTIL_BIN" detach "$ATTACHED_DEVICE" >&2
+    if [[ -n "$ATTACHED_DEVICE" ]]; then
+      "$HDIUTIL_BIN" detach "$ATTACHED_DEVICE" >&2
+    else
+      "$HDIUTIL_BIN" detach "$PRIVATE_MOUNT" >&2
+    fi
     detach_status=$?
     set -e
     ATTACHED_DEVICE=""
+    ATTACH_SUCCEEDED=0
     MOUNT_POINT=""
   fi
   if [[ -n "$TMP_DIR" && -d "$TMP_DIR" && ! -L "$TMP_DIR" ]]; then
@@ -63,10 +70,15 @@ extract_attached_device() {
   ' "$plist_path"
 }
 
-detach_attached_device() {
-  [[ -n "$ATTACHED_DEVICE" ]] || return 0
-  "$HDIUTIL_BIN" detach "$ATTACHED_DEVICE" >&2
+detach_attachment() {
+  [[ "$ATTACH_SUCCEEDED" == "1" ]] || return 0
+  if [[ -n "$ATTACHED_DEVICE" ]]; then
+    "$HDIUTIL_BIN" detach "$ATTACHED_DEVICE" >&2
+  else
+    "$HDIUTIL_BIN" detach "$PRIVATE_MOUNT" >&2
+  fi
   ATTACHED_DEVICE=""
+  ATTACH_SUCCEEDED=0
   MOUNT_POINT=""
 }
 
@@ -84,7 +96,7 @@ if [[ ! -f "$DMG" || -L "$DMG" ]]; then
   fail "app DMG must be a regular non-symlink file: $DMG"
 fi
 DMG_REAL="$("$REALPATH_BIN" "$DMG")"
-if [[ "${UPDATEBAR_TEST_ALLOW_NON_VOLUMES_MOUNT:-0}" != "1" && "$DMG_REAL" != "$DMG" ]]; then
+if [[ "$DMG_REAL" != "$DMG" ]]; then
   fail "app DMG path must be canonical and free of symlink or traversal components"
 fi
 if [[ ! -f "$DMG.sha256" || -L "$DMG.sha256" ]]; then
@@ -117,14 +129,12 @@ fi
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-dmg-smoke.XXXXXX")"
 ATTACH_PLIST="$TMP_DIR/attach.plist"
 ATTACH_JSON="$TMP_DIR/attach.json"
-"$HDIUTIL_BIN" attach -plist -nobrowse -readonly "$DMG" >"$ATTACH_PLIST"
-if ATTACHED_DEVICE="$(extract_attached_device "$ATTACH_PLIST")"; then
-  :
-else
-  device_status=$?
-  echo "unable to identify exactly one safe attached DMG device" >&2
-  exit "$device_status"
-fi
+PRIVATE_MOUNT="$TMP_DIR/mount"
+mkdir "$PRIVATE_MOUNT"
+PRIVATE_MOUNT="$("$REALPATH_BIN" "$PRIVATE_MOUNT")"
+"$HDIUTIL_BIN" attach -mountpoint "$PRIVATE_MOUNT" -plist -nobrowse -readonly "$DMG" >"$ATTACH_PLIST"
+ATTACH_SUCCEEDED=1
+ATTACHED_DEVICE="$(extract_attached_device "$ATTACH_PLIST")" || ATTACHED_DEVICE=""
 "$PLUTIL_BIN" -convert json -o "$ATTACH_JSON" "$ATTACH_PLIST"
 MOUNT_POINT="$("$RUBY_BIN" -rjson -e '
   document = JSON.parse(File.binread(ARGV.fetch(0)))
@@ -137,13 +147,9 @@ MOUNT_POINT="$("$RUBY_BIN" -rjson -e '
   exit 1 unless valid
   print values.first
 ' "$ATTACH_JSON")" || fail "unable to identify exactly one safe DMG mount point"
-if [[ "${UPDATEBAR_TEST_ALLOW_NON_VOLUMES_MOUNT:-0}" != "1" && "$MOUNT_POINT" != /Volumes/* ]]; then
-  fail "unsafe DMG mount point: $MOUNT_POINT"
-fi
-
 MOUNT_REAL="$("$REALPATH_BIN" "$MOUNT_POINT")"
-if [[ "${UPDATEBAR_TEST_ALLOW_NON_VOLUMES_MOUNT:-0}" != "1" && "$MOUNT_REAL" != "$MOUNT_POINT" ]]; then
-  fail "noncanonical DMG mount point: $MOUNT_POINT"
+if [[ "$MOUNT_POINT" != "$PRIVATE_MOUNT" || "$MOUNT_REAL" != "$PRIVATE_MOUNT" ]]; then
+  fail "DMG did not mount at its private requested mount point"
 fi
 APP="$MOUNT_POINT/UpdateBar.app"
 APPLICATIONS_LINK="$MOUNT_POINT/Applications"
@@ -161,6 +167,8 @@ fi
 
 INFO_PLIST="$APP/Contents/Info.plist"
 APP_EXECUTABLE="$APP/Contents/MacOS/UpdateBar"
+CLI_EXECUTABLE="$APP/Contents/Resources/updatebar"
+APP_ICON="$APP/Contents/Resources/UpdateBar.icns"
 SPARKLE_FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
 if [[ ! -f "$INFO_PLIST" || -L "$INFO_PLIST" ]]; then
   fail "mounted app is missing a safe Info.plist"
@@ -168,10 +176,16 @@ fi
 if [[ ! -f "$APP_EXECUTABLE" || -L "$APP_EXECUTABLE" || ! -x "$APP_EXECUTABLE" ]]; then
   fail "mounted app is missing an executable UpdateBar binary"
 fi
+if [[ ! -f "$CLI_EXECUTABLE" || -L "$CLI_EXECUTABLE" || ! -x "$CLI_EXECUTABLE" ]]; then
+  fail "mounted app is missing an executable bundled CLI"
+fi
+if [[ ! -f "$APP_ICON" || -L "$APP_ICON" ]]; then
+  fail "mounted app is missing a safe app icon"
+fi
 if [[ ! -d "$SPARKLE_FRAMEWORK" || -L "$SPARKLE_FRAMEWORK" ]]; then
   fail "mounted app is missing a safe Sparkle.framework"
 fi
-for path in "$INFO_PLIST" "$APP_EXECUTABLE" "$SPARKLE_FRAMEWORK"; do
+for path in "$INFO_PLIST" "$APP_EXECUTABLE" "$CLI_EXECUTABLE" "$APP_ICON" "$SPARKLE_FRAMEWORK"; do
   resolved="$("$REALPATH_BIN" "$path")"
   case "$resolved" in
     "$APP_REAL"/*) ;;
@@ -184,12 +198,28 @@ plist_value() {
 }
 
 BUNDLE_ID="$(plist_value CFBundleIdentifier)"
+PLIST_EXECUTABLE="$(plist_value CFBundleExecutable)"
+PLIST_ICON="$(plist_value CFBundleIconFile)"
+PACKAGE_TYPE="$(plist_value CFBundlePackageType)"
+LSUI_ELEMENT="$(plist_value LSUIElement)"
 APP_VERSION="$(plist_value CFBundleShortVersionString)"
 APP_BUILD="$(plist_value CFBundleVersion)"
 APP_FEED="$(plist_value SUFeedURL)"
 APP_KEY="$(plist_value SUPublicEDKey)"
 if [[ "$BUNDLE_ID" != "com.sonim1.UpdateBar" ]]; then
   fail "unexpected app bundle identifier: ${BUNDLE_ID:-missing}"
+fi
+if [[ "$PLIST_EXECUTABLE" != "UpdateBar" ]]; then
+  fail "app DMG has an unexpected CFBundleExecutable"
+fi
+if [[ "$PLIST_ICON" != "UpdateBar.icns" ]]; then
+  fail "app DMG has an unexpected CFBundleIconFile"
+fi
+if [[ "$PACKAGE_TYPE" != "APPL" ]]; then
+  fail "app DMG has an unexpected CFBundlePackageType"
+fi
+if [[ "$LSUI_ELEMENT" != "true" && "$LSUI_ELEMENT" != "1" ]]; then
+  fail "app DMG must set LSUIElement to true"
 fi
 if [[ "$APP_VERSION" != "$UPDATEBAR_VERSION" ]]; then
   fail "app DMG version mismatch: ${APP_VERSION:-missing}"
@@ -203,8 +233,12 @@ fi
 if [[ "$APP_KEY" != "$EXPECTED_KEY" ]]; then
   fail "app DMG has an unexpected Sparkle public key"
 fi
+CLI_VERSION="$($CLI_EXECUTABLE --version)"
+if [[ "$CLI_VERSION" != "$UPDATEBAR_VERSION" ]]; then
+  fail "app DMG bundled CLI version mismatch"
+fi
 
-detach_attached_device
+detach_attachment
 trap - EXIT
 rm -rf "$TMP_DIR"
 TMP_DIR=""

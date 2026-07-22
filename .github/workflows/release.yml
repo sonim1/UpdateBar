@@ -65,6 +65,10 @@ jobs:
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
           SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
         run: |
+          if [[ "$(/usr/bin/uname -m)" != "arm64" ]]; then
+            echo "canonical UpdateBar app releases require an arm64 macOS runner" >&2
+            exit 1
+          fi
           if [[ -z "$MACOS_SIGNING_CERT_P12" || -z "$MACOS_SIGNING_CERT_PASSWORD" ]]; then
             echo "macOS signing secrets are required for app release" >&2
             exit 1
@@ -121,13 +125,11 @@ jobs:
           bash Scripts/app-dmg-smoke-test.sh "$APP_DMG"
       - name: Verify release metadata
         if: runner.os == 'macOS'
-        # SHA equality against the committed formula/cask is skipped here:
-        # notarization stapling and toolchain drift make rebuilt archives
-        # differ from published assets. Homebrew SHAs are verified when the
-        # tap is updated from the published release assets.
+        # The in-repo v0.5.0 cask remains pinned to its already-published
+        # legacy app archive. The canonical DMG is verified by its smoke test;
+        # the tap automation consumes its release manifest after publication.
         run: |
-          UPDATEBAR_VERIFY_STRICT=1 \
-          UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1 \
+          UPDATEBAR_VERIFY_STATIC_ONLY=1 \
           Scripts/verify-homebrew-metadata.sh dist
       - name: Upload archive
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
