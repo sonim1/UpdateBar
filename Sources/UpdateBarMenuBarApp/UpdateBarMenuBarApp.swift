@@ -465,7 +465,7 @@
                         systemSymbolName: submenu.systemSymbolName,
                         applicationIcon: nil,
                         accessibilityDescription: submenu.title,
-                        to: parent,
+                        to: parent
                     )
                     let child = NSMenu(title: submenu.title)
                     for item in submenu.items {
@@ -485,7 +485,7 @@
                     systemSymbolName: item.systemSymbolName,
                     applicationIcon: nil,
                     accessibilityDescription: item.title,
-                    to: menuItem,
+                    to: menuItem
                 )
                 return menuItem
             }
