@@ -27,6 +27,25 @@ final class MenuBarStatusIconTests: XCTestCase {
         XCTAssertEqual(MenuBarStatusIconState.attention.badgeText, "!")
     }
 
+    func testRendererCreatesFixedTemplateImageForEveryState() {
+        let renderer = MenuBarStatusIconRenderer()
+        let states: [MenuBarStatusIconState] = [
+            .checking, .upToDate, .updates(count: 1), .updates(count: 10), .attention,
+        ]
+
+        for state in states {
+            let image = renderer.image(for: state)
+            XCTAssertEqual(image.size, MenuBarStatusIconRenderer.imageSize)
+            XCTAssertTrue(image.isTemplate)
+            XCTAssertFalse(image.representations.isEmpty)
+        }
+    }
+
+    func testAttentionUsesHeavyBadgeWeight() {
+        XCTAssertEqual(MenuBarStatusIconState.attention.badgeWeight, .heavy)
+        XCTAssertEqual(MenuBarStatusIconState.upToDate.badgeWeight, .bold)
+    }
+
     private func makeState(outdated: Int = 0, attention: Int = 0) -> MenuBarState {
         MenuBarState(
             title: outdated > 0 ? "\(outdated) updates" : "Up to date",
