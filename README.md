@@ -148,6 +148,20 @@ Built-in AI generation, OAuth providers, and local LLM providers are removed by 
 
 UpdateBar has no telemetry.
 
+## Agent Command Editing
+
+External agents can inspect and correct one command field without a TTY:
+
+```bash
+updatebar approvals demo-tool --json
+updatebar edit demo-tool --field check.cmd --from check-command.txt --json
+updatebar approvals demo-tool --json
+```
+
+Editing validates the complete recipe and invalidates affected approvals. It
+never approves or executes the new command; approval remains a separate,
+explicit action after review.
+
 ## Safety Model
 
 Imported recipes are saved as `untrusted`. `status` only reads local state. `check` and `update` refuse untrusted or unapproved command fields.

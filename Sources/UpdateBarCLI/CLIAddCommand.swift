@@ -6,8 +6,7 @@ struct AddCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "add",
         abstract: "Add one recipe from JSON.",
-        usage: "updatebar add --from <file|-> [--dry-run] [--json] [--replace]",
-        shouldDisplay: false
+        usage: "updatebar add --from <file|-> [--dry-run] [--json] [--replace]"
     )
 
     @Option(

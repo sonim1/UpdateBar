@@ -17,6 +17,9 @@ final class GuideTemplateCommandTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("updatebar approve <id> --field latest.cmd --json"))
         XCTAssertTrue(result.stdout.contains("updatebar validate"))
         XCTAssertTrue(result.stdout.contains("updatebar add --from"))
+        XCTAssertTrue(result.stdout.contains("updatebar edit <id> --field check.cmd --from"))
+        XCTAssertTrue(result.stdout.contains("updatebar approvals <id> --json"))
+        XCTAssertTrue(result.stdout.contains("Editing does not approve commands"))
     }
 
     func testTemplateRecipePrintsValidUntrustedRecipeJSON() throws {

@@ -32,14 +32,17 @@ struct GuideCommand: ParsableCommand {
                 4. Dry-run add: updatebar add --from recipe.json --dry-run --json.
                 5. Add untrusted: updatebar add --from recipe.json --json.
                 6. Show every command field with updatebar approvals <id> --json.
-                7. Do not approve commands silently.
-                8. After user confirmation, approve exact fields:
+                7. To correct a command without a TTY, save the exact command and run:
+                   updatebar edit <id> --field check.cmd --from command.txt --json.
+                   Editing does not approve commands; review again with updatebar approvals <id> --json.
+                8. Do not approve commands silently.
+                9. After user confirmation, approve exact fields:
                    Repeat approval for each command field the user accepts.
                    Common fields: check.cmd, latest.cmd, update.cmd.
                    updatebar approve <id> --field check.cmd --json.
                    updatebar approve <id> --field latest.cmd --json.
                    updatebar approve <id> --field update.cmd --json.
-                9. Verify with updatebar check <id> --json and updatebar status --json.
+                10. Verify with updatebar check <id> --json and updatebar status --json.
 
                 Exit codes:
                 0 success

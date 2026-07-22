@@ -1,8 +1,9 @@
 # Shell Completions
 
 UpdateBar uses Swift Argument Parser's built-in completion generator.
-Default root completions include only the primary workflow commands: `init`,
-`scan`, `status`, `check`, `update`, `approvals`, and `help`.
+Default root completions include the primary workflow and agent authoring
+commands: `init`, `scan`, `add`, `status`, `check`, `update`, `approvals`,
+`edit`, and `help`.
 
 Hidden-but-callable commands are intentionally omitted to keep the day-to-day
 surface small. This includes import/export commands, advanced item-management
