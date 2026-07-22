@@ -21,20 +21,32 @@ case "$*" in
     echo '{"accounts":[{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}' ;;
   "r2 bucket info updatebar-updates --json")
     count_file="${CALL_LOG}.bucket"; count=0; [[ ! -f "$count_file" ]] || count="$(cat "$count_file")"; count=$((count+1)); echo "$count" >"$count_file"
-    case "${SCENARIO:-}" in absent) [[ "$count" == 1 ]] && { echo 'Bucket not found' >&2; exit 44; };; race) echo 'Bucket not found' >&2; exit 44;; malformed) echo nope; exit 0;; esac
+    case "${SCENARIO:-}" in
+      absent|bucket-race-success|bucket-race-mismatch) [[ "$count" == 1 ]] && { echo 'Bucket not found' >&2; exit 44; };;
+      bucket-race-missing) echo 'Bucket not found' >&2; exit 44;;
+      malformed) echo nope; exit 0;;
+    esac
+    [[ "${SCENARIO:-}" != bucket-race-mismatch || "$count" == 1 ]] || { echo '{"name":"another-bucket"}'; exit 0; }
     echo '{"name":"updatebar-updates"}' ;;
-  "r2 bucket create updatebar-updates") [[ "${SCENARIO:-}" == race ]] && exit 45 || echo created ;;
+  "r2 bucket create updatebar-updates")
+    case "${SCENARIO:-}" in bucket-race-*) exit 45;; esac
+    echo created ;;
   "r2 bucket domain get updatebar-updates --domain updates.updatebar.sonim1.com")
     count_file="${CALL_LOG}.domain"; count=0; [[ ! -f "$count_file" ]] || count="$(cat "$count_file")"; count=$((count+1)); echo "$count" >"$count_file"
     case "${SCENARIO:-}" in
       absent) [[ "$count" == 1 ]] && { echo 'Domain not found' >&2; exit 44; };;
+      domain-race-success) [[ "$count" == 1 ]] && { echo 'Domain not found' >&2; exit 44; };;
+      domain-race-mismatch) [[ "$count" == 1 ]] && { echo 'Domain not found' >&2; exit 44; }; echo 'domain: wrong.example'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; exit 0;;
+      domain-race-missing) echo 'Domain not found' >&2; exit 44;;
       final-mismatch) [[ "$count" == 1 ]] && { echo 'Domain not found' >&2; exit 44; }; echo 'domain: wrong.example'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; exit 0;;
       conflict) echo 'domain: updates.updatebar.sonim1.com'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; echo 'bucket: another'; exit 0;;
       mismatch) echo 'domain: wrong.example'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; exit 0;;
       malformed) echo nonsense; exit 0;;
     esac
     echo 'domain: updates.updatebar.sonim1.com'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; echo 'bucket: updatebar-updates' ;;
-  "r2 bucket domain add updatebar-updates --domain updates.updatebar.sonim1.com --zone-id bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --min-tls 1.2 --force") echo added ;;
+  "r2 bucket domain add updatebar-updates --domain updates.updatebar.sonim1.com --zone-id bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --min-tls 1.2 --force")
+    case "${SCENARIO:-}" in domain-race-*) exit 46;; esac
+    echo added ;;
   *) echo "unexpected: $*" >&2; exit 91;;
 esac
 FAKE
@@ -63,7 +75,14 @@ run_case conflict 1
 run_case malformed 1
 run_case mismatch 1
 run_case final-mismatch 1
-run_case race 45
+run_case bucket-race-success 0
+[[ "$(cat "${LOG}.bucket")" == 2 ]]
+run_case bucket-race-missing 45
+run_case bucket-race-mismatch 45
+run_case domain-race-success 0
+[[ "$(cat "${LOG}.domain")" == 2 ]]
+run_case domain-race-missing 46
+run_case domain-race-mismatch 46
 
 run_case absent 0
 ruby - "$LOG" <<'RUBY'

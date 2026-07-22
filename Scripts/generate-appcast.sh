@@ -20,7 +20,7 @@ ACCOUNT="${SPARKLE_KEY_ACCOUNT:-updatebar}"
 DMG="$ROOT/dist/UpdateBar-${VERSION}-macos-arm64.dmg"
 CHECKSUM="$DMG.sha256"
 OUTPUT="$ROOT/dist/updates"
-ARTIFACT_ROOT="${SPARKLE_ARTIFACT_ROOT:-$ROOT/.build/artifacts/sparkle/Sparkle}"
+ARTIFACT_ROOT="$ROOT/.build/artifacts/sparkle/Sparkle"
 SMOKE="${APP_DMG_SMOKE_BIN:-$ROOT/Scripts/app-dmg-smoke-test.sh}"
 CODESIGN_BIN="${CODESIGN_BIN:-/usr/bin/codesign}"
 XCRUN_BIN="${XCRUN_BIN:-/usr/bin/xcrun}"
@@ -29,6 +29,7 @@ FILE_BIN="${FILE_BIN:-/usr/bin/file}"
 HDIUTIL_BIN="${HDIUTIL_BIN:-/usr/bin/hdiutil}"
 PLUTIL_BIN="${PLUTIL_BIN:-/usr/bin/plutil}"
 REALPATH_BIN="${REALPATH_BIN:-realpath}"
+RENAME_BIN="${RENAME_BIN:-/usr/bin/ruby}"
 
 fail() { echo "$1" >&2; exit "${2:-1}"; }
 run() { local label="$1" status; shift; if "$@"; then return 0; else status=$?; echo "$label failed" >&2; return "$status"; fi; }
@@ -57,7 +58,7 @@ ruby -rjson -e '
   exit(pin && pin.dig("state","revision")=="b6496a74a087257ef5e6da1c5b29a447a60f5bd7" ? 0 : 1)
 ' "$ROOT/Package.resolved" || fail "Sparkle dependency is not pinned to the reviewed 2.9.4 commit"
 
-tool_list="$(mktemp "${TMPDIR:-/tmp}/updatebar-appcast-tools.XXXXXX")"; work=''; key_file=''; final=''; backup=''; lock=''; lock_owned=0
+tool_list="$(mktemp "${TMPDIR:-/tmp}/updatebar-appcast-tools.XXXXXX")"; work=''; key_file=''; final=''; lock=''; lock_owned=0
 metadata_dir=''; metadata_mount=''; metadata_attached=0
 cleanup() {
   status=$?; trap - EXIT HUP INT TERM
@@ -66,8 +67,6 @@ cleanup() {
   [[ -z "$key_file" ]] || rm -f "$key_file"
   [[ -z "$work" || ! -d "$work" ]] || rm -rf "$work"
   [[ -z "$final" || ! -d "$final" ]] || rm -rf "$final"
-  if [[ -n "$backup" && -d "$backup" && ! -e "$OUTPUT" ]]; then mv "$backup" "$OUTPUT" || :; fi
-  [[ -z "$backup" || ! -d "$backup" ]] || rm -rf "$backup"
   if [[ "$lock_owned" == 1 && -d "$lock" && ! -L "$lock" ]]; then rmdir "$lock" || :; fi
   rm -f "$tool_list"
   exit "$status"
@@ -105,11 +104,14 @@ case "$tool_real" in "$root_real"/*) ;; *) fail "Sparkle tool escapes the artifa
 "$FILE_BIN" "$tool" | grep -q 'Mach-O' || fail "Sparkle generate_appcast is not a macOS executable" 66
 
 work="$(mktemp -d "$ROOT/dist/.generate-appcast-work.XXXXXX")"
-staged="$work/$(basename "$DMG")"; cp "$DMG" "$staged"
+name="$(basename "$DMG")"; staged="$work/$name"; staged_checksum="$work/$name.sha256"; cp "$DMG" "$staged"
+staged_hash="$(shasum -a 256 "$staged" | awk '{print $1}')" || exit $?
+[[ "$staged_hash" == "$recorded" ]] || fail "DMG changed while creating the signed staging snapshot"
+printf '%s  %s\n' "$staged_hash" "$name" >"$staged_checksum"
 appcast="$work/appcast.xml"
 if [[ -n "$PRIVATE_KEY" ]]; then
-  ruby -rbase64 -e 'v=ARGV[0]; begin; b=Base64.strict_decode64(v); exit(b.bytesize==32 && Base64.strict_encode64(b)==v ? 0 : 1); rescue ArgumentError; exit 1; end' "$PRIVATE_KEY" || fail "SPARKLE_PRIVATE_ED_KEY is not a canonical 32-byte seed" 64
   old_umask="$(umask)"; umask 077; key_file="$(mktemp "${TMPDIR:-/tmp}/updatebar-sparkle-key.XXXXXX")"; printf '%s\n' "$PRIVATE_KEY" >"$key_file"; chmod 600 "$key_file"; umask "$old_umask"
+  ruby -rbase64 -e 'v=File.binread(ARGV[0]).chomp; begin; b=Base64.strict_decode64(v); exit(b.bytesize==32 && Base64.strict_encode64(b)==v ? 0 : 1); rescue ArgumentError; exit 1; end' "$key_file" || fail "SPARKLE_PRIVATE_ED_KEY is not a canonical 32-byte seed" 64
   if env -u SPARKLE_PRIVATE_ED_KEY -u PRIVATE_KEY "$tool" --ed-key-file "$key_file" --download-url-prefix "https://$DOMAIN/" -o "$appcast" "$work"; then :; else status=$?; echo "Sparkle generate_appcast failed" >&2; exit "$status"; fi
 else
   run "Sparkle generate_appcast" "$tool" --account "$ACCOUNT" --download-url-prefix "https://$DOMAIN/" -o "$appcast" "$work"
@@ -128,20 +130,49 @@ metadata="$(ruby -rrexml/document -rbase64 -e '
   rescue; exit 1; end
 ' "$appcast")" || fail "Generated appcast XML is malformed"
 IFS=$'\t' read -r url length build short signature <<<"$metadata"
-name="$(basename "$DMG")"; expected_url="https://$DOMAIN/$name"; bytes="$(stat -f '%z' "$DMG")"
+expected_url="https://$DOMAIN/$name"; bytes="$(stat -f '%z' "$staged")"
 [[ "$url" == "$expected_url" && "$length" == "$bytes" ]] || fail "Appcast enclosure URL or length mismatch"
 [[ "$short" == "$DMG_VERSION" && "$build" == "$DMG_BUILD" ]] || fail "Appcast version metadata mismatch"
 ruby -rbase64 -e 'exit(Base64.strict_decode64(ARGV[0]).bytesize==64 ? 0 : 1)' "$signature" || fail "Appcast EdDSA signature is malformed"
 swift='import Foundation; import CryptoKit; let a=CommandLine.arguments; guard let p=Data(base64Encoded:a[1]), let s=Data(base64Encoded:a[2]) else { exit(2) }; let k=try Curve25519.Signing.PublicKey(rawRepresentation:p); let d=try Data(contentsOf:URL(fileURLWithPath:a[3])); exit(k.isValidSignature(s, for:d) ? 0:1)'
-run "EdDSA public-key verification" "$XCRUN_BIN" swift -e "$swift" "$PUBLIC_KEY" "$signature" "$DMG"
+run "EdDSA public-key verification" "$XCRUN_BIN" swift -e "$swift" "$PUBLIC_KEY" "$signature" "$staged"
 
 final="$(mktemp -d "$ROOT/dist/.generate-appcast-final.XXXXXX")"
-cp "$DMG" "$final/$name"; cp "$CHECKSUM" "$final/$name.sha256"; cp "$appcast" "$final/appcast.xml"
+cp "$staged" "$final/$name"; cp "$staged_checksum" "$final/$name.sha256"; cp "$appcast" "$final/appcast.xml"
 lock="$ROOT/dist/.generate-appcast.lock"; mkdir "$lock" || fail "Another appcast publication transaction is active"
 lock_owned=1
 if [[ -L "$OUTPUT" || ( -e "$OUTPUT" && ! -d "$OUTPUT" ) ]]; then fail "Unsafe update output destination"; fi
-if [[ -d "$OUTPUT" ]]; then backup="$ROOT/dist/.updates-backup.$$"; [[ ! -e "$backup" ]] || fail "Update backup destination already exists"; mv "$OUTPUT" "$backup"; fi
-[[ ! -e "$OUTPUT" && ! -L "$OUTPUT" ]] || fail "Update output appeared during publication"
-mv "$final" "$OUTPUT"; final=''; [[ -z "$backup" ]] || { rm -rf "$backup"; backup=''; }
+if [[ -d "$OUTPUT" ]]; then rename_mode=swap; else rename_mode=exclusive; fi
+if "$RENAME_BIN" -rfiddle/import -e '
+  source, destination, mode = ARGV
+  source_stat = File.lstat(source)
+  abort "Appcast source is not a real directory" unless source_stat.directory? && !source_stat.symlink?
+  if mode == "exclusive"
+    begin
+      File.lstat(destination)
+      abort "Appcast destination appeared during finalization"
+    rescue Errno::ENOENT
+    end
+    flags = 0x00000004 # RENAME_EXCL
+  elsif mode == "swap"
+    destination_stat = File.lstat(destination)
+    abort "Appcast destination changed during finalization" unless destination_stat.directory? && !destination_stat.symlink?
+    flags = 0x00000002 # RENAME_SWAP
+  else
+    abort "Unknown appcast rename mode"
+  end
+  module DarwinRename
+    extend Fiddle::Importer
+    dlload Fiddle.dlopen(nil)
+    extern "int renameatx_np(int, const char *, int, const char *, unsigned int)"
+  end
+  result = DarwinRename.renameatx_np(-2, source, -2, destination, flags)
+  if result != 0
+    warn "renameatx_np failed with errno #{Fiddle.last_error}"
+    exit 73
+  end
+' "$final" "$OUTPUT" "$rename_mode"; then :; else rename_status=$?; echo "Unable to finalize appcast output" >&2; exit "$rename_status"; fi
+if [[ "$rename_mode" == swap ]]; then rm -rf "$final"; fi
+final=''
 rmdir "$lock"; lock_owned=0
 printf '%s\n' "$OUTPUT/appcast.xml"

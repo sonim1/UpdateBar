@@ -38,7 +38,7 @@ appcast_metadata() {
   ruby -rrexml/document -rbase64 -e '
     begin
       raw=File.binread(ARGV[0]); abort if raw.include?("<!DOCTYPE"); d=REXML::Document.new(raw); ns="http://www.andymatuschak.org/xml-namespaces/sparkle"
-      abort unless d.root && d.root.namespaces["sparkle"]==ns
+      abort unless d.root && d.root.name=="rss" && d.root.namespaces["sparkle"]==ns
       items=[]; REXML::XPath.each(d,"//*[local-name()=\"item\"]"){|e|items<<e}; abort unless items.length==1
       es=[]; REXML::XPath.each(d,"//*[local-name()=\"enclosure\"]"){|e|es<<e}; abort unless es.length==1 && es[0].parent==items[0]
       e=es[0]; a=->(n){x=e.attributes.get_attribute_ns(ns,n); x&&x.value}

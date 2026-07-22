@@ -68,6 +68,15 @@ printf '<bad' >"$R/dist/updates/appcast.xml"
 run_case malformed-local 1
 cp "$T/local-appcast" "$R/dist/updates/appcast.xml"
 
+rm -rf "$REMOTE"; mkdir "$REMOTE"
+sed 's/<rss /<feed /;s#</rss>#</feed>#' "$T/local-appcast" >"$R/dist/updates/appcast.xml"
+run_case wrong-root-local 1
+cp "$T/local-appcast" "$R/dist/updates/appcast.xml"
+rm -rf "$REMOTE"; mkdir "$REMOTE"
+make_appcast 0.4.0 '' "$T/wrong-root-remote.xml"
+sed 's/<rss /<feed /;s#</rss>#</feed>#' "$T/wrong-root-remote.xml" >"$REMOTE/appcast.xml"
+run_case wrong-root-public-origin 1
+
 make_appcast 0.6.0 '' "$REMOTE/appcast.xml"; rm -f "$REMOTE/$name" "$REMOTE/$name.sha256"
 run_case rollback 1
 ! grep -Fq 'request PUT' "$LOG"

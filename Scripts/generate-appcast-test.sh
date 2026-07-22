@@ -13,21 +13,57 @@ printf 'dmg bytes\n' >"$R/dist/UpdateBar-0.5.0-macos-arm64.dmg"
 hash="$(shasum -a 256 "$R/dist/UpdateBar-0.5.0-macos-arm64.dmg" | awk '{print $1}')"
 printf '%s  UpdateBar-0.5.0-macos-arm64.dmg\n' "$hash" >"$R/dist/UpdateBar-0.5.0-macos-arm64.dmg.sha256"
 
+cat >"$B/observe" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+private='AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE='
+for value in "$@"; do
+  [[ "$value" != *"$private"* ]] || { printf 'secret leaked in child argv\n' >&2; exit 70; }
+done
+while IFS='=' read -r _ value; do
+  [[ "$value" != *"$private"* ]] || { printf 'secret leaked in child environment\n' >&2; exit 71; }
+done < <(/usr/bin/env)
+printf 'child:%s\n' "$1" >>"$CHILD_LOG"
+SH
+cat >"$B/ruby" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+"$OBSERVER" ruby "$@"
+exec /usr/bin/ruby "$@"
+SH
+cat >"$B/rename" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+"$OBSERVER" rename "$@"
+[[ -z "${FAKE_RENAME_EXIT:-}" ]] || exit "$FAKE_RENAME_EXIT"
+arguments=("$@")
+destination="${arguments[${#arguments[@]}-2]}"
+case "${FAKE_SWAP_DESTINATION:-}" in
+  directory) mkdir "$destination"; printf 'preserve\n' >"$destination/sentinel";;
+  symlink) mkdir -p "${FAKE_SWAP_TARGET:?}"; printf 'preserve\n' >"$FAKE_SWAP_TARGET/sentinel"; ln -s "$FAKE_SWAP_TARGET" "$destination";;
+esac
+exec /usr/bin/ruby "$@"
+SH
+
 cat >"$B/smoke" <<'SH'
 #!/usr/bin/env bash
+"$OBSERVER" smoke "$@"
 printf 'smoke:%s\n' "$*" >>"$CALL_LOG"
 [[ "${FAIL_SMOKE:-0}" == 0 ]] || exit 31
 SH
 cat >"$B/codesign" <<'SH'
 #!/usr/bin/env bash
+"$OBSERVER" codesign "$@"
 printf 'codesign:%s\n' "$*" >>"$CALL_LOG"; [[ "${FAIL_VERIFY:-}" != codesign ]] || exit 32
 SH
 cat >"$B/spctl" <<'SH'
 #!/usr/bin/env bash
+"$OBSERVER" spctl "$@"
 printf 'spctl:%s\n' "$*" >>"$CALL_LOG"; [[ "${FAIL_VERIFY:-}" != gatekeeper ]] || exit 33
 SH
 cat >"$B/xcrun" <<'SH'
 #!/usr/bin/env bash
+"$OBSERVER" xcrun "$@"
 printf 'xcrun:%s\n' "$*" >>"$CALL_LOG"
 if [[ "$1" == stapler ]]; then [[ "${FAIL_VERIFY:-}" != staple ]] || exit 34; exit 0; fi
 [[ "$1" == swift ]] || exit 90
@@ -35,12 +71,14 @@ if [[ "$1" == stapler ]]; then [[ "${FAIL_VERIFY:-}" != staple ]] || exit 34; ex
 SH
 cat >"$B/file" <<'SH'
 #!/usr/bin/env bash
+"$OBSERVER" file "$@"
 [[ "${BAD_PLATFORM:-0}" == 0 ]] || { echo "$1: data"; exit 0; }
 echo "$1: Mach-O 64-bit executable arm64"
 SH
 cat >"$B/hdiutil" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
+"$OBSERVER" hdiutil "$@"
 printf 'hdiutil:%s\n' "$*" >>"$CALL_LOG"
 if [[ "$1" == detach ]]; then exit 0; fi
 [[ "${FAIL_HDIUTIL:-0}" == 0 ]] || exit 39
@@ -52,6 +90,7 @@ SH
 cat >"$B/plutil" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
+"$OBSERVER" plutil "$@"
 key="$2"
 case "$key" in
   CFBundleShortVersionString) [[ "${BAD_PLIST:-}" != version ]] && echo 0.5.0 || echo 9.9.9;;
@@ -64,29 +103,40 @@ SH
 cat >"$R/.build/artifacts/sparkle/Sparkle/bin/generate_appcast" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
+"$OBSERVER" generate_appcast "$@"
 printf 'appcast:' >>"$CALL_LOG"; printf '%q ' "$@" >>"$CALL_LOG"; printf '\n' >>"$CALL_LOG"
 keyfile=''; out=''; dir=''; prev=''
 for arg in "$@"; do [[ "$prev" == --ed-key-file ]] && keyfile="$arg"; [[ "$prev" == -o ]] && out="$arg"; prev="$arg"; dir="$arg"; done
 if [[ -n "$keyfile" ]]; then
   [[ -z "${SPARKLE_PRIVATE_ED_KEY+x}" && -z "${PRIVATE_KEY+x}" ]] || exit 38
-  stat -f '%Lp' "$keyfile" >"${CALL_LOG}.mode"; printf '%s' "$keyfile" >"${CALL_LOG}.keypath"; grep -Fq "$EXPECTED_PRIVATE" "$keyfile" || exit 36
+  stat -f '%Lp' "$keyfile" >"${CALL_LOG}.mode"; printf '%s' "$keyfile" >"${CALL_LOG}.keypath"; grep -Fq 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=' "$keyfile" || exit 36
 fi
 [[ "${FAIL_TOOL:-0}" == 0 ]] || exit 37
 dmg="$dir/UpdateBar-0.5.0-macos-arm64.dmg"; length="$(stat -f '%z' "$dmg")"
-case "${BAD_XML:-}" in malformed) printf '<rss' >"$out"; exit 0;; multi) extra='<enclosure url="x" />';; wrong) version=9.9.9;; unsafe-url) url='https://evil.example/file.dmg';; wrong-length) length=999;; esac
+signature=' sparkle:edSignature="Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQw=="'
+case "${BAD_XML:-}" in malformed) printf '<rss' >"$out"; exit 0;; multi) extra='<enclosure url="x" />';; wrong) version=9.9.9;; unsafe-url) url='https://evil.example/file.dmg';; wrong-length) length=999;; no-signature) signature='';; esac
 version="${version:-0.5.0}"
 url="${url:-https://updates.updatebar.sonim1.com/UpdateBar-0.5.0-macos-arm64.dmg}"
 cat >"$out" <<XML
-<?xml version="1.0"?><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="$url" length="$length" sparkle:version="$version" sparkle:shortVersionString="$version" sparkle:edSignature="Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQw==" />${extra:-}</item></channel></rss>
+<?xml version="1.0"?><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="$url" length="$length" sparkle:version="$version" sparkle:shortVersionString="$version"$signature />${extra:-}</item></channel></rss>
 XML
+[[ "${FAKE_SUBSTITUTE_SOURCE_AFTER_SIGN:-0}" == 0 ]] || printf 'bad bytes\n' >"${SOURCE_DMG:?}"
 SH
 chmod +x "$B"/* "$R/.build/artifacts/sparkle/Sparkle/bin/generate_appcast"
+mkdir -p "$T/evil"
+cat >"$T/evil/generate_appcast" <<'SH'
+#!/usr/bin/env bash
+exit 77
+SH
+chmod +x "$T/evil/generate_appcast"
 
 run_case() {
   local name="$1" expected="$2"; shift 2; rm -rf "$R/dist/updates"; : >"$LOG"
   [[ "$name" != dest-conflict ]] || ln -s "$T/elsewhere" "$R/dist/updates"
+  [[ "$name" != replace-existing ]] || { mkdir "$R/dist/updates"; printf 'old\n' >"$R/dist/updates/old"; }
   set +e
-  env CALL_LOG="$LOG" EXPECTED_PRIVATE="$PRIVATE" SPARKLE_PUBLIC_ED_KEY="$KEY" APP_DMG_SMOKE_BIN="$B/smoke" CODESIGN_BIN="$B/codesign" SPCTL_BIN="$B/spctl" XCRUN_BIN="$B/xcrun" FILE_BIN="$B/file" HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN="$B/plutil" "$@" "$R/Scripts/generate-appcast.sh" >"$T/$name.out" 2>&1
+  : >"$T/children"
+  env PATH="$B:$PATH" OBSERVER="$B/observe" CHILD_LOG="$T/children" CALL_LOG="$LOG" SPARKLE_PUBLIC_ED_KEY="$KEY" APP_DMG_SMOKE_BIN="$B/smoke" CODESIGN_BIN="$B/codesign" SPCTL_BIN="$B/spctl" XCRUN_BIN="$B/xcrun" FILE_BIN="$B/file" HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN="$B/plutil" "$@" "$R/Scripts/generate-appcast.sh" >"$T/$name.out" 2>&1
   status=$?; set -e
   [[ "$status" == "$expected" ]] || { cat "$T/$name.out" >&2; echo "$name expected $expected got $status" >&2; exit 1; }
 }
@@ -98,7 +148,14 @@ grep -Fq -- '--account updatebar' "$LOG"
 run_case ci 0 SPARKLE_PRIVATE_ED_KEY="$PRIVATE"
 [[ "$(cat "$LOG.mode")" == 600 ]]
 ! grep -Fq "$PRIVATE" "$LOG" "$T/ci.out"
+grep -Fq 'child:ruby' "$T/children"
+! grep -Fq "$PRIVATE" "$T/children"
 test ! -e "$(cat "$LOG.keypath")"
+run_case fixed-provenance 0 SPARKLE_ARTIFACT_ROOT="$T/evil"
+cp "$R/dist/UpdateBar-0.5.0-macos-arm64.dmg" "$T/original-dmg"
+run_case source-substitution 0 FAKE_SUBSTITUTE_SOURCE_AFTER_SIGN=1 SOURCE_DMG="$R/dist/UpdateBar-0.5.0-macos-arm64.dmg"
+cmp "$T/original-dmg" "$R/dist/updates/UpdateBar-0.5.0-macos-arm64.dmg"
+cp "$T/original-dmg" "$R/dist/UpdateBar-0.5.0-macos-arm64.dmg"
 run_case key-mismatch 35 SPARKLE_PRIVATE_ED_KEY="$PRIVATE" KEY_MISMATCH=1
 test ! -e "$R/dist/updates/appcast.xml"
 run_case invalid-private 64 SPARKLE_PRIVATE_ED_KEY=not-base64
@@ -120,8 +177,24 @@ run_case multi 1 BAD_XML=multi
 run_case wrong 1 BAD_XML=wrong
 run_case unsafe-url 1 BAD_XML=unsafe-url
 run_case wrong-length 1 BAD_XML=wrong-length
+run_case no-signature 1 BAD_XML=no-signature
 run_case platform 66 BAD_PLATFORM=1
 run_case dest-conflict 1
+run_case destination-directory-substitution 1 RENAME_BIN="$B/rename" FAKE_SWAP_DESTINATION=directory
+test -f "$R/dist/updates/sentinel"
+! grep -Fq "$R/dist/updates/appcast.xml" "$T/destination-directory-substitution.out"
+rm -rf "$R/dist/updates"
+swap_target="$T/swap-target"
+run_case destination-symlink-substitution 1 RENAME_BIN="$B/rename" FAKE_SWAP_DESTINATION=symlink FAKE_SWAP_TARGET="$swap_target"
+test -L "$R/dist/updates"
+test -f "$swap_target/sentinel"
+! grep -Fq "$R/dist/updates/appcast.xml" "$T/destination-symlink-substitution.out"
+rm "$R/dist/updates"; rm -rf "$swap_target"
+run_case rename-failure 47 RENAME_BIN="$B/rename" FAKE_RENAME_EXIT=47
+! grep -Fq "$R/dist/updates/appcast.xml" "$T/rename-failure.out"
+run_case replace-existing 0 RENAME_BIN="$B/rename"
+test -f "$R/dist/updates/appcast.xml"
+test ! -e "$R/dist/updates/old"
 mkdir "$R/dist/.generate-appcast.lock"
 run_case concurrent-output 1
 rmdir "$R/dist/.generate-appcast.lock"

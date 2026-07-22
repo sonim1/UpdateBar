@@ -58,9 +58,21 @@ if bucket="$(run r2 bucket info "$R2_BUCKET_NAME" --json)"; then
 else
   status=$?
   if ! is_absent "$bucket"; then printf '%s\n' "$bucket" >&2; exit "$status"; fi
-  if mutation="$(run r2 bucket create "$R2_BUCKET_NAME")"; then :; else status=$?; printf '%s\n' "$mutation" >&2; exit "$status"; fi
-  bucket="$(run r2 bucket info "$R2_BUCKET_NAME" --json)" || exit $?
-  validate_bucket "$bucket" || { echo "Final bucket state is malformed or mismatched" >&2; exit 1; }
+  create_status=0; mutation=''
+  if mutation="$(run r2 bucket create "$R2_BUCKET_NAME")"; then :; else create_status=$?; fi
+  final_bucket_status=0
+  if bucket="$(run r2 bucket info "$R2_BUCKET_NAME" --json)"; then
+    if validate_bucket "$bucket"; then final_bucket_exact=1; else final_bucket_exact=0; fi
+  else
+    final_bucket_status=$?; final_bucket_exact=0
+  fi
+  if [[ "$create_status" != 0 ]]; then
+    if [[ "$final_bucket_exact" == 1 ]]; then :; else printf '%s\n' "$mutation" >&2; exit "$create_status"; fi
+  elif [[ "$final_bucket_status" != 0 ]]; then
+    printf '%s\n' "$bucket" >&2; exit "$final_bucket_status"
+  elif [[ "$final_bucket_exact" != 1 ]]; then
+    echo "Final bucket state is malformed or mismatched" >&2; exit 1
+  fi
 fi
 
 validate_domain() {
@@ -86,9 +98,21 @@ if domain="$(run r2 bucket domain get "$R2_BUCKET_NAME" --domain "$UPDATE_DOMAIN
 else
   status=$?
   if ! is_absent "$domain"; then printf '%s\n' "$domain" >&2; exit "$status"; fi
-  if mutation="$(run r2 bucket domain add "$R2_BUCKET_NAME" --domain "$UPDATE_DOMAIN" --zone-id "$ZONE_ID" --min-tls 1.2 --force)"; then :; else status=$?; printf '%s\n' "$mutation" >&2; exit "$status"; fi
-  domain="$(run r2 bucket domain get "$R2_BUCKET_NAME" --domain "$UPDATE_DOMAIN")" || exit $?
-  validate_domain "$domain" || { echo "Final custom domain state is malformed or mismatched" >&2; exit 1; }
+  add_status=0; mutation=''
+  if mutation="$(run r2 bucket domain add "$R2_BUCKET_NAME" --domain "$UPDATE_DOMAIN" --zone-id "$ZONE_ID" --min-tls 1.2 --force)"; then :; else add_status=$?; fi
+  final_domain_status=0
+  if domain="$(run r2 bucket domain get "$R2_BUCKET_NAME" --domain "$UPDATE_DOMAIN")"; then
+    if validate_domain "$domain"; then final_domain_exact=1; else final_domain_exact=0; fi
+  else
+    final_domain_status=$?; final_domain_exact=0
+  fi
+  if [[ "$add_status" != 0 ]]; then
+    if [[ "$final_domain_exact" == 1 ]]; then :; else printf '%s\n' "$mutation" >&2; exit "$add_status"; fi
+  elif [[ "$final_domain_status" != 0 ]]; then
+    printf '%s\n' "$domain" >&2; exit "$final_domain_status"
+  elif [[ "$final_domain_exact" != 1 ]]; then
+    echo "Final custom domain state is malformed or mismatched" >&2; exit 1
+  fi
 fi
 
 printf 'https://%s/appcast.xml\n' "$UPDATE_DOMAIN"
