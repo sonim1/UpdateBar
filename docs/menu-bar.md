@@ -14,17 +14,21 @@ Current scope:
 - presents command approval as one native submenu row per service; its right-hand
   submenu exposes per-field approve/revoke actions; exact command text and cwd
   appear only in confirmation
-- provides `Check Now` and `Run Updates`, Refresh Status, Open TUI, Dashboard,
+- provides `Check Now` and `Update All`, Refresh Status, Open TUI, Dashboard,
   Manage Items, Scan & Add, Open Config, View Logs, and Quit through native menu
-  items; Run Updates is disabled when there are no outdated items
+  items; Update All is disabled when there are no outdated items
+- starts individual updates and Update All immediately without a modal confirmation;
+  command approvals and revocations still require confirmation
+- watches the CLI-owned manifest, state, config, and history files and refreshes
+  the visible menu automatically when they change
+- augments the restricted environment of a Finder-launched app with common
+  Homebrew, npm version-manager, Cargo, Bun, and mise executable paths
 - expands Open TUI into a native submenu when multiple supported terminals are
   installed, with the selected terminal marked by a checkmark
 - replaces actionable rows with `Checking for updates...`, Dashboard, and Quit
   while a refresh is in flight, so stale update and approval actions cannot run
-- limits an active-action menu to Running, Cancel Current Action, Dashboard,
-  View Logs, and Quit until the action finishes
-- keeps bulk-update confirmation in the app dispatcher before approved update
-  commands run
+- shows the active update title plus Cancel Current Action while keeping Open TUI,
+  Dashboard, item management, configuration, logs, and Quit available
 
 `Dashboard` opens the Dashboard window directly. A left sidebar switches between
 Overview, Items, and Scan & Add in the same Dashboard window, with each section

@@ -115,7 +115,7 @@ brew upgrade --cask sonim1/tap/updatebar-app
 Manual GitHub Release install:
 
 ```bash
-VERSION=0.6.0
+VERSION=0.6.1
 ARCH=arm64
 curl -fL "https://github.com/sonim1/UpdateBar/releases/download/v${VERSION}/UpdateBar-${VERSION}-macos-${ARCH}.app.tar.gz" -o /tmp/UpdateBar.app.tar.gz
 tar -xzf /tmp/UpdateBar.app.tar.gz -C /Applications

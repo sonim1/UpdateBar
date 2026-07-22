@@ -7,6 +7,33 @@ import XCTest
 final class CoreMenuBarServiceTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
 
+    func testCoreServiceScansTheUserHomeInsteadOfTheUpdateBarDataDirectory() throws {
+        let root = try temporaryDirectory()
+        let dataDirectory = root.appendingPathComponent("data", isDirectory: true)
+        let userHome = root.appendingPathComponent("user", isDirectory: true)
+        let skillDirectory =
+            userHome
+            .appendingPathComponent(".codex/skills/live-sync", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: skillDirectory,
+            withIntermediateDirectories: true
+        )
+        try Data("# Live Sync\n".utf8).write(
+            to: skillDirectory.appendingPathComponent("SKILL.md")
+        )
+        let service = CoreMenuBarService(
+            paths: AppPaths(homeDirectory: dataDirectory),
+            scanHomeDirectory: userHome,
+            now: { self.now }
+        )
+
+        let report = try service.scan(category: "codex-skill")
+
+        XCTAssertEqual(report.candidates.map(\.id), ["codex_skill.live-sync"])
+        XCTAssertEqual(report.candidates.first?.sourceRef, "~/.codex/skills/live-sync")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dataDirectory.path))
+    }
+
     func testCoreServiceScansRegistersSelectedCandidatesAndSavesConfig() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)

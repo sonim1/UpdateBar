@@ -51,27 +51,37 @@ extension UpdateBarCLIClient: MenuBarServicing {}
 
 public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
     private let paths: AppPaths
+    private let scanHomeDirectory: URL
     private let manifestStore: ManifestStore
     private let stateStore: StateStore
     private let configStore: ConfigStore
     private let httpClient: HTTPClient
     private let injectedCommandRunner: (any CommandRunning)?
+    private let commandEnvironment: [String: String]
     private let now: () -> Date
     private let githubToken: String?
 
     public init(
         paths: AppPaths = AppPaths(),
+        scanHomeDirectory: URL? = nil,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
         httpClient: HTTPClient = URLSessionHTTPClient(),
         commandRunner: (any CommandRunning)? = nil,
         now: @escaping () -> Date = Date.init,
         githubToken: String? = nil
     ) {
         self.paths = paths
+        let userHome = scanHomeDirectory ?? Self.userHomeDirectory(environment: environment)
+        self.scanHomeDirectory = userHome
         self.manifestStore = ManifestStore(paths: paths)
         self.stateStore = StateStore(paths: paths)
         self.configStore = ConfigStore(paths: paths)
         self.httpClient = httpClient
         self.injectedCommandRunner = commandRunner
+        self.commandEnvironment = MenuBarCommandEnvironment.make(
+            base: environment,
+            homeDirectory: userHome
+        )
         self.now = now
         self.githubToken = githubToken
     }
@@ -90,7 +100,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         let detectors = try ScanCategory.defaultDetectors(for: categoryFilter)
         return try ScanService(
             commandRunner: commandRunner(for: nil),
-            homeDirectory: paths.homeDirectory
+            homeDirectory: scanHomeDirectory
         )
         .scan(detectors: detectors)
         .filtered(category: categoryFilter)
@@ -197,6 +207,17 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
     }
 
     private func commandRunner(for cancellationToken: CancellationToken?) -> any CommandRunning {
-        injectedCommandRunner ?? CommandExecutor(cancellationToken: cancellationToken)
+        injectedCommandRunner
+            ?? CommandExecutor(
+                environment: commandEnvironment,
+                cancellationToken: cancellationToken
+            )
+    }
+
+    private static func userHomeDirectory(environment: [String: String]) -> URL {
+        guard let home = environment["HOME"], !home.isEmpty else {
+            return FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        }
+        return URL(fileURLWithPath: home, isDirectory: true).standardizedFileURL
     }
 }

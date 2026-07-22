@@ -18,6 +18,8 @@
         private let actionCoordinator = MenuBarActionCoordinator()
         private let dashboardNavigationModel = DashboardNavigationModel()
         private var refreshGenerationGate = MenuBarRefreshGenerationGate()
+        private var stateChangeMonitor = MenuBarStateChangeMonitor()
+        private var stateChangeTimer: Timer?
         private var configPanelController: ConfigPanelController?
         private var dashboardPanelController: DashboardPanelController?
         private var latestState = MenuBarState(
@@ -72,6 +74,7 @@
             rebuildMenu()
             ProcessInfo.processInfo.disableAutomaticTermination("UpdateBar menu bar app running")
             refreshStatus(refresh: false)
+            startMonitoringExternalStateChanges()
         }
 
         func applicationWillTerminate(_ notification: Notification) {
@@ -80,44 +83,31 @@
                 name: NSWindow.willCloseNotification,
                 object: nil
             )
+            stateChangeTimer?.invalidate()
+            stateChangeTimer = nil
             ProcessInfo.processInfo.enableAutomaticTermination("UpdateBar menu bar app terminated")
             Self.bootstrapDelegate = nil
         }
 
         @objc private func checkNow() {
-            runAction("Check Now") { [service] token in
+            runAction("Checking for updates") { [service] token in
                 try service?.checkNow(cancellationToken: token)
             }
         }
 
-        @objc private func updateAllApproved(_ sender: NSMenuItem) {
-            updateAllApproved(
-                confirmation: sender.representedObject as? MenuBarActionConfirmation
-            )
-        }
-
-        private func updateAllApproved(confirmation: MenuBarActionConfirmation? = nil) {
-            let fallback = MenuBarActionConfirmation.updateAllApprovedOutdated(
-                itemNames: latestState.outdatedItems.map {
-                    SecretRedactor.redact($0.name)
-                }
-            )
-            guard confirm(confirmation ?? fallback) else { return }
-            runAction("Run Updates") { [service] token in
+        @objc private func updateAllApproved() {
+            runAction("Updating approved items") { [service] token in
                 try service?.updateAllApproved(cancellationToken: token)
             }
         }
 
         @objc private func updateSelected(_ sender: NSMenuItem) {
             guard let action = sender.representedObject as? ItemAction else { return }
-            update(id: action.id, confirmation: action.confirmation)
+            update(id: action.id)
         }
 
-        private func update(id: String, confirmation: MenuBarActionConfirmation?) {
-            guard confirm(confirmation ?? MenuBarActionConfirmation.updateItem(id: id)) else {
-                return
-            }
-            runAction("Update \(id)") { [service] token in
+        private func update(id: String) {
+            runAction("Updating \(id)") { [service] token in
                 try service?.update(id: id, cancellationToken: token)
             }
         }
@@ -344,14 +334,15 @@
         }
 
         private func refreshStatus(refresh: Bool) {
-            guard actionCoordinator.activeAction == nil else {
-                rebuildMenu()
-                return
-            }
             let refreshToken = refreshGenerationGate.begin()
-            setStatusIcon(.checking, accessibilityLabel: "UpdateBar checking")
-            let loadingMenu = menuBuilder.makeLoadingMenu()
-            statusItem?.menu = makeMenu(from: loadingMenu)
+            let presentationMode = MenuBarRefreshPolicy.presentationMode(
+                activeActionTitle: actionCoordinator.activeAction?.title
+            )
+            if presentationMode == .showLoading {
+                setStatusIcon(.checking, accessibilityLabel: "UpdateBar checking")
+                let loadingMenu = menuBuilder.makeLoadingMenu()
+                statusItem?.menu = makeMenu(from: loadingMenu)
+            }
             DispatchQueue.global(qos: .userInitiated).async { [service, formatter] in
                 do {
                     guard let service else { return }
@@ -381,6 +372,23 @@
                     }
                 }
             }
+        }
+
+        private func startMonitoringExternalStateChanges() {
+            stateChangeTimer?.invalidate()
+            stateChangeTimer = Timer.scheduledTimer(
+                timeInterval: 0.5,
+                target: self,
+                selector: #selector(refreshExternalStateIfNeeded),
+                userInfo: nil,
+                repeats: true
+            )
+            stateChangeTimer?.tolerance = 0.1
+        }
+
+        @objc private func refreshExternalStateIfNeeded() {
+            guard stateChangeMonitor.poll() else { return }
+            refreshStatus(refresh: false)
         }
 
         private func runAction(
@@ -508,11 +516,9 @@
             )
             switch action {
             case .menu, .cancelCurrentAction:
-                if action == .menu(.updateAllApprovedOutdated) {
-                    menuItem.representedObject = item.confirmation
-                }
+                break
             case .update(let id):
-                menuItem.representedObject = ItemAction(id: id, confirmation: item.confirmation)
+                menuItem.representedObject = ItemAction(id: id)
             case .approve(let id, let field), .revoke(let id, let field):
                 menuItem.representedObject = ApprovalAction(
                     id: id,
@@ -667,7 +673,7 @@
             case .checkNow:
                 return #selector(checkNow)
             case .updateAllApprovedOutdated:
-                return #selector(updateAllApproved(_:))
+                return #selector(updateAllApproved)
             case .openTUI:
                 return #selector(openTUI)
             case .overview:
@@ -728,11 +734,9 @@
 
     private final class ItemAction: NSObject {
         let id: String
-        let confirmation: MenuBarActionConfirmation?
 
-        init(id: String, confirmation: MenuBarActionConfirmation?) {
+        init(id: String) {
             self.id = id
-            self.confirmation = confirmation
         }
     }
 
