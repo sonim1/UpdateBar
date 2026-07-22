@@ -50,11 +50,25 @@ jobs:
         run: bash Scripts/archive-smoke-test.sh "$(ls dist/*.tar.gz)"
       - name: Verify checksums
         run: |
-          if command -v shasum >/dev/null 2>&1; then
-            shasum -a 256 -c dist/*.sha256
-          else
-            sha256sum -c dist/*.sha256
-          fi
+          (
+            cd dist
+            checksum_files=( ./*.sha256 )
+            if [[ ! -e "${checksum_files[0]}" ]]; then
+              echo "no release checksums found" >&2
+              exit 1
+            fi
+            for checksum_file in "${checksum_files[@]}"; do
+              if [[ ! -f "$checksum_file" || ! -s "$checksum_file" || -L "$checksum_file" ]]; then
+                echo "unsafe release checksum: $checksum_file" >&2
+                exit 1
+              fi
+            done
+            if command -v shasum >/dev/null 2>&1; then
+              shasum -a 256 -c "${checksum_files[@]}"
+            else
+              sha256sum -c "${checksum_files[@]}"
+            fi
+          )
       - name: Prepare code signing
         if: runner.os == 'macOS'
         env:
@@ -164,7 +178,7 @@ jobs:
               exit 1
             fi
             for checksum_file in "${checksum_files[@]}"; do
-              if [[ ! -f "$checksum_file" || -L "$checksum_file" ]]; then
+              if [[ ! -f "$checksum_file" || ! -s "$checksum_file" || -L "$checksum_file" ]]; then
                 echo "unsafe downloaded release checksum: $checksum_file" >&2
                 exit 1
               fi
