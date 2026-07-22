@@ -188,6 +188,7 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("recipe or one command field"))
         XCTAssertTrue(result.stdout.contains("$VISUAL"))
         XCTAssertTrue(result.stdout.contains("$EDITOR"))
         XCTAssertTrue(result.stdout.contains("--field <field>"))

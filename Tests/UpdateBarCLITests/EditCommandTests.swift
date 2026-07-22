@@ -664,6 +664,55 @@ final class EditCommandTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: paths.manifestFile), before)
     }
 
+    func testEditFieldPreservesConcurrentApprovalRevocation() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-field-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let binary = try updatebarBinaryPath()
+        let editor = try editorScript(
+            home: home,
+            body: """
+                "\(binary)" revoke tool --field latest.cmd --json >/dev/null
+                printf 'printf changed\n' > "$1"
+                """
+        )
+
+        let result = try CLIProcess.run(
+            ["edit", "tool", "--field", "update.cmd"],
+            home: home,
+            environment: ["EDITOR": editor.path]
+        )
+        let stored = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(stored.update.cmd, "printf changed")
+        XCTAssertNil(stored.trust.approvedCommands["latest.cmd"])
+        XCTAssertNil(stored.trust.approvedCommands["update.cmd"])
+    }
+
+    func testWholeRecipeEditRejectsConcurrentRecipeMutation() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let binary = try updatebarBinaryPath()
+        let editor = try editorScript(
+            home: home,
+            body: """
+                "\(binary)" disable tool --json >/dev/null
+                perl -0pi -e 's/"name" : "Tool"/"name" : "Edited Tool"/' "$1"
+                """
+        )
+
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
+        let stored = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("recipe changed during edit; reopen and try again"))
+        XCTAssertEqual(stored.name, "Tool")
+        XCTAssertFalse(stored.enabled)
+    }
+
     private func saveManifest(paths: AppPaths) throws {
         try ManifestStore(paths: paths).save(
             Manifest(
@@ -678,6 +727,26 @@ final class EditCommandTests: XCTestCase {
         try Data("#!/bin/sh\n\(body)\n".utf8).write(to: url)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
         return url
+    }
+
+    private func updatebarBinaryPath() throws -> String {
+        if let override = ProcessInfo.processInfo.environment["UPDATEBAR_TEST_BIN"],
+            FileManager.default.isExecutableFile(atPath: override)
+        {
+            return override
+        }
+        let build = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent(".build")
+        let candidates = [
+            build.appendingPathComponent("debug/updatebar"),
+            build.appendingPathComponent("arm64-apple-macosx/debug/updatebar"),
+            build.appendingPathComponent("x86_64-apple-macosx/debug/updatebar"),
+        ]
+        return try XCTUnwrap(
+            candidates.first(where: {
+                FileManager.default.isExecutableFile(atPath: $0.path)
+            })?.path
+        )
     }
 
     private func recipe() -> Recipe {

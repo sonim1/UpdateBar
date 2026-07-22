@@ -77,9 +77,12 @@
         private var lastReport: ScanReport?
         private var rowWarnings: [String: String] = [:]
         private var scanControlState: DashboardScanControlState = .ready
+        private var activeScanToken: Int?
+        private var registeredStatuses: [String: ItemStatus] = [:]
+        private var registeredStatusesGeneration = 0
 
         private var isScanning: Bool {
-            scanControlState == .scanning
+            activeScanToken != nil
         }
 
         var onError: (Error) -> Void = { _ in }
@@ -137,11 +140,13 @@
 
         func applyRegisteredItems(_ items: [StatusItem]) {
             _ = view
-            guard let lastReport else { return }
             let statuses = Dictionary(
                 items.map { ($0.id, $0.status) },
                 uniquingKeysWith: { _, latest in latest }
             )
+            registeredStatuses = statuses
+            registeredStatusesGeneration += 1
+            guard let lastReport else { return }
             let refreshedRows = listModel.rows(
                 from: lastReport,
                 registeredStatuses: statuses
@@ -162,14 +167,19 @@
 
         func invalidateScanSession() {
             sessionGate.invalidateForWindowClose()
-            scanControlState = .ready
+            if activeScanToken == nil {
+                scanControlState = .ready
+            }
             if isViewLoaded {
                 updateControls()
             }
         }
 
         @objc private func runScan() {
+            guard activeScanToken == nil else { return }
             let token = sessionGate.beginManualScan()
+            activeScanToken = token
+            let registeredStatusesGenerationAtStart = registeredStatusesGeneration
             scanControlState = .scanning
             updateControls()
             tableView.reloadData()
@@ -187,7 +197,12 @@
                         registeredStatuses: statuses
                     )
                     DispatchQueue.main.async {
-                        self.finishScan(result, token: token)
+                        self.finishScan(
+                            result,
+                            token: token,
+                            registeredStatusesGenerationAtStart:
+                                registeredStatusesGenerationAtStart
+                        )
                     }
                 } catch {
                     let message = SecretRedactor.redact(String(describing: error))
@@ -261,14 +276,29 @@
             }
         }
 
-        private func finishScan(_ result: ScanResultBox, token: Int) {
-            guard sessionGate.acceptsCurrentScan(token) else { return }
+        private func finishScan(
+            _ result: ScanResultBox,
+            token: Int,
+            registeredStatusesGenerationAtStart: Int
+        ) {
+            guard activeScanToken == token else { return }
+            activeScanToken = nil
+            guard sessionGate.acceptsCurrentScan(token) else {
+                scanControlState = .ready
+                updateControls()
+                tableView.reloadData()
+                return
+            }
             scanControlState = result.report.errors.isEmpty ? .ready : .failed
             lastReport = result.report
             rowWarnings.removeAll()
+            let statuses =
+                registeredStatusesGeneration > registeredStatusesGenerationAtStart
+                ? registeredStatuses
+                : result.registeredStatuses
             rows = listModel.rows(
                 from: result.report,
-                registeredStatuses: result.registeredStatuses
+                registeredStatuses: statuses
             )
             tableView.reloadData()
             updateControls()
@@ -282,7 +312,14 @@
         }
 
         private func finishScanFailure(_ message: String, token: Int) {
-            guard sessionGate.acceptsCurrentScan(token) else { return }
+            guard activeScanToken == token else { return }
+            activeScanToken = nil
+            guard sessionGate.acceptsCurrentScan(token) else {
+                scanControlState = .ready
+                updateControls()
+                tableView.reloadData()
+                return
+            }
             scanControlState = .failed
             updateControls()
             tableView.reloadData()

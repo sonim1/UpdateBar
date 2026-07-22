@@ -284,8 +284,9 @@ unapproved fields.
 If a command field is not found while approving or revoking, run
 `updatebar approvals <id>` to review the valid command fields.
 
-The direct mutation commands below are hidden from default root help, but remain
-stable for scripts and explicit workflows.
+The `revoke`, `pin`, `unpin`, `enable`, `disable`, and `remove` commands below
+are hidden from default root help, but remain stable for scripts and explicit
+workflows.
 
 ### `updatebar revoke <id> --field <command-field> [--json]`
 

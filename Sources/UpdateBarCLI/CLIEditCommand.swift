@@ -5,7 +5,7 @@ import UpdateBarCore
 struct EditCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "edit",
-        abstract: "Edit one registered recipe in $VISUAL or $EDITOR."
+        abstract: "Edit a registered recipe or one command field using $VISUAL or $EDITOR."
     )
 
     @Argument(help: "Item id to edit.")
@@ -58,33 +58,54 @@ struct EditCommand: ParsableCommand {
         }
         try validateEditedRecipe(edited)
 
-        try save(edited, store: store)
+        try saveWholeRecipe(edited, original: original, store: store)
         writeStdout("edited \(SecretRedactor.redact(id))")
     }
 
     private func runFieldEdit(field: String, original: Recipe, store: ManifestStore) throws {
         let current = try commandText(field: field, in: original)
         let command = try editedCommand(field: field, current: current)
-        let candidate = try replacingCommand(field: field, command: command, in: original)
-        let edited = invalidateChangedApprovals(original: original, edited: candidate)
-        try validateEditedRecipe(edited)
-        let changed = edited != original
-
-        if changed {
-            try save(edited, store: store)
-        }
+        let (edited, changed) = try saveFieldCommand(
+            field: field,
+            command: command,
+            store: store
+        )
         try outputFieldEdit(recipe: edited, field: field, changed: changed)
     }
 
-    private func save(_ edited: Recipe, store: ManifestStore) throws {
+    private func saveWholeRecipe(_ edited: Recipe, original: Recipe, store: ManifestStore) throws {
         try store.withExclusiveLock {
             var latest = try store.loadExistingOrEmpty()
-            guard latest.item(id: id) != nil else {
+            guard let current = latest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
+            }
+            guard current == original else {
+                throw ValidationError("recipe changed during edit; reopen and try again")
             }
             latest = latest.replacing(item: edited)
             latest.provenance.updatedAt = Date()
             try store.save(latest)
+        }
+    }
+
+    private func saveFieldCommand(field: String, command: String, store: ManifestStore) throws
+        -> (recipe: Recipe, changed: Bool)
+    {
+        try store.withExclusiveLock {
+            var manifest = try store.loadExistingOrEmpty()
+            guard let current = manifest.item(id: id) else {
+                throw RegistryError.itemNotFound(id)
+            }
+            let candidate = try replacingCommand(field: field, command: command, in: current)
+            let edited = invalidateChangedApprovals(original: current, edited: candidate)
+            try validateEditedRecipe(edited)
+            let changed = edited != current
+            if changed {
+                manifest = manifest.replacing(item: edited)
+                manifest.provenance.updatedAt = Date()
+                try store.save(manifest)
+            }
+            return (edited, changed)
         }
     }
 
