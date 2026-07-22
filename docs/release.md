@@ -4,10 +4,15 @@ Release checklist:
 
 ```bash
 bash Scripts/quality-gate.sh
-rm -f dist/*.tar.gz dist/*.sha256
+rm -f dist/*.tar.gz dist/*.dmg dist/*.sha256
 Scripts/build-release.sh
-Scripts/package-app.sh
-bash Scripts/build-app-archive.sh
+APP_DMG="$( \
+  SPARKLE_PUBLIC_ED_KEY="$UPDATEBAR_RELEASE_SPARKLE_PUBLIC_KEY" \
+  DEVELOPER_ID_APPLICATION="$UPDATEBAR_RELEASE_SIGNING_IDENTITY" \
+  NOTARYTOOL_KEYCHAIN_PROFILE="$UPDATEBAR_RELEASE_NOTARY_PROFILE" \
+  Scripts/build-app-dmg.sh \
+)"
+bash Scripts/app-dmg-smoke-test.sh "$APP_DMG"
 bash Scripts/install-release.sh --help
 UPDATEBAR_VERIFY_STRICT=1 bash Scripts/verify-homebrew-metadata.sh
 ```
@@ -59,8 +64,8 @@ of the exact binary built by that runner and toolchain. By default, the binary
 is kept unstripped to preserve runtime compatibility; if you need stripping in
 a known-good toolchain, run with `UPDATEBAR_STRIP_BINARY=1`. Set
 `UPDATEBAR_AD_HOC_CODESIGN=1` only for local experiments. The macOS app
-distribution path uses Developer ID signing, notarization, and stapling when
-the release signing secrets are configured.
+distribution path requires Developer ID signing, notarization, stapling, and
+Gatekeeper assessment before publishing.
 
 The Swift CLI release archive is intentionally independent from Node and Ink.
 `Scripts/build-release.sh`, `Scripts/archive-smoke-test.sh`, and the Homebrew
@@ -87,48 +92,50 @@ Use a prebuilt binary if needed:
 UPDATEBAR_BIN=.build/debug/updatebar Scripts/e2e-edgecases.sh
 ```
 
-Local unsigned app package:
+Local app bundle for development:
 
 ```bash
-Scripts/package-app.sh
-bash Scripts/build-app-archive.sh
-bash Scripts/app-archive-smoke-test.sh
+SPARKLE_PUBLIC_ED_KEY="$UPDATEBAR_RELEASE_SPARKLE_PUBLIC_KEY" Scripts/package-app.sh
+open dist/UpdateBar.app
 ```
 
 The app packaging script creates `dist/UpdateBar.app` with the menu bar executable
 in `Contents/MacOS/UpdateBar` and the CLI in `Contents/Resources/updatebar`.
-Tagged macOS releases also upload a
-`UpdateBar-<version>-macos-<arch>.app.tar.gz` archive for the host architecture,
-signed and notarized when the signing secrets are configured.
-`Scripts/build-app-archive.sh` normalizes app bundle mtimes, tar owner/group
-metadata, and gzip headers for stable archives. Because notarization stapling
-and toolchain drift change rebuilt archive contents, the release workflow does
+Tagged macOS releases upload the canonical Apple Silicon asset
+`UpdateBar-<version>-macos-arm64.dmg` and its `.sha256` checksum.
+`Scripts/build-app-dmg.sh` verifies the selected Developer ID identity and
+notary profile before packaging, then signs the app and DMG, notarizes, staples,
+performs Gatekeeper assessments, and publishes the final files atomically.
+`Scripts/app-dmg-smoke-test.sh` mounts the DMG read-only and verifies its app,
+Applications shortcut, Sparkle framework, feed URL, public key, and checksum.
+Because notarization stapling and toolchain drift change rebuilt DMG contents,
+the release workflow does
 not require the committed formula/cask SHA to equal the fresh build
 (`UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1`); Homebrew SHAs are taken from the
 published release assets when the tap is updated after publishing.
-The published Homebrew cask currently targets the arm64 app asset.
+The published Homebrew cask targets this arm64 DMG.
 Signing/notarization are not part of the CLI release.
 
-`Scripts/package-app.sh` supports environment-based signing/notarization when
-`UPDATEBAR_SIGN_APP=1` and `UPDATEBAR_NOTARIZE_APP=1` are set. Provide these
-when running on macOS with Apple tooling:
+The DMG builder requires these environment values on Apple Silicon macOS:
 
-- `UPDATEBAR_SIGN_IDENTITY`: Developer ID application identity string
-- `UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE`: keychain profile name for `xcrun notarytool`
-- optional `UPDATEBAR_NOTARYTOOL_KEYCHAIN`: keychain file path holding the
+- `SPARKLE_PUBLIC_ED_KEY`: canonical 32-byte Sparkle public key in Base64
+- `DEVELOPER_ID_APPLICATION`: exact Developer ID Application identity string
+- `NOTARYTOOL_KEYCHAIN_PROFILE`: keychain profile name for `xcrun notarytool`
+- optional `NOTARYTOOL_KEYCHAIN`: keychain file path holding the
   notary profile (used by CI, which stores credentials in a temporary keychain)
 - optional `UPDATEBAR_SIGN_ENTITLEMENTS_FILE`: entitlements file path for `codesign`
 
-When signing is enabled, the script signs inside-out: bundled CLI first, menu bar
-executable second, app bundle last. It intentionally does not use
-`codesign --deep`.
+`Scripts/build-app-dmg.sh` passes the signing inputs to `package-app.sh`, which
+signs inside-out. The builder refuses to start packaging if the identity or
+notary profile cannot be verified.
 
 ### Signed releases in CI
 
-The release workflow signs and notarizes the macOS app when the following
-repository secrets are configured. If `MACOS_SIGNING_CERT_P12` is absent, the
-workflow builds an unsigned app as before; if only the notary secrets are
-absent, the app is signed but not notarized.
+The release workflow fails closed unless the Sparkle public key GitHub variable
+and every signing/notary secret below are configured. It never publishes an
+unsigned or unnotarized app fallback.
+
+- repository variable `SPARKLE_PUBLIC_ED_KEY`: canonical Sparkle public key
 
 - `MACOS_SIGNING_CERT_P12`: base64-encoded PKCS#12 export of the
   "Developer ID Application" certificate (with private key)
@@ -139,33 +146,21 @@ absent, the app is signed but not notarized.
   (create at <https://account.apple.com>, Sign-In and Security >
   App-Specific Passwords)
 
-One-time secret setup from a machine that has the certificate:
+Configure those values through protected GitHub repository settings; never put
+private certificate material or notary credentials in the repository.
+
+Local signed + notarized DMG, after its notary profile already exists in the
+selected keychain:
 
 ```bash
-# Export the signing certificate + private key (Keychain Access GUI also works)
-security export -t identities -f pkcs12 -o /tmp/updatebar-signing.p12 -P "<p12-password>"
-
-gh secret set MACOS_SIGNING_CERT_P12 --body "$(base64 -i /tmp/updatebar-signing.p12)"
-gh secret set MACOS_SIGNING_CERT_PASSWORD --body "<p12-password>"
-gh secret set NOTARY_APPLE_ID --body "<apple-id-email>"
-gh secret set NOTARY_TEAM_ID --body "<team-id>"
-gh secret set NOTARY_PASSWORD --body "<app-specific-password>"
-rm /tmp/updatebar-signing.p12
+SPARKLE_PUBLIC_ED_KEY="$UPDATEBAR_RELEASE_SPARKLE_PUBLIC_KEY" \
+DEVELOPER_ID_APPLICATION="$UPDATEBAR_RELEASE_SIGNING_IDENTITY" \
+NOTARYTOOL_KEYCHAIN_PROFILE="$UPDATEBAR_RELEASE_NOTARY_PROFILE" \
+Scripts/build-app-dmg.sh
 ```
 
-Local signed + notarized package (requires a one-time
-`xcrun notarytool store-credentials updatebar-notary --apple-id <email> --team-id <team-id>`):
-
-```bash
-UPDATEBAR_SIGN_APP=1 \
-UPDATEBAR_SIGN_IDENTITY="Developer ID Application: <name> (<team-id>)" \
-UPDATEBAR_NOTARIZE_APP=1 \
-UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE=updatebar-notary \
-Scripts/package-app.sh
-```
-
-Signing and stapling happen before `Scripts/build-app-archive.sh`, so the
-stapled ticket is included in the released archive and its cask SHA.
+The printed path is the notarized, stapled DMG. Verify it with
+`Scripts/app-dmg-smoke-test.sh <printed-path>` before release.
 
 The app bundle does not currently include the Ink TUI. The `Open TUI` menu item
 first honors an executable `UPDATEBAR_TUI` override, then prefers launching
@@ -183,9 +178,9 @@ Release identity:
 - GitHub repo slug: `sonim1/UpdateBar`.
 - Current release metadata in this repo targets `v0.6.1`.
 - Published prebuilt CLI archives cover Apple Silicon macOS and Linux x86_64.
-  Release tags also publish a macOS app archive for the build host
-  architecture, signed and notarized when the release signing secrets are
-  configured.
+  Release tags also publish `UpdateBar-<version>-macos-arm64.dmg`, and the
+  workflow fails if signing, notarization, or Sparkle public-key inputs are
+  unavailable.
 - Homebrew tap target: `sonim1/homebrew-tap`.
 - Formula source lives in `Packaging/homebrew/updatebar.rb`; copy it to the tap as
   `Formula/updatebar.rb` when publishing a Homebrew release. The formula SHA must
@@ -215,7 +210,7 @@ Before tagging:
 - Clean source-copy release dry run passes.
 - Formula URL/version match the tag and formula SHA matches the uploaded release
   asset's `.sha256`.
-- Cask URL/version match the tag and cask SHA matches the uploaded app archive's
+- Cask URL/version match the tag and cask SHA matches the uploaded app DMG's
   `.sha256`.
 - `UPDATEBAR_VERIFY_STRICT=1 Scripts/verify-homebrew-metadata.sh` verifies release
   metadata checksums for a prepared dist directory.

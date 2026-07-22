@@ -16,6 +16,7 @@ EXPECTED_NAME="UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.dmg"
 
 TMP_DIR=""
 MOUNT_POINT=""
+ATTACHED_DEVICE=""
 
 fail() {
   echo "$*" >&2
@@ -23,15 +24,51 @@ fail() {
 }
 
 cleanup() {
-  if [[ -n "$MOUNT_POINT" ]]; then
-    "$HDIUTIL_BIN" detach "$MOUNT_POINT" >/dev/null 2>&1 || true
+  local original_status=$?
+  local detach_status=0
+  trap - EXIT HUP INT TERM
+  if [[ -n "$ATTACHED_DEVICE" ]]; then
+    set +e
+    "$HDIUTIL_BIN" detach "$ATTACHED_DEVICE" >&2
+    detach_status=$?
+    set -e
+    ATTACHED_DEVICE=""
     MOUNT_POINT=""
   fi
   if [[ -n "$TMP_DIR" && -d "$TMP_DIR" && ! -L "$TMP_DIR" ]]; then
     rm -rf "$TMP_DIR"
   fi
+  if [[ "$original_status" -eq 0 && "$detach_status" -ne 0 ]]; then
+    original_status="$detach_status"
+  fi
+  exit "$original_status"
 }
 trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+extract_attached_device() {
+  local plist_path="$1"
+  "$RUBY_BIN" -e '
+    raw = File.binread(ARGV.fetch(0))
+    entries = raw.scan(/<key>\s*dev-entry\s*<\/key>\s*<string>([^<]+)<\/string>/m).flatten
+    exit 1 if entries.empty?
+    bases = entries.map do |entry|
+      exit 1 unless entry.match?(%r{\A/dev/disk[0-9]+(?:s[0-9]+)?\z})
+      entry.sub(/s[0-9]+\z/, "")
+    end.uniq
+    exit 1 unless bases.length == 1
+    print bases.first
+  ' "$plist_path"
+}
+
+detach_attached_device() {
+  [[ -n "$ATTACHED_DEVICE" ]] || return 0
+  "$HDIUTIL_BIN" detach "$ATTACHED_DEVICE" >&2
+  ATTACHED_DEVICE=""
+  MOUNT_POINT=""
+}
 
 if [[ -z "$DMG" ]]; then
   fail "usage: Scripts/app-dmg-smoke-test.sh <dmg>"
@@ -81,6 +118,13 @@ TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-dmg-smoke.XXXXXX")"
 ATTACH_PLIST="$TMP_DIR/attach.plist"
 ATTACH_JSON="$TMP_DIR/attach.json"
 "$HDIUTIL_BIN" attach -plist -nobrowse -readonly "$DMG" >"$ATTACH_PLIST"
+if ATTACHED_DEVICE="$(extract_attached_device "$ATTACH_PLIST")"; then
+  :
+else
+  device_status=$?
+  echo "unable to identify exactly one safe attached DMG device" >&2
+  exit "$device_status"
+fi
 "$PLUTIL_BIN" -convert json -o "$ATTACH_JSON" "$ATTACH_PLIST"
 MOUNT_POINT="$("$RUBY_BIN" -rjson -e '
   document = JSON.parse(File.binread(ARGV.fetch(0)))
@@ -160,8 +204,7 @@ if [[ "$APP_KEY" != "$EXPECTED_KEY" ]]; then
   fail "app DMG has an unexpected Sparkle public key"
 fi
 
-"$HDIUTIL_BIN" detach "$MOUNT_POINT"
-MOUNT_POINT=""
+detach_attached_device
 trap - EXIT
 rm -rf "$TMP_DIR"
 TMP_DIR=""

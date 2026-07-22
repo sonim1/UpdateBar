@@ -196,7 +196,7 @@ if grep -Fq 'bash Scripts/build-app-dmg.sh' "$QUALITY_GATE"; then
   exit 1
 fi
 
-if ! grep -Fq 'bash Scripts/build-app-dmg.sh' "$RELEASE_WORKFLOW" \
+if ! grep -Fq 'APP_DMG="$(bash Scripts/build-app-dmg.sh)"' "$RELEASE_WORKFLOW" \
   || ! grep -Fq 'bash Scripts/app-dmg-smoke-test.sh "$APP_DMG"' "$RELEASE_WORKFLOW" \
   || ! grep -Fq 'dist/*.dmg' "$RELEASE_WORKFLOW"; then
   echo "release.yml must build, smoke-check, and upload the canonical app DMG" >&2

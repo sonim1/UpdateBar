@@ -68,7 +68,10 @@ before installing `updatebar`.
 
 ### Menu bar app
 
-`updatebar-menubar` ships as an optional macOS wrapper. Release tags publish a signed and notarized macOS app archive for the build host architecture, and `Scripts/package-app.sh` builds the same local bundle from source.
+`updatebar-menubar` ships as an optional macOS wrapper. Release tags publish the
+signed and notarized Apple Silicon asset
+`UpdateBar-<version>-macos-arm64.dmg`; `Scripts/package-app.sh` builds the local
+app bundle used by the DMG release builder.
 It prefers direct `UpdateBarCore` calls, keeps a CLI subprocess fallback, and exposes:
 
 - check now
@@ -81,10 +84,10 @@ It prefers direct `UpdateBarCore` calls, keeps a CLI subprocess fallback, and ex
 - view logs
 - quit
 
-Build a local unsigned app:
+Build a local development app (not a public release artifact):
 
 ```bash
-Scripts/package-app.sh
+SPARKLE_PUBLIC_ED_KEY="$UPDATEBAR_RELEASE_SPARKLE_PUBLIC_KEY" Scripts/package-app.sh
 open dist/UpdateBar.app
 ```
 
