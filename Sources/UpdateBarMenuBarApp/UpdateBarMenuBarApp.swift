@@ -16,8 +16,8 @@
         private var renderedStatusIconState: MenuBarStatusIconState?
         private let menuBuilder = MenuBarMenuModelBuilder()
         private let actionCoordinator = MenuBarActionCoordinator()
+        private let dashboardNavigationModel = DashboardNavigationModel()
         private var refreshGenerationGate = MenuBarRefreshGenerationGate()
-        private var scanPanelController: ScanPanelController?
         private var configPanelController: ConfigPanelController?
         private var dashboardPanelController: DashboardPanelController?
         private var latestState = MenuBarState(
@@ -178,30 +178,23 @@
         }
 
         @objc private func scanAndAdd() {
-            guard let service else {
-                showError(MenuBarStartupError.serviceUnavailable)
-                return
-            }
-            if scanPanelController == nil {
-                scanPanelController = ScanPanelController(
-                    service: service,
-                    onRegistered: { [weak self] in
-                        self?.refreshStatus(refresh: false)
-                    }
-                )
-            }
-            scanPanelController?.showScanWindow()
+            showDashboard(for: .scanAndAdd)
         }
 
         @objc private func showOverview() {
-            showDashboard(.overview)
+            showDashboard(for: .overview)
         }
 
         @objc private func manageItems() {
-            showDashboard(.items)
+            showDashboard(for: .manageItems)
         }
 
-        private func showDashboard(_ tab: DashboardTab) {
+        private func showDashboard(for action: MenuBarMenuAction) {
+            guard let section = dashboardNavigationModel.section(for: action) else { return }
+            showDashboard(section)
+        }
+
+        private func showDashboard(_ section: DashboardSection) {
             guard let service else {
                 showError(MenuBarStartupError.serviceUnavailable)
                 return
@@ -215,7 +208,7 @@
                     }
                 )
             }
-            dashboardPanelController?.showWindowAndReload(selecting: tab)
+            dashboardPanelController?.showWindowAndReload(selecting: section)
         }
 
         @objc private func applicationWindowWillClose(_ notification: Notification) {

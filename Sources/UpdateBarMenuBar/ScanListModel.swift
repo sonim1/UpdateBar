@@ -1,25 +1,44 @@
 import Foundation
 import UpdateBarCore
 
+public enum ScanTrackingState: Equatable, Sendable {
+    case untracked
+    case enabled
+    case disabled
+    case unavailable(String)
+}
+
 public struct ScanListRow: Equatable {
     public var candidate: ScanCandidate
-    public var isRegistered: Bool
-    public var isSelected: Bool
+    public var trackingState: ScanTrackingState
 
-    public init(candidate: ScanCandidate, isRegistered: Bool, isSelected: Bool = false) {
+    public init(candidate: ScanCandidate, trackingState: ScanTrackingState) {
         self.candidate = candidate
-        self.isRegistered = isRegistered
-        self.isSelected = isSelected
+        self.trackingState = trackingState
     }
 
-    /// Only unregistered candidates with a full recipe can be imported.
-    public var isImportable: Bool {
-        !isRegistered && candidate.capability == .full && candidate.recipe != nil
+    public var isChecked: Bool {
+        trackingState == .enabled
+    }
+
+    public var canToggle: Bool {
+        if case .unavailable = trackingState {
+            return false
+        }
+        return true
     }
 
     public var stateLabel: String {
-        if isRegistered { return "registered" }
-        return isImportable ? "importable" : candidate.capability.rawValue
+        switch trackingState {
+        case .untracked:
+            return "new"
+        case .enabled:
+            return "enabled"
+        case .disabled:
+            return "disabled"
+        case .unavailable(let reason):
+            return reason
+        }
     }
 }
 
@@ -28,13 +47,18 @@ public struct ScanListModel: Sendable {
 
     public func rows(
         from report: ScanReport,
-        registeredIDs: Set<String>
+        registeredStatuses: [String: ItemStatus]
     ) -> [ScanListRow] {
         report.candidates.map { candidate in
-            ScanListRow(
-                candidate: candidate,
-                isRegistered: registeredIDs.contains(candidate.id)
-            )
+            let trackingState: ScanTrackingState
+            if let status = registeredStatuses[candidate.id] {
+                trackingState = status == .disabled ? .disabled : .enabled
+            } else if candidate.capability == .full, candidate.recipe != nil {
+                trackingState = .untracked
+            } else {
+                trackingState = .unavailable(candidate.capability.rawValue)
+            }
+            return ScanListRow(candidate: candidate, trackingState: trackingState)
         }
     }
 }
