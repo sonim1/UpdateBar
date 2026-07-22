@@ -326,7 +326,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
         let approvalsSection = try readmeSection(
             "### `updatebar approvals",
-            before: "The direct mutation commands below",
+            before:
+                "The `revoke`, `pin`, `unpin`, `enable`, `disable`, and `remove` commands below",
             in: docs
         )
 
