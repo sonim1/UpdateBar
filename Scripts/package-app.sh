@@ -7,21 +7,164 @@ cd "$ROOT"
 source version.env
 
 SWIFT_BIN="${SWIFT_BIN:-swift}"
+DITTO_BIN="${DITTO_BIN:-ditto}"
+PLUTIL_BIN="${PLUTIL_BIN:-plutil}"
+CODESIGN_BIN="${CODESIGN_BIN:-codesign}"
+OTOOL_BIN="${OTOOL_BIN:-otool}"
+FIND_BIN="${FIND_BIN:-find}"
+REALPATH_BIN="${REALPATH_BIN:-realpath}"
 VERSION="${UPDATEBAR_VERSION:?UPDATEBAR_VERSION is required}"
+UPDATE_FEED_URL="${UPDATEBAR_UPDATE_FEED_URL-https://updates.updatebar.sonim1.com/appcast.xml}"
+SPARKLE_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
+
 case "$(uname -m)" in
   arm64|aarch64) ARCH="arm64" ;;
   x86_64|amd64) ARCH="x86_64" ;;
   *) echo "unsupported arch: $(uname -m)" >&2; exit 1 ;;
 esac
+
 APP_DIR="dist/UpdateBar.app"
-CONTENTS_DIR="$APP_DIR/Contents"
+STAGING_APP_DIR="dist/.UpdateBar.app.tmp.$$"
+CONTENTS_DIR="$STAGING_APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+FRAMEWORKS_DIR="$CONTENTS_DIR/Frameworks"
 ICON_SOURCE="$ROOT/Assets/AppIcon/UpdateBar.icns"
-TMP_DIR=""
+SPARKLE_ARTIFACT_ROOT="$ROOT/.build/artifacts/sparkle/Sparkle"
+SPARKLE_FRAMEWORK_SOURCE=""
 
 log() {
   printf "[package-app] %s\n" "$*" >&2
+}
+
+fail() {
+  echo "$*" >&2
+  exit 1
+}
+
+require_command() {
+  local command_name="$1"
+  local purpose="$2"
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    fail "$command_name is required to $purpose"
+  fi
+}
+
+validate_inputs() {
+  if [[ -z "$UPDATE_FEED_URL" || ! "$UPDATE_FEED_URL" =~ ^https://[^[:space:]/]+(/[^[:space:]]*)?$ ]]; then
+    fail "UPDATEBAR_UPDATE_FEED_URL must be a non-empty HTTPS URL without whitespace or control characters"
+  fi
+  if [[ -z "$SPARKLE_ED_KEY" || "$SPARKLE_ED_KEY" == *$'\n'* || "$SPARKLE_ED_KEY" == *$'\r'* ]]; then
+    fail "SPARKLE_PUBLIC_ED_KEY is required and must be a non-empty single-line plist value"
+  fi
+  if printf '%s' "$SPARKLE_ED_KEY" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+    fail "SPARKLE_PUBLIC_ED_KEY is required and must not contain control characters"
+  fi
+
+  if [[ "${UPDATEBAR_SIGN_APP:-0}" == "1" ]]; then
+    SIGN_IDENTITY="${DEVELOPER_ID_APPLICATION:-${UPDATEBAR_SIGN_IDENTITY:-}}"
+    if [[ -z "$SIGN_IDENTITY" ]]; then
+      fail "UPDATEBAR_SIGN_APP=1 requires DEVELOPER_ID_APPLICATION (UPDATEBAR_SIGN_IDENTITY is supported as a compatibility fallback)"
+    fi
+    require_command "$CODESIGN_BIN" "sign the app"
+  else
+    SIGN_IDENTITY=""
+  fi
+
+  [[ -f "$ICON_SOURCE" && ! -L "$ICON_SOURCE" ]] || fail "missing app icon: $ICON_SOURCE"
+  require_command "$SWIFT_BIN" "build UpdateBar"
+  require_command "$DITTO_BIN" "copy Sparkle.framework"
+  require_command "$PLUTIL_BIN" "generate Info.plist"
+  require_command "$OTOOL_BIN" "validate the packaged executable"
+  require_command "$FIND_BIN" "locate Sparkle.framework"
+  require_command "$REALPATH_BIN" "validate Sparkle.framework symlinks"
+}
+
+discover_sparkle_framework() {
+  local candidate=""
+  local candidate_list=""
+  local candidate_count=0
+  local slice=""
+  local architectures=""
+
+  [[ -d "$SPARKLE_ARTIFACT_ROOT" && ! -L "$SPARKLE_ARTIFACT_ROOT" ]] || \
+    fail "expected exactly one compatible macOS Sparkle.framework under $SPARKLE_ARTIFACT_ROOT; found 0"
+
+  candidate_list="$(mktemp "${TMPDIR:-/tmp}/updatebar-sparkle-frameworks.XXXXXX")"
+  "$FIND_BIN" "$SPARKLE_ARTIFACT_ROOT" -type d -name Sparkle.framework -print0 >"$candidate_list" || {
+    local find_status=$?
+    rm -f "$candidate_list"
+    return "$find_status"
+  }
+  while IFS= read -r -d '' candidate; do
+    [[ ! -L "$candidate" ]] || continue
+    slice="$(basename "$(dirname "$candidate")")"
+    case "$slice" in
+      macos-*) ;;
+      *) continue ;;
+    esac
+    architectures="${slice#macos-}"
+    case "_${architectures}_" in
+      *"_${ARCH}_"*) ;;
+      *) continue ;;
+    esac
+    SPARKLE_FRAMEWORK_SOURCE="$candidate"
+    candidate_count=$((candidate_count + 1))
+  done <"$candidate_list"
+  rm -f "$candidate_list"
+
+  if [[ "$candidate_count" != "1" ]]; then
+    fail "expected exactly one compatible macOS Sparkle.framework under $SPARKLE_ARTIFACT_ROOT; found $candidate_count"
+  fi
+}
+
+validate_framework_symlinks() {
+  local framework="$FRAMEWORKS_DIR/Sparkle.framework"
+  local link=""
+  local link_list=""
+  local resolved=""
+  local framework_resolved=""
+
+  framework_resolved="$("$REALPATH_BIN" "$framework")"
+  link_list="$(mktemp "${TMPDIR:-/tmp}/updatebar-sparkle-links.XXXXXX")"
+  "$FIND_BIN" "$framework" -type l -print0 >"$link_list" || {
+    local find_status=$?
+    rm -f "$link_list"
+    return "$find_status"
+  }
+  while IFS= read -r -d '' link; do
+    resolved="$("$REALPATH_BIN" "$link")" || fail "unsafe or broken Sparkle.framework symlink: $link"
+    case "$resolved" in
+      "$framework_resolved"/*) ;;
+      *) fail "Sparkle.framework symlink resolves outside the copied framework: $link" ;;
+    esac
+  done <"$link_list"
+  rm -f "$link_list"
+}
+
+require_regular_file() {
+  local path="$1"
+  [[ -f "$path" && ! -L "$path" ]] || fail "missing or unsafe signing target: $path"
+}
+
+require_bundle_directory() {
+  local path="$1"
+  [[ -d "$path" && ! -L "$path" ]] || fail "missing or unsafe signing target: $path"
+}
+
+validate_signing_targets() {
+  local framework="$FRAMEWORKS_DIR/Sparkle.framework"
+  require_regular_file "$framework/Versions/B/Autoupdate"
+  require_bundle_directory "$framework/Versions/B/Updater.app"
+  require_regular_file "$framework/Versions/B/Updater.app/Contents/MacOS/Updater"
+  require_bundle_directory "$framework/Versions/B/XPCServices/Downloader.xpc"
+  require_regular_file "$framework/Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader"
+  require_bundle_directory "$framework/Versions/B/XPCServices/Installer.xpc"
+  require_regular_file "$framework/Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer"
+  require_bundle_directory "$framework"
+  require_regular_file "$RESOURCES_DIR/updatebar"
+  require_regular_file "$MACOS_DIR/UpdateBar"
+  require_bundle_directory "$STAGING_APP_DIR"
 }
 
 sign_app_if_requested() {
@@ -29,15 +172,7 @@ sign_app_if_requested() {
     return 0
   fi
 
-  local identity="${UPDATEBAR_SIGN_IDENTITY:-}"
-  if [[ -z "$identity" ]]; then
-    echo "UPDATEBAR_SIGN_APP=1 requires UPDATEBAR_SIGN_IDENTITY" >&2
-    exit 1
-  fi
-  if ! command -v codesign >/dev/null 2>&1; then
-    echo "codesign is required for UPDATEBAR_SIGN_APP=1" >&2
-    exit 1
-  fi
+  validate_signing_targets
 
   local options=(
     --force
@@ -49,71 +184,21 @@ sign_app_if_requested() {
     options+=(--entitlements "$entitlements")
   fi
 
-  log "signing app inside-out with identity: ${identity}"
-  codesign "${options[@]}" --sign "$identity" "$RESOURCES_DIR/updatebar"
-  codesign "${options[@]}" --sign "$identity" "$MACOS_DIR/UpdateBar"
-  codesign "${options[@]}" --sign "$identity" "$APP_DIR"
+  local framework="$FRAMEWORKS_DIR/Sparkle.framework"
+  log "signing app inside-out with DEVELOPER_ID_APPLICATION"
+  "$CODESIGN_BIN" "${options[@]}" --sign "$SIGN_IDENTITY" "$framework/Versions/B/Autoupdate"
+  "$CODESIGN_BIN" "${options[@]}" --sign "$SIGN_IDENTITY" "$framework/Versions/B/Updater.app"
+  "$CODESIGN_BIN" "${options[@]}" --sign "$SIGN_IDENTITY" "$framework/Versions/B/XPCServices/Downloader.xpc"
+  "$CODESIGN_BIN" "${options[@]}" --sign "$SIGN_IDENTITY" "$framework/Versions/B/XPCServices/Installer.xpc"
+  "$CODESIGN_BIN" "${options[@]}" --sign "$SIGN_IDENTITY" "$framework"
+  "$CODESIGN_BIN" "${options[@]}" --sign "$SIGN_IDENTITY" "$RESOURCES_DIR/updatebar"
+  "$CODESIGN_BIN" "${options[@]}" --sign "$SIGN_IDENTITY" "$MACOS_DIR/UpdateBar"
+  "$CODESIGN_BIN" "${options[@]}" --sign "$SIGN_IDENTITY" "$STAGING_APP_DIR"
 }
 
-notarize_app_if_requested() {
-  if [[ "${UPDATEBAR_NOTARIZE_APP:-0}" != "1" ]]; then
-    return 0
-  fi
-
-  if ! command -v xcrun >/dev/null 2>&1; then
-    echo "xcrun is required for UPDATEBAR_NOTARIZE_APP=1" >&2
-    exit 1
-  fi
-  if ! command -v ditto >/dev/null 2>&1; then
-    echo "ditto is required for UPDATEBAR_NOTARIZE_APP=1" >&2
-    exit 1
-  fi
-
-  local keychain_profile="${UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE:-}"
-  if [[ -z "$keychain_profile" ]]; then
-    echo "UPDATEBAR_NOTARIZE_APP=1 requires UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE" >&2
-    exit 1
-  fi
-
-  TMP_DIR="$(mktemp -d)"
-  trap 'rm -rf "$TMP_DIR"' EXIT
-  local zip_path="$TMP_DIR/UpdateBar-${VERSION}-macos-${ARCH}.app.zip"
-
-  log "creating notarization archive at $zip_path"
-  ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$zip_path"
-
-  log "submitting app for notarization (profile: $keychain_profile)"
-  local keychain_path="${UPDATEBAR_NOTARYTOOL_KEYCHAIN:-}"
-  if [[ -n "$keychain_path" ]]; then
-    xcrun notarytool submit "$zip_path" \
-      --keychain-profile "$keychain_profile" \
-      --keychain "$keychain_path" \
-      --wait
-  else
-    xcrun notarytool submit "$zip_path" --keychain-profile "$keychain_profile" --wait
-  fi
-  log "stapling notarization ticket"
-  xcrun stapler staple "$APP_DIR"
-}
-
-if [[ ! -f "$ICON_SOURCE" ]]; then
-  echo "missing app icon: $ICON_SOURCE" >&2
-  exit 1
-fi
-
-Scripts/generate-version-source.sh
-"$SWIFT_BIN" build -c release --product updatebar
-"$SWIFT_BIN" build -c release --product updatebar-menubar
-
-rm -rf "$APP_DIR"
-mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
-
-cp .build/release/updatebar-menubar "$MACOS_DIR/UpdateBar"
-cp .build/release/updatebar "$RESOURCES_DIR/updatebar"
-cp "$ICON_SOURCE" "$RESOURCES_DIR/UpdateBar.icns"
-chmod 0755 "$MACOS_DIR/UpdateBar" "$RESOURCES_DIR/updatebar"
-
-cat >"$CONTENTS_DIR/Info.plist" <<PLIST
+write_info_plist() {
+  local plist="$CONTENTS_DIR/Info.plist"
+  cat >"$plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -146,15 +231,65 @@ cat >"$CONTENTS_DIR/Info.plist" <<PLIST
 </plist>
 PLIST
 
-plutil -lint "$CONTENTS_DIR/Info.plist" >/dev/null
+  "$PLUTIL_BIN" -insert SUFeedURL -string "$UPDATE_FEED_URL" "$plist"
+  "$PLUTIL_BIN" -insert SUPublicEDKey -string "$SPARKLE_ED_KEY" "$plist"
+  "$PLUTIL_BIN" -insert SUEnableAutomaticChecks -bool false "$plist"
+  "$PLUTIL_BIN" -lint "$plist" >/dev/null
+}
+
+validate_runtime_linkage() {
+  local executable="$MACOS_DIR/UpdateBar"
+  local dependencies=""
+  local load_commands=""
+  dependencies="$("$OTOOL_BIN" -L "$executable")"
+  if [[ "$dependencies" != *"@rpath/Sparkle.framework/"* ]]; then
+    fail "packaged UpdateBar executable does not reference @rpath/Sparkle.framework"
+  fi
+  load_commands="$("$OTOOL_BIN" -l "$executable")"
+  if ! printf '%s\n' "$load_commands" | grep -Fq "path @executable_path/../Frameworks "; then
+    fail "packaged UpdateBar executable is missing @executable_path/../Frameworks LC_RPATH"
+  fi
+}
+
+cleanup_staging() {
+  if [[ -n "${STAGING_APP_DIR:-}" && -e "$STAGING_APP_DIR" ]]; then
+    rm -rf "$STAGING_APP_DIR"
+  fi
+}
+trap cleanup_staging EXIT
+
+validate_inputs
+"$SWIFT_BIN" package resolve
+discover_sparkle_framework
+
+Scripts/generate-version-source.sh
+"$SWIFT_BIN" build -c release --product updatebar
+"$SWIFT_BIN" build -c release --product updatebar-menubar \
+  -Xlinker -rpath -Xlinker @executable_path/../Frameworks
+
+cleanup_staging
+mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$FRAMEWORKS_DIR"
+
+cp .build/release/updatebar-menubar "$MACOS_DIR/UpdateBar"
+cp .build/release/updatebar "$RESOURCES_DIR/updatebar"
+cp "$ICON_SOURCE" "$RESOURCES_DIR/UpdateBar.icns"
+"$DITTO_BIN" "$SPARKLE_FRAMEWORK_SOURCE" "$FRAMEWORKS_DIR/Sparkle.framework"
+chmod 0755 "$MACOS_DIR/UpdateBar" "$RESOURCES_DIR/updatebar"
+
+validate_framework_symlinks
+write_info_plist
 "$RESOURCES_DIR/updatebar" --version >/dev/null
+validate_runtime_linkage
+
 if [[ "$(uname -s)" == "Darwin" ]]; then
   sign_app_if_requested
-  notarize_app_if_requested
 fi
 
 if [[ "$(uname -s)" == "Darwin" && "${UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE:-0}" != "1" ]]; then
-  Scripts/menubar-smoke-test.sh "$APP_DIR"
+  Scripts/menubar-smoke-test.sh "$STAGING_APP_DIR"
 fi
 
+rm -rf "$APP_DIR"
+mv "$STAGING_APP_DIR" "$APP_DIR"
+trap - EXIT
 echo "$APP_DIR"
