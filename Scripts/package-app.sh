@@ -13,6 +13,7 @@ CODESIGN_BIN="${CODESIGN_BIN:-codesign}"
 OTOOL_BIN="${OTOOL_BIN:-otool}"
 FIND_BIN="${FIND_BIN:-find}"
 REALPATH_BIN="${REALPATH_BIN:-realpath}"
+RUBY_BIN="${RUBY_BIN:-ruby}"
 VERSION="${UPDATEBAR_VERSION:?UPDATEBAR_VERSION is required}"
 UPDATE_FEED_URL="${UPDATEBAR_UPDATE_FEED_URL-https://updates.updatebar.sonim1.com/appcast.xml}"
 SPARKLE_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
@@ -42,6 +43,11 @@ fail() {
   exit 1
 }
 
+invalid_release_metadata() {
+  echo "$*" >&2
+  exit 64
+}
+
 require_command() {
   local command_name="$1"
   local purpose="$2"
@@ -51,15 +57,43 @@ require_command() {
 }
 
 validate_inputs() {
-  if [[ -z "$UPDATE_FEED_URL" || ! "$UPDATE_FEED_URL" =~ ^https://[^[:space:]/]+(/[^[:space:]]*)?$ ]]; then
-    fail "UPDATEBAR_UPDATE_FEED_URL must be a non-empty HTTPS URL without whitespace or control characters"
-  fi
-  if [[ -z "$SPARKLE_ED_KEY" || "$SPARKLE_ED_KEY" == *$'\n'* || "$SPARKLE_ED_KEY" == *$'\r'* ]]; then
-    fail "SPARKLE_PUBLIC_ED_KEY is required and must be a non-empty single-line plist value"
-  fi
-  if printf '%s' "$SPARKLE_ED_KEY" | LC_ALL=C grep -q '[[:cntrl:]]'; then
-    fail "SPARKLE_PUBLIC_ED_KEY is required and must not contain control characters"
-  fi
+  local validation_status=0
+  require_command "$RUBY_BIN" "validate Sparkle release metadata"
+
+  "$RUBY_BIN" -ruri -e '
+    value = ARGV.fetch(0)
+    printable_ascii = value.ascii_only? && value.bytes.all? { |byte| byte >= 0x21 && byte <= 0x7e }
+    begin
+      uri = URI.parse(value)
+      valid = printable_ascii && uri.is_a?(URI::HTTPS) && !uri.host.to_s.empty? && uri.userinfo.nil?
+      exit(valid ? 0 : 64)
+    rescue URI::Error
+      exit 64
+    end
+  ' "$UPDATE_FEED_URL" || {
+    validation_status=$?
+    if [[ "$validation_status" == "64" ]]; then
+      invalid_release_metadata "UPDATEBAR_UPDATE_FEED_URL must be a printable ASCII HTTPS URL without whitespace, control characters, or user info"
+    fi
+    return "$validation_status"
+  }
+
+  "$RUBY_BIN" -rbase64 -e '
+    value = ARGV.fetch(0)
+    begin
+      decoded = Base64.strict_decode64(value)
+      valid = decoded.bytesize == 32 && Base64.strict_encode64(decoded) == value
+      exit(valid ? 0 : 64)
+    rescue ArgumentError
+      exit 64
+    end
+  ' "$SPARKLE_ED_KEY" || {
+    validation_status=$?
+    if [[ "$validation_status" == "64" ]]; then
+      invalid_release_metadata "SPARKLE_PUBLIC_ED_KEY must be canonical Base64 encoding of exactly 32 bytes"
+    fi
+    return "$validation_status"
+  }
 
   if [[ "${UPDATEBAR_SIGN_APP:-0}" == "1" ]]; then
     SIGN_IDENTITY="${DEVELOPER_ID_APPLICATION:-${UPDATEBAR_SIGN_IDENTITY:-}}"

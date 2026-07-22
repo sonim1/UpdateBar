@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/version.env"
 
+VALID_SPARKLE_KEY="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -155,7 +157,7 @@ run_package() {
       CODESIGN_LOG="$LOG_DIR/codesign.log" \
       DITTO_LOG="$LOG_DIR/ditto.log" \
       OTOOL_LOG="$LOG_DIR/otool.log" \
-      SPARKLE_PUBLIC_ED_KEY="fixture-public-key" \
+      SPARKLE_PUBLIC_ED_KEY="$VALID_SPARKLE_KEY" \
       UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE=1 \
       "$@" \
       bash Scripts/package-app.sh
@@ -172,6 +174,25 @@ expect_failure() {
   printf '%s' "$output"
 }
 
+expect_failure_status() {
+  local description="$1"
+  local expected_status="$2"
+  shift 2
+  local output_file="$LOG_DIR/expected-failure.out"
+  local status=0
+  set +e
+  run_package "$@" >"$output_file" 2>&1
+  status=$?
+  set -e
+  if [[ "$status" == "0" ]]; then
+    fail "$description should fail"
+  fi
+  if [[ "$status" != "$expected_status" ]]; then
+    fail "$description should exit $expected_status (got $status)"
+  fi
+  cat "$output_file"
+}
+
 assert_no_build_or_sign() {
   if [[ -s "$LOG_DIR/swift.log" ]] && grep -Fq " build " "$LOG_DIR/swift.log"; then
     fail "validation failure must happen before swift build"
@@ -182,16 +203,39 @@ assert_no_build_or_sign() {
 }
 
 prepare_case missing-key
-output="$(expect_failure "missing Sparkle public key" SPARKLE_PUBLIC_ED_KEY=)"
+output="$(expect_failure_status "missing Sparkle public key" 64 SPARKLE_PUBLIC_ED_KEY=)"
 [[ "$output" == *"SPARKLE_PUBLIC_ED_KEY"* ]] || fail "missing-key error should name SPARKLE_PUBLIC_ED_KEY"
 assert_no_build_or_sign
 
-for invalid_feed in "" "http://updates.example.test/appcast.xml" $'https://updates.example.test/appcast.xml\nmalicious'; do
+for invalid_feed in "" "http://updates.example.test/appcast.xml" \
+  $'https://updates.example.test/appcast.xml\nmalicious' \
+  $'https://updates.example.test/appcast.xml\x01malicious'; do
   prepare_case "invalid-feed-${RANDOM}"
-  output="$(expect_failure "invalid update feed" UPDATEBAR_UPDATE_FEED_URL="$invalid_feed")"
+  output="$(expect_failure_status "invalid update feed" 64 UPDATEBAR_UPDATE_FEED_URL="$invalid_feed")"
   [[ "$output" == *"UPDATEBAR_UPDATE_FEED_URL"* ]] || fail "invalid-feed error should name UPDATEBAR_UPDATE_FEED_URL"
   assert_no_build_or_sign
 done
+
+for invalid_key in \
+  "not-a-valid-key" \
+  "c2hvcnQ=" \
+  "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY" \
+  "$VALID_SPARKLE_KEY"$'\n' \
+  "$VALID_SPARKLE_KEY"$'\x01'; do
+  prepare_case "invalid-key-${RANDOM}"
+  output="$(expect_failure_status "invalid Sparkle public key" 64 SPARKLE_PUBLIC_ED_KEY="$invalid_key")"
+  [[ "$output" == *"SPARKLE_PUBLIC_ED_KEY"* ]] || fail "invalid-key error should name SPARKLE_PUBLIC_ED_KEY"
+  assert_no_build_or_sign
+done
+
+prepare_case key-validator-failure
+cat >"$BIN_DIR/ruby-fail" <<'SH'
+#!/usr/bin/env bash
+exit 47
+SH
+chmod +x "$BIN_DIR/ruby-fail"
+expect_failure_status "Sparkle key validator tool failure" 47 RUBY_BIN="$BIN_DIR/ruby-fail" >/dev/null
+assert_no_build_or_sign
 
 prepare_case missing-identity
 output="$(expect_failure "missing signing identity" UPDATEBAR_SIGN_APP=1 DEVELOPER_ID_APPLICATION= UPDATEBAR_SIGN_IDENTITY=)"
@@ -237,7 +281,7 @@ status=$?
 set -e
 [[ "$status" == "42" ]] || fail "swift failure status should propagate (got $status)"
 [[ ! -s "$LOG_DIR/codesign.log" ]] || fail "swift failure must not sign"
-if grep -Fq "fixture-public-key" "$LOG_DIR/failure.err"; then
+if grep -Fq "$VALID_SPARKLE_KEY" "$LOG_DIR/failure.err"; then
   fail "failure output must not leak the Sparkle public key"
 fi
 
@@ -268,6 +312,21 @@ output="$(expect_failure "framework symlink escaping the bundle")"
 [[ ! -e "$CASE_ROOT/dist/UpdateBar.app" ]] || fail "escaping symlink must not leave a partial final app"
 [[ ! -s "$LOG_DIR/codesign.log" ]] || fail "escaping symlink must fail before signing"
 
+prepare_case unsigned
+run_package >/dev/null
+UNSIGNED_APP="$CASE_ROOT/dist/UpdateBar.app"
+UNSIGNED_PLIST="$UNSIGNED_APP/Contents/Info.plist"
+[[ -d "$UNSIGNED_APP/Contents/Frameworks/Sparkle.framework" ]] || \
+  fail "unsigned packaging should copy Sparkle.framework"
+unsigned_feed="$(/usr/bin/plutil -extract SUFeedURL raw -o - "$UNSIGNED_PLIST")"
+unsigned_key="$(/usr/bin/plutil -extract SUPublicEDKey raw -o - "$UNSIGNED_PLIST")"
+unsigned_automatic="$(/usr/bin/plutil -extract SUEnableAutomaticChecks raw -o - "$UNSIGNED_PLIST")"
+[[ "$unsigned_feed" == "https://updates.updatebar.sonim1.com/appcast.xml" ]] || \
+  fail "unsigned package has unexpected SUFeedURL"
+[[ "$unsigned_key" == "$VALID_SPARKLE_KEY" ]] || fail "unsigned package has unexpected SUPublicEDKey"
+[[ "$unsigned_automatic" == "false" ]] || fail "unsigned package must disable automatic checks"
+[[ ! -s "$LOG_DIR/codesign.log" ]] || fail "unsigned packaging must not call codesign"
+
 prepare_case signed
 run_package \
   UPDATEBAR_SIGN_APP=1 \
@@ -285,7 +344,7 @@ feed="$(/usr/bin/plutil -extract SUFeedURL raw -o - "$PLIST")"
 key="$(/usr/bin/plutil -extract SUPublicEDKey raw -o - "$PLIST")"
 automatic="$(/usr/bin/plutil -extract SUEnableAutomaticChecks raw -o - "$PLIST")"
 [[ "$feed" == "https://updates.updatebar.sonim1.com/appcast.xml" ]] || fail "unexpected SUFeedURL: $feed"
-[[ "$key" == "fixture-public-key" ]] || fail "unexpected SUPublicEDKey"
+[[ "$key" == "$VALID_SPARKLE_KEY" ]] || fail "unexpected SUPublicEDKey"
 [[ "$automatic" == "false" ]] || fail "SUEnableAutomaticChecks must be boolean false"
 
 grep -Fq -- "-Xlinker -rpath -Xlinker @executable_path/../Frameworks" "$LOG_DIR/swift.log" || \
