@@ -91,9 +91,16 @@ struct CheckCommand: ParsableCommand {
             return
         }
 
-        printNextCommands(
-            approvalCommands(for: blocked.map(\.id) + updateApprovalNeeded.map(\.id))
-        )
+        var nextCommands = approvalCommands(
+            for: blocked.map(\.id) + updateApprovalNeeded.map(\.id))
+        for result in blocked {
+            guard let recipe = manifest.item(id: result.id) else { continue }
+            nextCommands.append(
+                contentsOf: TrustPolicy.unapprovedCheckCommandFields(recipe).map {
+                    editFieldCommand(for: recipe.id, field: $0)
+                })
+        }
+        printNextCommands(unique(nextCommands))
     }
 
     private func runJSONStream(service: RegistryService, ids: [String]) throws {

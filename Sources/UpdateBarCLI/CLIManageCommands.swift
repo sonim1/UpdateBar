@@ -199,8 +199,11 @@ struct ApprovalsCommand: ParsableCommand {
             let unapprovedRows = rows.filter { !$0.approved }
             if !unapprovedRows.isEmpty {
                 printNextCommands(
-                    unapprovedRows.map {
-                        approveFieldCommand(for: id, field: $0.field)
+                    unapprovedRows.flatMap { row in
+                        [
+                            editFieldCommand(for: id, field: row.field),
+                            approveFieldCommand(for: id, field: row.field),
+                        ]
                     })
             } else {
                 writeStdout("")

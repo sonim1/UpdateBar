@@ -9,9 +9,11 @@ Current scope:
 
 - prefers direct `UpdateBarCore` calls through `CoreMenuBarService`
 - keeps `UpdateBarCLIClient` as a subprocess fallback with JSON-only contracts
-- shows outdated items separately from recipes that need command approval, with
-  per-item update and approve/revoke actions
-- shows command text before approve/revoke actions
+- shows outdated items separately from services requiring command approval, with
+  per-item update actions
+- presents command approval as one native submenu row per service; its right-hand
+  submenu exposes per-field approve/revoke actions; exact command text and cwd
+  appear only in confirmation
 - provides `Check Now` and `Run Updates`, Refresh Status, Open TUI, Dashboard,
   Manage Items, Scan & Add, Open Config, View Logs, and Quit through native menu
   items; Run Updates is disabled when there are no outdated items
@@ -24,17 +26,21 @@ Current scope:
 - keeps bulk-update confirmation in the app dispatcher before approved update
   commands run
 
-`Dashboard` opens the Dashboard window directly. The window has Overview and Items tabs
-built with native AppKit controls. Overview shows pending-update and awaiting-approval counts, last
-check/update times, and a bar chart of successful updates over the last four
-weeks (from `~/.updatebar/history.jsonl`). Items lists every registered item
-grouped by category with an enable/disable checkbox per item. `Manage Items...`
-opens the same Dashboard window with Items selected, so item management never
-creates another panel. While the Dashboard window is visible, UpdateBar appears
-in Cmd-Tab and the Dock. Closing the last visible titled UpdateBar window returns
-the process to menu-bar-only mode. `Scan & Add` remains a separate panel that
-scans only when you press Scan, marks already-registered candidates, and
-registers selected ones without approving any commands.
+`Dashboard` opens the Dashboard window directly. A left sidebar switches between
+Overview, Items, and Scan & Add in the same Dashboard window, with each section
+using native macOS UI. The sidebar, Items, and Scan & Add use AppKit controls;
+Overview is SwiftUI-hosted. Overview shows pending-update and
+awaiting-approval counts, last check/update times, and a bar chart of successful
+updates over the last four weeks (from `~/.updatebar/history.jsonl`). Items lists
+every registered item grouped by category with an enable/disable checkbox per
+item. `Manage Items...` opens that Dashboard window with Items selected, and
+`Scan & Add` opens it with Scan & Add selected, so neither action creates another
+panel. Scan & Add scans only when you press Scan. Checking an available candidate
+registers it immediately without approving any commands. Unchecking disables it
+without deleting it, and checking it again re-enables the same item. While the
+Dashboard window is visible, UpdateBar appears in Cmd-Tab and the Dock. Closing
+the last visible titled UpdateBar window returns the process to menu-bar-only
+mode.
 
 If an operation or status refresh fails, the status badge changes to `!` and the
 app directly assigns a native error-recovery menu. Refresh Status, Check Now,

@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## 0.6.0 - 2026-07-22
+
+### Added
+
+- Added a branded UpdateBar app icon to the macOS bundle and release archive.
+- Added branded menu bar status icons with compact state badges for updates, approvals,
+  activity, and errors.
+- Added agent-safe command-field editing for `check.cmd`, `latest.cmd`, and `update.cmd`,
+  including editor, file, stdin, and JSON workflows plus actionable CLI suggestions.
+
+### Changed
+
+- Integrated Scan & Add into the Dashboard sidebar so discovery and tracking share the
+  main management window.
+- Compacted command approval actions into focused menus while keeping approval state and
+  next-step guidance visible.
+
+### Fixed
+
+- Kept the menu bar status icon compact across state overlays and macOS rendering modes.
+- Preserved concurrent approval and recipe changes during edits, and rejected stale
+  whole-recipe editor saves instead of overwriting newer state.
+- Prevented overlapping dashboard scans after the window closes and kept newer registered
+  item snapshots from being replaced by older scan results.
+- Updated Homebrew formula tests for Homebrew 6 compatibility.
+
 ## 0.5.0 - 2026-07-20
 
 ### Added

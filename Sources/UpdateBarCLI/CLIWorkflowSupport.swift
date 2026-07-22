@@ -55,6 +55,10 @@ func approveFieldCommand(for id: String, field: String) -> String {
     "updatebar approve \(displayID(id)) --field \(field)"
 }
 
+func editFieldCommand(for id: String, field: String) -> String {
+    "updatebar edit \(displayID(id)) --field \(field)"
+}
+
 func checkCommand(for id: String) -> String {
     "updatebar check \(displayID(id))"
 }

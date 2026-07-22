@@ -100,6 +100,9 @@ bash Scripts/verify-archive-checksum-test.sh
 echo "running release archive behavior check"
 bash Scripts/build-release-archive-test.sh
 
+echo "running app icon asset check"
+bash Scripts/app-icon-test.sh
+
 echo "running app archive behavior check"
 bash Scripts/build-app-archive-test.sh
 

@@ -9,20 +9,19 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
-        for command in ["init", "scan", "check", "status", "update", "approvals"] {
+        for command in ["init", "scan", "add", "check", "status", "update", "approvals", "edit"] {
             XCTAssertTrue(output.contains(command), "missing \(command)")
         }
         let helpLines = output.split(separator: "\n").map(String.init)
         for command in [
-            "add", "import", "export", "background", "config", "guide", "schema", "template",
-            "validate", "tui", "doctor",
+            "import", "export", "background", "config", "guide", "schema", "template", "validate",
+            "tui", "doctor",
         ] {
             XCTAssertFalse(
                 helpShowsCommand(command, in: helpLines),
                 "support command should be hidden: \(command)")
         }
-        for command in ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove", "edit"]
-        {
+        for command in ["approve", "revoke", "pin", "unpin", "enable", "disable", "remove"] {
             XCTAssertFalse(
                 helpShowsCommand(command, in: helpLines),
                 "advanced manage command should be hidden: \(command)")
@@ -40,7 +39,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let result = try CLIProcess.run(["--help"], home: home)
         let helpLines = result.stdout.split(separator: "\n").map(String.init)
-        let commands = ["init", "scan", "status", "check", "update", "approvals"]
+        let commands = ["init", "scan", "add", "status", "check", "update", "approvals", "edit"]
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
@@ -189,14 +188,22 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(result.stdout.contains("recipe or one command field"))
         XCTAssertTrue(result.stdout.contains("$VISUAL"))
         XCTAssertTrue(result.stdout.contains("$EDITOR"))
+        XCTAssertTrue(result.stdout.contains("--field <field>"))
+        XCTAssertTrue(result.stdout.contains("--from <file>"))
+        XCTAssertTrue(result.stdout.contains("--json"))
+        XCTAssertTrue(result.stdout.contains("check.cmd"))
+        XCTAssertTrue(result.stdout.contains("latest.cmd"))
+        XCTAssertTrue(result.stdout.contains("update.cmd"))
     }
 
     func testHiddenWorkflowCommandInputsHaveHelpDescriptions() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
         let expectedOptionsByCommand: [String: [String]] = [
             "add": ["--from", "--dry-run", "--json", "--replace"],
+            "edit": ["--field", "--from", "--json"],
             "import": ["--replace", "--json"],
             "export": ["--json"],
         ]
@@ -319,7 +326,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
         let approvalsSection = try readmeSection(
             "### `updatebar approvals",
-            before: "The direct mutation commands below",
+            before:
+                "The `revoke`, `pin`, `unpin`, `enable`, `disable`, and `remove` commands below",
             in: docs
         )
 
@@ -713,11 +721,13 @@ final class DocumentationSnapshotTests: XCTestCase {
 
     func testCompletionScriptsExposePrimaryRootCommandsOnly() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-doc-tests")
-        let visibleCommands = ["init", "scan", "status", "check", "update", "approvals", "help"]
+        let visibleCommands = [
+            "init", "scan", "add", "status", "check", "update", "approvals", "edit", "help",
+        ]
         let hiddenCommands = [
-            "add", "import", "export", "approve", "revoke", "pin", "unpin", "enable", "disable",
-            "remove", "edit", "background", "config", "guide", "schema", "template", "validate",
-            "tui", "doctor",
+            "import", "export", "approve", "revoke", "pin", "unpin", "enable", "disable",
+            "remove", "background", "config", "guide", "schema", "template", "validate", "tui",
+            "doctor",
         ]
 
         for shell in ["bash", "zsh", "fish"] {
@@ -739,7 +749,9 @@ final class DocumentationSnapshotTests: XCTestCase {
     func testCompletionDocsDescribeFocusedCommandSurface() throws {
         let docs = try String(contentsOfFile: "docs/completions.md", encoding: .utf8)
 
-        for command in ["init", "scan", "status", "check", "update", "approvals", "help"] {
+        for command in [
+            "init", "scan", "add", "status", "check", "update", "approvals", "edit", "help",
+        ] {
             XCTAssertTrue(
                 docs.contains("`\(command)`"), "completion docs missing visible command \(command)")
         }
@@ -1168,11 +1180,11 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(statusSection.contains("home directory"))
     }
 
-    func testCliDocsExplainHiddenWorkflowExtensionCommands() throws {
+    func testCliDocsExplainFocusedWorkflowExtensionCommands() throws {
         let docs = try String(contentsOfFile: "docs/cli.md", encoding: .utf8)
 
-        XCTAssertTrue(docs.contains("Recipe authoring and import/export"))
-        XCTAssertFalse(docs.contains("Recipe authoring, import/export, list"))
+        XCTAssertTrue(docs.contains("Agent-safe `add` and `edit` paths are visible"))
+        XCTAssertTrue(docs.contains("Import/export"))
         XCTAssertFalse(docs.contains("### `updatebar list"))
         XCTAssertTrue(docs.contains("hidden from default root help and shell completions"))
     }
@@ -1391,19 +1403,30 @@ final class DocumentationSnapshotTests: XCTestCase {
 
     func testMenuBarDocsDescribeCurrentNativeMenuAndUnifiedDashboardWindow() throws {
         let docs = try String(contentsOfFile: "docs/menu-bar.md", encoding: .utf8)
+        let normalizedDocs = normalizedWhitespace(docs)
 
         XCTAssertTrue(docs.contains("native `NSMenu`"))
         XCTAssertTrue(docs.contains("standard menu items, separators, submenus"))
         XCTAssertTrue(docs.contains("`Check Now` and `Run Updates`"))
         XCTAssertTrue(docs.contains("opens the Dashboard window directly"))
-        XCTAssertTrue(docs.contains("Overview and Items tabs"))
+        XCTAssertTrue(docs.contains("left sidebar"))
+        for section in ["Overview", "Items", "Scan & Add"] {
+            XCTAssertTrue(docs.contains(section), "Dashboard docs missing \(section)")
+        }
         XCTAssertTrue(docs.contains("same Dashboard window"))
+        XCTAssertTrue(docs.contains("scans only when you press Scan"))
+        XCTAssertTrue(
+            normalizedDocs.contains("Checking an available candidate registers it immediately"))
+        XCTAssertTrue(normalizedDocs.contains("Unchecking disables it without deleting it"))
+        XCTAssertTrue(normalizedDocs.contains("checking it again re-enables the same item"))
         XCTAssertTrue(docs.contains("Cmd-Tab"))
-        XCTAssertTrue(docs.contains("menu-bar-only mode"))
+        XCTAssertTrue(normalizedDocs.contains("menu-bar-only mode"))
         XCTAssertTrue(docs.contains("native error-recovery menu"))
         XCTAssertTrue(docs.contains("system appearance"))
         XCTAssertFalse(docs.contains("compact read-only popover"))
         XCTAssertFalse(docs.contains("separate detailed Dashboard window"))
+        XCTAssertFalse(docs.contains("Overview and Items tabs"))
+        XCTAssertFalse(docs.contains("Scan & Add` remains a separate panel"))
     }
 
     func testMenuBarTroubleshootingAvoidsBroadPkill() throws {

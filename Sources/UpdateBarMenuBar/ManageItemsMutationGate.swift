@@ -9,6 +9,10 @@ public struct ManageItemsMutationGate {
         expectedState != nil
     }
 
+    public func isPending(id: String) -> Bool {
+        expectedState?.id == id
+    }
+
     public mutating func begin(id: String, enabled: Bool) {
         expectedState = (id, enabled)
     }

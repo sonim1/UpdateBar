@@ -54,7 +54,7 @@ can find `XCTest`. If direct `swift test` fails, set `DEVELOPER_DIR` or see
 curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash
 
 # Or install a specific version:
-curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.5.0
+curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.6.0
 
 # Optional: change install directory
 curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | UPDATEBAR_INSTALL_PREFIX="$HOME/.local/bin" bash
@@ -147,6 +147,20 @@ v1 ships the CLI first, with optional Ink TUI and macOS Menu Bar presentation la
 Built-in AI generation, OAuth providers, and local LLM providers are removed by design — recipe authoring belongs to external agents. Sync, community registries, recipe signing, and `diff` are not planned until real external demand appears. Current architecture notes live in [current-architecture.md](current-architecture.md); [next-plan.md](next-plan.md) is retained as historical planning context.
 
 UpdateBar has no telemetry.
+
+## Agent Command Editing
+
+External agents can inspect and correct one command field without a TTY:
+
+```bash
+updatebar approvals demo-tool --json
+updatebar edit demo-tool --field check.cmd --from check-command.txt --json
+updatebar approvals demo-tool --json
+```
+
+Editing validates the complete recipe and invalidates affected approvals. It
+never approves or executes the new command; approval remains a separate,
+explicit action after review.
 
 ## Safety Model
 

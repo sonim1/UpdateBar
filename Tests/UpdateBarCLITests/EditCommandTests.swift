@@ -466,6 +466,253 @@ final class EditCommandTests: XCTestCase {
         XCTAssertEqual(recipe.check, .command("printf 'tool 1.0.0'"))
     }
 
+    func testEditCommandFieldsFromFiles() throws {
+        let cases: [(String, String, (Recipe) -> String?)] = [
+            (
+                "check.cmd", "printf 'tool 2.0.0'",
+                {
+                    if case .command(let command) = $0.check { return command }
+                    return nil
+                }
+            ),
+            ("latest.cmd", "printf 'tool 2.1.0'", { $0.latest.cmd }),
+            ("update.cmd", "printf upgraded", { $0.update.cmd }),
+        ]
+
+        for (field, command, value) in cases {
+            let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-field-tests")
+            let paths = AppPaths(homeDirectory: home)
+            try saveManifest(paths: paths)
+            let input = home.appendingPathComponent("command.txt")
+            try Data("\(command)\n".utf8).write(to: input)
+
+            let result = try CLIProcess.run(
+                ["edit", "tool", "--field", field, "--from", input.path], home: home)
+            let stored = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
+
+            XCTAssertEqual(result.exitCode, 0, field)
+            XCTAssertEqual(value(stored), command, field)
+            XCTAssertNil(stored.trust.approvedCommands[field], field)
+            XCTAssertTrue(result.stdout.contains("edited tool \(field)"), field)
+            XCTAssertTrue(result.stdout.contains("updatebar approvals tool"), field)
+        }
+    }
+
+    func testEditFieldFromStdinReturnsRedactedJSON() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-field-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+
+        let result = try CLIProcess.run(
+            ["edit", "tool", "--field", "check.cmd", "--from", "-", "--json"],
+            home: home,
+            stdin: "printf 'tool 3.0.0'\n"
+        )
+        let payload = try JSONDecoder.updateBar.decode(
+            EditResponse.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(payload.ok)
+        XCTAssertEqual(payload.id, "tool")
+        XCTAssertEqual(payload.field, "check.cmd")
+        XCTAssertTrue(payload.changed)
+        XCTAssertEqual(payload.item.check, .command("printf 'tool 3.0.0'"))
+    }
+
+    func testEditFieldEditorReceivesOnlyCommandText() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-field-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let editor = try editorScript(
+            home: home,
+            body: #"test "$(cat "$1")" = "printf updated" && printf 'printf changed\n' > "$1""#
+        )
+
+        let result = try CLIProcess.run(
+            ["edit", "tool", "--field", "update.cmd"],
+            home: home,
+            environment: ["EDITOR": editor.path]
+        )
+        let stored = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(stored.update.cmd, "printf changed")
+    }
+
+    func testEditFieldRejectsInvalidModesWithoutMutation() throws {
+        let cases = [
+            ["edit", "tool", "--from", "-"],
+            ["edit", "tool", "--json"],
+            ["edit", "tool", "--field", "install.cmd", "--from", "-"],
+        ]
+
+        for arguments in cases {
+            let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-field-tests")
+            let paths = AppPaths(homeDirectory: home)
+            try saveManifest(paths: paths)
+            let before = try Data(contentsOf: paths.manifestFile)
+
+            let result = try CLIProcess.run(arguments, home: home, stdin: "printf changed")
+
+            XCTAssertEqual(result.exitCode, 1, arguments.joined(separator: " "))
+            XCTAssertEqual(try Data(contentsOf: paths.manifestFile), before)
+        }
+    }
+
+    func testEditFieldRejectsAbsentLatestCommandAndInvalidUTF8() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-field-tests")
+        let paths = AppPaths(homeDirectory: home)
+        var item = recipe()
+        item.latest = LatestSpec(strategy: .brew, cmd: nil, pattern: nil)
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)))
+        let invalid = home.appendingPathComponent("invalid-command")
+        try Data([0xFF]).write(to: invalid)
+
+        let missing = try CLIProcess.run(
+            ["edit", "tool", "--field", "latest.cmd", "--from", "-"],
+            home: home,
+            stdin: "printf latest")
+        let malformed = try CLIProcess.run(
+            ["edit", "tool", "--field", "update.cmd", "--from", invalid.path], home: home)
+
+        XCTAssertEqual(missing.exitCode, 1)
+        XCTAssertTrue(missing.stderr.contains("latest.cmd: recipe has no command field"))
+        XCTAssertEqual(malformed.exitCode, 1)
+        XCTAssertTrue(malformed.stderr.contains("command input must be valid UTF-8"))
+    }
+
+    func testEditFieldUnchangedInputDoesNotRewriteManifest() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-field-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let before = try Data(contentsOf: paths.manifestFile)
+
+        let result = try CLIProcess.run(
+            ["edit", "tool", "--field", "update.cmd", "--from", "-", "--json"],
+            home: home,
+            stdin: "printf updated\n")
+        let payload = try JSONDecoder.updateBar.decode(
+            EditResponse.self, from: Data(result.stdout.utf8))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertFalse(payload.changed)
+        XCTAssertEqual(try Data(contentsOf: paths.manifestFile), before)
+    }
+
+    func testEditFieldRejectsWhitespaceOnlyCommand() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-field-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let before = try Data(contentsOf: paths.manifestFile)
+
+        let result = try CLIProcess.run(
+            ["edit", "tool", "--field", "check.cmd", "--from", "-"],
+            home: home,
+            stdin: "  \n")
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("check.cmd: command must not be empty"))
+        XCTAssertEqual(try Data(contentsOf: paths.manifestFile), before)
+    }
+
+    func testEditFieldRejectsAndRedactsLiteralSecret() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-field-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let before = try Data(contentsOf: paths.manifestFile)
+        let secret = "sk-or-v1-secret-value"
+
+        let result = try CLIProcess.run(
+            ["edit", "tool", "--field", "update.cmd", "--from", "-", "--json"],
+            home: home,
+            stdin: "OPENROUTER_API_KEY=\(secret) tool update")
+        let combined = result.stdout + result.stderr
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertFalse(combined.contains(secret))
+        XCTAssertEqual(try Data(contentsOf: paths.manifestFile), before)
+    }
+
+    func testEditFieldUnreadableInputAndEditorFailureDoNotMutate() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-field-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let before = try Data(contentsOf: paths.manifestFile)
+
+        let unreadable = try CLIProcess.run(
+            [
+                "edit", "tool", "--field", "update.cmd", "--from",
+                home.appendingPathComponent("missing-command.txt").path,
+            ],
+            home: home)
+        let editor = try editorScript(home: home, body: "exit 7")
+        let failedEditor = try CLIProcess.run(
+            ["edit", "tool", "--field", "update.cmd"],
+            home: home,
+            environment: ["EDITOR": editor.path])
+
+        XCTAssertEqual(unreadable.exitCode, 1)
+        XCTAssertTrue(unreadable.stderr.contains("input file could not be read"))
+        XCTAssertEqual(failedEditor.exitCode, 1)
+        XCTAssertTrue(failedEditor.stderr.contains("editor exited 7"))
+        XCTAssertEqual(try Data(contentsOf: paths.manifestFile), before)
+    }
+
+    func testEditFieldPreservesConcurrentApprovalRevocation() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-field-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let binary = try updatebarBinaryPath()
+        let editor = try editorScript(
+            home: home,
+            body: """
+                "\(binary)" revoke tool --field latest.cmd --json >/dev/null
+                printf 'printf changed\n' > "$1"
+                """
+        )
+
+        let result = try CLIProcess.run(
+            ["edit", "tool", "--field", "update.cmd"],
+            home: home,
+            environment: ["EDITOR": editor.path]
+        )
+        let stored = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(stored.update.cmd, "printf changed")
+        XCTAssertNil(stored.trust.approvedCommands["latest.cmd"])
+        XCTAssertNil(stored.trust.approvedCommands["update.cmd"])
+    }
+
+    func testWholeRecipeEditRejectsConcurrentRecipeMutation() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-edit-tests")
+        let paths = AppPaths(homeDirectory: home)
+        try saveManifest(paths: paths)
+        let binary = try updatebarBinaryPath()
+        let editor = try editorScript(
+            home: home,
+            body: """
+                "\(binary)" disable tool --json >/dev/null
+                perl -0pi -e 's/"name" : "Tool"/"name" : "Edited Tool"/' "$1"
+                """
+        )
+
+        let result = try CLIProcess.run(
+            ["edit", "tool"], home: home, environment: ["EDITOR": editor.path])
+        let stored = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.stderr.contains("recipe changed during edit; reopen and try again"))
+        XCTAssertEqual(stored.name, "Tool")
+        XCTAssertFalse(stored.enabled)
+    }
+
     private func saveManifest(paths: AppPaths) throws {
         try ManifestStore(paths: paths).save(
             Manifest(
@@ -480,6 +727,26 @@ final class EditCommandTests: XCTestCase {
         try Data("#!/bin/sh\n\(body)\n".utf8).write(to: url)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
         return url
+    }
+
+    private func updatebarBinaryPath() throws -> String {
+        if let override = ProcessInfo.processInfo.environment["UPDATEBAR_TEST_BIN"],
+            FileManager.default.isExecutableFile(atPath: override)
+        {
+            return override
+        }
+        let build = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent(".build")
+        let candidates = [
+            build.appendingPathComponent("debug/updatebar"),
+            build.appendingPathComponent("arm64-apple-macosx/debug/updatebar"),
+            build.appendingPathComponent("x86_64-apple-macosx/debug/updatebar"),
+        ]
+        return try XCTUnwrap(
+            candidates.first(where: {
+                FileManager.default.isExecutableFile(atPath: $0.path)
+            })?.path
+        )
     }
 
     private func recipe() -> Recipe {
@@ -501,4 +768,12 @@ final class EditCommandTests: XCTestCase {
         TestApprovals.approveAllCommands(in: &item)
         return item
     }
+}
+
+private struct EditResponse: Decodable {
+    var ok: Bool
+    var id: String
+    var field: String
+    var changed: Bool
+    var item: Recipe
 }

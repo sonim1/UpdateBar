@@ -1,229 +1,26 @@
 #if os(macOS)
-    import Accessibility
     import AppKit
-    import Charts
     import Foundation
     import SwiftUI
     import UpdateBarCore
     import UpdateBarMenuBar
 
-    private struct DashboardView: View {
-        var summary: DashboardSummary
-
-        private let metricColumns = [
-            GridItem(.flexible(), spacing: 12),
-            GridItem(.flexible(), spacing: 12),
-        ]
-
-        var body: some View {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("UpdateBar")
-                        .font(.title2.weight(.semibold))
-                    Text(statusText)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-
-                LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 12) {
-                    tile(
-                        title: "Updates",
-                        value: "\(summary.pendingUpdates)",
-                        systemImage: "arrow.down.circle"
-                    )
-                    tile(
-                        title: "Awaiting Approval",
-                        value: "\(summary.approvalsWaiting)",
-                        systemImage: "hourglass"
-                    )
-                    tile(
-                        title: "Last Checked",
-                        value: shortDate(summary.lastChecked),
-                        systemImage: "magnifyingglass"
-                    )
-                    tile(
-                        title: "Last Updated",
-                        value: shortDate(summary.lastUpdated),
-                        systemImage: "clock"
-                    )
-                }
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Updates · last 4 weeks")
-                        .font(.headline)
-
-                    ZStack {
-                        Chart(summary.updatesPerDay, id: \.day) { bucket in
-                            BarMark(
-                                x: .value("Day", bucket.day, unit: .day),
-                                y: .value("Updates", bucket.count)
-                            )
-                        }
-                        .chartYAxis {
-                            AxisMarks(values: .automatic(desiredCount: 3))
-                        }
-                        .chartXScale(
-                            range: .plotDimension(startPadding: 20, endPadding: 20)
-                        )
-                        .accessibilityChartDescriptor(
-                            UpdatesChartDescriptor(buckets: summary.updatesPerDay)
-                        )
-
-                        if let chartEmptyMessage {
-                            Text(chartEmptyMessage)
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(minHeight: 120, maxHeight: .infinity)
-                }
-                .frame(maxHeight: .infinity, alignment: .top)
-            }
-            .padding(20)
-            .frame(minWidth: 620, minHeight: 420, alignment: .topLeading)
-        }
-
-        private var statusText: String {
-            if summary.pendingUpdates == 0, summary.approvalsWaiting == 0 {
-                return "Everything is up to date."
-            }
-
-            var parts: [String] = []
-            if summary.pendingUpdates > 0 {
-                let noun = summary.pendingUpdates == 1 ? "update" : "updates"
-                parts.append("\(summary.pendingUpdates) \(noun) available")
-            }
-            if summary.approvalsWaiting > 0 {
-                let noun = summary.approvalsWaiting == 1 ? "item" : "items"
-                parts.append("\(summary.approvalsWaiting) \(noun) awaiting approval")
-            }
-            return parts.joined(separator: " · ")
-        }
-
-        private var totalUpdates: Int {
-            summary.updatesPerDay.reduce(0) { $0 + $1.count }
-        }
-
-        private var chartEmptyMessage: String? {
-            if summary.updatesPerDay.isEmpty {
-                return "No update history available"
-            }
-            if totalUpdates == 0 {
-                return "No updates in the last 4 weeks"
-            }
-            return nil
-        }
-
-        private func tile(title: String, value: String, systemImage: String) -> some View {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: systemImage)
-                        .frame(width: 16)
-                        .accessibilityHidden(true)
-                    Text(title)
-                        .font(.caption)
-                }
-                .foregroundStyle(.secondary)
-
-                Text(value)
-                    .font(.title3.weight(.semibold))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(height: 24, alignment: .leading)
-                    .help(value)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-            .background(
-                .quaternary.opacity(0.5),
-                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-            )
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(title)
-            .accessibilityValue(value)
-        }
-
-        private func shortDate(_ date: Date?) -> String {
-            guard let date else { return "–" }
-            return date.formatted(.dateTime.month(.abbreviated).day().hour().minute())
-        }
-    }
-
-    private struct UpdatesChartDescriptor: AXChartDescriptorRepresentable {
-        var buckets: [DashboardDayCount]
-
-        func makeChartDescriptor() -> AXChartDescriptor {
-            let dateLabels = buckets.map { dateLabel($0.day) }
-            let xAxis = AXCategoricalDataAxisDescriptor(
-                title: "Date",
-                categoryOrder: dateLabels
-            )
-            let maximumCount = buckets.map(\.count).max() ?? 0
-            let yAxis = AXNumericDataAxisDescriptor(
-                title: "Update count",
-                range: 0...Double(max(1, maximumCount)),
-                gridlinePositions: []
-            ) { value in
-                countLabel(Int(value.rounded()))
-            }
-            let dataPoints = zip(buckets, dateLabels).map { bucket, dateLabel in
-                AXDataPoint(
-                    x: dateLabel,
-                    y: Double(bucket.count),
-                    label: "\(dateLabel): \(countLabel(bucket.count))"
-                )
-            }
-            let series = AXDataSeriesDescriptor(
-                name: "Daily updates",
-                isContinuous: false,
-                dataPoints: dataPoints
-            )
-
-            return AXChartDescriptor(
-                title: "Updates in the last 4 weeks",
-                summary: descriptorSummary,
-                xAxis: xAxis,
-                yAxis: yAxis,
-                series: [series]
-            )
-        }
-
-        private var descriptorSummary: String {
-            guard let first = buckets.first, let last = buckets.last else {
-                return "No daily update data is available."
-            }
-            let firstDate = dateLabel(first.day)
-            let lastDate = dateLabel(last.day)
-            return "Daily update counts from \(firstDate) through \(lastDate)."
-        }
-
-        private func dateLabel(_ date: Date) -> String {
-            date.formatted(.dateTime.weekday(.wide).month(.wide).day().year())
-        }
-
-        private func countLabel(_ count: Int) -> String {
-            let noun = count == 1 ? "update" : "updates"
-            return "\(count) \(noun)"
-        }
-    }
-
-    enum DashboardTab: Int {
-        case overview
-        case items
-    }
-
     final class DashboardPanelController: NSWindowController, NSWindowDelegate {
         private let service: any MenuBarServicing
         private let model = DashboardModel()
-        private let tabViewController = NSTabViewController()
+        private var navigationModel = DashboardNavigationModel()
+        private let splitViewController = NSSplitViewController()
+        private let sidebarViewController = DashboardSidebarViewController()
+        private let contentContainerViewController = NSViewController()
         private let overviewViewController = NSViewController()
         private let overviewHostingView: NSHostingView<AnyView> = NSHostingView(
             rootView: AnyView(ProgressView().frame(minWidth: 620, minHeight: 420))
         )
         private let manageItemsViewController: ManageItemsViewController
+        private let scanViewController: ScanViewController
+        private weak var visibleContentViewController: NSViewController?
         private var reloadGeneration = 0
+        private var dashboardErrorQueue = DashboardErrorQueue()
 
         init(
             service: any MenuBarServicing,
@@ -234,44 +31,60 @@
                 service: service,
                 onChanged: onItemsChanged
             )
+            scanViewController = ScanViewController(service: service, onChanged: {})
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 720, height: 520),
+                contentRect: NSRect(x: 0, y: 0, width: 840, height: 520),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
             )
             window.title = "Dashboard"
             window.isReleasedWhenClosed = false
-            window.contentMinSize = NSSize(width: 620, height: 420)
+            window.contentMinSize = NSSize(width: 760, height: 420)
             super.init(window: window)
             window.delegate = self
 
             overviewViewController.view = overviewHostingView
-            tabViewController.tabStyle = .segmentedControlOnTop
-            tabViewController.canPropagateSelectedChildViewControllerTitle = false
+            contentContainerViewController.view = NSView()
+            let sidebarItem = NSSplitViewItem(
+                sidebarWithViewController: sidebarViewController
+            )
+            sidebarItem.minimumThickness = 150
+            sidebarItem.maximumThickness = 190
+            sidebarItem.canCollapse = false
+            let contentItem = NSSplitViewItem(
+                viewController: contentContainerViewController
+            )
+            splitViewController.addSplitViewItem(sidebarItem)
+            splitViewController.addSplitViewItem(contentItem)
+            window.contentViewController = splitViewController
 
-            let overviewItem = NSTabViewItem(viewController: overviewViewController)
-            overviewItem.label = "Overview"
-            let itemsItem = NSTabViewItem(viewController: manageItemsViewController)
-            itemsItem.label = "Items"
-            tabViewController.addTabViewItem(overviewItem)
-            tabViewController.addTabViewItem(itemsItem)
-            window.contentViewController = tabViewController
-
+            scanViewController.onChanged = { [weak self] in
+                guard let self else { return }
+                self.reloadGeneration &+= 1
+                onItemsChanged()
+            }
+            sidebarViewController.onSelectionChanged = { [weak self] section in
+                self?.select(section)
+            }
             manageItemsViewController.onRefresh = { [weak self] in
                 self?.reload()
             }
             manageItemsViewController.onError = { [weak self] error in
                 self?.showErrorIfShown(error)
             }
+            scanViewController.onError = { [weak self] error in
+                self?.presentDashboardError(error)
+            }
+            select(.overview)
         }
 
         required init?(coder: NSCoder) {
             nil
         }
 
-        func showWindowAndReload(selecting tab: DashboardTab) {
-            tabViewController.selectedTabViewItemIndex = tab.rawValue
+        func showWindowAndReload(selecting section: DashboardSection) {
+            select(section)
             showWindow(nil)
             window?.center()
             window?.makeKeyAndOrderFront(nil)
@@ -306,6 +119,7 @@
                         guard generation == self.reloadGeneration else { return }
                         self.apply(summary)
                         self.manageItemsViewController.apply(items: snapshot.items)
+                        self.scanViewController.applyRegisteredItems(snapshot.items)
                     }
                 } catch {
                     DispatchQueue.main.async {
@@ -319,20 +133,76 @@
 
         func windowWillClose(_ notification: Notification) {
             reloadGeneration &+= 1
+            scanViewController.invalidateScanSession()
+            dashboardErrorQueue.clear()
+        }
+
+        private func select(_ section: DashboardSection) {
+            navigationModel.select(section)
+            sidebarViewController.select(navigationModel.selectedSection)
+            showContent(controller(for: navigationModel.selectedSection))
+        }
+
+        private func controller(for section: DashboardSection) -> NSViewController {
+            switch section {
+            case .overview:
+                return overviewViewController
+            case .items:
+                return manageItemsViewController
+            case .scan:
+                return scanViewController
+            }
+        }
+
+        private func showContent(_ controller: NSViewController) {
+            guard visibleContentViewController !== controller else { return }
+            visibleContentViewController?.view.removeFromSuperview()
+            visibleContentViewController?.removeFromParent()
+
+            contentContainerViewController.addChild(controller)
+            let contentView = controller.view
+            contentView.translatesAutoresizingMaskIntoConstraints = false
+            contentContainerViewController.view.addSubview(contentView)
+            NSLayoutConstraint.activate([
+                contentView.leadingAnchor.constraint(
+                    equalTo: contentContainerViewController.view.leadingAnchor),
+                contentView.trailingAnchor.constraint(
+                    equalTo: contentContainerViewController.view.trailingAnchor),
+                contentView.topAnchor.constraint(
+                    equalTo: contentContainerViewController.view.topAnchor),
+                contentView.bottomAnchor.constraint(
+                    equalTo: contentContainerViewController.view.bottomAnchor),
+            ])
+            visibleContentViewController = controller
         }
 
         private func apply(_ summary: DashboardSummary) {
-            let view = DashboardView(summary: summary)
+            let view = DashboardOverviewView(summary: summary)
             overviewHostingView.rootView = AnyView(view)
         }
 
         private func presentDashboardError(_ error: Error) {
-            guard let window, window.isVisible, window.attachedSheet == nil else { return }
+            guard let window, window.isVisible else { return }
+            dashboardErrorQueue.enqueue(
+                SecretRedactor.redact(String(describing: error))
+            )
+            presentNextDashboardErrorIfPossible()
+        }
+
+        private func presentNextDashboardErrorIfPossible() {
+            guard let window, window.isVisible, window.attachedSheet == nil,
+                let presentation = dashboardErrorQueue.beginNextPresentation()
+            else { return }
             let alert = NSAlert()
             alert.alertStyle = .warning
             alert.messageText = "UpdateBar"
-            alert.informativeText = SecretRedactor.redact(String(describing: error))
-            alert.beginSheetModal(for: window)
+            alert.informativeText = presentation.message
+            alert.beginSheetModal(for: window) { [weak self] _ in
+                guard let self,
+                    self.dashboardErrorQueue.finishPresentation(token: presentation.token)
+                else { return }
+                self.presentNextDashboardErrorIfPossible()
+            }
         }
     }
 #endif

@@ -5,20 +5,46 @@ import UpdateBarCore
 struct EditCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "edit",
-        abstract: "Edit one registered recipe in $VISUAL or $EDITOR.",
-        shouldDisplay: false
+        abstract: "Edit a registered recipe or one command field using $VISUAL or $EDITOR."
     )
 
     @Argument(help: "Item id to edit.")
     var id: String
 
+    @Option(
+        name: .long,
+        help: "Edit check.cmd, latest.cmd, or update.cmd.",
+        completion: .list(["check.cmd", "latest.cmd", "update.cmd"])
+    )
+    var field: String?
+
+    @Option(
+        name: .long,
+        help: ArgumentHelp(
+            "Read field command text from a file or '-' for stdin.", valueName: "file")
+    )
+    var from: String?
+
+    @Flag(name: .long, help: "Print machine-readable JSON; requires --field and --from.")
+    var json = false
+
     func run() throws {
+        try validateMode()
         let store = ManifestStore()
         let manifest = try store.loadExistingOrEmpty()
         guard let original = manifest.item(id: id) else {
             throw RegistryError.itemNotFound(id)
         }
 
+        if let field {
+            try runFieldEdit(field: field, original: original, store: store)
+            return
+        }
+
+        try runWholeRecipeEdit(original: original, store: store)
+    }
+
+    private func runWholeRecipeEdit(original: Recipe, store: ManifestStore) throws {
         let temp = FileManager.default.temporaryDirectory
             .appendingPathComponent("updatebar-edit-\(UUID().uuidString).json")
         try JSONEncoder.updateBar.encode(original).write(to: temp)
@@ -32,16 +58,143 @@ struct EditCommand: ParsableCommand {
         }
         try validateEditedRecipe(edited)
 
+        try saveWholeRecipe(edited, original: original, store: store)
+        writeStdout("edited \(SecretRedactor.redact(id))")
+    }
+
+    private func runFieldEdit(field: String, original: Recipe, store: ManifestStore) throws {
+        let current = try commandText(field: field, in: original)
+        let command = try editedCommand(field: field, current: current)
+        let (edited, changed) = try saveFieldCommand(
+            field: field,
+            command: command,
+            store: store
+        )
+        try outputFieldEdit(recipe: edited, field: field, changed: changed)
+    }
+
+    private func saveWholeRecipe(_ edited: Recipe, original: Recipe, store: ManifestStore) throws {
         try store.withExclusiveLock {
             var latest = try store.loadExistingOrEmpty()
-            guard latest.item(id: id) != nil else {
+            guard let current = latest.item(id: id) else {
                 throw RegistryError.itemNotFound(id)
+            }
+            guard current == original else {
+                throw ValidationError("recipe changed during edit; reopen and try again")
             }
             latest = latest.replacing(item: edited)
             latest.provenance.updatedAt = Date()
             try store.save(latest)
         }
-        writeStdout("edited \(SecretRedactor.redact(id))")
+    }
+
+    private func saveFieldCommand(field: String, command: String, store: ManifestStore) throws
+        -> (recipe: Recipe, changed: Bool)
+    {
+        try store.withExclusiveLock {
+            var manifest = try store.loadExistingOrEmpty()
+            guard let current = manifest.item(id: id) else {
+                throw RegistryError.itemNotFound(id)
+            }
+            let candidate = try replacingCommand(field: field, command: command, in: current)
+            let edited = invalidateChangedApprovals(original: current, edited: candidate)
+            try validateEditedRecipe(edited)
+            let changed = edited != current
+            if changed {
+                manifest = manifest.replacing(item: edited)
+                manifest.provenance.updatedAt = Date()
+                try store.save(manifest)
+            }
+            return (edited, changed)
+        }
+    }
+
+    private func validateMode() throws {
+        if from != nil, field == nil {
+            throw ValidationError("edit --from requires --field")
+        }
+        if json, field == nil || from == nil {
+            throw ValidationError("edit --json requires --field and --from")
+        }
+    }
+
+    private func commandText(field: String, in recipe: Recipe) throws -> String {
+        switch field {
+        case "check.cmd":
+            guard case .command(let command) = recipe.check else {
+                throw ValidationError("check.cmd: recipe has no command field")
+            }
+            return command
+        case "latest.cmd":
+            guard recipe.latest.strategy == .cmd, let command = recipe.latest.cmd else {
+                throw ValidationError("latest.cmd: recipe has no command field")
+            }
+            return command
+        case "update.cmd":
+            return recipe.update.cmd
+        default:
+            throw RegistryError.commandFieldNotFound(field)
+        }
+    }
+
+    private func replacingCommand(field: String, command: String, in recipe: Recipe) throws
+        -> Recipe
+    {
+        var copy = recipe
+        _ = try commandText(field: field, in: recipe)
+        switch field {
+        case "check.cmd":
+            copy.check = .command(command)
+        case "latest.cmd":
+            copy.latest.cmd = command
+        case "update.cmd":
+            copy.update.cmd = command
+        default:
+            throw RegistryError.commandFieldNotFound(field)
+        }
+        return copy
+    }
+
+    private func editedCommand(field: String, current: String) throws -> String {
+        let data: Data
+        if let from {
+            data = try readInputData(from)
+        } else {
+            let temp = FileManager.default.temporaryDirectory
+                .appendingPathComponent("updatebar-edit-command-\(UUID().uuidString).txt")
+            try Data(current.utf8).write(to: temp)
+            defer { try? FileManager.default.removeItem(at: temp) }
+            try runEditor(file: temp)
+            data = try Data(contentsOf: temp)
+        }
+        guard let decoded = String(data: data, encoding: .utf8) else {
+            throw ValidationError("command input must be valid UTF-8")
+        }
+        let command = removingOneFinalLineEnding(from: decoded)
+        guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw ValidationError("\(field): command must not be empty")
+        }
+        return command
+    }
+
+    private func removingOneFinalLineEnding(from value: String) -> String {
+        if value.hasSuffix("\r\n") {
+            return String(value.dropLast(2))
+        }
+        if value.hasSuffix("\n") {
+            return String(value.dropLast())
+        }
+        return value
+    }
+
+    private func outputFieldEdit(recipe: Recipe, field: String, changed: Bool) throws {
+        if json {
+            try printJSON(redactedEditPayload(for: recipe, field: field, changed: changed))
+            return
+        }
+        let verb = changed ? "edited" : "unchanged"
+        writeStdout("\(verb) \(SecretRedactor.redact(recipe.id)) \(field)")
+        printApprovalNextSteps(for: [recipe.id])
     }
 
     private func loadEditedRecipe(data: Data, original: Recipe) throws -> Recipe {
