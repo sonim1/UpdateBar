@@ -315,6 +315,7 @@ extension UpdateBar {
         "disable": "updatebar disable <id> --json",
         "doctor": "updatebar doctor --json",
         "enable": "updatebar enable <id> --json",
+        "edit": "updatebar edit <id> --field <field> --from <file|-> --json",
         "export": "updatebar export --json",
         "import": "updatebar import <file> --json",
         "init": "updatebar init --select all --json",

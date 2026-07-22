@@ -130,6 +130,14 @@ struct ApprovalMutationPayload: Encodable {
     var item: Recipe
 }
 
+struct EditPayload: Encodable {
+    var ok: Bool
+    var id: String
+    var field: String
+    var changed: Bool
+    var item: Recipe
+}
+
 func redactedItemMutationPayload(for recipe: Recipe) -> ItemMutationPayload {
     ItemMutationPayload(
         ok: true, id: SecretRedactor.redact(recipe.id), item: redactedRecipe(recipe))
@@ -141,6 +149,20 @@ func redactedApprovalMutationPayload(for recipe: Recipe, field: String?) -> Appr
         ok: true,
         id: SecretRedactor.redact(recipe.id),
         field: field.map(SecretRedactor.redact),
+        item: redactedRecipe(recipe)
+    )
+}
+
+func redactedEditPayload(
+    for recipe: Recipe,
+    field: String,
+    changed: Bool
+) -> EditPayload {
+    EditPayload(
+        ok: true,
+        id: SecretRedactor.redact(recipe.id),
+        field: SecretRedactor.redact(field),
+        changed: changed,
         item: redactedRecipe(recipe)
     )
 }
