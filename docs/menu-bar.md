@@ -9,9 +9,11 @@ Current scope:
 
 - prefers direct `UpdateBarCore` calls through `CoreMenuBarService`
 - keeps `UpdateBarCLIClient` as a subprocess fallback with JSON-only contracts
-- shows outdated items separately from recipes that need command approval, with
-  per-item update and approve/revoke actions
-- shows command text before approve/revoke actions
+- shows outdated items separately from services requiring command approval, with
+  per-item update actions
+- presents command approval as one native submenu row per service; its right-hand
+  submenu exposes per-field approve/revoke actions; exact command text and cwd
+  appear only in confirmation
 - provides `Check Now` and `Run Updates`, Refresh Status, Open TUI, Dashboard,
   Manage Items, Scan & Add, Open Config, View Logs, and Quit through native menu
   items; Run Updates is disabled when there are no outdated items

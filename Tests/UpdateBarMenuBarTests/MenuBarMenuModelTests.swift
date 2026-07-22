@@ -297,10 +297,8 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Updates (1)",
                 "Old Tool 1.0.0 -> 1.1.0",
                 "---",
-                "Needs Approval (1)",
-                "  Fresh Tool (2 commands)",
-                "      Approve update.cmd: fresh update [cwd: /tmp/fresh]",
-                "      Revoke check.cmd: fresh check",
+                "Command Approval Required (1)",
+                "Fresh Tool >",
                 "---",
                 "Errors (1)",
                 "Broken Tool: command failed",
@@ -323,8 +321,6 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.refreshStatus),
                 .menu(.updateAllApprovedOutdated),
                 .update(id: "old"),
-                .approve(id: "fresh", field: "update.cmd"),
-                .revoke(id: "fresh", field: "check.cmd"),
                 .menu(.openTUI),
                 .menu(.overview),
                 .menu(.manageItems),
@@ -333,12 +329,41 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.viewLogs),
                 .menu(.quit),
             ])
-        let approveItem = model.entries.item(
-            titled: "      Approve update.cmd: fresh update [cwd: /tmp/fresh]"
+        XCTAssertTrue(model.entries.labels.contains("Command Approval Required (1)"))
+        XCTAssertTrue(model.entries.labels.contains("Fresh Tool >"))
+        XCTAssertFalse(model.entries.labels.contains { $0.contains("fresh update") })
+        XCTAssertFalse(
+            model.entries.actions.contains(.approve(id: "fresh", field: "update.cmd"))
+        )
+        XCTAssertFalse(
+            model.entries.actions.contains(.revoke(id: "fresh", field: "check.cmd"))
+        )
+
+        let submenu = model.entries.submenu(titled: "Fresh Tool")
+        XCTAssertEqual(submenu?.systemSymbolName, "circle.lefthalf.filled")
+        XCTAssertEqual(submenu?.items.map(\.title), ["Approve Update", "Revoke Check"])
+        XCTAssertEqual(
+            submenu?.items.map(\.action),
+            [
+                .approve(id: "fresh", field: "update.cmd"),
+                .revoke(id: "fresh", field: "check.cmd"),
+            ]
         )
         XCTAssertEqual(
+            submenu?.items.map(\.systemSymbolName),
+            ["circle", "checkmark.circle"]
+        )
+        XCTAssertEqual(
+            submenu?.items.map(\.toolTip),
+            [
+                "Approves update.cmd for fresh after confirmation.",
+                "Revokes check.cmd for fresh after confirmation.",
+            ]
+        )
+        let approveItem = submenu?.items.first
+        XCTAssertEqual(
             approveItem?.toolTip,
-            "Approves update.cmd for fresh after confirmation.\nupdate.cmd: fresh   update [cwd: /tmp/fresh]"
+            "Approves update.cmd for fresh after confirmation."
         )
         XCTAssertEqual(
             approveItem?.confirmation?.message,
@@ -352,10 +377,10 @@ final class MenuBarMenuModelTests: XCTestCase {
             /tmp/fresh
             """
         )
-        let revokeItem = model.entries.item(titled: "      Revoke check.cmd: fresh check")
+        let revokeItem = submenu?.items.last
         XCTAssertEqual(
             revokeItem?.toolTip,
-            "Revokes check.cmd for fresh after confirmation.\ncheck.cmd: fresh check"
+            "Revokes check.cmd for fresh after confirmation."
         )
         XCTAssertEqual(
             revokeItem?.confirmation?.message,
@@ -558,7 +583,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(updateItem?.confirmation?.message.contains("OPENROUTER_API_KEY=") ?? true)
     }
 
-    func testApprovalMenuRedactsSecretLikeCommandDetails() {
+    func testApprovalMenuRedactsSecretLikeCommandDetails() throws {
         let state = MenuBarState(
             title: "Needs approval",
             badgeValue: "!",
@@ -586,15 +611,104 @@ final class MenuBarMenuModelTests: XCTestCase {
             approvalStatuses: approvals
         )
 
-        let approvalItem = model.entries.item(
-            titled: "      Approve update.cmd: [REDACTED] tool update [cwd: /tmp/[REDACTED]]"
+        let submenu = try XCTUnwrap(model.entries.submenu(titled: "Tool"))
+        let approvalItem = try XCTUnwrap(submenu.items.first)
+
+        XCTAssertEqual(approvalItem.title, "Approve Update")
+        XCTAssertEqual(
+            approvalItem.toolTip,
+            "Approves update.cmd for tool after confirmation."
+        )
+        XCTAssertFalse(model.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
+        XCTAssertFalse(submenu.items.contains { $0.title.contains("[REDACTED]") })
+        XCTAssertFalse(submenu.items.contains { $0.title.contains("tool update") })
+        XCTAssertFalse(submenu.items.contains { $0.title.contains("OPENROUTER_API_KEY=") })
+        XCTAssertFalse(approvalItem.toolTip?.contains("[REDACTED]") ?? true)
+        XCTAssertFalse(approvalItem.toolTip?.contains("sk-or-v1-secret-value") ?? true)
+        XCTAssertFalse(approvalItem.toolTip?.contains("tool update") ?? true)
+        XCTAssertTrue(
+            approvalItem.confirmation?.message.contains("[REDACTED] tool update") ?? false
+        )
+        XCTAssertTrue(
+            approvalItem.confirmation?.message.contains("/tmp/[REDACTED]") ?? false
+        )
+        XCTAssertFalse(
+            approvalItem.confirmation?.message.contains("sk-or-v1-secret-value") ?? true
+        )
+    }
+
+    func testApprovalServiceWithoutCommandFieldsIsOneDisabledRow() throws {
+        let state = MenuBarState(
+            title: "Needs approval",
+            badgeValue: "!",
+            outdatedItems: [],
+            approvalItems: [
+                statusItem(id: "empty", name: "Empty Tool", status: .untrusted)
+            ],
+            errorItems: [],
+            okItems: []
         )
 
-        XCTAssertNotNil(approvalItem)
-        XCTAssertFalse(model.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
-        XCTAssertFalse(approvalItem?.toolTip?.contains("sk-or-v1-secret-value") ?? true)
-        XCTAssertFalse(
-            approvalItem?.confirmation?.message.contains("sk-or-v1-secret-value") ?? true)
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: ["empty": []]
+        )
+
+        let emptyItems = model.entries.items(titled: "Empty Tool")
+        XCTAssertEqual(emptyItems.count, 1)
+        let emptyItem = try XCTUnwrap(emptyItems.first)
+        XCTAssertNil(emptyItem.action)
+        XCTAssertEqual(emptyItem.systemSymbolName, "questionmark.circle")
+        XCTAssertNil(model.entries.submenu(titled: "Empty Tool"))
+    }
+
+    func testApprovalOverflowCountsServicesInsteadOfCommandRows() {
+        let approvalItems = Array(1...10).map { index in
+            statusItem(
+                id: "approval-\(index)",
+                name: "Approval \(index)",
+                status: .untrusted
+            )
+        }
+        let approvals = Dictionary(
+            uniqueKeysWithValues: approvalItems.map { item in
+                (
+                    item.id,
+                    [
+                        CommandApprovalStatus(
+                            field: "check.cmd",
+                            approved: false,
+                            fingerprint: "fp-\(item.id)",
+                            command: "check \(item.id)",
+                            cwd: nil
+                        )
+                    ]
+                )
+            })
+        let state = MenuBarState(
+            title: "Needs approval",
+            badgeValue: "!",
+            outdatedItems: [],
+            approvalItems: approvalItems,
+            errorItems: [],
+            okItems: []
+        )
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: approvals
+        )
+        let approvalSubmenus = model.entries.submenus.filter {
+            $0.title.hasPrefix("Approval ")
+        }
+
+        XCTAssertEqual(approvalSubmenus.count, 8)
+        XCTAssertTrue(
+            approvalSubmenus.allSatisfy {
+                $0.systemSymbolName == "exclamationmark.circle"
+            }
+        )
+        XCTAssertEqual(model.entries.items(titled: "and 2 more").count, 1)
     }
 
     func testBuildsErrorRecoveryMenu() {
@@ -768,32 +882,18 @@ final class MenuBarMenuModelTests: XCTestCase {
                 status: .ok
             )
         }
-        let approvals = [
-            "approve": Array(1...10).map { index in
-                CommandApprovalStatus(
-                    field: "field-\(index)",
-                    approved: index.isMultiple(of: 2),
-                    fingerprint: "fp-\(index)",
-                    command: "run cmd-\(index)",
-                    cwd: nil
-                )
-            }
-        ]
-
         let state = MenuBarState(
             title: "8 updates",
             badgeValue: "8",
             outdatedItems: outdated,
-            approvalItems: [
-                statusItem(id: "approve", name: "Approve Tool", status: .ok)
-            ],
+            approvalItems: [],
             errorItems: errors,
             okItems: installed
         )
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: approvals
+            approvalStatuses: [:]
         )
 
         XCTAssertTrue(model.entries.labels.contains("and 1 more"))
@@ -801,7 +901,6 @@ final class MenuBarMenuModelTests: XCTestCase {
             model.entries.labels.filter { $0 == "and 1 more" }.count,
             2
         )
-        XCTAssertTrue(model.entries.labels.contains(where: { $0.contains("and 8 more") }))
     }
 
     private func statusItem(
@@ -847,18 +946,26 @@ extension Array where Element == MenuBarMenuEntry {
         }
     }
 
-    fileprivate func submenu(titled title: String) -> MenuBarSubmenu? {
+    fileprivate var submenus: [MenuBarSubmenu] {
         compactMap { entry in
             guard case .submenu(let submenu) = entry else { return nil }
             return submenu
-        }.first { $0.title == title }
+        }
+    }
+
+    fileprivate func submenu(titled title: String) -> MenuBarSubmenu? {
+        submenus.first { $0.title == title }
     }
 
     fileprivate func item(titled title: String) -> MenuBarMenuItem? {
+        items(titled: title).first
+    }
+
+    fileprivate func items(titled title: String) -> [MenuBarMenuItem] {
         compactMap { entry in
-            guard case .item(let item) = entry else { return nil }
+            guard case .item(let item) = entry, item.title == title else { return nil }
             return item
-        }.first { $0.title == title }
+        }
     }
 
     fileprivate var hasRepeatedSeparators: Bool {

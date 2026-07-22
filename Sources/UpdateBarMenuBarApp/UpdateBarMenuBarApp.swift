@@ -468,6 +468,12 @@
                     menu.addItem(menuItem(from: item))
                 case .submenu(let submenu):
                     let parent = NSMenuItem(title: submenu.title, action: nil, keyEquivalent: "")
+                    MenuBarSystemImageRenderer.apply(
+                        systemSymbolName: submenu.systemSymbolName,
+                        applicationIcon: nil,
+                        accessibilityDescription: submenu.title,
+                        to: parent,
+                    )
                     let child = NSMenu(title: submenu.title)
                     for item in submenu.items {
                         child.addItem(menuItem(from: item))
@@ -481,18 +487,32 @@
 
         private func menuItem(from item: MenuBarMenuItem) -> NSMenuItem {
             guard let action = item.action else {
-                return disabledItem(item.title, toolTip: item.toolTip)
+                let menuItem = disabledItem(item.title, toolTip: item.toolTip)
+                MenuBarSystemImageRenderer.apply(
+                    systemSymbolName: item.systemSymbolName,
+                    applicationIcon: nil,
+                    accessibilityDescription: item.title,
+                    to: menuItem,
+                )
+                return menuItem
             }
             let menuItem = actionItem(item.title, action: selector(for: action))
             menuItem.toolTip = item.toolTip
             menuItem.state = item.isChecked ? .on : .off
+            let applicationIcon: NSImage?
             if let bundleID = item.iconAppBundleID,
                 let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
             {
-                let icon = NSWorkspace.shared.icon(forFile: appURL.path)
-                icon.size = NSSize(width: 16, height: 16)
-                menuItem.image = icon
+                applicationIcon = NSWorkspace.shared.icon(forFile: appURL.path)
+            } else {
+                applicationIcon = nil
             }
+            MenuBarSystemImageRenderer.apply(
+                systemSymbolName: item.systemSymbolName,
+                applicationIcon: applicationIcon,
+                accessibilityDescription: item.title,
+                to: menuItem
+            )
             switch action {
             case .menu, .cancelCurrentAction:
                 if action == .menu(.updateAllApprovedOutdated) {

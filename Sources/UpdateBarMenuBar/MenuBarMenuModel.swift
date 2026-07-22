@@ -18,10 +18,16 @@ public enum MenuBarMenuEntry: Equatable, Sendable {
 public struct MenuBarSubmenu: Equatable, Sendable {
     public var title: String
     public var items: [MenuBarMenuItem]
+    public var systemSymbolName: String?
 
-    public init(title: String, items: [MenuBarMenuItem]) {
+    public init(
+        title: String,
+        items: [MenuBarMenuItem],
+        systemSymbolName: String? = nil
+    ) {
         self.title = title
         self.items = items
+        self.systemSymbolName = systemSymbolName
     }
 }
 
@@ -31,6 +37,7 @@ public struct MenuBarMenuItem: Equatable, Sendable {
     public var toolTip: String?
     public var confirmation: MenuBarActionConfirmation?
     public var isChecked: Bool
+    public var systemSymbolName: String?
     /// Bundle identifier of an app whose icon should decorate the item.
     public var iconAppBundleID: String?
 
@@ -40,6 +47,7 @@ public struct MenuBarMenuItem: Equatable, Sendable {
         toolTip: String? = nil,
         confirmation: MenuBarActionConfirmation? = nil,
         isChecked: Bool = false,
+        systemSymbolName: String? = nil,
         iconAppBundleID: String? = nil
     ) {
         self.title = title
@@ -47,6 +55,7 @@ public struct MenuBarMenuItem: Equatable, Sendable {
         self.toolTip = toolTip
         self.confirmation = confirmation
         self.isChecked = isChecked
+        self.systemSymbolName = systemSymbolName
         self.iconAppBundleID = iconAppBundleID
     }
 }
@@ -65,7 +74,6 @@ public struct MenuBarMenuModelBuilder: Sendable {
 
     private static let maxSectionItems = 6
     private static let maxApprovalItems = 8
-    private static let maxApprovalRowsPerItem = 2
 
     public func makeLoadingMenu() -> MenuBarMenuModel {
         var entries: [MenuBarMenuEntry] = []
@@ -220,90 +228,72 @@ public struct MenuBarMenuModelBuilder: Sendable {
         to entries: inout [MenuBarMenuEntry]
     ) {
         guard !items.isEmpty else { return }
-        appendDisabled("Needs Approval (\(items.count))", to: &entries)
-        var addedItems = 0
-        let totalApprovalRows = items.reduce(0) { total, item in
-            let approvals = approvalStatuses[item.id] ?? []
-            let header = 1
-            if approvals.isEmpty {
-                return total + header
-            }
-            let shown = min(approvals.count, Self.maxApprovalRowsPerItem)
-            let overflow = approvals.count > shown ? 1 : 0
-            return total + header + shown + overflow
-        }
-        for item in items {
+        appendDisabled("Command Approval Required (\(items.count))", to: &entries)
+        for item in items.prefix(Self.maxApprovalItems) {
             let approvals = approvalStatuses[item.id] ?? []
             if approvals.isEmpty {
-                if addedItems >= Self.maxApprovalItems {
-                    break
-                }
                 appendDisabled(
-                    "  \(SecretRedactor.redact(item.name)): no command fields", to: &entries)
-                addedItems += 1
+                    SecretRedactor.redact(item.name),
+                    systemSymbolName: "questionmark.circle",
+                    to: &entries
+                )
                 continue
             }
 
-            if addedItems >= Self.maxApprovalItems {
-                break
-            }
-
-            let plural = approvals.count == 1 ? "" : "s"
-            appendDisabled(
-                "  \(SecretRedactor.redact(item.name)) (\(approvals.count) command\(plural))",
-                to: &entries
-            )
-            addedItems += 1
-
-            let remaining = Self.maxApprovalItems - addedItems
-            let showCount = min(approvals.count, min(Self.maxApprovalRowsPerItem, remaining))
-            for approval in approvals.prefix(showCount) {
-                let verb = approval.approved ? "Revoke" : "Approve"
-                let redactedCommand = SecretRedactor.redact(approval.command)
-                let redactedCwd = approval.cwd.map(SecretRedactor.redact)
-                let command = collapseWhitespace(in: redactedCommand)
-                let cwd = redactedCwd.map { " [cwd: \($0)]" } ?? ""
-                let action: MenuBarMenuItemAction =
-                    approval.approved
-                    ? .revoke(id: item.id, field: approval.field)
-                    : .approve(id: item.id, field: approval.field)
-                let confirmation = MenuBarActionConfirmation.commandApproval(
-                    for: item,
-                    status: approval
+            let approvedStates = Set(approvals.map(\.approved))
+            let systemSymbolName =
+                approvedStates.count == 2
+                ? "circle.lefthalf.filled" : "exclamationmark.circle"
+            entries.append(
+                .submenu(
+                    MenuBarSubmenu(
+                        title: SecretRedactor.redact(item.name),
+                        items: approvals.map { approvalMenuItem(for: item, approval: $0) },
+                        systemSymbolName: systemSymbolName
+                    )
                 )
-                guard showCount > 0 else { break }
-                let label = "      \(verb) \(approval.field): \(command)\(cwd)"
-                entries.append(
-                    .item(
-                        MenuBarMenuItem(
-                            title: label,
-                            action: action,
-                            toolTip:
-                                "\(confirmation.toolTip)\n\(approval.field): \(redactedCommand)\(cwd)",
-                            confirmation: confirmation
-                        )))
-                addedItems += 1
-                if addedItems >= Self.maxApprovalItems {
-                    break
-                }
-            }
-
-            let hidden = approvals.count - showCount
-            if hidden > 0, addedItems < Self.maxApprovalItems {
-                appendDisabled("    + and \(hidden) more", to: &entries)
-                addedItems += 1
-            }
-            if addedItems >= Self.maxApprovalItems {
-                break
-            }
+            )
         }
-        if addedItems < totalApprovalRows {
-            let overflow = totalApprovalRows - addedItems
-            if overflow > 0 {
-                appendDisabled("and \(overflow) more actions", to: &entries)
-            }
+        let overflow = items.count - Self.maxApprovalItems
+        if overflow > 0 {
+            appendDisabled("and \(overflow) more", to: &entries)
         }
         appendSeparator(to: &entries)
+    }
+
+    private func approvalMenuItem(
+        for item: StatusItem,
+        approval: CommandApprovalStatus
+    ) -> MenuBarMenuItem {
+        let verb = approval.approved ? "Revoke" : "Approve"
+        let action: MenuBarMenuItemAction =
+            approval.approved
+            ? .revoke(id: item.id, field: approval.field)
+            : .approve(id: item.id, field: approval.field)
+        let confirmation = MenuBarActionConfirmation.commandApproval(
+            for: item,
+            status: approval
+        )
+        return MenuBarMenuItem(
+            title: "\(verb) \(approvalFieldTitle(approval.field))",
+            action: action,
+            toolTip: confirmation.toolTip,
+            confirmation: confirmation,
+            systemSymbolName: approval.approved ? "checkmark.circle" : "circle"
+        )
+    }
+
+    private func approvalFieldTitle(_ field: String) -> String {
+        switch field {
+        case "check.cmd":
+            return "Check"
+        case "latest.cmd":
+            return "Latest"
+        case "update.cmd":
+            return "Update"
+        default:
+            return SecretRedactor.redact(field)
+        }
     }
 
     private func appendErrors(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
@@ -343,9 +333,16 @@ public struct MenuBarMenuModelBuilder: Sendable {
     private func appendDisabled(
         _ title: String,
         toolTip: String? = nil,
+        systemSymbolName: String? = nil,
         to entries: inout [MenuBarMenuEntry]
     ) {
-        entries.append(.item(MenuBarMenuItem(title: title, toolTip: toolTip)))
+        entries.append(
+            .item(
+                MenuBarMenuItem(
+                    title: title,
+                    toolTip: toolTip,
+                    systemSymbolName: systemSymbolName
+                )))
     }
 
     private func appendAction(
@@ -368,9 +365,5 @@ public struct MenuBarMenuModelBuilder: Sendable {
     private func appendSeparator(to entries: inout [MenuBarMenuEntry]) {
         guard !entries.isEmpty, entries.last != .separator else { return }
         entries.append(.separator)
-    }
-
-    private func collapseWhitespace(in value: String) -> String {
-        value.split { $0.isWhitespace }.joined(separator: " ")
     }
 }
