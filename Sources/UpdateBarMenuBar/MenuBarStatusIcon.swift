@@ -40,7 +40,8 @@ extension MenuBarStatusIconState {
 
 @MainActor
 public struct MenuBarStatusIconRenderer {
-    public static let imageSize = NSSize(width: 34, height: 18)
+    public static let imageSize = NSSize(width: 20, height: 18)
+    private static let badgeRect = NSRect(x: 7.5, y: 0.5, width: 12.5, height: 12.5)
 
     public init() {}
 
@@ -50,6 +51,7 @@ public struct MenuBarStatusIconRenderer {
             NSColor.black.setFill()
             NSColor.black.setStroke()
             drawBrandMark()
+            clearBadgeBackdrop()
             drawBadge(for: state)
             return true
         }
@@ -78,22 +80,30 @@ public struct MenuBarStatusIconRenderer {
         bar.fill()
     }
 
+    private func clearBadgeBackdrop() {
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current?.compositingOperation = .clear
+        NSBezierPath(
+            ovalIn: Self.badgeRect.insetBy(dx: -1, dy: -1)
+        ).fill()
+        NSGraphicsContext.restoreGraphicsState()
+    }
+
     private func drawBadge(for state: MenuBarStatusIconState) {
-        let circleRect = NSRect(x: 20, y: 2, width: 14, height: 14)
-        let circle = NSBezierPath(ovalIn: circleRect.insetBy(dx: 0.8, dy: 0.8))
-        circle.lineWidth = 1.6
+        let circle = NSBezierPath(ovalIn: Self.badgeRect.insetBy(dx: 0.75, dy: 0.75))
+        circle.lineWidth = 1.5
         circle.stroke()
 
         let text = state.badgeText as NSString
-        let fontSize: CGFloat = text.length > 1 ? 7 : 9.5
+        let fontSize: CGFloat = text.length > 1 ? 6.25 : 8.5
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: fontSize, weight: state.badgeWeight),
             .foregroundColor: NSColor.black,
         ]
         let size = text.size(withAttributes: attributes)
         let origin = NSPoint(
-            x: circleRect.midX - size.width / 2,
-            y: circleRect.midY - size.height / 2 + 0.4
+            x: Self.badgeRect.midX - size.width / 2,
+            y: Self.badgeRect.midY - size.height / 2 + 0.3
         )
         text.draw(at: origin, withAttributes: attributes)
     }
