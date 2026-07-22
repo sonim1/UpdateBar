@@ -96,16 +96,18 @@ public struct MenuBarMenuModelBuilder: Sendable {
         var entries: [MenuBarMenuEntry] = []
 
         if let activeActionTitle {
-            appendDisabled("Running: \(SecretRedactor.redact(activeActionTitle))", to: &entries)
+            appendDisabled("\(SecretRedactor.redact(activeActionTitle))...", to: &entries)
             appendAction(
                 "Cancel Current Action",
                 action: .cancelCurrentAction,
                 to: &entries
             )
             appendSeparator(to: &entries)
-            for action in [MenuBarMenuAction.overview, .viewLogs, .quit] {
-                appendAction(action.title, action: .menu(action), to: &entries)
-            }
+            appendFooterActions(
+                installedTerminals: installedTerminals,
+                selectedTerminalID: selectedTerminalID,
+                to: &entries
+            )
             return MenuBarMenuModel(entries: entries)
         }
 
@@ -126,24 +128,16 @@ public struct MenuBarMenuModelBuilder: Sendable {
         if state.outdatedItems.isEmpty {
             appendDisabled(updateAllAction.title, toolTip: "No updates available.", to: &entries)
         } else {
-            let confirmation = MenuBarActionConfirmation.updateAllApprovedOutdated(
-                itemNames: state.outdatedItems.map { SecretRedactor.redact($0.name) }
-            )
             appendAction(
                 updateAllAction.title,
                 action: .menu(updateAllAction),
-                toolTip: confirmation.toolTip,
-                confirmation: confirmation,
+                toolTip: "Updates all \(state.outdatedItems.count) approved outdated items.",
                 to: &entries
             )
         }
         appendSeparator(to: &entries)
 
-        appendUpdates(
-            state.outdatedItems,
-            approvalStatuses: approvalStatuses,
-            to: &entries
-        )
+        appendUpdates(state.outdatedItems, to: &entries)
         appendApprovals(
             state.approvalItems,
             approvalStatuses: approvalStatuses,
@@ -153,6 +147,20 @@ public struct MenuBarMenuModelBuilder: Sendable {
         appendInstalled(state.okItems, to: &entries)
 
         appendSeparator(to: &entries)
+        appendFooterActions(
+            installedTerminals: installedTerminals,
+            selectedTerminalID: selectedTerminalID,
+            to: &entries
+        )
+
+        return MenuBarMenuModel(entries: entries)
+    }
+
+    private func appendFooterActions(
+        installedTerminals: [TUITerminal],
+        selectedTerminalID: String?,
+        to entries: inout [MenuBarMenuEntry]
+    ) {
         for action in MenuBarMenuAction.footer {
             if action == .openTUI, installedTerminals.count > 1 {
                 appendOpenTUISubmenu(
@@ -164,8 +172,6 @@ public struct MenuBarMenuModelBuilder: Sendable {
                 appendAction(action.title, action: .menu(action), to: &entries)
             }
         }
-
-        return MenuBarMenuModel(entries: entries)
     }
 
     private func appendOpenTUISubmenu(
@@ -200,24 +206,15 @@ public struct MenuBarMenuModelBuilder: Sendable {
         return MenuBarMenuModel(entries: entries)
     }
 
-    private func appendUpdates(
-        _ items: [StatusItem],
-        approvalStatuses: [String: [CommandApprovalStatus]],
-        to entries: inout [MenuBarMenuEntry]
-    ) {
+    private func appendUpdates(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
         appendSection("Updates (\(items.count))", items: items, to: &entries) { item in
             let name = SecretRedactor.redact(item.name)
             let current = item.current.map(SecretRedactor.redact) ?? "?"
             let latest = item.latest.map(SecretRedactor.redact) ?? "?"
-            let confirmation = MenuBarActionConfirmation.updateItem(
-                for: item,
-                approvalStatuses: approvalStatuses
-            )
             return MenuBarMenuItem(
                 title: "\(name) \(current) -> \(latest)",
                 action: .update(id: item.id),
-                toolTip: confirmation.toolTip,
-                confirmation: confirmation
+                toolTip: "Updates \(SecretRedactor.redact(item.id)) immediately."
             )
         }
     }

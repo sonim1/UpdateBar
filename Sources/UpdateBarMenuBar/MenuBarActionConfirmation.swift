@@ -23,14 +23,8 @@ public struct MenuBarActionConfirmation: Equatable, Sendable {
 
     public static func confirmation(for action: MenuBarMenuAction) -> MenuBarActionConfirmation? {
         switch action {
-        case .updateAllApprovedOutdated:
-            return MenuBarActionConfirmation(
-                title: "Run Updates?",
-                message: "This runs update commands for approved outdated items.",
-                toolTip: "Runs approved outdated items after confirmation.",
-                confirmButton: "Run Updates"
-            )
-        case .refreshStatus, .checkNow, .openTUI, .overview, .manageItems, .scanAndAdd,
+        case .refreshStatus, .checkNow, .updateAllApprovedOutdated, .openTUI, .overview,
+            .manageItems, .scanAndAdd,
             .openConfig, .viewLogs, .quit:
             return nil
         }
@@ -54,7 +48,7 @@ public struct MenuBarActionConfirmation: Equatable, Sendable {
             title: "Run \(count) \(updateNoun)?",
             message: message,
             toolTip: "Runs \(count) approved outdated \(itemNoun) after confirmation.",
-            confirmButton: "Run Updates"
+            confirmButton: "Update All"
         )
     }
 

@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 0.6.1 - 2026-07-22
+
+### Changed
+
+- Individual menu bar updates and Update All now start immediately without a modal
+  confirmation while approval and revocation actions retain their confirmation step.
+- Renamed the bulk action to Update All and kept navigation and cancellation available
+  while updates run asynchronously.
+
+### Fixed
+
+- Refreshed the menu bar automatically after CLI-owned manifest, state, config, or history
+  files change.
+- Aligned menu bar scans with the CLI by scanning the real user home instead of the
+  UpdateBar data directory.
+- Added common Homebrew and Node version-manager paths to Finder-launched app commands so
+  tools such as `npm` are available without shell startup files.
+
 ## 0.6.0 - 2026-07-22
 
 ### Added

@@ -25,7 +25,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "---",
                 "Check Now",
                 "Refresh Status",
-                "Run Updates",
+                "Update All",
                 "---",
                 "Open TUI",
                 "Dashboard",
@@ -164,7 +164,7 @@ final class MenuBarMenuModelTests: XCTestCase {
             lastActionNotice: "Finished: Update sk-or-v1-secret-value"
         )
 
-        XCTAssertTrue(activeModel.entries.labels.contains("Running: Update [REDACTED]"))
+        XCTAssertTrue(activeModel.entries.labels.contains("Update [REDACTED]..."))
         XCTAssertTrue(finishedModel.entries.labels.contains("Finished: Update [REDACTED]"))
         XCTAssertFalse(activeModel.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
         XCTAssertFalse(
@@ -190,7 +190,7 @@ final class MenuBarMenuModelTests: XCTestCase {
             ])
     }
 
-    func testActiveActionMenuContainsCancelAndOnlySafeFooterActions() {
+    func testActiveUpdateMenuKeepsNavigationAvailable() {
         let state = MenuBarState(
             title: "Needs attention",
             badgeValue: "!",
@@ -213,16 +213,20 @@ final class MenuBarMenuModelTests: XCTestCase {
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
             approvalStatuses: [:],
-            activeActionTitle: "Update Old Tool"
+            activeActionTitle: "Updating Old Tool"
         )
 
         XCTAssertEqual(
             model.entries.labels,
             [
-                "Running: Update Old Tool",
+                "Updating Old Tool...",
                 "Cancel Current Action",
                 "---",
+                "Open TUI",
                 "Dashboard",
+                "Manage Items...",
+                "Scan & Add",
+                "Open Config",
                 "View Logs",
                 "Quit",
             ])
@@ -230,7 +234,11 @@ final class MenuBarMenuModelTests: XCTestCase {
             model.entries.actions,
             [
                 .cancelCurrentAction,
+                .menu(.openTUI),
                 .menu(.overview),
+                .menu(.manageItems),
+                .menu(.scanAndAdd),
+                .menu(.openConfig),
                 .menu(.viewLogs),
                 .menu(.quit),
             ])
@@ -292,7 +300,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "---",
                 "Check Now",
                 "Refresh Status",
-                "Run Updates",
+                "Update All",
                 "---",
                 "Updates (1)",
                 "Old Tool 1.0.0 -> 1.1.0",
@@ -394,7 +402,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 
-    func testRunUpdatesActionConfirmationSummarizesScope() {
+    func testUpdateAllRunsImmediatelyWithoutConfirmation() {
         let state = MenuBarState(
             title: "2 updates",
             badgeValue: "2",
@@ -424,21 +432,11 @@ final class MenuBarMenuModelTests: XCTestCase {
             approvalStatuses: [:]
         )
 
-        let runUpdatesItem = model.entries.item(titled: "Run Updates")
+        let updateAllItem = model.entries.item(titled: "Update All")
 
-        XCTAssertEqual(
-            runUpdatesItem?.toolTip, "Runs 2 approved outdated items after confirmation.")
-        XCTAssertEqual(runUpdatesItem?.confirmation?.title, "Run 2 Updates?")
-        XCTAssertEqual(
-            runUpdatesItem?.confirmation?.message,
-            """
-            This runs update commands for 2 approved outdated items.
-
-            Items:
-            - Old Tool
-            - Older Tool
-            """
-        )
+        XCTAssertEqual(updateAllItem?.toolTip, "Updates all 2 approved outdated items.")
+        XCTAssertEqual(updateAllItem?.action, .menu(.updateAllApprovedOutdated))
+        XCTAssertNil(updateAllItem?.confirmation)
     }
 
     func testRunUpdatesIsDisabledWhenNothingIsOutdated() {
@@ -456,13 +454,13 @@ final class MenuBarMenuModelTests: XCTestCase {
             approvalStatuses: [:]
         )
 
-        let runUpdatesItem = model.entries.item(titled: "Run Updates")
+        let runUpdatesItem = model.entries.item(titled: "Update All")
 
         XCTAssertNil(runUpdatesItem?.action)
         XCTAssertEqual(runUpdatesItem?.toolTip, "No updates available.")
     }
 
-    func testSingleUpdateActionExplainsConfirmation() {
+    func testSingleUpdateRunsImmediatelyWithoutConfirmation() {
         let state = MenuBarState(
             title: "1 update",
             badgeValue: "1",
@@ -487,100 +485,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let updateItem = model.entries.item(titled: "Old Tool 1.0.0 -> 1.1.0")
 
-        XCTAssertEqual(updateItem?.toolTip, "Runs old after confirmation.")
-    }
-
-    func testSingleUpdateActionConfirmationIncludesCommandDetailsWhenAvailable() {
-        let state = MenuBarState(
-            title: "1 update",
-            badgeValue: "1",
-            outdatedItems: [
-                statusItem(
-                    id: "old",
-                    name: "Old Tool",
-                    current: "1.0.0",
-                    latest: "1.1.0",
-                    status: .outdated
-                )
-            ],
-            approvalItems: [],
-            errorItems: [],
-            okItems: []
-        )
-        let approvals = [
-            "old": [
-                CommandApprovalStatus(
-                    field: "update.cmd",
-                    approved: true,
-                    fingerprint: "abc",
-                    command: "old-tool update",
-                    cwd: "/tmp/old"
-                )
-            ]
-        ]
-
-        let model = MenuBarMenuModelBuilder().makeMenu(
-            state: state,
-            approvalStatuses: approvals
-        )
-
-        let updateItem = model.entries.item(titled: "Old Tool 1.0.0 -> 1.1.0")
-
-        XCTAssertEqual(
-            updateItem?.confirmation?.message,
-            """
-            This runs the update command for old.
-
-            Command:
-            old-tool update
-
-            Working directory:
-            /tmp/old
-            """
-        )
-    }
-
-    func testSingleUpdateActionConfirmationRedactsSecretLikeCommandDetails() {
-        let state = MenuBarState(
-            title: "1 update",
-            badgeValue: "1",
-            outdatedItems: [
-                statusItem(
-                    id: "old",
-                    name: "Old Tool",
-                    current: "1.0.0",
-                    latest: "1.1.0",
-                    status: .outdated
-                )
-            ],
-            approvalItems: [],
-            errorItems: [],
-            okItems: []
-        )
-        let approvals = [
-            "old": [
-                CommandApprovalStatus(
-                    field: "update.cmd",
-                    approved: true,
-                    fingerprint: "abc",
-                    command: "OPENROUTER_API_KEY=sk-or-v1-secret-value old update",
-                    cwd: "/tmp/sk-or-v1-secret-value"
-                )
-            ]
-        ]
-
-        let model = MenuBarMenuModelBuilder().makeMenu(
-            state: state,
-            approvalStatuses: approvals
-        )
-
-        let updateItem = model.entries.item(titled: "Old Tool 1.0.0 -> 1.1.0")
-
-        XCTAssertNotNil(updateItem)
-        XCTAssertTrue(updateItem?.confirmation?.message.contains("[REDACTED] old update") ?? false)
-        XCTAssertTrue(updateItem?.confirmation?.message.contains("/tmp/[REDACTED]") ?? false)
-        XCTAssertFalse(updateItem?.confirmation?.message.contains("sk-or-v1-secret-value") ?? true)
-        XCTAssertFalse(updateItem?.confirmation?.message.contains("OPENROUTER_API_KEY=") ?? true)
+        XCTAssertEqual(updateItem?.toolTip, "Updates old immediately.")
+        XCTAssertNil(updateItem?.confirmation)
     }
 
     func testApprovalMenuRedactsSecretLikeCommandDetails() throws {

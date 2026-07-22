@@ -1407,7 +1407,7 @@ final class DocumentationSnapshotTests: XCTestCase {
 
         XCTAssertTrue(docs.contains("native `NSMenu`"))
         XCTAssertTrue(docs.contains("standard menu items, separators, submenus"))
-        XCTAssertTrue(docs.contains("`Check Now` and `Run Updates`"))
+        XCTAssertTrue(docs.contains("`Check Now` and `Update All`"))
         XCTAssertTrue(docs.contains("opens the Dashboard window directly"))
         XCTAssertTrue(docs.contains("left sidebar"))
         for section in ["Overview", "Items", "Scan & Add"] {

@@ -79,7 +79,24 @@ final class SourceHygieneTests: XCTestCase {
         )
     }
 
-    func testRefreshAndActionTransitionsProtectInstalledMenuState() throws {
+    func testUpdateActionsRunImmediatelyWithoutModalConfirmation() throws {
+        let source = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
+            encoding: .utf8
+        )
+        let updateSource = try functionSource(
+            named: "@objc private func updateAllApproved()",
+            endingAt: "@objc private func approveField(",
+            in: source
+        )
+
+        XCTAssertTrue(updateSource.contains("runAction(\"Updatingapproveditems\")"))
+        XCTAssertTrue(updateSource.contains("runAction(\"Updating\\(id)\")"))
+        XCTAssertFalse(updateSource.contains("confirm("))
+    }
+
+    func testRefreshPreservesActiveProgressAndActionTransitionsProtectInstalledMenuState() throws {
         let source = try String(
             contentsOf: URL(
                 fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
@@ -90,22 +107,29 @@ final class SourceHygieneTests: XCTestCase {
             endingAt: "private func runAction(",
             in: source
         )
-        let activeActionGuard = try XCTUnwrap(
-            refreshSource.range(
-                of: "guardactionCoordinator.activeAction==nilelse{rebuildMenu()return}"
-            )
-        )
         let generationBegin = try XCTUnwrap(
             refreshSource.range(of: "refreshGenerationGate.begin()")
+        )
+        let refreshPolicy = try XCTUnwrap(
+            refreshSource.range(of: "MenuBarRefreshPolicy.presentationMode(")
+        )
+        let loadingCondition = try XCTUnwrap(
+            refreshSource.range(of: "ifpresentationMode==.showLoading")
         )
         let loadingMenu = try XCTUnwrap(refreshSource.range(of: "menuBuilder.makeLoadingMenu()"))
         let backgroundRefresh = try XCTUnwrap(
             refreshSource.range(of: "DispatchQueue.global(qos:.userInitiated).async")
         )
 
-        XCTAssertLessThan(activeActionGuard.lowerBound, generationBegin.lowerBound)
-        XCTAssertLessThan(activeActionGuard.lowerBound, loadingMenu.lowerBound)
+        XCTAssertLessThan(generationBegin.lowerBound, refreshPolicy.lowerBound)
+        XCTAssertLessThan(refreshPolicy.lowerBound, loadingCondition.lowerBound)
+        XCTAssertLessThan(loadingCondition.lowerBound, loadingMenu.lowerBound)
         XCTAssertLessThan(loadingMenu.lowerBound, backgroundRefresh.lowerBound)
+        XCTAssertFalse(
+            refreshSource.contains(
+                "guardactionCoordinator.activeAction==nilelse{rebuildMenu()return}"
+            )
+        )
         XCTAssertTrue(refreshSource.contains("statusItem?.menu=makeMenu("))
 
         let runActionSource = try functionSource(
