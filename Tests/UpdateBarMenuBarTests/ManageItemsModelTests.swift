@@ -1,5 +1,6 @@
 import UpdateBarCore
 import XCTest
+
 @testable import UpdateBarMenuBar
 
 final class ManageItemsModelTests: XCTestCase {
@@ -108,6 +109,17 @@ final class ManageItemsModelTests: XCTestCase {
 }
 
 final class ManageItemsMutationGateTests: XCTestCase {
+    func testExposesPendingItemForRowLocalProgress() {
+        var gate = ManageItemsMutationGate()
+        gate.begin(id: "tool", enabled: false)
+
+        XCTAssertTrue(gate.isPending(id: "tool"))
+        XCTAssertFalse(gate.isPending(id: "other"))
+
+        gate.cancel()
+        XCTAssertFalse(gate.isPending(id: "tool"))
+    }
+
     func testRejectsStaleSnapshotUntilToggledStateAppears() {
         var gate = ManageItemsMutationGate()
         gate.begin(id: "tool", enabled: true)

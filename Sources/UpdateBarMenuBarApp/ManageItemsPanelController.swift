@@ -12,14 +12,23 @@
         private let model = ManageItemsModel()
         private var mutationGate = ManageItemsMutationGate()
         private var rows: [ManageItemsRow] = []
-        private var isRunning = false
+        private var rowWarnings: [String: String] = [:]
+        private var pendingEnabled: Bool?
+        private var isLoading = false
 
         var onRefresh: () -> Void = {}
         var onError: (Error) -> Void = { _ in }
 
         private let tableView = NSTableView()
-        private let refreshButton = NSButton(title: "Refresh", target: nil, action: nil)
-        private let statusLabel = NSTextField(labelWithString: "Ready")
+        private let refreshButton: NSButton = {
+            let image =
+                NSImage(
+                    systemSymbolName: "arrow.clockwise",
+                    accessibilityDescription: DashboardPresentationModel.itemsRefreshHelp
+                ) ?? NSImage()
+            return NSButton(image: image, target: nil, action: nil)
+        }()
+        private let loadingIndicator = NSProgressIndicator()
 
         init(
             service: any MenuBarServicing,
@@ -66,6 +75,9 @@
                 if identifier == "enabled" {
                     return checkboxCell(row: row, item: item)
                 }
+                if identifier == "status" {
+                    return statusCell(item)
+                }
                 return textCell(text(identifier, item: item))
             }
         }
@@ -80,20 +92,18 @@
             else { return }
             let enabled = sender.state == .on
             mutationGate.begin(id: item.id, enabled: enabled)
-            setRunning(true, message: "\(enabled ? "Enabling" : "Disabling") \(item.name)...")
+            pendingEnabled = enabled
+            rowWarnings[item.id] = nil
+            updateControls()
             DispatchQueue.global(qos: .userInitiated).async { [service] in
                 do {
                     try service.setEnabled(id: item.id, enabled: enabled)
                     DispatchQueue.main.async {
-                        self.setRunning(
-                            true,
-                            message: "\(item.name) updated. Refreshing..."
-                        )
                         self.onChanged()
                     }
                 } catch {
                     DispatchQueue.main.async {
-                        self.showMutationError(error)
+                        self.showMutationError(id: item.id, error: error)
                         self.onError(error)
                     }
                 }
@@ -102,27 +112,44 @@
 
         func setLoading() {
             _ = view
-            setRunning(true, message: "Loading...")
+            isLoading = true
+            updateControls()
         }
 
-        func apply(items: [StatusItem], message: String? = nil) {
+        func apply(items: [StatusItem]) {
             _ = view
             guard mutationGate.accepts(items) else { return }
+            pendingEnabled = nil
             rows = model.rows(from: items)
             tableView.reloadData()
-            setRunning(false, message: message ?? "\(items.count) item(s).")
+            isLoading = false
+            updateControls()
         }
 
         private func buildInterface(in content: NSView) {
             refreshButton.target = self
             refreshButton.action = #selector(reloadFromButton)
-            statusLabel.lineBreakMode = .byTruncatingTail
+            refreshButton.isBordered = false
+            refreshButton.toolTip = DashboardPresentationModel.itemsRefreshHelp
+            refreshButton.setAccessibilityLabel(DashboardPresentationModel.itemsRefreshHelp)
 
-            let controls = NSStackView(views: [refreshButton, statusLabel])
+            loadingIndicator.style = .spinning
+            loadingIndicator.controlSize = .small
+            loadingIndicator.isDisplayedWhenStopped = false
+            loadingIndicator.toolTip = "Refreshing items"
+            loadingIndicator.setAccessibilityLabel("Refreshing items")
+
+            let sectionTitle = NSTextField(labelWithString: "Items")
+            sectionTitle.font = .systemFont(ofSize: 20, weight: .semibold)
+            let spacer = NSView()
+            spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+            let controls = NSStackView(views: [
+                sectionTitle, spacer, loadingIndicator, refreshButton,
+            ])
             controls.orientation = .horizontal
             controls.alignment = .centerY
             controls.spacing = 8
-            statusLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
             for (identifier, title, width) in [
                 ("enabled", "On", 34.0),
@@ -170,21 +197,25 @@
 
         func showError(_ error: Error) {
             _ = view
-            setRunning(
-                mutationGate.isPending,
-                message: SecretRedactor.redact(String(describing: error))
-            )
+            isLoading = false
+            updateControls()
         }
 
-        private func showMutationError(_ error: Error) {
+        private func showMutationError(id: String, error: Error) {
             mutationGate.cancel()
-            showError(error)
+            pendingEnabled = nil
+            rowWarnings[id] = SecretRedactor.redact(String(describing: error))
+            isLoading = false
+            updateControls()
         }
 
-        private func setRunning(_ running: Bool, message: String) {
-            isRunning = running
-            statusLabel.stringValue = SecretRedactor.redact(message)
-            refreshButton.isEnabled = !running
+        private func updateControls() {
+            refreshButton.isEnabled = !isLoading
+            if isLoading {
+                loadingIndicator.startAnimation(nil)
+            } else {
+                loadingIndicator.stopAnimation(nil)
+            }
             tableView.reloadData()
         }
 
@@ -195,14 +226,71 @@
                 action: #selector(toggleItem(_:))
             )
             button.tag = row
-            button.state = item.isEnabled ? .on : .off
-            button.isEnabled = !isRunning
+            let isPending = mutationGate.isPending(id: item.id)
+            button.state = (isPending ? pendingEnabled : item.isEnabled) == true ? .on : .off
+            button.isEnabled = !isLoading && !mutationGate.isPending
+            let name = SecretRedactor.redact(item.name)
+            let action = button.state == .on ? "Disable" : "Enable"
+            button.toolTip = "\(action) \(name)"
+            button.setAccessibilityLabel("\(action) \(name)")
+
+            let views: [NSView]
+            if isPending {
+                let progress = NSProgressIndicator()
+                progress.style = .spinning
+                progress.controlSize = .small
+                progress.startAnimation(nil)
+                progress.toolTip = "Updating \(name)"
+                progress.setAccessibilityLabel("Updating \(name)")
+                views = [button, progress]
+            } else {
+                views = [button]
+            }
+
+            let stack = NSStackView(views: views)
+            stack.orientation = .horizontal
+            stack.alignment = .centerY
+            stack.spacing = 4
+            stack.translatesAutoresizingMaskIntoConstraints = false
             let cell = NSTableCellView()
-            cell.addSubview(button)
-            button.translatesAutoresizingMaskIntoConstraints = false
+            cell.addSubview(stack)
             NSLayoutConstraint.activate([
-                button.centerXAnchor.constraint(equalTo: cell.centerXAnchor),
-                button.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                stack.centerXAnchor.constraint(equalTo: cell.centerXAnchor),
+                stack.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            ])
+            return cell
+        }
+
+        private func statusCell(_ item: ManageItemRow) -> NSTableCellView {
+            let label = NSTextField(labelWithString: item.statusLabel)
+            label.lineBreakMode = .byTruncatingTail
+            var views: [NSView] = [label]
+            if let warning = rowWarnings[item.id] {
+                let icon = NSImageView()
+                icon.image = NSImage(
+                    systemSymbolName: "exclamationmark.triangle.fill",
+                    accessibilityDescription: "Update failed"
+                )
+                icon.contentTintColor = .systemRed
+                icon.toolTip = warning
+                icon.setAccessibilityLabel(
+                    "Update failed for \(SecretRedactor.redact(item.name)): \(warning)"
+                )
+                views.append(icon)
+            }
+
+            let stack = NSStackView(views: views)
+            stack.orientation = .horizontal
+            stack.alignment = .centerY
+            stack.spacing = 5
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            let cell = NSTableCellView()
+            cell.addSubview(stack)
+            NSLayoutConstraint.activate([
+                stack.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
+                stack.trailingAnchor.constraint(
+                    lessThanOrEqualTo: cell.trailingAnchor, constant: -4),
+                stack.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             ])
             return cell
         }

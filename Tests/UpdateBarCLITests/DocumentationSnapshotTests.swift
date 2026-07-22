@@ -1391,19 +1391,30 @@ final class DocumentationSnapshotTests: XCTestCase {
 
     func testMenuBarDocsDescribeCurrentNativeMenuAndUnifiedDashboardWindow() throws {
         let docs = try String(contentsOfFile: "docs/menu-bar.md", encoding: .utf8)
+        let normalizedDocs = normalizedWhitespace(docs)
 
         XCTAssertTrue(docs.contains("native `NSMenu`"))
         XCTAssertTrue(docs.contains("standard menu items, separators, submenus"))
         XCTAssertTrue(docs.contains("`Check Now` and `Run Updates`"))
         XCTAssertTrue(docs.contains("opens the Dashboard window directly"))
-        XCTAssertTrue(docs.contains("Overview and Items tabs"))
+        XCTAssertTrue(docs.contains("left sidebar"))
+        for section in ["Overview", "Items", "Scan & Add"] {
+            XCTAssertTrue(docs.contains(section), "Dashboard docs missing \(section)")
+        }
         XCTAssertTrue(docs.contains("same Dashboard window"))
+        XCTAssertTrue(docs.contains("scans only when you press Scan"))
+        XCTAssertTrue(
+            normalizedDocs.contains("Checking an available candidate registers it immediately"))
+        XCTAssertTrue(normalizedDocs.contains("Unchecking disables it without deleting it"))
+        XCTAssertTrue(normalizedDocs.contains("checking it again re-enables the same item"))
         XCTAssertTrue(docs.contains("Cmd-Tab"))
-        XCTAssertTrue(docs.contains("menu-bar-only mode"))
+        XCTAssertTrue(normalizedDocs.contains("menu-bar-only mode"))
         XCTAssertTrue(docs.contains("native error-recovery menu"))
         XCTAssertTrue(docs.contains("system appearance"))
         XCTAssertFalse(docs.contains("compact read-only popover"))
         XCTAssertFalse(docs.contains("separate detailed Dashboard window"))
+        XCTAssertFalse(docs.contains("Overview and Items tabs"))
+        XCTAssertFalse(docs.contains("Scan & Add` remains a separate panel"))
     }
 
     func testMenuBarTroubleshootingAvoidsBroadPkill() throws {

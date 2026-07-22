@@ -152,24 +152,83 @@ final class CoreMenuBarServiceTests: XCTestCase {
         XCTAssertEqual(state.items["tool"]?.status, .outdated)
     }
 
-    func testCoreServiceTogglesItemEnabledState() throws {
+    func testCoreServicePreservesScannedItemAcrossDisableAndReenable() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
-        try ManifestStore(paths: paths).save(
-            manifest(items: [
-                recipe(id: "tool", updateCommand: "tool update", currentCommand: "tool current")
-            ]))
-        try StateStore(paths: paths).save(
-            State(schemaVersion: 1, generatedAt: now, items: [:]))
+        let candidateRecipe = recipe(
+            id: "tool", updateCommand: "tool update", currentCommand: "tool current")
+        let candidate = ScanCandidate(
+            id: candidateRecipe.id,
+            name: candidateRecipe.name,
+            detector: .known,
+            category: candidateRecipe.category,
+            capability: .full,
+            confidence: .high,
+            installedVersion: "1.0.0",
+            sourceRef: candidateRecipe.source.ref,
+            recipe: candidateRecipe
+        )
         let service = CoreMenuBarService(paths: paths, now: { self.now })
 
-        try service.setEnabled(id: "tool", enabled: false)
+        let summary = try service.registerScannedCandidates(
+            [candidate], selectedIDs: [candidate.id], replace: false)
+        let registered = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: candidate.id))
+
+        XCTAssertEqual(summary.added, [candidate.id])
+        XCTAssertEqual(registered.trust.level, .untrusted)
+        XCTAssertEqual(registered.trust.approvedCommands, [:])
+
+        for field in ["check.cmd", "latest.cmd", "update.cmd"] {
+            try service.approve(id: candidate.id, field: field)
+        }
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1,
+                generatedAt: now,
+                items: [
+                    candidate.id: ItemState(
+                        current: "1.0.0",
+                        latest: "1.1.0",
+                        status: .outdated,
+                        lastChecked: now,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                ]
+            ))
+        try HistoryStore(paths: paths).append(
+            HistoryEvent(event: .checkFinished, outdated: 1, at: now))
+        let approved = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: candidate.id))
+        let stateBeforeToggle = try StateStore(paths: paths).load()
+        let historyBeforeToggle = try service.history(since: nil)
+        let manifestCreatedAt = try ManifestStore(paths: paths).load().provenance.createdAt
+
+        try service.setEnabled(id: candidate.id, enabled: false)
+        let disabledManifest = try ManifestStore(paths: paths).load()
+        let disabledRecipe = try XCTUnwrap(disabledManifest.item(id: candidate.id))
+        var expectedDisabledRecipe = approved
+        expectedDisabledRecipe.enabled = false
         let disabled = try service.status(refresh: false)
+
+        XCTAssertEqual(disabledManifest.items.count, 1)
+        XCTAssertEqual(disabledManifest.provenance.createdAt, manifestCreatedAt)
+        XCTAssertEqual(disabledRecipe, expectedDisabledRecipe)
+        XCTAssertEqual(disabledRecipe.trust, approved.trust)
+        XCTAssertEqual(try StateStore(paths: paths).load(), stateBeforeToggle)
+        XCTAssertEqual(try service.history(since: nil), historyBeforeToggle)
         XCTAssertEqual(disabled.items.first?.status, .disabled)
 
-        try service.setEnabled(id: "tool", enabled: true)
+        try service.setEnabled(id: candidate.id, enabled: true)
+        let reenabledManifest = try ManifestStore(paths: paths).load()
+        let reenabledRecipe = try XCTUnwrap(reenabledManifest.item(id: candidate.id))
         let enabled = try service.status(refresh: false)
-        XCTAssertNotEqual(enabled.items.first?.status, .disabled)
+
+        XCTAssertEqual(reenabledManifest.items.map(\.id), [candidate.id])
+        XCTAssertEqual(reenabledManifest.provenance.createdAt, manifestCreatedAt)
+        XCTAssertEqual(reenabledRecipe, approved)
+        XCTAssertEqual(try StateStore(paths: paths).load(), stateBeforeToggle)
+        XCTAssertEqual(try service.history(since: nil), historyBeforeToggle)
+        XCTAssertEqual(enabled.items.first?.status, .outdated)
     }
 
     private func manifest(items: [Recipe]) -> Manifest {

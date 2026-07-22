@@ -24,17 +24,21 @@ Current scope:
 - keeps bulk-update confirmation in the app dispatcher before approved update
   commands run
 
-`Dashboard` opens the Dashboard window directly. The window has Overview and Items tabs
-built with native AppKit controls. Overview shows pending-update and awaiting-approval counts, last
-check/update times, and a bar chart of successful updates over the last four
-weeks (from `~/.updatebar/history.jsonl`). Items lists every registered item
-grouped by category with an enable/disable checkbox per item. `Manage Items...`
-opens the same Dashboard window with Items selected, so item management never
-creates another panel. While the Dashboard window is visible, UpdateBar appears
-in Cmd-Tab and the Dock. Closing the last visible titled UpdateBar window returns
-the process to menu-bar-only mode. `Scan & Add` remains a separate panel that
-scans only when you press Scan, marks already-registered candidates, and
-registers selected ones without approving any commands.
+`Dashboard` opens the Dashboard window directly. A left sidebar switches between
+Overview, Items, and Scan & Add in the same Dashboard window, with each section
+using native macOS UI. The sidebar, Items, and Scan & Add use AppKit controls;
+Overview is SwiftUI-hosted. Overview shows pending-update and
+awaiting-approval counts, last check/update times, and a bar chart of successful
+updates over the last four weeks (from `~/.updatebar/history.jsonl`). Items lists
+every registered item grouped by category with an enable/disable checkbox per
+item. `Manage Items...` opens that Dashboard window with Items selected, and
+`Scan & Add` opens it with Scan & Add selected, so neither action creates another
+panel. Scan & Add scans only when you press Scan. Checking an available candidate
+registers it immediately without approving any commands. Unchecking disables it
+without deleting it, and checking it again re-enables the same item. While the
+Dashboard window is visible, UpdateBar appears in Cmd-Tab and the Dock. Closing
+the last visible titled UpdateBar window returns the process to menu-bar-only
+mode.
 
 If an operation or status refresh fails, the status badge changes to `!` and the
 app directly assigns a native error-recovery menu. Refresh Status, Check Now,
