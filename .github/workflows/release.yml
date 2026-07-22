@@ -63,10 +63,19 @@ jobs:
           NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
           NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
         run: |
-          if [[ -z "$MACOS_SIGNING_CERT_P12" ]]; then
-            echo "signing secrets not configured; building unsigned app"
-            exit 0
+          if [[ -z "$MACOS_SIGNING_CERT_P12" || -z "$MACOS_SIGNING_CERT_PASSWORD" ]]; then
+            echo "macOS signing secrets are required for app release" >&2
+            exit 1
+          fi
+          if [[ -z "$NOTARY_APPLE_ID" || -z "$NOTARY_TEAM_ID" || -z "$NOTARY_PASSWORD" ]]; then
+            echo "Apple notary secrets are required for app release" >&2
+            exit 1
+          fi
+          if [[ ! "$SPARKLE_PUBLIC_ED_KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]]; then
+            echo "SPARKLE_PUBLIC_ED_KEY GitHub variable must be a canonical 32-byte Base64 public key" >&2
+            exit 1
           fi
 
           KEYCHAIN_PATH="$RUNNER_TEMP/updatebar-signing.keychain-db"
@@ -92,37 +101,24 @@ jobs:
             exit 1
           fi
           {
-            echo "UPDATEBAR_SIGN_APP=1"
-            echo "UPDATEBAR_SIGN_IDENTITY=$IDENTITY"
+            echo "DEVELOPER_ID_APPLICATION=$IDENTITY"
+            echo "SPARKLE_PUBLIC_ED_KEY=$SPARKLE_PUBLIC_ED_KEY"
           } >>"$GITHUB_ENV"
 
-          if [[ -n "$NOTARY_APPLE_ID" && -n "$NOTARY_TEAM_ID" && -n "$NOTARY_PASSWORD" ]]; then
-            xcrun notarytool store-credentials updatebar-notary \
-              --apple-id "$NOTARY_APPLE_ID" \
-              --team-id "$NOTARY_TEAM_ID" \
-              --password "$NOTARY_PASSWORD" \
-              --keychain "$KEYCHAIN_PATH" >/dev/null
-            {
-              echo "UPDATEBAR_NOTARIZE_APP=1"
-              echo "UPDATEBAR_NOTARYTOOL_KEYCHAIN_PROFILE=updatebar-notary"
-              echo "UPDATEBAR_NOTARYTOOL_KEYCHAIN=$KEYCHAIN_PATH"
-            } >>"$GITHUB_ENV"
-          else
-            echo "notary secrets not configured; app will be signed but not notarized"
-          fi
-      - name: Build app archive
+          xcrun notarytool store-credentials updatebar-notary \
+            --apple-id "$NOTARY_APPLE_ID" \
+            --team-id "$NOTARY_TEAM_ID" \
+            --password "$NOTARY_PASSWORD" \
+            --keychain "$KEYCHAIN_PATH" >/dev/null
+          {
+            echo "NOTARYTOOL_KEYCHAIN_PROFILE=updatebar-notary"
+            echo "NOTARYTOOL_KEYCHAIN=$KEYCHAIN_PATH"
+          } >>"$GITHUB_ENV"
+      - name: Build notarized app DMG
         if: runner.os == 'macOS'
         run: |
-          bash Scripts/package-app.sh
-          if [[ "${UPDATEBAR_SIGN_APP:-0}" == "1" ]]; then
-            codesign --verify --strict --deep dist/UpdateBar.app
-          fi
-          if [[ "${UPDATEBAR_NOTARIZE_APP:-0}" == "1" ]]; then
-            xcrun stapler validate dist/UpdateBar.app
-          fi
-          APP_ARCHIVE="$(bash Scripts/build-app-archive.sh)"
-          shasum -a 256 -c "${APP_ARCHIVE}.sha256"
-          bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"
+          APP_DMG="$(bash Scripts/build-app-dmg.sh)"
+          bash Scripts/app-dmg-smoke-test.sh "$APP_DMG"
       - name: Verify release metadata
         if: runner.os == 'macOS'
         # SHA equality against the committed formula/cask is skipped here:
@@ -139,6 +135,7 @@ jobs:
           name: updatebar-${{ matrix.name }}
           path: |
             dist/*.tar.gz
+            dist/*.dmg
             dist/*.sha256
 
   publish:
@@ -166,6 +163,7 @@ jobs:
         with:
           files: |
             dist/*.tar.gz
+            dist/*.dmg
             dist/*.sha256
           body_path: release-notes.md
           fail_on_unmatched_files: true

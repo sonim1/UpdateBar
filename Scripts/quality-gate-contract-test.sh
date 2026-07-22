@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 QUALITY_GATE="$ROOT/Scripts/quality-gate.sh"
-APP_ARCHIVE_SMOKE="$ROOT/Scripts/app-archive-smoke-test.sh"
+APP_DMG_SMOKE="$ROOT/Scripts/app-dmg-smoke-test.sh"
 CI_WORKFLOW="$ROOT/.github/workflows/ci.yml"
 RELEASE_WORKFLOW="$ROOT/.github/workflows/release.yml"
 
@@ -180,14 +180,38 @@ if ! grep -Fq 'bash Scripts/menubar-smoke-test.sh dist/UpdateBar.app' "$QUALITY_
   exit 1
 fi
 
-if ! grep -Fq 'bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"' "$QUALITY_GATE"; then
-  echo "quality-gate.sh must run app archive smoke checks" >&2
+if ! grep -Fq 'bash Scripts/build-app-dmg-test.sh' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must run the app DMG builder contract without live notarization" >&2
   exit 1
 fi
 
-if grep -Fq 'build-app-archive.sh | tail -n 1' "$QUALITY_GATE" \
-  || grep -Fq 'build-app-archive.sh" | tail -n 1' "$APP_ARCHIVE_SMOKE" \
-  || grep -Fq 'build-app-archive.sh | tail -n 1' "$RELEASE_WORKFLOW"; then
-  echo "quality gate, app archive smoke, and release workflow must consume build-app-archive.sh output directly" >&2
+if grep -Eq 'build-app-archive|app-archive-smoke|archive-version-smoke' \
+  "$QUALITY_GATE" "$RELEASE_WORKFLOW" "$APP_DMG_SMOKE"; then
+  echo "live quality and release callers must not reference obsolete app archive scripts" >&2
+  exit 1
+fi
+
+if grep -Fq 'bash Scripts/build-app-dmg.sh' "$QUALITY_GATE"; then
+  echo "the normal quality gate must not perform live signing or notarization" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'bash Scripts/build-app-dmg.sh' "$RELEASE_WORKFLOW" \
+  || ! grep -Fq 'bash Scripts/app-dmg-smoke-test.sh "$APP_DMG"' "$RELEASE_WORKFLOW" \
+  || ! grep -Fq 'dist/*.dmg' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must build, smoke-check, and upload the canonical app DMG" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}' "$RELEASE_WORKFLOW" \
+  || ! grep -Fq 'DEVELOPER_ID_APPLICATION=$IDENTITY' "$RELEASE_WORKFLOW" \
+  || ! grep -Fq 'NOTARYTOOL_KEYCHAIN_PROFILE=updatebar-notary' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must provide the standard signing, notary, and Sparkle inputs" >&2
+  exit 1
+fi
+
+if grep -Fq 'building unsigned app' "$RELEASE_WORKFLOW" \
+  || grep -Fq 'app will be signed but not notarized' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must fail closed rather than publish unsigned or unnotarized apps" >&2
   exit 1
 fi

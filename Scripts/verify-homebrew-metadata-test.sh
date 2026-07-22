@@ -13,10 +13,10 @@ trap cleanup EXIT
 source version.env
 
 formula_asset="updatebar-${UPDATEBAR_VERSION}-macos-arm64.tar.gz"
-cask_asset="UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.app.tar.gz"
+cask_asset="UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.dmg"
 
 printf 'not a release archive\n' > "$TMP_DIR/$formula_asset"
-printf 'not a cask archive\n' > "$TMP_DIR/$cask_asset"
+printf 'not a cask DMG\n' > "$TMP_DIR/$cask_asset"
 printf '0000000000000000000000000000000000000000000000000000000000000000  %s\n' "$formula_asset" > "$TMP_DIR/$formula_asset.sha256"
 printf '0000000000000000000000000000000000000000000000000000000000000000  %s\n' "$cask_asset" > "$TMP_DIR/$cask_asset.sha256"
 
@@ -66,7 +66,7 @@ fi
 cat > "$TMP_DIR/bad-cask.rb" <<EOF
 cask "updatebar-app" do
   version "$UPDATEBAR_VERSION"
-  url "https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/UpdateBar-#{version}-macos-arm64.app.tar.gz"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/UpdateBar-#{version}-macos-arm64.dmg"
   sha256 "not-a-sha"
 end
 EOF
@@ -122,7 +122,7 @@ fi
 cat > "$TMP_DIR/bad-cask-url.rb" <<EOF
 cask "updatebar-app" do
   version "$UPDATEBAR_VERSION"
-  url "https://example.test/releases/v#{version}/UpdateBar-#{version}-macos-arm64.app.tar.gz"
+  url "https://example.test/releases/v#{version}/UpdateBar-#{version}-macos-arm64.dmg"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 end
 EOF
@@ -202,6 +202,31 @@ if ! grep -Fq "cask URL must end with $cask_asset" "$BAD_CASK_ASSET_OUTPUT"; the
   cat "$BAD_CASK_ASSET_OUTPUT" >&2
   exit 1
 fi
+
+# Obsolete app archives, wrong architectures, and shortened names must never
+# satisfy the canonical app DMG contract.
+for rejected_cask_asset in \
+  "UpdateBar-#{version}-macos-arm64.app.tar.gz" \
+  "UpdateBar-#{version}-macos-x86_64.dmg" \
+  "UpdateBar-#{version}.dmg"; do
+  cat > "$TMP_DIR/rejected-cask.rb" <<EOF
+cask "updatebar-app" do
+  version "$UPDATEBAR_VERSION"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v#{version}/$rejected_cask_asset"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+end
+EOF
+  set +e
+  UPDATEBAR_VERIFY_STATIC_ONLY=1 \
+    UPDATEBAR_HOMEBREW_CASK_PATH="$TMP_DIR/rejected-cask.rb" \
+    bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" >/dev/null 2>&1
+  rejected_status=$?
+  set -e
+  if [[ "$rejected_status" -eq 0 ]]; then
+    echo "metadata verification accepted noncanonical cask asset: $rejected_cask_asset" >&2
+    exit 1
+  fi
+done
 
 # Strict mode with real (mismatching) archives must fail on SHA equality...
 STRICT_OUTPUT="$TMP_DIR/strict.out"

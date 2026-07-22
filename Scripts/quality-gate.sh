@@ -103,14 +103,11 @@ bash Scripts/build-release-archive-test.sh
 echo "running app icon asset check"
 bash Scripts/app-icon-test.sh
 
-echo "running app archive behavior check"
-bash Scripts/build-app-archive-test.sh
+echo "running app DMG behavior check"
+bash Scripts/build-app-dmg-test.sh
 
 echo "running app signing behavior check"
 bash Scripts/package-app-signing-test.sh
-
-echo "running archive version checks"
-bash Scripts/archive-version-smoke-test.sh
 
 echo "running archive smoke test"
 bash Scripts/archive-smoke-test.sh
@@ -136,13 +133,11 @@ bash Scripts/tui-input-test.sh
 if [[ "$SKIP_MENUBAR_SMOKE" != "1" ]]; then
   if [[ "$(uname -s)" == "Darwin" ]]; then
     echo "packaging menu bar app"
-    UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE=1 bash Scripts/package-app.sh >/dev/null
+    QUALITY_GATE_SPARKLE_KEY="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+    SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-$QUALITY_GATE_SPARKLE_KEY}" \
+      UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE=1 bash Scripts/package-app.sh >/dev/null
     echo "running menubar smoke test"
     bash Scripts/menubar-smoke-test.sh dist/UpdateBar.app
-    echo "building app archive"
-    APP_ARCHIVE="$(bash Scripts/build-app-archive.sh)"
-    echo "running app archive smoke test"
-    bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"
   else
     echo "skipping menubar smoke on non-macOS"
   fi

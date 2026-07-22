@@ -24,8 +24,8 @@ CASK_PATH="${UPDATEBAR_HOMEBREW_CASK_PATH:-Packaging/homebrew/Casks/updatebar-ap
 STRICT="${UPDATEBAR_VERIFY_STRICT:-0}"
 STATIC_ONLY="${UPDATEBAR_VERIFY_STATIC_ONLY:-0}"
 # Skip "committed formula/cask SHA == freshly built archive SHA" checks.
-# Signed + notarized (stapled) app archives and toolchain drift make
-# rebuilt archives differ from published assets, so release builds verify
+# Signed + notarized (stapled) app DMGs and toolchain drift make
+# rebuilt artifacts differ from published assets, so release builds verify
 # structure strictly but leave SHA equality to the tap update step.
 SKIP_SHA_EQUALITY="${UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY:-0}"
 
@@ -144,7 +144,7 @@ if [[ "$CASK_VERSION" != "$UPDATEBAR_VERSION" ]]; then
 fi
 CASK_RESOLVED_URL="${CASK_URL//\#\{version\}/$CASK_VERSION}"
 validate_release_url "cask" "$CASK_RESOLVED_URL"
-validate_release_asset "cask" "$CASK_RESOLVED_URL" "UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.app.tar.gz"
+validate_release_asset "cask" "$CASK_RESOLVED_URL" "UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.dmg"
 
 CASK_ASSET="$(basename "$CASK_RESOLVED_URL")"
 CASK_ARCHIVE="$DIST_DIR/$CASK_ASSET"
@@ -154,22 +154,22 @@ if [[ "$STATIC_ONLY" == "1" ]]; then
   :
 elif [[ -f "$CASK_ARCHIVE" ]]; then
   if [[ ! -f "$CASK_SHA_FILE" ]]; then
-    echo "missing app archive checksum: $CASK_SHA_FILE" >&2
+    echo "missing app DMG checksum: $CASK_SHA_FILE" >&2
     exit 1
   fi
 
   CASK_CALC_SHA="$(hash_file "$CASK_ARCHIVE")"
   CASK_RECORDED_SHA="$(awk '{print $1}' "$CASK_SHA_FILE")"
-  validate_sha256 "app archive checksum" "$CASK_RECORDED_SHA"
+  validate_sha256 "app DMG checksum" "$CASK_RECORDED_SHA"
 
   if [[ "$CASK_CALC_SHA" != "$CASK_RECORDED_SHA" ]]; then
     if [[ "$STRICT" == "1" ]]; then
-      echo "app archive checksum mismatch for $CASK_ARCHIVE" >&2
+      echo "app DMG checksum mismatch for $CASK_ARCHIVE" >&2
       echo "  recorded: $CASK_RECORDED_SHA" >&2
       echo "  calc:     $CASK_CALC_SHA" >&2
       exit 1
     fi
-    echo "warning: app archive checksum mismatch (non-strict): recorded $CASK_RECORDED_SHA vs calc $CASK_CALC_SHA" >&2
+    echo "warning: app DMG checksum mismatch (non-strict): recorded $CASK_RECORDED_SHA vs calc $CASK_CALC_SHA" >&2
   fi
   if [[ "$CASK_SHA" != "$CASK_RECORDED_SHA" ]]; then
     if [[ "$STRICT" == "1" && "$SKIP_SHA_EQUALITY" != "1" ]]; then
@@ -182,7 +182,7 @@ elif [[ -f "$CASK_ARCHIVE" ]]; then
   fi
 else
   if [[ "$STRICT" == "1" ]]; then
-    echo "missing app archive for cask verification: $CASK_ARCHIVE" >&2
+    echo "missing app DMG for cask verification: $CASK_ARCHIVE" >&2
     exit 1
   fi
   echo "skip cask verification; asset not found: $CASK_ASSET" >&2

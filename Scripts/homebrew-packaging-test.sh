@@ -46,6 +46,15 @@ for cask in "${casks[@]}"; do
     echo "app cask must not link the CLI binary: $cask" >&2
     exit 1
   fi
+
+  if ! grep -Fq 'UpdateBar-#{version}-macos-arm64.dmg' "$cask"; then
+    echo "app cask must use the canonical arm64 DMG release asset: $cask" >&2
+    exit 1
+  fi
+  if grep -Fq '.app.tar.gz' "$cask" || grep -Fq 'macos-x86_64.dmg' "$cask"; then
+    echo "app cask must not reference an obsolete or wrong-architecture app asset: $cask" >&2
+    exit 1
+  fi
 done
 
 echo "homebrew packaging ok"
