@@ -57,7 +57,7 @@ printf 'security:%s\n' "$*" >>"${COMMAND_LOG:?}"
 printf 'security progress\n'
 if [[ "${FAIL_SECURITY:-0}" == "1" ]]; then exit 41; fi
 if [[ "${FAKE_IDENTITY_PRESENT:-1}" == "1" ]]; then
-  printf '  1) ABCDEF "Developer ID Application: Example (TEAMID)"\n'
+  printf '  1) ABCDEF "%s"\n' "${FAKE_IDENTITY:-Developer ID Application: Example (TEAMID1234)}"
 fi
 SH
 
@@ -159,7 +159,7 @@ run_builder() {
       UPDATEBAR_TEST_ARCH=arm64 \
       UPDATEBAR_TEST_ALLOW_NON_VOLUMES_MOUNT=1 \
       SPARKLE_PUBLIC_ED_KEY="$VALID_KEY" \
-      DEVELOPER_ID_APPLICATION='Developer ID Application: Example (TEAMID)' \
+      DEVELOPER_ID_APPLICATION='Developer ID Application: Example (TEAMID1234)' \
       NOTARYTOOL_KEYCHAIN_PROFILE=updatebar-notary \
       CODESIGN_BIN="$BIN_DIR/codesign" \
       SECURITY_BIN="$BIN_DIR/security" \
@@ -187,7 +187,7 @@ set +e
 (
   cd "$TEST_ROOT"
   COMMAND_LOG="$LOG" UPDATEBAR_TEST_SYSTEM=Darwin UPDATEBAR_TEST_ARCH=arm64 \
-    DEVELOPER_ID_APPLICATION=identity NOTARYTOOL_KEYCHAIN_PROFILE=profile \
+    DEVELOPER_ID_APPLICATION='Developer ID Application: Example (TEAMID1234)' NOTARYTOOL_KEYCHAIN_PROFILE=profile \
     bash Scripts/build-app-dmg.sh
 ) >/dev/null 2>&1
 missing_key_status=$?
@@ -212,12 +212,12 @@ for missing_case in identity profile invalid-key; do
         ;;
       profile)
         COMMAND_LOG="$LOG" UPDATEBAR_TEST_SYSTEM=Darwin UPDATEBAR_TEST_ARCH=arm64 \
-          SPARKLE_PUBLIC_ED_KEY="$VALID_KEY" DEVELOPER_ID_APPLICATION=identity \
+          SPARKLE_PUBLIC_ED_KEY="$VALID_KEY" DEVELOPER_ID_APPLICATION='Developer ID Application: Example (TEAMID1234)' \
           bash Scripts/build-app-dmg.sh
         ;;
       invalid-key)
         COMMAND_LOG="$LOG" UPDATEBAR_TEST_SYSTEM=Darwin UPDATEBAR_TEST_ARCH=arm64 \
-          SPARKLE_PUBLIC_ED_KEY='not-base64' DEVELOPER_ID_APPLICATION=identity \
+          SPARKLE_PUBLIC_ED_KEY='not-base64' DEVELOPER_ID_APPLICATION='Developer ID Application: Example (TEAMID1234)' \
           NOTARYTOOL_KEYCHAIN_PROFILE=profile bash Scripts/build-app-dmg.sh
         ;;
     esac
@@ -265,6 +265,36 @@ for preflight_case in missing-identity security-failure history-failure; do
   assert_absent_outputs
 done
 
+# Installed identities of the wrong certificate type are invalid input and
+# must be rejected before even querying the keychain.
+for wrong_identity in \
+  'Apple Development: Example (TEAMID1234)' \
+  'Apple Distribution: Example (TEAMID1234)' \
+  '-' \
+  '0123456789ABCDEF' \
+  'prefix Developer ID Application: Example (TEAMID1234)' \
+  'Developer ID Application: Example (SHORT)' \
+  'Developer ID Application: (TEAMID1234)' \
+  'Developer ID Application: Example (TEAMID1234) suffix' \
+  $'Developer ID Application: Example\tName (TEAMID1234)' \
+  $'Developer ID Application: Example (TEAMID1234)\nApple Development: Other (TEAMID1234)'; do
+  : >"$LOG"
+  set +e
+  run_builder DEVELOPER_ID_APPLICATION="$wrong_identity" FAKE_IDENTITY="$wrong_identity" \
+    >"$TMP_DIR/wrong-identity.stdout" 2>"$TMP_DIR/wrong-identity.stderr"
+  wrong_identity_status=$?
+  set -e
+  if [[ "$wrong_identity_status" -ne 64 || -s "$TMP_DIR/wrong-identity.stdout" ]]; then
+    echo "invalid Developer ID identity form was not rejected with exit 64: $wrong_identity" >&2
+    exit 1
+  fi
+  if grep -Eq '^security:|^xcrun:|^package:' "$LOG"; then
+    echo "invalid Developer ID identity reached security/notary/package: $wrong_identity" >&2
+    exit 1
+  fi
+  assert_absent_outputs
+done
+
 # The full notarized DMG flow publishes only the canonical DMG and checksum.
 : >"$LOG"
 output="$(run_builder NOTARYTOOL_KEYCHAIN=/tmp/test.keychain 2>"$TMP_DIR/builder-success.err")"
@@ -283,12 +313,12 @@ if [[ "$(find "$TEST_ROOT/dist" -maxdepth 1 -type f -print | sort)" != "$expecte
   exit 1
 fi
 
-package_line="$(grep -n '^package:1:Developer ID Application: Example (TEAMID):' "$LOG" | cut -d: -f1)"
+package_line="$(grep -n '^package:1:Developer ID Application: Example (TEAMID1234):' "$LOG" | cut -d: -f1)"
 security_line="$(grep -n '^security:find-identity -v -p codesigning /tmp/test.keychain$' "$LOG" | cut -d: -f1)"
 history_line="$(grep -n '^xcrun:notarytool history --keychain-profile updatebar-notary --keychain /tmp/test.keychain$' "$LOG" | cut -d: -f1)"
 app_verify_line="$(grep -n 'codesign:--verify --strict --deep .*dist/UpdateBar.app' "$LOG" | cut -d: -f1)"
 create_line="$(grep -n '^hdiutil:create ' "$LOG" | cut -d: -f1)"
-dmg_sign_line="$(grep -n 'codesign:.*--sign Developer ID Application: Example (TEAMID).*\.dmg' "$LOG" | cut -d: -f1)"
+dmg_sign_line="$(grep -n 'codesign:.*--sign Developer ID Application: Example (TEAMID1234).*\.dmg' "$LOG" | cut -d: -f1)"
 notary_line="$(grep -n 'xcrun:notarytool submit .* --wait --keychain-profile updatebar-notary --keychain /tmp/test.keychain' "$LOG" | cut -d: -f1)"
 staple_line="$(grep -n '^xcrun:stapler staple ' "$LOG" | cut -d: -f1)"
 validate_line="$(grep -n '^xcrun:stapler validate ' "$LOG" | cut -d: -f1)"

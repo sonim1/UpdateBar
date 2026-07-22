@@ -38,6 +38,11 @@ fail() {
   exit 1
 }
 
+invalid_input() {
+  echo "$*" >&2
+  exit 64
+}
+
 cleanup() {
   local original_status=$?
   local detach_status=0
@@ -79,6 +84,20 @@ validate_text_input() {
   fi
 }
 
+validate_developer_id_identity() {
+  if ! "$RUBY_BIN" -e '
+    value = ARGV.fetch(0)
+    match = value.match(/\ADeveloper ID Application: (.+) \(([A-Z0-9]{10})\)\z/)
+    subject = match && match[1]
+    safe = value.valid_encoding? && !value.include?(%q{"}) &&
+      value.each_codepoint.none? { |codepoint| codepoint < 0x20 || codepoint == 0x7f }
+    valid = safe && subject && !subject.empty? && subject == subject.strip
+    exit(valid ? 0 : 1)
+  ' "$SIGNING_IDENTITY"; then
+    invalid_input "DEVELOPER_ID_APPLICATION must be a Developer ID Application identity ending in a 10-character Team ID"
+  fi
+}
+
 validate_inputs() {
   if [[ ! "$VERSION" =~ ^[0-9]+([.][0-9]+){1,2}$ ]]; then
     fail "UPDATEBAR_VERSION must contain two or three numeric components"
@@ -90,7 +109,8 @@ validate_inputs() {
     fail "canonical UpdateBar DMGs must be built on arm64, got $ARCHITECTURE"
   fi
 
-  validate_text_input "DEVELOPER_ID_APPLICATION" "$SIGNING_IDENTITY"
+  require_command "$RUBY_BIN" "validate release credentials"
+  validate_developer_id_identity
   validate_text_input "NOTARYTOOL_KEYCHAIN_PROFILE" "$NOTARY_PROFILE"
   if [[ ! "$NOTARY_PROFILE" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
     fail "NOTARYTOOL_KEYCHAIN_PROFILE contains unsafe characters"
@@ -103,7 +123,6 @@ validate_inputs() {
     esac
   fi
 
-  require_command "$RUBY_BIN" "validate the Sparkle public key"
   if ! "$RUBY_BIN" -rbase64 -e '
     value = ARGV.fetch(0)
     begin
@@ -143,13 +162,6 @@ preflight_release_credentials() {
   local security_args=(find-identity -v -p codesigning)
   local history_args=(notarytool history --keychain-profile "$NOTARY_PROFILE")
 
-  if ! "$RUBY_BIN" -e '
-    value = ARGV.fetch(0)
-    valid = !value.include?(%q{"}) && value.bytes.all? { |byte| byte >= 0x20 && byte <= 0x7e }
-    exit(valid ? 0 : 1)
-  ' "$SIGNING_IDENTITY"; then
-    fail "DEVELOPER_ID_APPLICATION contains unsafe characters"
-  fi
   if [[ -n "$NOTARY_KEYCHAIN" ]]; then
     security_args+=("$NOTARY_KEYCHAIN")
     history_args+=(--keychain "$NOTARY_KEYCHAIN")
