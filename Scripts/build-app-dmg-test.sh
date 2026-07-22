@@ -23,6 +23,23 @@ mkdir -p "$TEST_ROOT/Scripts" "$TEST_ROOT/Assets/AppIcon" "$BIN_DIR" \
 cp "$ROOT/Scripts/build-app-dmg.sh" "$TEST_ROOT/Scripts/build-app-dmg.sh"
 cp "$ROOT/Scripts/app-dmg-smoke-test.sh" "$TEST_ROOT/Scripts/app-dmg-smoke-test.sh"
 cp "$ROOT/version.env" "$TEST_ROOT/version.env"
+if ! grep -Fq 'SYSTEM_NAME="$(/usr/bin/uname -s)"' "$ROOT/Scripts/build-app-dmg.sh" \
+  || ! grep -Fq 'ARCHITECTURE="$(/usr/bin/uname -m)"' "$ROOT/Scripts/build-app-dmg.sh" \
+  || grep -Eq 'UPDATEBAR_TEST_(SYSTEM|ARCH)' "$ROOT/Scripts/build-app-dmg.sh"; then
+  echo "production DMG builder must use absolute uname calls without environment overrides" >&2
+  exit 1
+fi
+ruby -e '
+  path, fake_uname = ARGV
+  source = File.binread(path)
+  exit 1 unless source.scan("/usr/bin/uname").length == 2
+  File.binwrite(path, source.gsub("/usr/bin/uname", fake_uname))
+' "$TEST_ROOT/Scripts/build-app-dmg.sh" "$BIN_DIR/uname"
+if grep -Fq '/usr/bin/uname' "$TEST_ROOT/Scripts/build-app-dmg.sh" \
+  || [[ "$(grep -Fc "$BIN_DIR/uname" "$TEST_ROOT/Scripts/build-app-dmg.sh")" -ne 2 ]]; then
+  echo "temporary DMG fixture must replace only its two uname calls" >&2
+  exit 1
+fi
 printf 'icon\n' >"$TEST_ROOT/Assets/AppIcon/UpdateBar.icns"
 printf 'app\n' >"$MOUNT_DIR/UpdateBar.app/Contents/MacOS/UpdateBar"
 chmod +x "$MOUNT_DIR/UpdateBar.app/Contents/MacOS/UpdateBar"
@@ -58,6 +75,16 @@ set -euo pipefail
 printf 'ditto:%s\n' "$*" >>"${COMMAND_LOG:?}"
 printf 'ditto progress\n'
 cp -R "$1" "$2"
+SH
+
+cat >"$BIN_DIR/uname" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  -s) printf '%s\n' "${FAKE_UNAME_SYSTEM:-Darwin}" ;;
+  -m) printf '%s\n' "${FAKE_UNAME_ARCH:-arm64}" ;;
+  *) exit 64 ;;
+esac
 SH
 
 cat >"$BIN_DIR/security" <<'SH'
@@ -310,6 +337,20 @@ if [[ "$hostile_platform_status" -ne 0 || "$hostile_platform_output" != *"Update
 fi
 rm -f "$TEST_ROOT/dist/UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.dmg" \
   "$TEST_ROOT/dist/UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.dmg.sha256"
+assert_absent_outputs
+
+# The copied fixture must allow a host-independent non-arm64 rejection test.
+: >"$LOG"
+set +e
+run_builder FAKE_UNAME_ARCH=x86_64 \
+  >"$TMP_DIR/non-arm64.stdout" 2>"$TMP_DIR/non-arm64.stderr"
+fake_platform_status=$?
+set -e
+if [[ "$fake_platform_status" -eq 0 || -s "$LOG" ]]; then
+  rm -f "$expected" "$expected.sha256"
+  echo "temporary DMG fixture did not reject its scenario-controlled non-arm64 uname" >&2
+  exit 1
+fi
 assert_absent_outputs
 
 # Signing identity and notary credentials are proven usable before packaging.

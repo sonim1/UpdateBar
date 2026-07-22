@@ -113,10 +113,11 @@ removes only outputs created by that invocation.
 `Scripts/app-dmg-smoke-test.sh` mounts the DMG read-only and verifies its app,
 Applications shortcut, Sparkle framework, feed URL, public key, and checksum.
 Because notarization stapling and toolchain drift change rebuilt DMG contents,
-the release workflow does
-not require the committed formula/cask SHA to equal the fresh build
-(`UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1`); Homebrew SHAs are taken from the
-published release assets when the tap is updated after publishing.
+the release workflow's temporary pre-release metadata check uses
+`UPDATEBAR_VERIFY_STATIC_ONLY=1`. It validates the committed formula and cask
+structure without comparing their SHAs to the fresh build. After the assets are
+public, release manifest/tap automation performs the authoritative
+post-publication SHA and DMG cask update from those published assets.
 The in-repository `v0.5.0` Homebrew cask must keep targeting the published
 legacy app archive until a canonical DMG and manifest for a later release are
 public. Tap automation then updates the authoritative cask from those published
