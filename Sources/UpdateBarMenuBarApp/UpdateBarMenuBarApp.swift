@@ -12,6 +12,8 @@
         private var service: (any MenuBarServicing)?
         private var cliPath = ""
         private let formatter = MenuBarStatusFormatter()
+        private let statusIconRenderer = MenuBarStatusIconRenderer()
+        private var renderedStatusIconState: MenuBarStatusIconState?
         private let menuBuilder = MenuBarMenuModelBuilder()
         private let actionCoordinator = MenuBarActionCoordinator()
         private var refreshGenerationGate = MenuBarRefreshGenerationGate()
@@ -62,18 +64,11 @@
                 return
             }
 
-            statusButton.title = "..."
+            statusButton.title = ""
             statusButton.toolTip = "UpdateBar"
             statusButton.setAccessibilityIdentifier("updatebar-status-button")
-            statusButton.setAccessibilityLabel("UpdateBar status")
-            if let image = NSImage(
-                systemSymbolName: "arrow.triangle.2.circlepath",
-                accessibilityDescription: "UpdateBar"
-            ) {
-                image.isTemplate = true
-                statusButton.image = image
-                statusButton.imagePosition = .imageLeading
-            }
+            statusButton.imagePosition = .imageOnly
+            setStatusIcon(.checking, accessibilityLabel: "UpdateBar checking")
             rebuildMenu()
             ProcessInfo.processInfo.disableAutomaticTermination("UpdateBar menu bar app running")
             refreshStatus(refresh: false)
@@ -361,7 +356,7 @@
                 return
             }
             let refreshToken = refreshGenerationGate.begin()
-            setTitle("...", accessibilityLabel: "UpdateBar checking")
+            setStatusIcon(.checking, accessibilityLabel: "UpdateBar checking")
             let loadingMenu = menuBuilder.makeLoadingMenu()
             statusItem?.menu = makeMenu(from: loadingMenu)
             DispatchQueue.global(qos: .userInitiated).async { [service, formatter] in
@@ -442,10 +437,13 @@
             }
             let activeAction = actionCoordinator.activeAction
             if let activeAction {
-                setTitle("...", accessibilityLabel: "UpdateBar running \(activeAction.title)")
+                setStatusIcon(
+                    .checking,
+                    accessibilityLabel: "UpdateBar running \(activeAction.title)"
+                )
             } else {
-                setTitle(
-                    latestState.badgeValue ?? "✓",
+                setStatusIcon(
+                    latestState.statusIconState,
                     accessibilityLabel: accessibilityLabel(for: latestState)
                 )
             }
@@ -522,7 +520,7 @@
                 return
             }
             refreshGenerationGate.invalidate()
-            setTitle("!", accessibilityLabel: "UpdateBar error")
+            setStatusIcon(.attention, accessibilityLabel: "UpdateBar error")
             guard let statusItem else { return }
             let model = menuBuilder.makeErrorMenu(
                 errorDescription: errorDescription
@@ -531,9 +529,18 @@
             dashboardPanelController?.showErrorIfShown(error)
         }
 
-        private func setTitle(_ title: String, accessibilityLabel: String? = nil) {
-            statusItem?.button?.title = title
-            statusItem?.button?.setAccessibilityLabel(accessibilityLabel ?? "UpdateBar \(title)")
+        private func setStatusIcon(
+            _ state: MenuBarStatusIconState,
+            accessibilityLabel: String
+        ) {
+            guard let button = statusItem?.button else { return }
+            if renderedStatusIconState != state {
+                button.image = statusIconRenderer.image(for: state)
+                renderedStatusIconState = state
+            }
+            button.title = ""
+            button.imagePosition = .imageOnly
+            button.setAccessibilityLabel(accessibilityLabel)
         }
 
         private func accessibilityLabel(for state: MenuBarState) -> String {

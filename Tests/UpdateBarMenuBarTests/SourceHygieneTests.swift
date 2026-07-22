@@ -31,15 +31,18 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(source.contains("appendLog(message)"))
     }
 
-    func testMenuBarStatusItemDoesNotShowBrandFallback() throws {
+    func testMenuBarStatusItemUsesImageOnlyBrandedStatusStates() throws {
         let sourceURL = URL(
             fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        XCTAssertFalse(source.contains(#""UB""#))
-        XCTAssertTrue(source.contains(#"statusButton.title = "...""#))
-        XCTAssertTrue(source.contains(#"badgeValue: "...""#))
-        XCTAssertTrue(source.contains(#"latestState.badgeValue ?? "✓""#))
+        XCTAssertTrue(source.contains("statusButton.imagePosition = .imageOnly"))
+        XCTAssertTrue(source.contains("setStatusIcon(.checking"))
+        XCTAssertTrue(source.contains("latestState.statusIconState"))
+        XCTAssertTrue(source.contains("setStatusIcon(.attention"))
+        XCTAssertFalse(source.contains("arrow.triangle.2.circlepath"))
+        XCTAssertFalse(source.contains(#"statusButton.title = "...""#))
+        XCTAssertFalse(source.contains(#"latestState.badgeValue ?? "✓""#))
     }
 
     func testAllCancellationOutcomesRefreshBeforeMutationRowsReturn() throws {
@@ -128,7 +131,7 @@ final class SourceHygieneTests: XCTestCase {
         )
         let errorSource = try functionSource(
             named: "private func showError(",
-            endingAt: "private func setTitle(",
+            endingAt: "private func setStatusIcon(",
             in: source
         )
         let activeActionGuard = try XCTUnwrap(
@@ -139,13 +142,15 @@ final class SourceHygieneTests: XCTestCase {
         let invalidate = try XCTUnwrap(
             errorSource.range(of: "refreshGenerationGate.invalidate()")
         )
-        let errorTitle = try XCTUnwrap(
-            errorSource.range(of: "setTitle(\"!\",accessibilityLabel:\"UpdateBarerror\")")
+        let errorIcon = try XCTUnwrap(
+            errorSource.range(
+                of: "setStatusIcon(.attention,accessibilityLabel:\"UpdateBarerror\")"
+            )
         )
         let errorMenu = try XCTUnwrap(errorSource.range(of: "menuBuilder.makeErrorMenu("))
 
         XCTAssertLessThan(activeActionGuard.lowerBound, invalidate.lowerBound)
-        XCTAssertLessThan(invalidate.lowerBound, errorTitle.lowerBound)
+        XCTAssertLessThan(invalidate.lowerBound, errorIcon.lowerBound)
         XCTAssertLessThan(invalidate.lowerBound, errorMenu.lowerBound)
     }
 
@@ -182,7 +187,7 @@ final class SourceHygieneTests: XCTestCase {
 
         let errorSource = try functionSource(
             named: "private func showError(",
-            endingAt: "private func setTitle(",
+            endingAt: "private func setStatusIcon(",
             in: source
         )
         XCTAssertTrue(errorSource.contains("letmodel=menuBuilder.makeErrorMenu("))
@@ -354,7 +359,7 @@ final class SourceHygieneTests: XCTestCase {
         )
         let errorSource = try functionSource(
             named: "private func showError(",
-            endingAt: "private func setTitle(",
+            endingAt: "private func setStatusIcon(",
             in: source
         )
 
