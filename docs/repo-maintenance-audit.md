@@ -18,7 +18,7 @@ the listed files and commands over older planning notes.
 
 ## Documentation Cleanup
 
-- Release and install examples now use the current `0.5.0` release line.
+- Release and install examples now use the current `0.6.0` release line.
 - `docs/release.md` reflects the current CLI/app/TUI release metadata and
   includes a rollback/yank procedure.
 - Historical root planning docs are marked as historical so they are not
