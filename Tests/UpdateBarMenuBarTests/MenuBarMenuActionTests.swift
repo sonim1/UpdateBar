@@ -14,6 +14,12 @@ final class MenuBarMenuActionTests: XCTestCase {
         XCTAssertNil(MenuBarActionConfirmation.confirmation(for: .refreshStatus))
     }
 
+    func testCheckForUpdatesUsesSparkleTitleAndPrecedesQuit() {
+        XCTAssertEqual(MenuBarMenuAction.checkForUpdates.title, "Check for Updates...")
+        XCTAssertEqual(MenuBarMenuAction.footer.suffix(2), [.checkForUpdates, .quit])
+        XCTAssertEqual(MenuBarMenuAction.errorRecovery.suffix(2), [.checkForUpdates, .quit])
+    }
+
     func testErrorRecoveryActionsIncludeDiagnostics() {
         XCTAssertEqual(
             MenuBarMenuAction.errorRecovery.map(\.title),
@@ -26,6 +32,7 @@ final class MenuBarMenuActionTests: XCTestCase {
                 "Scan & Add",
                 "Open Config",
                 "View Logs",
+                "Check for Updates...",
                 "Quit",
             ])
     }

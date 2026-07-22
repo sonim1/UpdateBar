@@ -8,6 +8,7 @@ public enum MenuBarMenuAction: Equatable, Sendable {
     case scanAndAdd
     case openConfig
     case viewLogs
+    case checkForUpdates
     case quit
 
     public var title: String {
@@ -30,6 +31,8 @@ public enum MenuBarMenuAction: Equatable, Sendable {
             return "Open Config"
         case .viewLogs:
             return "View Logs"
+        case .checkForUpdates:
+            return "Check for Updates..."
         case .quit:
             return "Quit"
         }
@@ -42,6 +45,7 @@ public enum MenuBarMenuAction: Equatable, Sendable {
         .scanAndAdd,
         .openConfig,
         .viewLogs,
+        .checkForUpdates,
         .quit,
     ]
 
@@ -54,6 +58,7 @@ public enum MenuBarMenuAction: Equatable, Sendable {
         .scanAndAdd,
         .openConfig,
         .viewLogs,
+        .checkForUpdates,
         .quit,
     ]
 }
