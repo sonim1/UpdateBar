@@ -10,7 +10,7 @@ BUCKET="${R2_BUCKET_NAME:-updatebar-updates}"
 DOMAIN="${UPDATE_DOMAIN:-updates.updatebar.sonim1.com}"
 ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-}"
 ACCESS="${R2_ACCESS_KEY_ID:-}"; SECRET="${R2_SECRET_ACCESS_KEY:-}"
-unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
+unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY AUTH
 export -n ACCESS SECRET 2>/dev/null || :
 CURL_BIN="${CURL_BIN:-/usr/bin/curl}"; SHASUM_BIN="${SHASUM_BIN:-/usr/bin/shasum}"; CMP_BIN="${CMP_BIN:-/usr/bin/cmp}"
 [[ "$BUCKET" == updatebar-updates && "$DOMAIN" == updates.updatebar.sonim1.com ]] || { echo "Update hosting contract is fixed" >&2; exit 64; }
@@ -19,7 +19,7 @@ CURL_BIN="${CURL_BIN:-/usr/bin/curl}"; SHASUM_BIN="${SHASUM_BIN:-/usr/bin/shasum
 fail() { echo "$1" >&2; exit "${2:-1}"; }
 regular() { [[ -f "$1" && ! -L "$1" ]] || fail "Missing or unsafe $2: $1" 66; }
 escape() { local v="$1"; v="${v//\\/\\\\}"; v="${v//\"/\\\"}"; printf '%s' "$v"; }
-AUTH="user = \"$(escape "$ACCESS"):$(escape "$SECRET")\""; ACCESS=''; SECRET=''
+AUTH="user = \"$(escape "$ACCESS"):$(escape "$SECRET")\""; export -n AUTH 2>/dev/null || :; ACCESS=''; SECRET=''
 ORIGIN="https://$ACCOUNT_ID.r2.cloudflarestorage.com/$BUCKET/"; PUBLIC="https://$DOMAIN/"
 APPCAST="$DIR/appcast.xml"; regular "$APPCAST" appcast
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-publish.XXXXXX")"

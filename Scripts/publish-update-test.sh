@@ -12,9 +12,31 @@ XML
 }
 make_appcast 0.5.0 '' "$R/dist/updates/appcast.xml"
 
+cat >"$B/observe" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+for value in "$@"; do
+  case "$value" in *ACCESS123*|*TOPSECRET*|*'user = "'*) echo 'R2 auth leaked in child argv' >&2; exit 43;; esac
+done
+while IFS='=' read -r _ value; do
+  case "$value" in *ACCESS123*|*TOPSECRET*|*'user = "'*) echo 'R2 auth leaked in child environment' >&2; exit 43;; esac
+done < <(/usr/bin/env)
+printf 'child:%s\n' "$1" >>"$CHILD_LOG"
+SH
+cat >"$B/child" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+name="$(basename "$0")"
+"$OBSERVER" "$name" "$@"
+exec "/usr/bin/$name" "$@"
+SH
+chmod +x "$B/observe" "$B/child"
+for child in ruby find stat wc tr shasum cmp mktemp; do cp "$B/child" "$B/$child"; done
+
 cat >"$B/curl" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
+"$OBSERVER" curl "$@"
 args=("$@"); printf 'curl:' >>"$CALL_LOG"; printf '%q ' "$@" >>"$CALL_LOG"; printf '\n' >>"$CALL_LOG"
 [[ "${SCENARIO:-}" != network ]] || exit 42
 method=GET; out=''; upload=''; headers=''; condition=''; url=''; prev=''
@@ -41,15 +63,17 @@ fi
 [[ "${SCENARIO:-}" != concurrent || "$key" != appcast.xml ]] || { printf 412; exit 0; }
 cp "$upload" "$path"; printf 200
 SH
-chmod +x "$B/curl"
+chmod +x "$B/curl" "$B"/ruby "$B"/find "$B"/stat "$B"/wc "$B"/tr "$B"/shasum "$B"/cmp "$B"/mktemp
 
 run_case() {
-  local scenario="$1" expected="$2"; : >"$LOG"
+  local scenario="$1" expected="$2"; : >"$LOG"; : >"$T/children"
   set +e
-  env CALL_LOG="$LOG" REMOTE_DIR="$REMOTE" SCENARIO="$scenario" CURL_BIN="$B/curl" R2_ACCESS_KEY_ID=ACCESS123 R2_SECRET_ACCESS_KEY=TOPSECRET CLOUDFLARE_ACCOUNT_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa "$R/Scripts/publish-update.sh" >"$T/$scenario.out" 2>&1
+  env PATH="$B:$PATH" OBSERVER="$B/observe" CHILD_LOG="$T/children" AUTH=caller-exported-auth CALL_LOG="$LOG" REMOTE_DIR="$REMOTE" SCENARIO="$scenario" CURL_BIN="$B/curl" SHASUM_BIN="$B/shasum" CMP_BIN="$B/cmp" R2_ACCESS_KEY_ID=ACCESS123 R2_SECRET_ACCESS_KEY=TOPSECRET CLOUDFLARE_ACCOUNT_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa "$R/Scripts/publish-update.sh" >"$T/$scenario.out" 2>&1
   status=$?; set -e
   [[ "$status" == "$expected" ]] || { cat "$T/$scenario.out" >&2; echo "$scenario expected $expected got $status" >&2; exit 1; }
-  ! grep -Fq TOPSECRET "$LOG" "$T/$scenario.out"
+  ! grep -Eq 'ACCESS123|TOPSECRET|user = "' "$LOG" "$T/$scenario.out"
+  grep -Fq 'child:' "$T/children"
+  ! grep -Eq 'ACCESS123|TOPSECRET|user = "' "$T/children"
 }
 
 # RED: implementation is absent before production code.

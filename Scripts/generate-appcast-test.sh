@@ -42,7 +42,28 @@ case "${FAKE_SWAP_DESTINATION:-}" in
   directory) mkdir "$destination"; printf 'preserve\n' >"$destination/sentinel";;
   symlink) mkdir -p "${FAKE_SWAP_TARGET:?}"; printf 'preserve\n' >"$FAKE_SWAP_TARGET/sentinel"; ln -s "$FAKE_SWAP_TARGET" "$destination";;
 esac
-exec /usr/bin/ruby "$@"
+if [[ -n "${FAKE_INTERLEAVE:-}" ]]; then
+  arguments[2]="$(/usr/bin/ruby -e '
+    code = ARGV.fetch(0)
+    needle = "  result = DarwinRename.renameatx_np"
+    injection = <<~RUBY
+      if ENV["FAKE_INTERLEAVE"] == "source"
+        File.rename(source, ENV.fetch("FAKE_SAVED_SOURCE"))
+        Dir.mkdir(source)
+        File.write(File.join(source, "foreign"), "preserve\\n")
+        File.write(ENV.fetch("FAKE_SOURCE_LOG"), source)
+      elsif ENV["FAKE_INTERLEAVE"] == "destination"
+        File.rename(destination, ENV.fetch("FAKE_SAVED_DESTINATION"))
+        Dir.mkdir(destination)
+        File.write(File.join(destination, "foreign"), "preserve\\n")
+        File.write(ENV.fetch("FAKE_SOURCE_LOG"), source)
+      end
+    RUBY
+    abort "rename interleave needle missing" unless code.include?(needle)
+    print code.sub(needle, injection + needle)
+  ' "${arguments[2]}")"
+fi
+exec /usr/bin/ruby "${arguments[@]}"
 SH
 
 cat >"$B/smoke" <<'SH'
@@ -133,7 +154,7 @@ chmod +x "$T/evil/generate_appcast"
 run_case() {
   local name="$1" expected="$2"; shift 2; rm -rf "$R/dist/updates"; : >"$LOG"
   [[ "$name" != dest-conflict ]] || ln -s "$T/elsewhere" "$R/dist/updates"
-  [[ "$name" != replace-existing ]] || { mkdir "$R/dist/updates"; printf 'old\n' >"$R/dist/updates/old"; }
+  case "$name" in replace-existing|interleave-swap|interleave-destination-swap) mkdir "$R/dist/updates"; printf 'old\n' >"$R/dist/updates/old";; esac
   set +e
   : >"$T/children"
   env PATH="$B:$PATH" OBSERVER="$B/observe" CHILD_LOG="$T/children" CALL_LOG="$LOG" SPARKLE_PUBLIC_ED_KEY="$KEY" APP_DMG_SMOKE_BIN="$B/smoke" CODESIGN_BIN="$B/codesign" SPCTL_BIN="$B/spctl" XCRUN_BIN="$B/xcrun" FILE_BIN="$B/file" HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN="$B/plutil" "$@" "$R/Scripts/generate-appcast.sh" >"$T/$name.out" 2>&1
@@ -190,6 +211,29 @@ test -L "$R/dist/updates"
 test -f "$swap_target/sentinel"
 ! grep -Fq "$R/dist/updates/appcast.xml" "$T/destination-symlink-substitution.out"
 rm "$R/dist/updates"; rm -rf "$swap_target"
+saved_exclusive="$T/saved-exclusive"
+source_log="$T/interleave-source"
+run_case interleave-exclusive 74 RENAME_BIN="$B/rename" FAKE_INTERLEAVE=source FAKE_SAVED_SOURCE="$saved_exclusive" FAKE_SOURCE_LOG="$source_log"
+test -f "$R/dist/updates/foreign"
+test -f "$saved_exclusive/appcast.xml"
+! grep -Fq "$R/dist/updates/appcast.xml" "$T/interleave-exclusive.out"
+rm -rf "$R/dist/updates" "$saved_exclusive"; rm -f "$source_log"
+saved_swap="$T/saved-swap"
+run_case interleave-swap 74 RENAME_BIN="$B/rename" FAKE_INTERLEAVE=source FAKE_SAVED_SOURCE="$saved_swap" FAKE_SOURCE_LOG="$source_log"
+interleaved_source="$(cat "$source_log")"
+test -f "$R/dist/updates/foreign"
+test -f "$saved_swap/appcast.xml"
+test -f "$interleaved_source/old"
+! grep -Fq "$R/dist/updates/appcast.xml" "$T/interleave-swap.out"
+rm -rf "$R/dist/updates" "$saved_swap" "$interleaved_source"; rm -f "$source_log"
+saved_destination="$T/saved-destination"
+run_case interleave-destination-swap 74 RENAME_BIN="$B/rename" FAKE_INTERLEAVE=destination FAKE_SAVED_DESTINATION="$saved_destination" FAKE_SOURCE_LOG="$source_log"
+interleaved_source="$(cat "$source_log")"
+test -f "$R/dist/updates/appcast.xml"
+test -f "$saved_destination/old"
+test -f "$interleaved_source/foreign"
+! grep -Fq "$R/dist/updates/appcast.xml" "$T/interleave-destination-swap.out"
+rm -rf "$R/dist/updates" "$saved_destination" "$interleaved_source"; rm -f "$source_log"
 run_case rename-failure 47 RENAME_BIN="$B/rename" FAKE_RENAME_EXIT=47
 ! grep -Fq "$R/dist/updates/appcast.xml" "$T/rename-failure.out"
 run_case replace-existing 0 RENAME_BIN="$B/rename"

@@ -30,6 +30,7 @@ HDIUTIL_BIN="${HDIUTIL_BIN:-/usr/bin/hdiutil}"
 PLUTIL_BIN="${PLUTIL_BIN:-/usr/bin/plutil}"
 REALPATH_BIN="${REALPATH_BIN:-realpath}"
 RENAME_BIN="${RENAME_BIN:-/usr/bin/ruby}"
+REMOVE_BIN="${REMOVE_BIN:-/usr/bin/ruby}"
 
 fail() { echo "$1" >&2; exit "${2:-1}"; }
 run() { local label="$1" status; shift; if "$@"; then return 0; else status=$?; echo "$label failed" >&2; return "$status"; fi; }
@@ -58,15 +59,31 @@ ruby -rjson -e '
   exit(pin && pin.dig("state","revision")=="b6496a74a087257ef5e6da1c5b29a447a60f5bd7" ? 0 : 1)
 ' "$ROOT/Package.resolved" || fail "Sparkle dependency is not pinned to the reviewed 2.9.4 commit"
 
-tool_list="$(mktemp "${TMPDIR:-/tmp}/updatebar-appcast-tools.XXXXXX")"; work=''; key_file=''; final=''; lock=''; lock_owned=0
+tool_list="$(mktemp "${TMPDIR:-/tmp}/updatebar-appcast-tools.XXXXXX")"; work=''; key_file=''; final=''; final_identity=''; final_owned=0; lock=''; lock_owned=0
 metadata_dir=''; metadata_mount=''; metadata_attached=0
+remove_exact_directory() {
+  local path="$1" expected_identity="$2"
+  "$REMOVE_BIN" -rfileutils -e '
+    path, expected_identity = ARGV
+    begin
+      stat = File.lstat(path)
+    rescue Errno::ENOENT
+      exit 0
+    end
+    actual_identity = "#{stat.dev}:#{stat.ino}"
+    abort "Refusing to remove a replaced directory" unless actual_identity == expected_identity && stat.directory? && !stat.symlink?
+    FileUtils.remove_entry_secure(path, true)
+  ' "$path" "$expected_identity"
+}
 cleanup() {
   status=$?; trap - EXIT HUP INT TERM
   if [[ "$metadata_attached" == 1 ]]; then "$HDIUTIL_BIN" detach "$metadata_mount" >/dev/null 2>&1 || :; fi
   [[ -z "$metadata_dir" || ! -d "$metadata_dir" ]] || rm -rf "$metadata_dir"
   [[ -z "$key_file" ]] || rm -f "$key_file"
   [[ -z "$work" || ! -d "$work" ]] || rm -rf "$work"
-  [[ -z "$final" || ! -d "$final" ]] || rm -rf "$final"
+  if [[ "$final_owned" == 1 && -n "$final" ]]; then
+    remove_exact_directory "$final" "$final_identity" || echo "Preserving replaced appcast finalization path: $final" >&2
+  fi
   if [[ "$lock_owned" == 1 && -d "$lock" && ! -L "$lock" ]]; then rmdir "$lock" || :; fi
   rm -f "$tool_list"
   exit "$status"
@@ -139,14 +156,17 @@ run "EdDSA public-key verification" "$XCRUN_BIN" swift -e "$swift" "$PUBLIC_KEY"
 
 final="$(mktemp -d "$ROOT/dist/.generate-appcast-final.XXXXXX")"
 cp "$staged" "$final/$name"; cp "$staged_checksum" "$final/$name.sha256"; cp "$appcast" "$final/appcast.xml"
+final_identity="$(/usr/bin/stat -f '%d:%i' "$final")"; final_owned=1
 lock="$ROOT/dist/.generate-appcast.lock"; mkdir "$lock" || fail "Another appcast publication transaction is active"
 lock_owned=1
 if [[ -L "$OUTPUT" || ( -e "$OUTPUT" && ! -d "$OUTPUT" ) ]]; then fail "Unsafe update output destination"; fi
 if [[ -d "$OUTPUT" ]]; then rename_mode=swap; else rename_mode=exclusive; fi
-if "$RENAME_BIN" -rfiddle/import -e '
+if rename_result="$("$RENAME_BIN" -rfiddle/import -e '
   source, destination, mode = ARGV
   source_stat = File.lstat(source)
   abort "Appcast source is not a real directory" unless source_stat.directory? && !source_stat.symlink?
+  source_identity = "#{source_stat.dev}:#{source_stat.ino}"
+  destination_identity = nil
   if mode == "exclusive"
     begin
       File.lstat(destination)
@@ -157,6 +177,7 @@ if "$RENAME_BIN" -rfiddle/import -e '
   elsif mode == "swap"
     destination_stat = File.lstat(destination)
     abort "Appcast destination changed during finalization" unless destination_stat.directory? && !destination_stat.symlink?
+    destination_identity = "#{destination_stat.dev}:#{destination_stat.ino}"
     flags = 0x00000002 # RENAME_SWAP
   else
     abort "Unknown appcast rename mode"
@@ -171,8 +192,44 @@ if "$RENAME_BIN" -rfiddle/import -e '
     warn "renameatx_np failed with errno #{Fiddle.last_error}"
     exit 73
   end
-' "$final" "$OUTPUT" "$rename_mode"; then :; else rename_status=$?; echo "Unable to finalize appcast output" >&2; exit "$rename_status"; fi
-if [[ "$rename_mode" == swap ]]; then rm -rf "$final"; fi
-final=''
+  begin
+    published_stat = File.lstat(destination)
+    published_identity = "#{published_stat.dev}:#{published_stat.ino}"
+  rescue Errno::ENOENT
+    warn "Appcast destination disappeared after rename"
+    exit 74
+  end
+  unless published_stat.directory? && !published_stat.symlink? && published_identity == source_identity
+    warn "Appcast destination identity changed during rename"
+    exit 74
+  end
+  if mode == "exclusive"
+    begin
+      File.lstat(source)
+      warn "Appcast source still exists after exclusive rename"
+      exit 74
+    rescue Errno::ENOENT
+    end
+  else
+    begin
+      displaced_stat = File.lstat(source)
+      displaced_identity = "#{displaced_stat.dev}:#{displaced_stat.ino}"
+    rescue Errno::ENOENT
+      warn "Displaced appcast directory disappeared after swap"
+      exit 74
+    end
+    unless displaced_stat.directory? && !displaced_stat.symlink? && displaced_identity == destination_identity
+      warn "Displaced appcast directory identity changed during swap"
+      exit 74
+    end
+  end
+  puts [source_identity, destination_identity || "-"].join("\t")
+' "$final" "$OUTPUT" "$rename_mode")"; then :; else rename_status=$?; echo "Unable to finalize appcast output" >&2; exit "$rename_status"; fi
+IFS=$'\t' read -r reported_final_identity reported_displaced_identity <<<"$rename_result"
+[[ "$reported_final_identity" == "$final_identity" ]] || fail "Rename helper reported an unexpected source identity"
+if [[ "$rename_mode" == swap ]]; then
+  if remove_exact_directory "$final" "$reported_displaced_identity"; then :; else echo "Preserving replaced displaced appcast directory: $final" >&2; exit 74; fi
+fi
+final_owned=0; final=''; final_identity=''
 rmdir "$lock"; lock_owned=0
 printf '%s\n' "$OUTPUT/appcast.xml"
