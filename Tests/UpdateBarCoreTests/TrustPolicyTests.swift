@@ -44,6 +44,23 @@ final class TrustPolicyTests: XCTestCase {
         XCTAssertTrue(TrustPolicy.isApproved(recipe, field: "check.cmd"))
     }
 
+    func testUnapprovedCheckCommandFieldsAreOrderedAndExcludeUpdate() throws {
+        var recipe = try loadRecipe()
+        recipe.latest = LatestSpec(strategy: .cmd, cmd: "tool latest", pattern: nil)
+        recipe.trust.level = .untrusted
+        recipe.trust.approvedCommands = [:]
+
+        XCTAssertEqual(
+            TrustPolicy.unapprovedCheckCommandFields(recipe),
+            ["check.cmd", "latest.cmd"])
+
+        recipe.check = .file(path: "/tmp/version")
+        XCTAssertEqual(TrustPolicy.unapprovedCheckCommandFields(recipe), ["latest.cmd"])
+
+        recipe.latest = LatestSpec(strategy: .brew, cmd: nil, pattern: nil)
+        XCTAssertEqual(TrustPolicy.unapprovedCheckCommandFields(recipe), [])
+    }
+
     private func loadRecipe() throws -> Recipe {
         let data = try Data(contentsOf: TestFixtures.fixtureURL("manifests", "valid-basic.json"))
         return try XCTUnwrap(JSONDecoder.updateBar.decode(Manifest.self, from: data).items.first)

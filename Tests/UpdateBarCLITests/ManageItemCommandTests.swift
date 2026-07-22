@@ -530,6 +530,9 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertTrue(list.stdout.contains("Next"))
         XCTAssertTrue(list.stdout.contains("updatebar approve tool --field check.cmd"))
         XCTAssertTrue(list.stdout.contains("updatebar approve tool --field latest.cmd"))
+        XCTAssertTrue(list.stdout.contains("updatebar edit tool --field check.cmd"))
+        XCTAssertTrue(list.stdout.contains("updatebar edit tool --field latest.cmd"))
+        XCTAssertFalse(list.stdout.contains("updatebar edit tool --field update.cmd"))
         XCTAssertFalse(list.stdout.contains("updatebar approve tool --field update.cmd"))
 
         let listJSON = try CLIProcess.run(["approvals", "tool", "--json"], home: home)
@@ -546,6 +549,27 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertTrue(revoke.stdout.contains("Next"))
         XCTAssertTrue(revoke.stdout.contains("updatebar approvals tool"))
         XCTAssertFalse(revoke.stdout.contains("updatebar check tool"))
+    }
+
+    func testApprovalsSuggestsEditingEveryUnapprovedCommandField() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        let paths = AppPaths(homeDirectory: home)
+        var item = recipe()
+        item.trust.level = .untrusted
+        item.trust.approvedCommands = [:]
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)))
+
+        let result = try CLIProcess.run(["approvals", "tool"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        for field in ["check.cmd", "latest.cmd", "update.cmd"] {
+            XCTAssertTrue(result.stdout.contains("updatebar edit tool --field \(field)"), field)
+            XCTAssertTrue(result.stdout.contains("updatebar approve tool --field \(field)"), field)
+        }
     }
 
     func testApprovalsRejectsInvalidManifestWithoutLeakingSecret() throws {

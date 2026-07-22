@@ -212,7 +212,30 @@ final class CheckCommandTests: XCTestCase {
         XCTAssertTrue(
             result.stdout.contains("fixture-tool\tuntrusted\t-\t-\tcommands are not approved"))
         XCTAssertTrue(result.stdout.contains("updatebar approvals fixture-tool"))
+        XCTAssertTrue(result.stdout.contains("updatebar edit fixture-tool --field check.cmd"))
+        XCTAssertTrue(result.stdout.contains("updatebar edit fixture-tool --field latest.cmd"))
+        XCTAssertFalse(result.stdout.contains("updatebar edit fixture-tool --field update.cmd"))
         XCTAssertFalse(result.stdout.contains("updatebar approve fixture-tool"))
+    }
+
+    func testCheckHumanUntrustedWithoutCheckCommandsDoesNotSuggestFieldEdit() throws {
+        let home = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: home)
+        let versionFile = home.appendingPathComponent("version.txt")
+        try Data("fixture-tool 1.0.0\n".utf8).write(to: versionFile)
+        var recipe = fixtureRecipe()
+        recipe.check = .file(path: versionFile.path)
+        recipe.latest = LatestSpec(strategy: .brew, cmd: nil, pattern: nil)
+        recipe.source = Source(kind: .brew, ref: "fixture-tool", branch: nil)
+        recipe.trust.level = .untrusted
+        recipe.trust.approvedCommands = [:]
+        try ManifestStore(paths: paths).save(manifest(items: [recipe]))
+
+        let result = try CLIProcess.run(["check", "fixture-tool"], home: home)
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("updatebar approvals fixture-tool"))
+        XCTAssertFalse(result.stdout.contains("updatebar edit fixture-tool --field"))
     }
 
     func testCheckHumanOutdatedWithUnapprovedUpdatePrintsUpdateApprovalNextStep() throws {

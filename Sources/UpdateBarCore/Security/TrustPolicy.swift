@@ -17,6 +17,17 @@ public enum TrustPolicy {
         return recipe.trust.level == .trusted
     }
 
+    public static func unapprovedCheckCommandFields(_ recipe: Recipe) -> [String] {
+        var fields: [String] = []
+        if case .command = recipe.check, !isApproved(recipe, field: "check.cmd") {
+            fields.append("check.cmd")
+        }
+        if recipe.latest.strategy == .cmd, !isApproved(recipe, field: "latest.cmd") {
+            fields.append("latest.cmd")
+        }
+        return fields
+    }
+
     public static func hasApprovedCommandFingerprints(_ recipe: Recipe) -> Bool {
         guard recipe.trust.level == .trusted else { return false }
         return recipe.commandFingerprints().allSatisfy { field, fingerprint in
