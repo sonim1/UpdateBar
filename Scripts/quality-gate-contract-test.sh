@@ -37,6 +37,51 @@ if [[ ! -f "$RELEASE_WORKFLOW" ]]; then
   exit 1
 fi
 
+CHECKSUM_TEST_TMP="$(mktemp -d)"
+trap 'rm -rf "$CHECKSUM_TEST_TMP"' EXIT
+CHECKSUM_RUN_BLOCK="$(ruby -rpsych -e '
+  workflow = Psych.safe_load(File.read(ARGV.fetch(0)), aliases: true)
+  steps = workflow.fetch("jobs").fetch("publish").fetch("steps")
+  matches = steps.select do |step|
+    step.is_a?(Hash) && step["name"] == "Verify downloaded checksums"
+  end
+  abort "expected exactly one Verify downloaded checksums step" unless matches.length == 1
+  run = matches.first["run"]
+  abort "checksum verification step must have a run block" unless run.is_a?(String)
+  print run
+' "$RELEASE_WORKFLOW")"
+CHECKSUM_TEST_ROOT="$CHECKSUM_TEST_TMP/repo-root"
+CHECKSUM_TEST_DIST="$CHECKSUM_TEST_ROOT/dist"
+CHECKSUM_TEST_ASSET="UpdateBar-contract.tar.gz"
+mkdir -p "$CHECKSUM_TEST_DIST"
+printf 'release artifact\n' >"$CHECKSUM_TEST_DIST/$CHECKSUM_TEST_ASSET"
+if command -v shasum >/dev/null 2>&1; then
+  CHECKSUM_TEST_SHA="$(shasum -a 256 "$CHECKSUM_TEST_DIST/$CHECKSUM_TEST_ASSET" | awk '{print $1}')"
+else
+  CHECKSUM_TEST_SHA="$(sha256sum "$CHECKSUM_TEST_DIST/$CHECKSUM_TEST_ASSET" | awk '{print $1}')"
+fi
+printf '%s  %s\n' "$CHECKSUM_TEST_SHA" "$CHECKSUM_TEST_ASSET" \
+  >"$CHECKSUM_TEST_DIST/$CHECKSUM_TEST_ASSET.sha256"
+if ! (
+  cd "$CHECKSUM_TEST_ROOT"
+  bash -e -o pipefail -c "$CHECKSUM_RUN_BLOCK"
+); then
+  echo "release checksum step must verify basename entries from a repo-root/dist layout" >&2
+  exit 1
+fi
+printf 'tampered\n' >>"$CHECKSUM_TEST_DIST/$CHECKSUM_TEST_ASSET"
+set +e
+(
+  cd "$CHECKSUM_TEST_ROOT"
+  bash -e -o pipefail -c "$CHECKSUM_RUN_BLOCK"
+) >/dev/null 2>&1
+CHECKSUM_TAMPER_STATUS=$?
+set -e
+if [[ "$CHECKSUM_TAMPER_STATUS" -eq 0 ]]; then
+  echo "release checksum step must reject tampered artifact bytes" >&2
+  exit 1
+fi
+
 if ! grep -Fq 'GITHUB_REF_NAME' "$RELEASE_WORKFLOW" || ! grep -Fq 'version.env' "$RELEASE_WORKFLOW"; then
   echo "release.yml must verify that the pushed tag matches version.env" >&2
   exit 1

@@ -156,11 +156,25 @@ jobs:
         run: bash Scripts/extract-changelog-section.sh "$GITHUB_REF_NAME" > release-notes.md
       - name: Verify downloaded checksums
         run: |
-          if command -v shasum >/dev/null 2>&1; then
-            shasum -a 256 -c dist/*.sha256
-          else
-            sha256sum -c dist/*.sha256
-          fi
+          (
+            cd dist
+            checksum_files=( ./*.sha256 )
+            if [[ ! -e "${checksum_files[0]}" ]]; then
+              echo "no downloaded release checksums found" >&2
+              exit 1
+            fi
+            for checksum_file in "${checksum_files[@]}"; do
+              if [[ ! -f "$checksum_file" || -L "$checksum_file" ]]; then
+                echo "unsafe downloaded release checksum: $checksum_file" >&2
+                exit 1
+              fi
+            done
+            if command -v shasum >/dev/null 2>&1; then
+              shasum -a 256 -c "${checksum_files[@]}"
+            else
+              sha256sum -c "${checksum_files[@]}"
+            fi
+          )
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           files: |
