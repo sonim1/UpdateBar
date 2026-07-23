@@ -9,6 +9,9 @@ P="$TMP/project"; B="$TMP/bin"; A="$TMP/assets"; STATE="$TMP/state"; ORDER="$TMP
 PUBLIC_KEY='6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw='
 VALID_SIGNATURE='88snSkTEGzck0rEKyJqk9xhfNefxjQMDShO8eWEjfO8VxqKa8a3dozGbF4XtHzJ+kInVeBRVV7Xdz1Yr26rPBQ=='
 EXPECTED_SWIFT_VERIFY='import Foundation; import CryptoKit; let a=CommandLine.arguments; guard let p=Data(base64Encoded:a[1]),let s=Data(base64Encoded:a[2]) else{exit(2)}; do{let k=try Curve25519.Signing.PublicKey(rawRepresentation:p);let d=try Data(contentsOf:URL(fileURLWithPath:a[3]));exit(k.isValidSignature(s,for:d) ? 0:1)}catch{exit(2)}'
+HOST_PLATFORM="$(uname -s)"
+case "$HOST_PLATFORM" in Darwin|Linux) ;; *) fail "unsupported publish-release test platform: $HOST_PLATFORM";; esac
+unset XCRUN_TEST_PLATFORM
 mkdir -p "$P/Scripts" "$P/dist/updates" "$B" "$A"; cp "$SOURCE" "$P/Scripts/publish-release.sh"; chmod +x "$P/Scripts/publish-release.sh"
 
 cat >"$B/git" <<'EOF'
@@ -49,6 +52,7 @@ expected_verifier='import Foundation; import CryptoKit; let a=CommandLine.argume
 case "${3:-}" in
   "$expected_verifier") verifier_observation=expected-verifier;;
   'import Foundation; exit(0)') verifier_observation=weak-verifier;;
+  'import Foundation; exit(1)') verifier_observation=failing-verifier;;
   *) verifier_observation=other-verifier;;
 esac
 printf '%s\n' "$verifier_observation" >>"${VERIFIER_LOG:?}"
@@ -144,12 +148,6 @@ EOF
 }
 reset(){ rm -rf "$STATE" "${A:?}"/* "$R2_CAPTURE" "$TMP/substituted"; : >"$ORDER"; : >"$GHLOG"; : >"$VERIFIER_LOG"; : >"$TMP/git.log"; FAKE_UPLOAD_STATUS=0; FAKE_EDIT_STATUS=0; FAKE_R2_STATUS=0; FAKE_CREATE_STATUS=0; FAKE_ORIGIN='git@github.com:sonim1/UpdateBar.git'; FAKE_HEAD="$COMMIT"; FAKE_TAG="$COMMIT"; FAKE_MAIN="$COMMIT"; FAKE_REMOTE_TAG="$COMMIT"; FAKE_ANCESTOR_STATUS=0; FAKE_DIRTY=''; FAKE_MAIN_FETCH_STATUS=0; FAKE_REMOTE_FETCH_STATUS=0; FAKE_REF_CLEANUP_STATUS=0; EXTRA_NAMES=''; CONCURRENT_REPLACE=0; FAKE_SOURCE_SUBSTITUTE=0; DMG_PUBLIC_KEY_FIXTURE="$PUBLIC_KEY"; write_files; }
 run(){ set +e; output="$(GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN="$B/cmp" RUBY_BIN=/usr/bin/ruby HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN=/usr/bin/plutil REALPATH_BIN=/bin/realpath XCRUN_BIN="$B/xcrun" XCRUN_TEST_PLATFORM="${XCRUN_TEST_PLATFORM:-}" VERIFIER_LOG="$VERIFIER_LOG" PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" GIT_LOG="$TMP/git.log" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" LIVE_DIST_DIR="$P/dist" MAC_NAME="$MAC" DMG_NAME="$DMG" DMG_PUBLIC_KEY_FIXTURE="$DMG_PUBLIC_KEY_FIXTURE" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_SOURCE_SUBSTITUTE="$FAKE_SOURCE_SUBSTITUTE" TARGET_SOURCE="$P/dist/$MAC" SUBSTITUTE_MARKER="$TMP/substituted" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" FAKE_MAIN="$FAKE_MAIN" FAKE_REMOTE_TAG="$FAKE_REMOTE_TAG" FAKE_ANCESTOR_STATUS="$FAKE_ANCESTOR_STATUS" FAKE_DIRTY="$FAKE_DIRTY" FAKE_MAIN_FETCH_STATUS="$FAKE_MAIN_FETCH_STATUS" FAKE_REMOTE_FETCH_STATUS="$FAKE_REMOTE_FETCH_STATUS" FAKE_REF_CLEANUP_STATUS="$FAKE_REF_CLEANUP_STATUS" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
-run_forced_linux() {
-  local platform_was_set="${XCRUN_TEST_PLATFORM+x}" platform_value="${XCRUN_TEST_PLATFORM-}"
-  export XCRUN_TEST_PLATFORM=Linux
-  run "$@"
-  if [[ -n "$platform_was_set" ]]; then export XCRUN_TEST_PLATFORM="$platform_value"; else unset XCRUN_TEST_PLATFORM; fi
-}
 publication_mutation_entries() {
   awk '/^(create|upload |publish-r2$|publish-github$)/ { print "ORDER: " $0 }' "$ORDER"
   awk '/^release (create|upload|edit)( |$)/ { print "GHLOG: " $0 }' "$GHLOG"
@@ -157,8 +155,13 @@ publication_mutation_entries() {
 no_publication_mutations() {
   [[ -z "$(publication_mutation_entries)" ]]
 }
-weak_verifier_rejected_before_publication() {
-  [[ "$status" != 0 && "$(<"$VERIFIER_LOG")" == weak-verifier ]] && no_publication_mutations
+exact_swift_verifier_assignment() {
+  /usr/bin/ruby -e '
+    source, expected = ARGV
+    assignments = File.binread(source).lines.grep(/\ASWIFT_VERIFY=/).map(&:chomp)
+    quote = 39.chr
+    exit(assignments == ["SWIFT_VERIFY=#{quote}#{expected}#{quote}"] ? 0 : 1)
+  ' "$1" "$EXPECTED_SWIFT_VERIFY"
 }
 
 required=(updatebar-1.2.3-macos-arm64.tar.gz updatebar-1.2.3-macos-arm64.tar.gz.sha256 updatebar-1.2.3-linux-x86_64.tar.gz updatebar-1.2.3-linux-x86_64.tar.gz.sha256 UpdateBar-1.2.3-macos-arm64.dmg UpdateBar-1.2.3-macos-arm64.dmg.sha256 appcast.xml release-manifest.json)
@@ -172,12 +175,13 @@ if no_publication_mutations; then fail "R2 publication mutation was not detected
 printf 'release upload v1.2.3 asset --repo sonim1/UpdateBar\n' >>"$GHLOG"
 if no_publication_mutations; then fail "GitHub publication mutation was not detected"; fi
 
-: >"$ORDER"; : >"$GHLOG"; : >"$VERIFIER_LOG"; status=1
-if weak_verifier_rejected_before_publication; then fail "missing verifier observation was accepted"; fi
-printf 'weak-verifier\n' >"$VERIFIER_LOG"; status=0
-if weak_verifier_rejected_before_publication; then fail "successful weak verifier run was accepted"; fi
-status=1; printf 'publish-r2\n' >"$ORDER"
-if weak_verifier_rejected_before_publication; then fail "weak verifier publication mutation was accepted"; fi
+reset
+exact_swift_verifier_assignment "$P/Scripts/publish-release.sh" || fail "production Swift verifier assignment does not match the pinned contract"
+cp "$P/Scripts/publish-release.sh" "$TMP/publish-release.original"
+/usr/bin/ruby -e 'path,replacement=ARGV; source=File.binread(path); abort "verifier assignment missing" unless source.sub!(/^SWIFT_VERIFY=.*$/, replacement); File.binwrite(path,source)' "$P/Scripts/publish-release.sh" "SWIFT_VERIFY='import Foundation; exit(0)'"
+if exact_swift_verifier_assignment "$P/Scripts/publish-release.sh"; then fail "weakened Swift verifier matched the pinned assignment"; fi
+cp "$TMP/publish-release.original" "$P/Scripts/publish-release.sh"
+exact_swift_verifier_assignment "$P/Scripts/publish-release.sh" || fail "restored Swift verifier assignment does not match the pinned contract"
 
 reset
 VERIFIER_LOG="$VERIFIER_LOG" XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$EXPECTED_SWIFT_VERIFY" "$PUBLIC_KEY" "$VALID_SIGNATURE" "$P/dist/$DMG"
@@ -187,14 +191,17 @@ if VERIFIER_LOG="$VERIFIER_LOG" XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$
 printf bad >"$TMP/bad-dmg"
 if VERIFIER_LOG="$VERIFIER_LOG" XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$EXPECTED_SWIFT_VERIFY" "$PUBLIC_KEY" "$VALID_SIGNATURE" "$TMP/bad-dmg"; then fail "Linux xcrun fixture accepted changed DMG bytes"; fi
 
-reset
-cp "$P/Scripts/publish-release.sh" "$TMP/publish-release.original"
-/usr/bin/ruby -e 'path,replacement=ARGV; source=File.binread(path); abort "verifier assignment missing" unless source.sub!(/^SWIFT_VERIFY=.*$/, replacement); File.binwrite(path,source)' "$P/Scripts/publish-release.sh" "SWIFT_VERIFY='import Foundation; exit(0)'"
-run_forced_linux v1.2.3
-if ! weak_verifier_rejected_before_publication; then
-  fail "weakened Swift verifier invariant failed: status=$status verifier=$(<"$VERIFIER_LOG") mutations=$(publication_mutation_entries)"
+if [[ "$HOST_PLATFORM" == Darwin ]]; then
+  reset
+  cp "$P/Scripts/publish-release.sh" "$TMP/publish-release.original"
+  /usr/bin/ruby -e 'path,replacement=ARGV; source=File.binread(path); abort "verifier assignment missing" unless source.sub!(/^SWIFT_VERIFY=.*$/, replacement); File.binwrite(path,source)' "$P/Scripts/publish-release.sh" "SWIFT_VERIFY='import Foundation; exit(1)'"
+  run v1.2.3
+  if [[ "$status" == 0 || "$(<"$VERIFIER_LOG")" != failing-verifier ]] || ! no_publication_mutations; then
+    fail "Darwin verifier mutation was not rejected before publication: status=$status verifier=$(<"$VERIFIER_LOG") mutations=$(publication_mutation_entries)"
+  fi
+  cp "$TMP/publish-release.original" "$P/Scripts/publish-release.sh"
+  exact_swift_verifier_assignment "$P/Scripts/publish-release.sh" || fail "Darwin verifier mutation was not restored"
 fi
-cp "$TMP/publish-release.original" "$P/Scripts/publish-release.sh"
 
 reset
 FAKE_SOURCE_SUBSTITUTE=1; run v1.2.3
