@@ -19,8 +19,8 @@ case "$*" in
  'rev-parse HEAD') printf '%s\n' "${FAKE_HEAD:-0123456789abcdef0123456789abcdef01234567}";;
  'rev-parse --verify refs/tags/v1.2.3^{commit}') printf '%s\n' "${FAKE_TAG:-0123456789abcdef0123456789abcdef01234567}";;
  'status --porcelain --untracked-files=all') printf '%s' "${FAKE_DIRTY:-}";;
- 'fetch --quiet origin main') exit "${FAKE_MAIN_FETCH_STATUS:-0}";;
- 'rev-parse --verify refs/remotes/origin/main^{commit}') printf '%s\n' "${FAKE_MAIN:-0123456789abcdef0123456789abcdef01234567}";;
+ fetch\ --quiet\ --no-tags\ origin\ refs/heads/main:refs/updatebar-release-verification/*-main) exit "${FAKE_MAIN_FETCH_STATUS:-0}";;
+ rev-parse\ --verify\ refs/updatebar-release-verification/*-main'^{commit}') printf '%s\n' "${FAKE_MAIN:-0123456789abcdef0123456789abcdef01234567}";;
  fetch\ --quiet\ --no-tags\ origin\ refs/tags/v1.2.3:refs/updatebar-release-verification/*) exit "${FAKE_REMOTE_FETCH_STATUS:-0}";;
  rev-parse\ --verify\ refs/updatebar-release-verification/*'^{commit}') printf '%s\n' "${FAKE_REMOTE_TAG:-0123456789abcdef0123456789abcdef01234567}";;
  update-ref\ -d\ refs/updatebar-release-verification/*) exit "${FAKE_REF_CLEANUP_STATUS:-0}";;
@@ -135,6 +135,7 @@ reset; FAKE_REMOTE_FETCH_STATUS=47; run v1.2.3
 grep -q '^update-ref -d refs/updatebar-release-verification/' "$TMP/git.log" || fail "isolated tag ref was not cleaned after fetch failure"
 reset; FAKE_MAIN_FETCH_STATUS=46; run v1.2.3
 [[ "$status" == 46 && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "origin/main fetch status was translated or mutated"
+grep -q '^update-ref -d refs/updatebar-release-verification/.*-main$' "$TMP/git.log" || fail "isolated main ref was not cleaned after missing/failing main"
 reset; FAKE_DIRTY='?? unexpected.txt'; run v1.2.3
 [[ "$status" == 64 && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "dirty worktree reached mutation"
 
@@ -145,6 +146,7 @@ reset; DMG_PUBLIC_KEY_FIXTURE='E5j2LG0aRXxRumpLXz29L2n8qTIWIY3ImX5Ba9F9k8o='; ru
 reset; printf bad >"$P/dist/$DMG"; checksum "$P/dist/$DMG"; cp "$P/dist/$DMG" "$P/dist/updates/$DMG"; cp "$P/dist/$DMG.sha256" "$P/dist/updates/$DMG.sha256"; new_sha="$(/usr/bin/shasum -a 256 "$P/dist/$DMG"|awk '{print $1}')"; /usr/bin/ruby -rjson -e 'p=ARGV[0];d=JSON.parse(File.read(p));d["packages"][1]["source"]["sha256"]=ARGV[1];File.write(p,JSON.generate(d))' "$P/dist/release-manifest.json" "$new_sha"; run v1.2.3
 [[ "$status" != 0 && "$output" == *'signature verification failed'* && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "mutated DMG with rebound checksums was accepted"
 reset; run v1.2.3; [[ "$status" == 0 ]] || fail "new release failed ($status): $output"
+[[ "$(grep -c '^update-ref -d refs/updatebar-release-verification/' "$TMP/git.log")" -eq 2 ]] || fail "isolated publisher main/tag refs were not both cleaned after success"
 for n in "${required[@]}"; do [[ -f "$A/$n" ]] || fail "missing uploaded $n"; done
 [[ "$(tail -2 "$ORDER")" == $'publish-r2\npublish-github' ]] || fail "publication order wrong: $(cat "$ORDER")"
 ! grep -Fq -- --clobber "$GHLOG" || fail "publisher used clobber"

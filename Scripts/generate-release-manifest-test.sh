@@ -29,8 +29,8 @@ case "$*" in
   'status --porcelain --untracked-files=no') printf '%s' "${FAKE_DIRTY:-}" ;;
   'rev-parse HEAD') printf '%s\n' "${FAKE_HEAD:-0123456789abcdef0123456789abcdef01234567}" ;;
   'rev-parse --verify refs/tags/v1.2.3^{commit}') printf '%s\n' "${FAKE_TAG_COMMIT:-0123456789abcdef0123456789abcdef01234567}" ;;
-  'fetch --quiet origin main') exit "${FAKE_FETCH_STATUS:-0}" ;;
-  'rev-parse --verify refs/remotes/origin/main^{commit}') printf '%s\n' "${FAKE_MAIN:-0123456789abcdef0123456789abcdef01234567}" ;;
+  fetch\ --quiet\ --no-tags\ origin\ refs/heads/main:refs/updatebar-release-verification/*-main) exit "${FAKE_FETCH_STATUS:-0}" ;;
+  rev-parse\ --verify\ refs/updatebar-release-verification/*-main'^{commit}') printf '%s\n' "${FAKE_MAIN:-0123456789abcdef0123456789abcdef01234567}" ;;
   fetch\ --quiet\ --no-tags\ origin\ refs/tags/v1.2.3:refs/updatebar-release-verification/*) exit "${FAKE_REMOTE_TAG_FETCH_STATUS:-0}" ;;
   rev-parse\ --verify\ refs/updatebar-release-verification/*'^{commit}') printf '%s\n' "${FAKE_REMOTE_TAG_COMMIT:-0123456789abcdef0123456789abcdef01234567}" ;;
   update-ref\ -d\ refs/updatebar-release-verification/*) exit "${FAKE_REF_CLEANUP_STATUS:-0}" ;;
@@ -106,7 +106,8 @@ EXPECTED_COMMIT="$COMMIT" EXPECTED_MAC="$MAC_SHA" EXPECTED_DMG="$DMG_SHA" EXPECT
     {"type"=>"formula","token"=>"updatebar-tui","source"=>{"kind"=>"github-tag-archive","sha256"=>ENV.fetch("EXPECTED_TUI")}}
   ]}; abort "manifest mismatch" unless a==e; abort "missing newline" unless File.binread(ARGV[0]).end_with?("\n")
 ' "$MANIFEST"
-grep -Fxq 'fetch --quiet origin main' "$TMP/git.log" || fail "origin/main was not freshly fetched"
+grep -q '^fetch --quiet --no-tags origin refs/heads/main:refs/updatebar-release-verification/.*-main$' "$TMP/git.log" || fail "remote main was not fetched into an isolated ref"
+[[ "$(grep -c '^update-ref -d refs/updatebar-release-verification/' "$TMP/git.log")" -eq 2 ]] || fail "isolated main/tag refs were not both cleaned after success"
 grep -Fq 'https://github.com/sonim1/UpdateBar/archive/refs/tags/v1.2.3.tar.gz' "$LOG" || fail "tag archive URL was not fixed"
 
 failure() {
@@ -209,6 +210,21 @@ set +e; output="$(cd "$REAL_PROJECT" && GIT_BIN="$REAL_GIT" CURL_BIN="$B/curl" S
 set +e; output="$(cd "$REAL_PROJECT" && GIT_BIN="$REAL_GIT" CURL_BIN="$B/curl" SHASUM_BIN=/usr/bin/shasum CURL_LOG="$LOG" Scripts/generate-release-manifest.sh v1.2.3 2>&1)"; status=$?; set -e
 [[ "$status" != 0 ]] || fail "same-named remote branch satisfied exact tag fetch"
 [[ -z "$(/usr/bin/git -C "$REAL_PROJECT" for-each-ref refs/updatebar-release-verification)" ]] || fail "real isolated tag ref leaked after missing tag"
+/usr/bin/git -C "$REAL_PROJECT" push origin :refs/heads/v1.2.3 >/dev/null
+REAL_OLD_HEAD="$(/usr/bin/git -C "$REAL_PROJECT" rev-parse HEAD)"
+/usr/bin/git -C "$REAL_PROJECT" push origin refs/tags/v1.2.3 >/dev/null
+printf three >"$REAL_PROJECT/tracked"; /usr/bin/git -C "$REAL_PROJECT" commit -am three >/dev/null; REAL_REMOTE_MAIN="$(/usr/bin/git -C "$REAL_PROJECT" rev-parse HEAD)"; /usr/bin/git -C "$REAL_PROJECT" push origin main >/dev/null
+/usr/bin/git -C "$REAL_PROJECT" reset --hard "$REAL_OLD_HEAD" >/dev/null
+/usr/bin/git -C "$REAL_PROJECT" update-ref refs/remotes/origin/main "$REAL_OLD_HEAD"
+/usr/bin/git -C "$REAL_PROJECT" config --unset-all remote.origin.fetch || :
+/usr/bin/git -C "$REAL_PROJECT" config --add remote.origin.fetch '+refs/heads/not-main:refs/remotes/origin/not-main'
+set +e; output="$(cd "$REAL_PROJECT" && GIT_BIN="$REAL_GIT" CURL_BIN="$B/curl" SHASUM_BIN=/usr/bin/shasum CURL_LOG="$LOG" Scripts/generate-release-manifest.sh v1.2.3 2>&1)"; status=$?; set -e
+[[ "$status" == 64 ]] || fail "stale refs/remotes/origin/main bypassed exact remote main: $status $output"
+[[ -z "$(/usr/bin/git -C "$REAL_PROJECT" for-each-ref refs/updatebar-release-verification)" ]] || fail "isolated main/tag refs leaked after main mismatch"
+/usr/bin/git -C "$REAL_PROJECT" reset --hard "$REAL_REMOTE_MAIN" >/dev/null; /usr/bin/git -C "$REAL_PROJECT" tag -f v1.2.3 >/dev/null; /usr/bin/git -C "$REAL_PROJECT" push --force origin refs/tags/v1.2.3 >/dev/null
+set +e; output="$(cd "$REAL_PROJECT" && GIT_BIN="$REAL_GIT" CURL_BIN="$B/curl" SHASUM_BIN=/usr/bin/shasum CURL_LOG="$LOG" Scripts/generate-release-manifest.sh v1.2.3 2>&1)"; status=$?; set -e
+[[ "$status" == 0 ]] || fail "matching isolated remote main/tag provenance failed: $status $output"
+[[ -z "$(/usr/bin/git -C "$REAL_PROJECT" for-each-ref refs/updatebar-release-verification)" ]] || fail "isolated refs leaked after success"
 
 bash -n "$SOURCE" "$0"
 echo "generate-release-manifest contract tests passed"

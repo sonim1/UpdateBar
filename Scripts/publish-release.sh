@@ -43,11 +43,12 @@ HEAD_COMMIT="$($GIT_BIN rev-parse HEAD)" || { status=$?; echo 'Unable to resolve
 TAG_COMMIT="$($GIT_BIN rev-parse --verify "refs/tags/$TAG^{commit}")" || { status=$?; echo 'Unable to resolve exact release tag' >&2; exit "$status"; }
 [[ "$TAG_COMMIT" == "$HEAD_COMMIT" ]] || fail 'Release tag does not point to HEAD' 64
 
-TMP=''; SNAP=''; SNAP_GUARD=''; UPDATE_SNAPSHOT=''; DMG_MOUNT=''; DMG_ATTACHED=0; REMOTE_TAG_REF=''; REMOTE_REF_NONCE=''
+TMP=''; SNAP=''; SNAP_GUARD=''; UPDATE_SNAPSHOT=''; DMG_MOUNT=''; DMG_ATTACHED=0; REMOTE_MAIN_REF=''; REMOTE_TAG_REF=''; REMOTE_REF_NONCE=''
 cleanup(){
   local status=$? cleanup_status=0
   trap - EXIT HUP INT TERM
   if [[ "$DMG_ATTACHED" == 1 ]]; then "$HDIUTIL_BIN" detach "$DMG_MOUNT" >/dev/null 2>&1 || cleanup_status=$?; DMG_ATTACHED=0; fi
+  if [[ -n "$REMOTE_MAIN_REF" ]]; then "$GIT_BIN" update-ref -d "$REMOTE_MAIN_REF" >/dev/null 2>&1 || cleanup_status=$?; fi
   if [[ -n "$REMOTE_TAG_REF" ]]; then "$GIT_BIN" update-ref -d "$REMOTE_TAG_REF" >/dev/null 2>&1 || cleanup_status=$?; fi
   [[ -z "$REMOTE_REF_NONCE" || ! -d "$REMOTE_REF_NONCE" ]] || rm -rf "$REMOTE_REF_NONCE" || cleanup_status=$?
   if [[ -n "$TMP" && -d "$TMP" ]]; then
@@ -171,14 +172,16 @@ dirty="$($GIT_BIN status --porcelain --untracked-files=all)" || { status=$?; ech
 [[ -z "$dirty" ]] || fail 'Release worktree is not clean' 64
 CURRENT_HEAD="$($GIT_BIN rev-parse HEAD)" || { status=$?; echo 'Unable to re-resolve HEAD' >&2; exit "$status"; }
 LOCAL_TAG_COMMIT="$($GIT_BIN rev-parse --verify "refs/tags/$TAG^{commit}")" || { status=$?; echo 'Unable to re-resolve exact local tag' >&2; exit "$status"; }
-if "$GIT_BIN" fetch --quiet origin main; then :; else status=$?; echo 'Unable to freshly fetch origin/main' >&2; exit "$status"; fi
-MAIN_COMMIT="$($GIT_BIN rev-parse --verify 'refs/remotes/origin/main^{commit}')" || { status=$?; echo 'Unable to resolve fetched origin/main' >&2; exit "$status"; }
 REMOTE_REF_NONCE="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-publish-tag-ref.XXXXXX")" || exit $?
+REMOTE_MAIN_REF="refs/updatebar-release-verification/${REMOTE_REF_NONCE##*/}-main"
 REMOTE_TAG_REF="refs/updatebar-release-verification/${REMOTE_REF_NONCE##*/}"
+if "$GIT_BIN" fetch --quiet --no-tags origin "refs/heads/main:$REMOTE_MAIN_REF"; then :; else status=$?; echo 'Unable to fetch exact remote main branch' >&2; exit "$status"; fi
+MAIN_COMMIT="$($GIT_BIN rev-parse --verify "$REMOTE_MAIN_REF^{commit}")" || { status=$?; echo 'Unable to peel exact remote main branch' >&2; exit "$status"; }
 if "$GIT_BIN" fetch --quiet --no-tags origin "refs/tags/$TAG:$REMOTE_TAG_REF"; then :; else status=$?; echo 'Unable to fetch exact remote release tag' >&2; exit "$status"; fi
 REMOTE_TAG_COMMIT="$($GIT_BIN rev-parse --verify "$REMOTE_TAG_REF^{commit}")" || { status=$?; echo 'Unable to peel exact remote release tag' >&2; exit "$status"; }
 for commit in "$CURRENT_HEAD" "$LOCAL_TAG_COMMIT" "$MAIN_COMMIT" "$REMOTE_TAG_COMMIT"; do [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || fail 'Release provenance returned a non-canonical commit' 64; done
 [[ "$CURRENT_HEAD" == "$HEAD_COMMIT" && "$LOCAL_TAG_COMMIT" == "$HEAD_COMMIT" && "$MAIN_COMMIT" == "$HEAD_COMMIT" && "$REMOTE_TAG_COMMIT" == "$HEAD_COMMIT" ]] || fail 'Remote tag, local tag, HEAD, origin/main, and manifest commit do not match' 64
+if "$GIT_BIN" update-ref -d "$REMOTE_MAIN_REF"; then REMOTE_MAIN_REF=''; else status=$?; echo 'Unable to clean isolated remote main ref' >&2; exit "$status"; fi
 if "$GIT_BIN" update-ref -d "$REMOTE_TAG_REF"; then REMOTE_TAG_REF=''; else status=$?; echo 'Unable to clean isolated remote tag ref' >&2; exit "$status"; fi
 rm -rf "$REMOTE_REF_NONCE"; REMOTE_REF_NONCE=''
 

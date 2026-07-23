@@ -10,11 +10,12 @@ CURL_BIN="${CURL_BIN:-curl}"
 SHASUM_BIN="${SHASUM_BIN:-/usr/bin/shasum}"
 RUBY_BIN="${RUBY_BIN:-/usr/bin/ruby}"
 RENAME_BIN="${RENAME_BIN:-$RUBY_BIN}"
-temporary_archive=''; temporary_manifest=''; remote_ref_nonce=''; remote_tag_ref=''
+temporary_archive=''; temporary_manifest=''; remote_ref_nonce=''; remote_main_ref=''; remote_tag_ref=''
 
 cleanup() {
   local status=$? cleanup_status=0
   trap - EXIT HUP INT TERM
+  if [[ -n "$remote_main_ref" ]]; then "$GIT_BIN" update-ref -d "$remote_main_ref" >/dev/null 2>&1 || cleanup_status=$?; fi
   if [[ -n "$remote_tag_ref" ]]; then "$GIT_BIN" update-ref -d "$remote_tag_ref" >/dev/null 2>&1 || cleanup_status=$?; fi
   [[ -z "$remote_ref_nonce" || ! -d "$remote_ref_nonce" ]] || rm -rf "$remote_ref_nonce" || cleanup_status=$?
   [[ -z "$temporary_archive" ]] || rm -f "$temporary_archive" || cleanup_status=$?
@@ -50,14 +51,16 @@ head_commit="$($GIT_BIN rev-parse HEAD)" || { status=$?; echo 'Unable to resolve
 [[ "$head_commit" =~ ^[0-9a-f]{40}$ ]] || fail 'HEAD is not a lowercase full commit hash' 64
 tag_commit="$($GIT_BIN rev-parse --verify "refs/tags/$tag^{commit}")" || { status=$?; echo 'Unable to resolve exact release tag' >&2; exit "$status"; }
 [[ "$tag_commit" =~ ^[0-9a-f]{40}$ && "$tag_commit" == "$head_commit" ]] || fail 'Release tag does not point to HEAD' 64
-if "$GIT_BIN" fetch --quiet origin main; then :; else status=$?; echo 'Unable to fetch origin/main' >&2; exit "$status"; fi
-main_commit="$($GIT_BIN rev-parse --verify 'refs/remotes/origin/main^{commit}')" || { status=$?; echo 'Unable to resolve fetched origin/main' >&2; exit "$status"; }
-[[ "$main_commit" =~ ^[0-9a-f]{40}$ && "$main_commit" == "$head_commit" ]] || fail 'HEAD is not the freshly fetched origin/main commit' 64
 remote_ref_nonce="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-tag-ref.XXXXXX")" || exit $?
+remote_main_ref="refs/updatebar-release-verification/${remote_ref_nonce##*/}-main"
 remote_tag_ref="refs/updatebar-release-verification/${remote_ref_nonce##*/}"
+if "$GIT_BIN" fetch --quiet --no-tags origin "refs/heads/main:$remote_main_ref"; then :; else status=$?; echo 'Unable to fetch exact remote main branch' >&2; exit "$status"; fi
+main_commit="$($GIT_BIN rev-parse --verify "$remote_main_ref^{commit}")" || { status=$?; echo 'Unable to peel fetched remote main branch' >&2; exit "$status"; }
+[[ "$main_commit" =~ ^[0-9a-f]{40}$ && "$main_commit" == "$head_commit" ]] || fail 'HEAD is not the freshly fetched remote main commit' 64
 if "$GIT_BIN" fetch --quiet --no-tags origin "refs/tags/$tag:$remote_tag_ref"; then :; else status=$?; echo 'Unable to fetch exact remote release tag' >&2; exit "$status"; fi
 remote_tag_commit="$($GIT_BIN rev-parse --verify "$remote_tag_ref^{commit}")" || { status=$?; echo 'Unable to peel fetched remote release tag' >&2; exit "$status"; }
 [[ "$remote_tag_commit" =~ ^[0-9a-f]{40}$ && "$remote_tag_commit" == "$tag_commit" && "$remote_tag_commit" == "$head_commit" ]] || fail 'Remote release tag does not match local tag and HEAD' 64
+if "$GIT_BIN" update-ref -d "$remote_main_ref"; then remote_main_ref=''; else status=$?; echo 'Unable to clean isolated remote main ref' >&2; exit "$status"; fi
 if "$GIT_BIN" update-ref -d "$remote_tag_ref"; then remote_tag_ref=''; else status=$?; echo 'Unable to clean isolated remote tag ref' >&2; exit "$status"; fi
 rm -rf "$remote_ref_nonce"; remote_ref_nonce=''
 
