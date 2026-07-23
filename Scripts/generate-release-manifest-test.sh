@@ -31,6 +31,9 @@ case "$*" in
   'rev-parse --verify refs/tags/v1.2.3^{commit}') printf '%s\n' "${FAKE_TAG_COMMIT:-0123456789abcdef0123456789abcdef01234567}" ;;
   'fetch --quiet origin main') exit "${FAKE_FETCH_STATUS:-0}" ;;
   'rev-parse --verify refs/remotes/origin/main^{commit}') printf '%s\n' "${FAKE_MAIN:-0123456789abcdef0123456789abcdef01234567}" ;;
+  fetch\ --quiet\ --no-tags\ origin\ refs/tags/v1.2.3:refs/updatebar-release-verification/*) exit "${FAKE_REMOTE_TAG_FETCH_STATUS:-0}" ;;
+  rev-parse\ --verify\ refs/updatebar-release-verification/*'^{commit}') printf '%s\n' "${FAKE_REMOTE_TAG_COMMIT:-0123456789abcdef0123456789abcdef01234567}" ;;
+  update-ref\ -d\ refs/updatebar-release-verification/*) exit "${FAKE_REF_CLEANUP_STATUS:-0}" ;;
   *) exit 91 ;;
 esac
 EOF
@@ -73,6 +76,7 @@ reset_fixture() {
   printf 'dmg\n' >"$P/dist/$DMG"; write_checksum "$P/dist/$DMG"
   FAKE_ORIGIN='git@github.com:sonim1/UpdateBar.git'; FAKE_DIRTY=''; FAKE_HEAD="$COMMIT"
   FAKE_TAG_COMMIT="$COMMIT"; FAKE_MAIN="$COMMIT"; FAKE_FETCH_STATUS=0; FAKE_CURL_STATUS=0
+  FAKE_REMOTE_TAG_COMMIT="$COMMIT"; FAKE_REMOTE_TAG_FETCH_STATUS=0; FAKE_REF_CLEANUP_STATUS=0
   FAKE_SUBSTITUTE_SOURCE=''; rm -f "$TMP/substituted"
 }
 
@@ -82,6 +86,7 @@ run_generator() {
     GIT_LOG="$TMP/git.log" CURL_LOG="$LOG" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_DIRTY="$FAKE_DIRTY" \
     FAKE_HEAD="$FAKE_HEAD" FAKE_TAG_COMMIT="$FAKE_TAG_COMMIT" FAKE_MAIN="$FAKE_MAIN" \
     FAKE_FETCH_STATUS="$FAKE_FETCH_STATUS" FAKE_CURL_STATUS="$FAKE_CURL_STATUS" \
+    FAKE_REMOTE_TAG_COMMIT="$FAKE_REMOTE_TAG_COMMIT" FAKE_REMOTE_TAG_FETCH_STATUS="$FAKE_REMOTE_TAG_FETCH_STATUS" FAKE_REF_CLEANUP_STATUS="$FAKE_REF_CLEANUP_STATUS" \
     FAKE_SUBSTITUTE_SOURCE="$FAKE_SUBSTITUTE_SOURCE" FAKE_SUBSTITUTE_MARKER="$TMP/substituted" \
     "$P/Scripts/generate-release-manifest.sh" "$@" 2>&1)"
   status=$?
@@ -117,6 +122,8 @@ dirty() { FAKE_DIRTY=' M Sources/x.swift'; }
 wrong_origin() { FAKE_ORIGIN='https://github.com/attacker/UpdateBar.git'; }
 wrong_tag() { FAKE_TAG_COMMIT=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; }
 wrong_main() { FAKE_MAIN=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; }
+wrong_remote_tag() { FAKE_REMOTE_TAG_COMMIT=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; }
+missing_remote_tag() { FAKE_REMOTE_TAG_FETCH_STATUS=42; }
 bad_commit() { FAKE_HEAD=ABCDEF; FAKE_TAG_COMMIT=ABCDEF; FAKE_MAIN=ABCDEF; }
 missing_mac() { rm "$P/dist/$MAC"; }
 missing_linux() { rm "$P/dist/$LINUX"; }
@@ -133,6 +140,8 @@ failure dirty 64 dirty
 failure wrong-origin 64 wrong_origin
 failure wrong-tag 64 wrong_tag
 failure wrong-main 64 wrong_main
+failure wrong-remote-tag 64 wrong_remote_tag
+failure missing-remote-tag 42 missing_remote_tag
 failure bad-commit 64 bad_commit
 failure missing-mac 66 missing_mac
 failure missing-linux 66 missing_linux
@@ -170,6 +179,36 @@ EOF
 chmod +x "$B/rename-swap"
 set +e; output="$(GIT_BIN="$B/git" CURL_BIN="$B/curl" SHASUM_BIN="$B/shasum" RENAME_BIN="$B/rename-swap" GIT_LOG="$TMP/git.log" CURL_LOG="$LOG" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_DIRTY='' FAKE_HEAD="$COMMIT" FAKE_TAG_COMMIT="$COMMIT" FAKE_MAIN="$COMMIT" FAKE_FETCH_STATUS=0 FAKE_CURL_STATUS=0 FAKE_SUBSTITUTE_SOURCE='' FAKE_SUBSTITUTE_MARKER="$TMP/substituted" "$P/Scripts/generate-release-manifest.sh" "$TAG" 2>&1)"; status=$?; set -e
 [[ "$status" != 0 && -f "$P/dist/release-manifest.json/sentinel" ]] || fail "destination substitution was not rejected safely"
+
+# Real Git proves an exact remote tag is fetched independently of a moved
+# local tag, and that a same-named branch cannot satisfy the tag refspec.
+REAL_REMOTE="$TMP/real-remote.git"; REAL_PROJECT="$TMP/real-project"; REAL_GIT="$TMP/real-git"
+/usr/bin/git init --bare "$REAL_REMOTE" >/dev/null
+/usr/bin/git init -b main "$REAL_PROJECT" >/dev/null
+/usr/bin/git -C "$REAL_PROJECT" config user.email test@example.invalid
+/usr/bin/git -C "$REAL_PROJECT" config user.name Test
+printf one >"$REAL_PROJECT/tracked"; /usr/bin/git -C "$REAL_PROJECT" add tracked; /usr/bin/git -C "$REAL_PROJECT" commit -m one >/dev/null
+/usr/bin/git -C "$REAL_PROJECT" remote add origin "$REAL_REMOTE"; /usr/bin/git -C "$REAL_PROJECT" tag v1.2.3
+/usr/bin/git -C "$REAL_PROJECT" push origin main refs/tags/v1.2.3 >/dev/null
+printf two >"$REAL_PROJECT/tracked"; /usr/bin/git -C "$REAL_PROJECT" commit -am two >/dev/null; /usr/bin/git -C "$REAL_PROJECT" push origin main >/dev/null
+/usr/bin/git -C "$REAL_PROJECT" tag -f v1.2.3 >/dev/null
+mkdir -p "$REAL_PROJECT/Scripts" "$REAL_PROJECT/dist"; cp "$SOURCE" "$REAL_PROJECT/Scripts/generate-release-manifest.sh"; chmod +x "$REAL_PROJECT/Scripts/generate-release-manifest.sh"
+printf 'UPDATEBAR_VERSION=1.2.3\n' >"$REAL_PROJECT/version.env"
+for n in "$MAC" "$LINUX" "$DMG"; do printf '%s\n' "$n" >"$REAL_PROJECT/dist/$n"; (cd "$REAL_PROJECT/dist" && /usr/bin/shasum -a 256 "$n" >"$n.sha256"); done
+cat >"$REAL_GIT" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == 'remote get-url origin' ]]; then echo git@github.com:sonim1/UpdateBar.git; exit 0; fi
+exec /usr/bin/git "$@"
+EOF
+chmod +x "$REAL_GIT"
+set +e; output="$(cd "$REAL_PROJECT" && GIT_BIN="$REAL_GIT" CURL_BIN="$B/curl" SHASUM_BIN=/usr/bin/shasum CURL_LOG="$LOG" Scripts/generate-release-manifest.sh v1.2.3 2>&1)"; status=$?; set -e
+[[ "$status" == 64 ]] || fail "real stale remote tag was accepted: $status $output"
+[[ -z "$(/usr/bin/git -C "$REAL_PROJECT" for-each-ref refs/updatebar-release-verification)" ]] || fail "real isolated tag ref leaked after mismatch"
+/usr/bin/git -C "$REAL_PROJECT" push origin :refs/tags/v1.2.3 >/dev/null
+/usr/bin/git -C "$REAL_PROJECT" push origin HEAD:refs/heads/v1.2.3 >/dev/null
+set +e; output="$(cd "$REAL_PROJECT" && GIT_BIN="$REAL_GIT" CURL_BIN="$B/curl" SHASUM_BIN=/usr/bin/shasum CURL_LOG="$LOG" Scripts/generate-release-manifest.sh v1.2.3 2>&1)"; status=$?; set -e
+[[ "$status" != 0 ]] || fail "same-named remote branch satisfied exact tag fetch"
+[[ -z "$(/usr/bin/git -C "$REAL_PROJECT" for-each-ref refs/updatebar-release-verification)" ]] || fail "real isolated tag ref leaked after missing tag"
 
 bash -n "$SOURCE" "$0"
 echo "generate-release-manifest contract tests passed"

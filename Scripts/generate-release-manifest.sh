@@ -10,6 +10,19 @@ CURL_BIN="${CURL_BIN:-curl}"
 SHASUM_BIN="${SHASUM_BIN:-/usr/bin/shasum}"
 RUBY_BIN="${RUBY_BIN:-/usr/bin/ruby}"
 RENAME_BIN="${RENAME_BIN:-$RUBY_BIN}"
+temporary_archive=''; temporary_manifest=''; remote_ref_nonce=''; remote_tag_ref=''
+
+cleanup() {
+  local status=$? cleanup_status=0
+  trap - EXIT HUP INT TERM
+  if [[ -n "$remote_tag_ref" ]]; then "$GIT_BIN" update-ref -d "$remote_tag_ref" >/dev/null 2>&1 || cleanup_status=$?; fi
+  [[ -z "$remote_ref_nonce" || ! -d "$remote_ref_nonce" ]] || rm -rf "$remote_ref_nonce" || cleanup_status=$?
+  [[ -z "$temporary_archive" ]] || rm -f "$temporary_archive" || cleanup_status=$?
+  [[ -z "$temporary_manifest" ]] || rm -f "$temporary_manifest" || cleanup_status=$?
+  [[ "$status" != 0 || "$cleanup_status" == 0 ]] || status="$cleanup_status"
+  exit "$status"
+}
+trap cleanup EXIT; trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
 
 fail() { echo "$1" >&2; exit "${2:-64}"; }
 [[ $# -eq 1 ]] || fail 'Usage: Scripts/generate-release-manifest.sh v<version>' 64
@@ -36,10 +49,17 @@ dirty="$($GIT_BIN status --porcelain --untracked-files=no)" || { status=$?; echo
 head_commit="$($GIT_BIN rev-parse HEAD)" || { status=$?; echo 'Unable to resolve HEAD' >&2; exit "$status"; }
 [[ "$head_commit" =~ ^[0-9a-f]{40}$ ]] || fail 'HEAD is not a lowercase full commit hash' 64
 tag_commit="$($GIT_BIN rev-parse --verify "refs/tags/$tag^{commit}")" || { status=$?; echo 'Unable to resolve exact release tag' >&2; exit "$status"; }
-[[ "$tag_commit" == "$head_commit" ]] || fail 'Release tag does not point to HEAD' 64
+[[ "$tag_commit" =~ ^[0-9a-f]{40}$ && "$tag_commit" == "$head_commit" ]] || fail 'Release tag does not point to HEAD' 64
 if "$GIT_BIN" fetch --quiet origin main; then :; else status=$?; echo 'Unable to fetch origin/main' >&2; exit "$status"; fi
 main_commit="$($GIT_BIN rev-parse --verify 'refs/remotes/origin/main^{commit}')" || { status=$?; echo 'Unable to resolve fetched origin/main' >&2; exit "$status"; }
-[[ "$main_commit" == "$head_commit" ]] || fail 'HEAD is not the freshly fetched origin/main commit' 64
+[[ "$main_commit" =~ ^[0-9a-f]{40}$ && "$main_commit" == "$head_commit" ]] || fail 'HEAD is not the freshly fetched origin/main commit' 64
+remote_ref_nonce="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-tag-ref.XXXXXX")" || exit $?
+remote_tag_ref="refs/updatebar-release-verification/${remote_ref_nonce##*/}"
+if "$GIT_BIN" fetch --quiet --no-tags origin "refs/tags/$tag:$remote_tag_ref"; then :; else status=$?; echo 'Unable to fetch exact remote release tag' >&2; exit "$status"; fi
+remote_tag_commit="$($GIT_BIN rev-parse --verify "$remote_tag_ref^{commit}")" || { status=$?; echo 'Unable to peel fetched remote release tag' >&2; exit "$status"; }
+[[ "$remote_tag_commit" =~ ^[0-9a-f]{40}$ && "$remote_tag_commit" == "$tag_commit" && "$remote_tag_commit" == "$head_commit" ]] || fail 'Remote release tag does not match local tag and HEAD' 64
+if "$GIT_BIN" update-ref -d "$remote_tag_ref"; then remote_tag_ref=''; else status=$?; echo 'Unable to clean isolated remote tag ref' >&2; exit "$status"; fi
+rm -rf "$remote_ref_nonce"; remote_ref_nonce=''
 
 dist="$ROOT/dist"
 [[ -d "$dist" && ! -L "$dist" ]] || fail 'dist is missing or unsafe' 66
@@ -82,15 +102,6 @@ mac_sha="$(verify_checksum "$mac_name")" || exit $?
 linux_sha="$(verify_checksum "$linux_name")" || exit $?
 dmg_sha="$(verify_checksum "$dmg_name")" || exit $?
 
-temporary_archive=''; temporary_manifest=''
-cleanup() {
-  local status=$?
-  trap - EXIT HUP INT TERM
-  [[ -z "$temporary_archive" ]] || rm -f "$temporary_archive"
-  [[ -z "$temporary_manifest" ]] || rm -f "$temporary_manifest"
-  exit "$status"
-}
-trap cleanup EXIT; trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
 temporary_archive="$(mktemp "${TMPDIR:-/tmp}/updatebar-tag-archive.XXXXXX")" || exit $?
 chmod 600 "$temporary_archive" || exit $?
 tag_archive_url="https://github.com/sonim1/UpdateBar/archive/refs/tags/$tag.tar.gz"

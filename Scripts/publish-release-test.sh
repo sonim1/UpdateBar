@@ -6,17 +6,39 @@ fail(){ echo "FAIL: $*" >&2; exit 1; }
 [[ -x "$SOURCE" ]] || fail "publish-release.sh is missing or not executable"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-publish-release-test.XXXXXX")"; trap 'rm -rf "$TMP"' EXIT
 P="$TMP/project"; B="$TMP/bin"; A="$TMP/assets"; STATE="$TMP/state"; ORDER="$TMP/order"; GHLOG="$TMP/gh"; R2_CAPTURE="$TMP/r2-capture"; COMMIT=0123456789abcdef0123456789abcdef01234567
+PUBLIC_KEY='6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw='
+VALID_SIGNATURE='88snSkTEGzck0rEKyJqk9xhfNefxjQMDShO8eWEjfO8VxqKa8a3dozGbF4XtHzJ+kInVeBRVV7Xdz1Yr26rPBQ=='
 mkdir -p "$P/Scripts" "$P/dist/updates" "$B" "$A"; cp "$SOURCE" "$P/Scripts/publish-release.sh"; chmod +x "$P/Scripts/publish-release.sh"
 
 cat >"$B/git" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+printf '%s\n' "$*" >>"$GIT_LOG"
 case "$*" in
  'remote get-url origin') printf '%s\n' "${FAKE_ORIGIN:-git@github.com:sonim1/UpdateBar.git}";;
  'rev-parse HEAD') printf '%s\n' "${FAKE_HEAD:-0123456789abcdef0123456789abcdef01234567}";;
  'rev-parse --verify refs/tags/v1.2.3^{commit}') printf '%s\n' "${FAKE_TAG:-0123456789abcdef0123456789abcdef01234567}";;
+ 'status --porcelain --untracked-files=all') printf '%s' "${FAKE_DIRTY:-}";;
+ 'fetch --quiet origin main') exit "${FAKE_MAIN_FETCH_STATUS:-0}";;
+ 'rev-parse --verify refs/remotes/origin/main^{commit}') printf '%s\n' "${FAKE_MAIN:-0123456789abcdef0123456789abcdef01234567}";;
+ fetch\ --quiet\ --no-tags\ origin\ refs/tags/v1.2.3:refs/updatebar-release-verification/*) exit "${FAKE_REMOTE_FETCH_STATUS:-0}";;
+ rev-parse\ --verify\ refs/updatebar-release-verification/*'^{commit}') printf '%s\n' "${FAKE_REMOTE_TAG:-0123456789abcdef0123456789abcdef01234567}";;
+ update-ref\ -d\ refs/updatebar-release-verification/*) exit "${FAKE_REF_CLEANUP_STATUS:-0}";;
  *) exit 90;;
 esac
+EOF
+cat >"$B/hdiutil" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == detach ]]; then exit "${FAKE_DETACH_STATUS:-0}"; fi
+[[ "$1" == attach ]] || exit 90
+mount=''; while [[ $# -gt 0 ]]; do case "$1" in -mountpoint) mount="$2"; shift 2;; *) shift;; esac; done
+[[ -n "$mount" ]] || exit 91
+mkdir -p "$mount/UpdateBar.app/Contents"
+cat >"$mount/UpdateBar.app/Contents/Info.plist" <<PLIST
+<?xml version="1.0"?><plist version="1.0"><dict><key>SUFeedURL</key><string>https://updates.updatebar.sonim1.com/appcast.xml</string><key>SUPublicEDKey</key><string>${DMG_PUBLIC_KEY_FIXTURE}</string></dict></plist>
+PLIST
+printf '<plist><dict><key>system-entities</key><array><dict><key>mount-point</key><string>%s</string></dict></array></dict></plist>\n' "$mount"
 EOF
 cat >"$B/gh" <<'EOF'
 #!/usr/bin/env bash
@@ -91,19 +113,37 @@ write_files(){
   cp "$P/dist/$DMG" "$P/dist/updates/$DMG"; cp "$P/dist/$DMG.sha256" "$P/dist/updates/$DMG.sha256"
   length="$(stat -f %z "$P/dist/$DMG")"
   cat >"$P/dist/updates/appcast.xml" <<EOF
-<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="https://updates.updatebar.sonim1.com/$DMG" length="$length" sparkle:version="12" sparkle:shortVersionString="1.2.3" sparkle:edSignature="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="/></item></channel></rss>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="https://updates.updatebar.sonim1.com/$DMG" length="$length" sparkle:version="12" sparkle:shortVersionString="1.2.3" sparkle:edSignature="$VALID_SIGNATURE"/></item></channel></rss>
 EOF
   msh="$(/usr/bin/shasum -a 256 "$P/dist/$MAC"|awk '{print $1}')"; dsh="$(/usr/bin/shasum -a 256 "$P/dist/$DMG"|awk '{print $1}')"
   cat >"$P/dist/release-manifest.json" <<EOF
 {"schemaVersion":1,"repository":"sonim1/UpdateBar","tag":"v1.2.3","version":"1.2.3","commit":"$COMMIT","packages":[{"type":"formula","token":"updatebar","source":{"kind":"release-asset","name":"$MAC","sha256":"$msh"}},{"type":"cask","token":"updatebar-app","source":{"kind":"release-asset","name":"$DMG","sha256":"$dsh"}},{"type":"formula","token":"updatebar-tui","source":{"kind":"github-tag-archive","sha256":"$(printf '%064d' 1)"}}]}
 EOF
 }
-reset(){ rm -rf "$STATE" "$A"/* "$R2_CAPTURE" "$TMP/substituted"; : >"$ORDER"; : >"$GHLOG"; FAKE_UPLOAD_STATUS=0; FAKE_EDIT_STATUS=0; FAKE_R2_STATUS=0; FAKE_CREATE_STATUS=0; FAKE_ORIGIN='git@github.com:sonim1/UpdateBar.git'; FAKE_HEAD="$COMMIT"; FAKE_TAG="$COMMIT"; EXTRA_NAMES=''; CONCURRENT_REPLACE=0; FAKE_SOURCE_SUBSTITUTE=0; write_files; }
-run(){ set +e; output="$(GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN="$B/cmp" RUBY_BIN=/usr/bin/ruby PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" LIVE_DIST_DIR="$P/dist" MAC_NAME="$MAC" DMG_NAME="$DMG" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_SOURCE_SUBSTITUTE="$FAKE_SOURCE_SUBSTITUTE" TARGET_SOURCE="$P/dist/$MAC" SUBSTITUTE_MARKER="$TMP/substituted" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
+reset(){ rm -rf "$STATE" "$A"/* "$R2_CAPTURE" "$TMP/substituted"; : >"$ORDER"; : >"$GHLOG"; : >"$TMP/git.log"; FAKE_UPLOAD_STATUS=0; FAKE_EDIT_STATUS=0; FAKE_R2_STATUS=0; FAKE_CREATE_STATUS=0; FAKE_ORIGIN='git@github.com:sonim1/UpdateBar.git'; FAKE_HEAD="$COMMIT"; FAKE_TAG="$COMMIT"; FAKE_MAIN="$COMMIT"; FAKE_REMOTE_TAG="$COMMIT"; FAKE_DIRTY=''; FAKE_MAIN_FETCH_STATUS=0; FAKE_REMOTE_FETCH_STATUS=0; FAKE_REF_CLEANUP_STATUS=0; EXTRA_NAMES=''; CONCURRENT_REPLACE=0; FAKE_SOURCE_SUBSTITUTE=0; DMG_PUBLIC_KEY_FIXTURE="$PUBLIC_KEY"; write_files; }
+run(){ set +e; output="$(GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN="$B/cmp" RUBY_BIN=/usr/bin/ruby HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN=/usr/bin/plutil REALPATH_BIN=/bin/realpath XCRUN_BIN=/usr/bin/xcrun PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" GIT_LOG="$TMP/git.log" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" LIVE_DIST_DIR="$P/dist" MAC_NAME="$MAC" DMG_NAME="$DMG" DMG_PUBLIC_KEY_FIXTURE="$DMG_PUBLIC_KEY_FIXTURE" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_SOURCE_SUBSTITUTE="$FAKE_SOURCE_SUBSTITUTE" TARGET_SOURCE="$P/dist/$MAC" SUBSTITUTE_MARKER="$TMP/substituted" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" FAKE_MAIN="$FAKE_MAIN" FAKE_REMOTE_TAG="$FAKE_REMOTE_TAG" FAKE_DIRTY="$FAKE_DIRTY" FAKE_MAIN_FETCH_STATUS="$FAKE_MAIN_FETCH_STATUS" FAKE_REMOTE_FETCH_STATUS="$FAKE_REMOTE_FETCH_STATUS" FAKE_REF_CLEANUP_STATUS="$FAKE_REF_CLEANUP_STATUS" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
 
 required=(updatebar-1.2.3-macos-arm64.tar.gz updatebar-1.2.3-macos-arm64.tar.gz.sha256 updatebar-1.2.3-linux-x86_64.tar.gz updatebar-1.2.3-linux-x86_64.tar.gz.sha256 UpdateBar-1.2.3-macos-arm64.dmg UpdateBar-1.2.3-macos-arm64.dmg.sha256 appcast.xml release-manifest.json)
 reset; FAKE_SOURCE_SUBSTITUTE=1; run v1.2.3
 [[ "$status" == 64 && "$output" == *'while creating the snapshot'* && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "source substitution was not rejected before mutation: $status $output / $(cat "$ORDER")"
+
+reset; FAKE_REMOTE_TAG=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; run v1.2.3
+[[ "$status" == 64 && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "stale remote tag reached mutation: $status $output"
+grep -q '^update-ref -d refs/updatebar-release-verification/' "$TMP/git.log" || fail "isolated tag ref was not cleaned after provenance mismatch"
+reset; FAKE_REMOTE_FETCH_STATUS=47; run v1.2.3
+[[ "$status" == 47 && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "missing/branch-only remote tag status was translated or mutated"
+grep -q '^update-ref -d refs/updatebar-release-verification/' "$TMP/git.log" || fail "isolated tag ref was not cleaned after fetch failure"
+reset; FAKE_MAIN_FETCH_STATUS=46; run v1.2.3
+[[ "$status" == 46 && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "origin/main fetch status was translated or mutated"
+reset; FAKE_DIRTY='?? unexpected.txt'; run v1.2.3
+[[ "$status" == 64 && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "dirty worktree reached mutation"
+
+reset; /usr/bin/ruby -e 'p=ARGV[0];s=File.read(p);s.sub!(/sparkle:edSignature="[^"]+"/,%q{sparkle:edSignature="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="});File.write(p,s)' "$P/dist/updates/appcast.xml"; run v1.2.3
+[[ "$status" != 0 && "$output" == *'signature verification failed'* && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "zero/random Sparkle signature was accepted"
+reset; DMG_PUBLIC_KEY_FIXTURE='E5j2LG0aRXxRumpLXz29L2n8qTIWIY3ImX5Ba9F9k8o='; run v1.2.3
+[[ "$status" != 0 && "$output" == *'signature verification failed'* && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "wrong packaged Sparkle key was accepted"
+reset; printf bad >"$P/dist/$DMG"; checksum "$P/dist/$DMG"; cp "$P/dist/$DMG" "$P/dist/updates/$DMG"; cp "$P/dist/$DMG.sha256" "$P/dist/updates/$DMG.sha256"; new_sha="$(/usr/bin/shasum -a 256 "$P/dist/$DMG"|awk '{print $1}')"; /usr/bin/ruby -rjson -e 'p=ARGV[0];d=JSON.parse(File.read(p));d["packages"][1]["source"]["sha256"]=ARGV[1];File.write(p,JSON.generate(d))' "$P/dist/release-manifest.json" "$new_sha"; run v1.2.3
+[[ "$status" != 0 && "$output" == *'signature verification failed'* && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "mutated DMG with rebound checksums was accepted"
 reset; run v1.2.3; [[ "$status" == 0 ]] || fail "new release failed ($status): $output"
 for n in "${required[@]}"; do [[ -f "$A/$n" ]] || fail "missing uploaded $n"; done
 [[ "$(tail -2 "$ORDER")" == $'publish-r2\npublish-github' ]] || fail "publication order wrong: $(cat "$ORDER")"

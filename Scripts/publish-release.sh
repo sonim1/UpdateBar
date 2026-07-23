@@ -14,13 +14,14 @@ set +x
 REPOSITORY='sonim1/UpdateBar'; GH_REPO="$REPOSITORY"; GH_HOST='github.com'; export GH_REPO GH_HOST
 GIT_BIN="${GIT_BIN:-git}"; GH_BIN="${GH_BIN:-gh}"; SHASUM_BIN="${SHASUM_BIN:-/usr/bin/shasum}"
 CMP_BIN="${CMP_BIN:-/usr/bin/cmp}"; RUBY_BIN="${RUBY_BIN:-/usr/bin/ruby}"
+HDIUTIL_BIN="${HDIUTIL_BIN:-/usr/bin/hdiutil}"; PLUTIL_BIN="${PLUTIL_BIN:-/usr/bin/plutil}"; REALPATH_BIN="${REALPATH_BIN:-realpath}"; XCRUN_BIN="${XCRUN_BIN:-/usr/bin/xcrun}"
 PUBLISH_UPDATE_SCRIPT="${PUBLISH_UPDATE_SCRIPT:-$ROOT/Scripts/publish-update.sh}"
 DIST="$ROOT/dist"; UPDATE_DIR="$DIST/updates"; MANIFEST_NAME=release-manifest.json; APPCAST_NAME=appcast.xml
 MAC_NAME="updatebar-$VERSION-macos-arm64.tar.gz"; LINUX_NAME="updatebar-$VERSION-linux-x86_64.tar.gz"; DMG_NAME="UpdateBar-$VERSION-macos-arm64.dmg"
 
 fail(){ echo "$1" >&2; exit "${2:-66}"; }
 regular(){ [[ -f "$1" && ! -L "$1" ]] || fail "Required file is missing or unsafe: $1" 66; }
-for command_path in "$GIT_BIN" "$GH_BIN" "$SHASUM_BIN" "$CMP_BIN" "$RUBY_BIN"; do
+for command_path in "$GIT_BIN" "$GH_BIN" "$SHASUM_BIN" "$CMP_BIN" "$RUBY_BIN" "$HDIUTIL_BIN" "$PLUTIL_BIN" "$REALPATH_BIN" "$XCRUN_BIN"; do
   if [[ "$command_path" == */* ]]; then [[ -x "$command_path" ]] || fail "Required command is unavailable: $command_path" 66
   else command -v "$command_path" >/dev/null 2>&1 || fail "Required command is unavailable: $command_path" 66; fi
 done
@@ -42,10 +43,13 @@ HEAD_COMMIT="$($GIT_BIN rev-parse HEAD)" || { status=$?; echo 'Unable to resolve
 TAG_COMMIT="$($GIT_BIN rev-parse --verify "refs/tags/$TAG^{commit}")" || { status=$?; echo 'Unable to resolve exact release tag' >&2; exit "$status"; }
 [[ "$TAG_COMMIT" == "$HEAD_COMMIT" ]] || fail 'Release tag does not point to HEAD' 64
 
-TMP=''; SNAP=''; SNAP_GUARD=''; UPDATE_SNAPSHOT=''
+TMP=''; SNAP=''; SNAP_GUARD=''; UPDATE_SNAPSHOT=''; DMG_MOUNT=''; DMG_ATTACHED=0; REMOTE_TAG_REF=''; REMOTE_REF_NONCE=''
 cleanup(){
   local status=$? cleanup_status=0
   trap - EXIT HUP INT TERM
+  if [[ "$DMG_ATTACHED" == 1 ]]; then "$HDIUTIL_BIN" detach "$DMG_MOUNT" >/dev/null 2>&1 || cleanup_status=$?; DMG_ATTACHED=0; fi
+  if [[ -n "$REMOTE_TAG_REF" ]]; then "$GIT_BIN" update-ref -d "$REMOTE_TAG_REF" >/dev/null 2>&1 || cleanup_status=$?; fi
+  [[ -z "$REMOTE_REF_NONCE" || ! -d "$REMOTE_REF_NONCE" ]] || rm -rf "$REMOTE_REF_NONCE" || cleanup_status=$?
   if [[ -n "$TMP" && -d "$TMP" ]]; then
     [[ -z "$SNAP" || ! -d "$SNAP" || -L "$SNAP" ]] || chmod u+w "$SNAP" 2>/dev/null || :
     [[ -z "$SNAP_GUARD" || ! -d "$SNAP_GUARD" || -L "$SNAP_GUARD" ]] || chmod u+w "$SNAP_GUARD" 2>/dev/null || :
@@ -101,16 +105,31 @@ verify_checksum(){
 }
 MAC_SHA="$(verify_checksum "$MAC_NAME")"; verify_checksum "$LINUX_NAME" >/dev/null; DMG_SHA="$(verify_checksum "$DMG_NAME")"
 
-if "$RUBY_BIN" -rrexml/document -rbase64 -e '
+if APPCAST_SIGNATURE="$($RUBY_BIN -rrexml/document -rbase64 -e '
   path,url,version,length=ARGV
   begin
     raw=File.binread(path); exit 1 if raw.include?("<!DOCTYPE"); doc=REXML::Document.new(raw); ns="http://www.andymatuschak.org/xml-namespaces/sparkle"
     es=[];REXML::XPath.each(doc,"//*[local-name()=\"enclosure\"]"){|e|es<<e};exit 1 unless es.length==1
     e=es[0];a=->(n){x=e.attributes.get_attribute_ns(ns,n);x&&x.value}; sig=a.call("edSignature")
     valid=e.attributes["url"]==url && e.attributes["length"]==length && a.call("shortVersionString")==version && a.call("version")&.match?(/\A[0-9]+(?:\.[0-9]+){0,2}\z/) && sig && Base64.strict_decode64(sig).bytesize==64
-    exit(valid ? 0 : 1)
+    exit 1 unless valid; print sig
   rescue; exit 1; end
-' "$SNAP/$APPCAST_NAME" "https://updates.updatebar.sonim1.com/$DMG_NAME" "$VERSION" "$(stat -f %z "$SNAP/$DMG_NAME")"; then :; else fail 'Appcast is not bound to the release DMG and version' 64; fi
+' "$SNAP/$APPCAST_NAME" "https://updates.updatebar.sonim1.com/$DMG_NAME" "$VERSION" "$(stat -f %z "$SNAP/$DMG_NAME")")"; then :; else fail 'Appcast is not bound to the release DMG and version' 64; fi
+
+DMG_MOUNT="$TMP/dmg-mount"; mkdir "$DMG_MOUNT" || exit $?; DMG_MOUNT="$($REALPATH_BIN "$DMG_MOUNT")" || exit $?
+ATTACH_PLIST="$TMP/dmg-attach.plist"
+if "$HDIUTIL_BIN" attach -mountpoint "$DMG_MOUNT" -plist -nobrowse -readonly "$SNAP/$DMG_NAME" >"$ATTACH_PLIST"; then DMG_ATTACHED=1; else status=$?; echo 'Unable to mount frozen DMG for Sparkle metadata verification' >&2; exit "$status"; fi
+REPORTED_MOUNT="$($RUBY_BIN -e 'raw=File.binread(ARGV[0]);v=raw.scan(/<key>\s*mount-point\s*<\/key>\s*<string>([^<]+)<\/string>/m).flatten;exit 1 unless v.length==1&&!v[0].match?(/[\0\r\n]/);print v[0]' "$ATTACH_PLIST")" || fail 'DMG mount response is malformed' 64
+[[ "$REPORTED_MOUNT" == "$DMG_MOUNT" && "$($REALPATH_BIN "$REPORTED_MOUNT")" == "$DMG_MOUNT" ]] || fail 'DMG mounted outside the private mount point' 64
+MOUNTED_PLIST="$DMG_MOUNT/UpdateBar.app/Contents/Info.plist"; regular "$MOUNTED_PLIST"
+case "$($REALPATH_BIN "$MOUNTED_PLIST")" in "$DMG_MOUNT"/*) ;; *) fail 'Mounted app metadata escapes the private DMG mount' 64;; esac
+DMG_FEED="$($PLUTIL_BIN -extract SUFeedURL raw -o - "$MOUNTED_PLIST")" || exit $?
+DMG_PUBLIC_KEY="$($PLUTIL_BIN -extract SUPublicEDKey raw -o - "$MOUNTED_PLIST")" || exit $?
+[[ "$DMG_FEED" == 'https://updates.updatebar.sonim1.com/appcast.xml' ]] || fail 'Packaged Sparkle feed URL is invalid' 64
+"$RUBY_BIN" -rbase64 -e 'begin;b=Base64.strict_decode64(ARGV[0]);exit(b.bytesize==32&&Base64.strict_encode64(b)==ARGV[0] ? 0:1);rescue;exit 1;end' "$DMG_PUBLIC_KEY" || fail 'Packaged Sparkle public key is invalid' 64
+if "$HDIUTIL_BIN" detach "$DMG_MOUNT" >/dev/null; then DMG_ATTACHED=0; else status=$?; echo 'Unable to detach frozen DMG metadata mount' >&2; exit "$status"; fi
+SWIFT_VERIFY='import Foundation; import CryptoKit; let a=CommandLine.arguments; guard let p=Data(base64Encoded:a[1]),let s=Data(base64Encoded:a[2]) else{exit(2)}; do{let k=try Curve25519.Signing.PublicKey(rawRepresentation:p);let d=try Data(contentsOf:URL(fileURLWithPath:a[3]));exit(k.isValidSignature(s,for:d) ? 0:1)}catch{exit(2)}'
+if "$XCRUN_BIN" swift -e "$SWIFT_VERIFY" "$DMG_PUBLIC_KEY" "$APPCAST_SIGNATURE" "$SNAP/$DMG_NAME"; then :; else status=$?; echo 'Sparkle Ed25519 signature verification failed' >&2; exit "$status"; fi
 
 set +e
 "$RUBY_BIN" -rjson -e '
@@ -146,6 +165,22 @@ verify_update_snapshot(){
   done
 }
 verify_update_snapshot
+
+# Revalidate exact remote provenance immediately before the first GitHub/R2 mutation.
+dirty="$($GIT_BIN status --porcelain --untracked-files=all)" || { status=$?; echo 'Unable to inspect release worktree' >&2; exit "$status"; }
+[[ -z "$dirty" ]] || fail 'Release worktree is not clean' 64
+CURRENT_HEAD="$($GIT_BIN rev-parse HEAD)" || { status=$?; echo 'Unable to re-resolve HEAD' >&2; exit "$status"; }
+LOCAL_TAG_COMMIT="$($GIT_BIN rev-parse --verify "refs/tags/$TAG^{commit}")" || { status=$?; echo 'Unable to re-resolve exact local tag' >&2; exit "$status"; }
+if "$GIT_BIN" fetch --quiet origin main; then :; else status=$?; echo 'Unable to freshly fetch origin/main' >&2; exit "$status"; fi
+MAIN_COMMIT="$($GIT_BIN rev-parse --verify 'refs/remotes/origin/main^{commit}')" || { status=$?; echo 'Unable to resolve fetched origin/main' >&2; exit "$status"; }
+REMOTE_REF_NONCE="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-publish-tag-ref.XXXXXX")" || exit $?
+REMOTE_TAG_REF="refs/updatebar-release-verification/${REMOTE_REF_NONCE##*/}"
+if "$GIT_BIN" fetch --quiet --no-tags origin "refs/tags/$TAG:$REMOTE_TAG_REF"; then :; else status=$?; echo 'Unable to fetch exact remote release tag' >&2; exit "$status"; fi
+REMOTE_TAG_COMMIT="$($GIT_BIN rev-parse --verify "$REMOTE_TAG_REF^{commit}")" || { status=$?; echo 'Unable to peel exact remote release tag' >&2; exit "$status"; }
+for commit in "$CURRENT_HEAD" "$LOCAL_TAG_COMMIT" "$MAIN_COMMIT" "$REMOTE_TAG_COMMIT"; do [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || fail 'Release provenance returned a non-canonical commit' 64; done
+[[ "$CURRENT_HEAD" == "$HEAD_COMMIT" && "$LOCAL_TAG_COMMIT" == "$HEAD_COMMIT" && "$MAIN_COMMIT" == "$HEAD_COMMIT" && "$REMOTE_TAG_COMMIT" == "$HEAD_COMMIT" ]] || fail 'Remote tag, local tag, HEAD, origin/main, and manifest commit do not match' 64
+if "$GIT_BIN" update-ref -d "$REMOTE_TAG_REF"; then REMOTE_TAG_REF=''; else status=$?; echo 'Unable to clean isolated remote tag ref' >&2; exit "$status"; fi
+rm -rf "$REMOTE_REF_NONCE"; REMOTE_REF_NONCE=''
 
 probe=''; set +e; probe="$($GH_BIN api --hostname github.com --include --silent "repos/$REPOSITORY/releases/tags/$TAG" 2>&1)"; probe_status=$?; set -e
 http=''; count=0
