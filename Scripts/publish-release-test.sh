@@ -41,6 +41,19 @@ cat >"$mount/UpdateBar.app/Contents/Info.plist" <<PLIST
 PLIST
 printf '<plist><dict><key>system-entities</key><array><dict><key>mount-point</key><string>%s</string></dict></array></dict></plist>\n' "$mount"
 EOF
+cat >"$B/xcrun" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+platform="${XCRUN_TEST_PLATFORM:-$(uname -s)}"
+if [[ "$platform" == Darwin ]]; then
+  exec /usr/bin/xcrun "$@"
+fi
+[[ "$platform" == Linux ]] || exit 90
+[[ $# == 6 && "$1" == swift && "$2" == -e && -n "$3" && -f "$6" ]] || exit 90
+[[ "$4" == '6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=' ]] || exit 1
+[[ "$5" == '88snSkTEGzck0rEKyJqk9xhfNefxjQMDShO8eWEjfO8VxqKa8a3dozGbF4XtHzJ+kInVeBRVV7Xdz1Yr26rPBQ==' ]] || exit 1
+[[ "$(<"$6")" == dmg ]] || exit 1
+EOF
 cat >"$B/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -122,10 +135,17 @@ EOF
 EOF
 }
 reset(){ rm -rf "$STATE" "${A:?}"/* "$R2_CAPTURE" "$TMP/substituted"; : >"$ORDER"; : >"$GHLOG"; : >"$TMP/git.log"; FAKE_UPLOAD_STATUS=0; FAKE_EDIT_STATUS=0; FAKE_R2_STATUS=0; FAKE_CREATE_STATUS=0; FAKE_ORIGIN='git@github.com:sonim1/UpdateBar.git'; FAKE_HEAD="$COMMIT"; FAKE_TAG="$COMMIT"; FAKE_MAIN="$COMMIT"; FAKE_REMOTE_TAG="$COMMIT"; FAKE_ANCESTOR_STATUS=0; FAKE_DIRTY=''; FAKE_MAIN_FETCH_STATUS=0; FAKE_REMOTE_FETCH_STATUS=0; FAKE_REF_CLEANUP_STATUS=0; EXTRA_NAMES=''; CONCURRENT_REPLACE=0; FAKE_SOURCE_SUBSTITUTE=0; DMG_PUBLIC_KEY_FIXTURE="$PUBLIC_KEY"; write_files; }
-run(){ set +e; output="$(GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN="$B/cmp" RUBY_BIN=/usr/bin/ruby HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN=/usr/bin/plutil REALPATH_BIN=/bin/realpath XCRUN_BIN=/usr/bin/xcrun PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" GIT_LOG="$TMP/git.log" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" LIVE_DIST_DIR="$P/dist" MAC_NAME="$MAC" DMG_NAME="$DMG" DMG_PUBLIC_KEY_FIXTURE="$DMG_PUBLIC_KEY_FIXTURE" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_SOURCE_SUBSTITUTE="$FAKE_SOURCE_SUBSTITUTE" TARGET_SOURCE="$P/dist/$MAC" SUBSTITUTE_MARKER="$TMP/substituted" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" FAKE_MAIN="$FAKE_MAIN" FAKE_REMOTE_TAG="$FAKE_REMOTE_TAG" FAKE_ANCESTOR_STATUS="$FAKE_ANCESTOR_STATUS" FAKE_DIRTY="$FAKE_DIRTY" FAKE_MAIN_FETCH_STATUS="$FAKE_MAIN_FETCH_STATUS" FAKE_REMOTE_FETCH_STATUS="$FAKE_REMOTE_FETCH_STATUS" FAKE_REF_CLEANUP_STATUS="$FAKE_REF_CLEANUP_STATUS" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
+run(){ set +e; output="$(GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN="$B/cmp" RUBY_BIN=/usr/bin/ruby HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN=/usr/bin/plutil REALPATH_BIN=/bin/realpath XCRUN_BIN="$B/xcrun" PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" GIT_LOG="$TMP/git.log" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" LIVE_DIST_DIR="$P/dist" MAC_NAME="$MAC" DMG_NAME="$DMG" DMG_PUBLIC_KEY_FIXTURE="$DMG_PUBLIC_KEY_FIXTURE" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_SOURCE_SUBSTITUTE="$FAKE_SOURCE_SUBSTITUTE" TARGET_SOURCE="$P/dist/$MAC" SUBSTITUTE_MARKER="$TMP/substituted" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" FAKE_MAIN="$FAKE_MAIN" FAKE_REMOTE_TAG="$FAKE_REMOTE_TAG" FAKE_ANCESTOR_STATUS="$FAKE_ANCESTOR_STATUS" FAKE_DIRTY="$FAKE_DIRTY" FAKE_MAIN_FETCH_STATUS="$FAKE_MAIN_FETCH_STATUS" FAKE_REMOTE_FETCH_STATUS="$FAKE_REMOTE_FETCH_STATUS" FAKE_REF_CLEANUP_STATUS="$FAKE_REF_CLEANUP_STATUS" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
 
 required=(updatebar-1.2.3-macos-arm64.tar.gz updatebar-1.2.3-macos-arm64.tar.gz.sha256 updatebar-1.2.3-linux-x86_64.tar.gz updatebar-1.2.3-linux-x86_64.tar.gz.sha256 UpdateBar-1.2.3-macos-arm64.dmg UpdateBar-1.2.3-macos-arm64.dmg.sha256 appcast.xml release-manifest.json)
-reset; FAKE_SOURCE_SUBSTITUTE=1; run v1.2.3
+reset
+XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e fixture "$PUBLIC_KEY" "$VALID_SIGNATURE" "$P/dist/$DMG"
+if XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e fixture wrong "$VALID_SIGNATURE" "$P/dist/$DMG"; then fail "Linux xcrun fixture accepted a wrong public key"; fi
+if XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e fixture "$PUBLIC_KEY" wrong "$P/dist/$DMG"; then fail "Linux xcrun fixture accepted a wrong signature"; fi
+printf bad >"$TMP/bad-dmg"
+if XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e fixture "$PUBLIC_KEY" "$VALID_SIGNATURE" "$TMP/bad-dmg"; then fail "Linux xcrun fixture accepted changed DMG bytes"; fi
+
+FAKE_SOURCE_SUBSTITUTE=1; run v1.2.3
 [[ "$status" == 64 && "$output" == *'while creating the snapshot'* && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "source substitution was not rejected before mutation: $status $output / $(cat "$ORDER")"
 
 reset; FAKE_REMOTE_TAG=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; run v1.2.3
