@@ -180,7 +180,8 @@ MAIN_COMMIT="$($GIT_BIN rev-parse --verify "$REMOTE_MAIN_REF^{commit}")" || { st
 if "$GIT_BIN" fetch --quiet --no-tags origin "refs/tags/$TAG:$REMOTE_TAG_REF"; then :; else status=$?; echo 'Unable to fetch exact remote release tag' >&2; exit "$status"; fi
 REMOTE_TAG_COMMIT="$($GIT_BIN rev-parse --verify "$REMOTE_TAG_REF^{commit}")" || { status=$?; echo 'Unable to peel exact remote release tag' >&2; exit "$status"; }
 for commit in "$CURRENT_HEAD" "$LOCAL_TAG_COMMIT" "$MAIN_COMMIT" "$REMOTE_TAG_COMMIT"; do [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || fail 'Release provenance returned a non-canonical commit' 64; done
-[[ "$CURRENT_HEAD" == "$HEAD_COMMIT" && "$LOCAL_TAG_COMMIT" == "$HEAD_COMMIT" && "$MAIN_COMMIT" == "$HEAD_COMMIT" && "$REMOTE_TAG_COMMIT" == "$HEAD_COMMIT" ]] || fail 'Remote tag, local tag, HEAD, origin/main, and manifest commit do not match' 64
+[[ "$CURRENT_HEAD" == "$HEAD_COMMIT" && "$LOCAL_TAG_COMMIT" == "$HEAD_COMMIT" && "$REMOTE_TAG_COMMIT" == "$HEAD_COMMIT" ]] || fail 'Remote tag, local tag, HEAD, and manifest commit do not match' 64
+if "$GIT_BIN" merge-base --is-ancestor "$HEAD_COMMIT" "$MAIN_COMMIT"; then :; else status=$?; [[ "$status" == 1 ]] && fail 'Release commit is not an ancestor of freshly fetched remote main' 64; echo 'Unable to compare release commit with fetched remote main' >&2; exit "$status"; fi
 if "$GIT_BIN" update-ref -d "$REMOTE_MAIN_REF"; then REMOTE_MAIN_REF=''; else status=$?; echo 'Unable to clean isolated remote main ref' >&2; exit "$status"; fi
 if "$GIT_BIN" update-ref -d "$REMOTE_TAG_REF"; then REMOTE_TAG_REF=''; else status=$?; echo 'Unable to clean isolated remote tag ref' >&2; exit "$status"; fi
 rm -rf "$REMOTE_REF_NONCE"; REMOTE_REF_NONCE=''

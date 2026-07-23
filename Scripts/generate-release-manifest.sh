@@ -56,7 +56,8 @@ remote_main_ref="refs/updatebar-release-verification/${remote_ref_nonce##*/}-mai
 remote_tag_ref="refs/updatebar-release-verification/${remote_ref_nonce##*/}"
 if "$GIT_BIN" fetch --quiet --no-tags origin "refs/heads/main:$remote_main_ref"; then :; else status=$?; echo 'Unable to fetch exact remote main branch' >&2; exit "$status"; fi
 main_commit="$($GIT_BIN rev-parse --verify "$remote_main_ref^{commit}")" || { status=$?; echo 'Unable to peel fetched remote main branch' >&2; exit "$status"; }
-[[ "$main_commit" =~ ^[0-9a-f]{40}$ && "$main_commit" == "$head_commit" ]] || fail 'HEAD is not the freshly fetched remote main commit' 64
+[[ "$main_commit" =~ ^[0-9a-f]{40}$ ]] || fail 'Fetched remote main commit is not canonical' 64
+if "$GIT_BIN" merge-base --is-ancestor "$head_commit" "$main_commit"; then :; else status=$?; [[ "$status" == 1 ]] && fail 'Release commit is not an ancestor of freshly fetched remote main' 64; echo 'Unable to compare release commit with fetched remote main' >&2; exit "$status"; fi
 if "$GIT_BIN" fetch --quiet --no-tags origin "refs/tags/$tag:$remote_tag_ref"; then :; else status=$?; echo 'Unable to fetch exact remote release tag' >&2; exit "$status"; fi
 remote_tag_commit="$($GIT_BIN rev-parse --verify "$remote_tag_ref^{commit}")" || { status=$?; echo 'Unable to peel fetched remote release tag' >&2; exit "$status"; }
 [[ "$remote_tag_commit" =~ ^[0-9a-f]{40}$ && "$remote_tag_commit" == "$tag_commit" && "$remote_tag_commit" == "$head_commit" ]] || fail 'Remote release tag does not match local tag and HEAD' 64

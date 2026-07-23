@@ -31,6 +31,7 @@ case "$*" in
   'rev-parse --verify refs/tags/v1.2.3^{commit}') printf '%s\n' "${FAKE_TAG_COMMIT:-0123456789abcdef0123456789abcdef01234567}" ;;
   fetch\ --quiet\ --no-tags\ origin\ refs/heads/main:refs/updatebar-release-verification/*-main) exit "${FAKE_FETCH_STATUS:-0}" ;;
   rev-parse\ --verify\ refs/updatebar-release-verification/*-main'^{commit}') printf '%s\n' "${FAKE_MAIN:-0123456789abcdef0123456789abcdef01234567}" ;;
+  merge-base\ --is-ancestor\ *) exit "${FAKE_ANCESTOR_STATUS:-0}" ;;
   fetch\ --quiet\ --no-tags\ origin\ refs/tags/v1.2.3:refs/updatebar-release-verification/*) exit "${FAKE_REMOTE_TAG_FETCH_STATUS:-0}" ;;
   rev-parse\ --verify\ refs/updatebar-release-verification/*'^{commit}') printf '%s\n' "${FAKE_REMOTE_TAG_COMMIT:-0123456789abcdef0123456789abcdef01234567}" ;;
   update-ref\ -d\ refs/updatebar-release-verification/*) exit "${FAKE_REF_CLEANUP_STATUS:-0}" ;;
@@ -77,6 +78,7 @@ reset_fixture() {
   FAKE_ORIGIN='git@github.com:sonim1/UpdateBar.git'; FAKE_DIRTY=''; FAKE_HEAD="$COMMIT"
   FAKE_TAG_COMMIT="$COMMIT"; FAKE_MAIN="$COMMIT"; FAKE_FETCH_STATUS=0; FAKE_CURL_STATUS=0
   FAKE_REMOTE_TAG_COMMIT="$COMMIT"; FAKE_REMOTE_TAG_FETCH_STATUS=0; FAKE_REF_CLEANUP_STATUS=0
+  FAKE_ANCESTOR_STATUS=0
   FAKE_SUBSTITUTE_SOURCE=''; rm -f "$TMP/substituted"
 }
 
@@ -87,6 +89,7 @@ run_generator() {
     FAKE_HEAD="$FAKE_HEAD" FAKE_TAG_COMMIT="$FAKE_TAG_COMMIT" FAKE_MAIN="$FAKE_MAIN" \
     FAKE_FETCH_STATUS="$FAKE_FETCH_STATUS" FAKE_CURL_STATUS="$FAKE_CURL_STATUS" \
     FAKE_REMOTE_TAG_COMMIT="$FAKE_REMOTE_TAG_COMMIT" FAKE_REMOTE_TAG_FETCH_STATUS="$FAKE_REMOTE_TAG_FETCH_STATUS" FAKE_REF_CLEANUP_STATUS="$FAKE_REF_CLEANUP_STATUS" \
+    FAKE_ANCESTOR_STATUS="$FAKE_ANCESTOR_STATUS" \
     FAKE_SUBSTITUTE_SOURCE="$FAKE_SUBSTITUTE_SOURCE" FAKE_SUBSTITUTE_MARKER="$TMP/substituted" \
     "$P/Scripts/generate-release-manifest.sh" "$@" 2>&1)"
   status=$?
@@ -110,6 +113,9 @@ grep -q '^fetch --quiet --no-tags origin refs/heads/main:refs/updatebar-release-
 [[ "$(grep -c '^update-ref -d refs/updatebar-release-verification/' "$TMP/git.log")" -eq 2 ]] || fail "isolated main/tag refs were not both cleaned after success"
 grep -Fq 'https://github.com/sonim1/UpdateBar/archive/refs/tags/v1.2.3.tar.gz' "$LOG" || fail "tag archive URL was not fixed"
 
+reset_fixture; FAKE_MAIN=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; FAKE_ANCESTOR_STATUS=0; run_generator "$TAG"
+[[ "$status" == 0 ]] || fail "queued exact tag was rejected after remote main advanced: $status $output"
+
 failure() {
   local label="$1" expected="$2"; shift 2
   reset_fixture; "$@"; run_generator "$TAG"
@@ -122,7 +128,7 @@ duplicate_version() { printf 'UPDATEBAR_VERSION=1.2.3\nUPDATEBAR_VERSION=1.2.3\n
 dirty() { FAKE_DIRTY=' M Sources/x.swift'; }
 wrong_origin() { FAKE_ORIGIN='https://github.com/attacker/UpdateBar.git'; }
 wrong_tag() { FAKE_TAG_COMMIT=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; }
-wrong_main() { FAKE_MAIN=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; }
+wrong_main() { FAKE_MAIN=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; FAKE_ANCESTOR_STATUS=1; }
 wrong_remote_tag() { FAKE_REMOTE_TAG_COMMIT=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; }
 missing_remote_tag() { FAKE_REMOTE_TAG_FETCH_STATUS=42; }
 bad_commit() { FAKE_HEAD=ABCDEF; FAKE_TAG_COMMIT=ABCDEF; FAKE_MAIN=ABCDEF; }
@@ -154,6 +160,7 @@ failure unsafe-symlink 66 unsafe_symlink
 failure source-substitution 1 source_substitution
 
 reset_fixture; FAKE_FETCH_STATUS=37; run_generator "$TAG"; [[ "$status" == 37 ]] || fail "fetch status was translated: $status"
+reset_fixture; FAKE_MAIN=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; FAKE_ANCESTOR_STATUS=43; run_generator "$TAG"; [[ "$status" == 43 ]] || fail "merge-base status was translated: $status"
 reset_fixture; FAKE_CURL_STATUS=38; run_generator "$TAG"; [[ "$status" == 38 ]] || fail "curl status was translated: $status"
 
 # Exact-path finalization must preserve substituted destinations and propagate rename errors.
@@ -219,12 +226,15 @@ printf three >"$REAL_PROJECT/tracked"; /usr/bin/git -C "$REAL_PROJECT" commit -a
 /usr/bin/git -C "$REAL_PROJECT" config --unset-all remote.origin.fetch || :
 /usr/bin/git -C "$REAL_PROJECT" config --add remote.origin.fetch '+refs/heads/not-main:refs/remotes/origin/not-main'
 set +e; output="$(cd "$REAL_PROJECT" && GIT_BIN="$REAL_GIT" CURL_BIN="$B/curl" SHASUM_BIN=/usr/bin/shasum CURL_LOG="$LOG" Scripts/generate-release-manifest.sh v1.2.3 2>&1)"; status=$?; set -e
-[[ "$status" == 64 ]] || fail "stale refs/remotes/origin/main bypassed exact remote main: $status $output"
-[[ -z "$(/usr/bin/git -C "$REAL_PROJECT" for-each-ref refs/updatebar-release-verification)" ]] || fail "isolated main/tag refs leaked after main mismatch"
-/usr/bin/git -C "$REAL_PROJECT" reset --hard "$REAL_REMOTE_MAIN" >/dev/null; /usr/bin/git -C "$REAL_PROJECT" tag -f v1.2.3 >/dev/null; /usr/bin/git -C "$REAL_PROJECT" push --force origin refs/tags/v1.2.3 >/dev/null
+[[ "$status" == 0 ]] || fail "queued exact tag was rejected when isolated remote main advanced: $status $output"
+[[ -z "$(/usr/bin/git -C "$REAL_PROJECT" for-each-ref refs/updatebar-release-verification)" ]] || fail "isolated refs leaked after queued-tag success"
+EMPTY_TREE="$(/usr/bin/git -C "$REAL_PROJECT" mktree </dev/null)"; DIVERGENT="$(printf divergent | /usr/bin/git -C "$REAL_PROJECT" commit-tree "$EMPTY_TREE")"
+/usr/bin/git -C "$REAL_PROJECT" push --force origin "$DIVERGENT:refs/heads/main" >/dev/null
+: >"$LOG"
 set +e; output="$(cd "$REAL_PROJECT" && GIT_BIN="$REAL_GIT" CURL_BIN="$B/curl" SHASUM_BIN=/usr/bin/shasum CURL_LOG="$LOG" Scripts/generate-release-manifest.sh v1.2.3 2>&1)"; status=$?; set -e
-[[ "$status" == 0 ]] || fail "matching isolated remote main/tag provenance failed: $status $output"
-[[ -z "$(/usr/bin/git -C "$REAL_PROJECT" for-each-ref refs/updatebar-release-verification)" ]] || fail "isolated refs leaked after success"
+[[ "$status" == 64 && ! -s "$LOG" ]] || fail "divergent remote main reached archive download: $status $output"
+[[ -z "$(/usr/bin/git -C "$REAL_PROJECT" for-each-ref refs/updatebar-release-verification)" ]] || fail "isolated refs leaked after divergent main"
+/usr/bin/git -C "$REAL_PROJECT" push --force origin "$REAL_REMOTE_MAIN:refs/heads/main" >/dev/null
 
 bash -n "$SOURCE" "$0"
 echo "generate-release-manifest contract tests passed"
