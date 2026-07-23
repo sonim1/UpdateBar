@@ -65,6 +65,34 @@ if [[ -n "${FAKE_INTERLEAVE:-}" ]]; then
 fi
 exec /usr/bin/ruby "${arguments[@]}"
 SH
+cat >"$B/linux-rename" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+arguments=("$@")
+arguments[2]="$(/usr/bin/ruby -e '
+  code = ARGV.fetch(0)
+  host_needle = "host_os = RbConfig::CONFIG.fetch(\"host_os\")"
+  library_needle = "      dlload Fiddle.dlopen(nil)\n      extern \"int renameat2(int, const char *, int, const char *, unsigned int)\""
+  abort "host platform needle missing" unless code.include?(host_needle)
+  abort "Linux rename library needle missing" unless code.include?(library_needle)
+  code = code.sub(host_needle, "host_os = \"linux-gnu\"")
+  code = code.sub(library_needle, "      dlload ENV.fetch(\"LINUX_RENAME_STUB\")\n      extern \"int renameat2(int, const char *, int, const char *, unsigned int)\"")
+  print code
+' "${arguments[2]}")"
+exec /usr/bin/ruby "${arguments[@]}"
+SH
+cat >"$B/unsupported-rename" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+arguments=("$@")
+arguments[2]="$(/usr/bin/ruby -e '
+  code = ARGV.fetch(0)
+  needle = "host_os = RbConfig::CONFIG.fetch(\"host_os\")"
+  abort "host platform needle missing" unless code.include?(needle)
+  print code.sub(needle, "host_os = \"unsupported-test-os\"")
+' "${arguments[2]}")"
+exec /usr/bin/ruby "${arguments[@]}"
+SH
 cat >"$B/remove" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -171,6 +199,39 @@ XML
 [[ "${FAKE_SUBSTITUTE_SOURCE_AFTER_SIGN:-0}" == 0 ]] || printf 'bad bytes\n' >"${SOURCE_DMG:?}"
 SH
 chmod +x "$B"/* "$R/.build/artifacts/sparkle/Sparkle/bin/generate_appcast"
+LINUX_RENAME_STUB=''
+if [[ "$(uname -s)" == Darwin ]]; then
+  LINUX_RENAME_STUB="$T/liblinux-rename-stub.dylib"
+  cat >"$T/linux-rename-stub.c" <<'C'
+#include <errno.h>
+#include <stdlib.h>
+
+extern int renameatx_np(int, const char *, int, const char *, unsigned int);
+
+int renameat2(int olddirfd, const char *oldpath, int newdirfd, const char *newpath, unsigned int flags) {
+  const char *forced_errno = getenv("LINUX_RENAME_STUB_ERRNO");
+  if (forced_errno != NULL) {
+    errno = atoi(forced_errno);
+    return -1;
+  }
+  if (olddirfd != -100 || newdirfd != -100) {
+    errno = EINVAL;
+    return -1;
+  }
+  unsigned int darwin_flags;
+  if (flags == 1) {
+    darwin_flags = 4;
+  } else if (flags == 2) {
+    darwin_flags = 2;
+  } else {
+    errno = EINVAL;
+    return -1;
+  }
+  return renameatx_np(-2, oldpath, -2, newpath, darwin_flags);
+}
+C
+  /usr/bin/xcrun --sdk macosx clang -dynamiclib -o "$LINUX_RENAME_STUB" "$T/linux-rename-stub.c"
+fi
 mkdir -p "$T/evil"
 cat >"$T/evil/generate_appcast" <<'SH'
 #!/usr/bin/env bash
@@ -181,7 +242,7 @@ chmod +x "$T/evil/generate_appcast"
 run_case() {
   local name="$1" expected="$2"; shift 2; rm -rf "$R/dist/updates"; : >"$LOG"
   [[ "$name" != dest-conflict ]] || ln -s "$T/elsewhere" "$R/dist/updates"
-  case "$name" in replace-existing|removal-interleave|interleave-swap|interleave-destination-swap) mkdir "$R/dist/updates"; printf 'old\n' >"$R/dist/updates/old";; esac
+  case "$name" in replace-existing|removal-interleave|interleave-swap|interleave-destination-swap|linux-swap) mkdir "$R/dist/updates"; printf 'old\n' >"$R/dist/updates/old";; esac
   set +e
   : >"$T/children"
   env PATH="$B:$PATH" OBSERVER="$B/observe" CHILD_LOG="$T/children" CALL_LOG="$LOG" SPARKLE_PUBLIC_ED_KEY="$KEY" APP_DMG_SMOKE_BIN="$B/smoke" CODESIGN_BIN="$B/codesign" SPCTL_BIN="$B/spctl" XCRUN_BIN="$B/xcrun" FILE_BIN="$B/file" HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN="$B/plutil" "$@" "$R/Scripts/generate-appcast.sh" >"$T/$name.out" 2>"$T/$name.err"
@@ -210,6 +271,19 @@ run_case symlink-private-key 1 SPARKLE_PRIVATE_ED_KEY="$PRIVATE" FAKE_KEYFILE_SY
 [[ "$(/usr/bin/ruby -e 'printf "%o", File.stat(ARGV.fetch(0)).mode & 0777' "$symlink_key_target")" == 600 ]]
 test ! -e "$R/dist/updates/appcast.xml"
 run_case fixed-provenance 0 SPARKLE_ARTIFACT_ROOT="$T/evil"
+run_case unsupported-rename-platform 1 RENAME_BIN="$B/unsupported-rename"
+test ! -e "$R/dist/updates/appcast.xml"
+if [[ -n "$LINUX_RENAME_STUB" ]]; then
+  run_case linux-exclusive 0 RENAME_BIN="$B/linux-rename" LINUX_RENAME_STUB="$LINUX_RENAME_STUB"
+  test -f "$R/dist/updates/appcast.xml"
+  run_case linux-swap 0 RENAME_BIN="$B/linux-rename" LINUX_RENAME_STUB="$LINUX_RENAME_STUB"
+  linux_previous="$(preserved_previous_path "$T/linux-swap.err")"
+  test -f "$linux_previous/old"
+  rm -rf "$linux_previous"
+  run_case linux-rename-error 73 RENAME_BIN="$B/linux-rename" LINUX_RENAME_STUB="$LINUX_RENAME_STUB" LINUX_RENAME_STUB_ERRNO=18
+  grep -Fq 'renameat2 failed with errno 18' "$T/linux-rename-error.err"
+  test ! -e "$R/dist/updates/appcast.xml"
+fi
 cp "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg" "$T/original-dmg"
 run_case source-substitution 0 FAKE_SUBSTITUTE_SOURCE_AFTER_SIGN=1 SOURCE_DMG="$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
 cmp "$T/original-dmg" "$R/dist/updates/UpdateBar-0.6.1-macos-arm64.dmg"
