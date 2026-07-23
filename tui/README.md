@@ -33,6 +33,10 @@ The first-run flow is available from `Scan & Add`: scan installed tools, select
 full candidates with space, register them with enter, and use `a`/`A` to bulk
 select or clear.
 
+`Prompts` offers copy-ready English prompts for AI-assisted recipe generation.
+From this screen, enter a tool name, choose a template with `↑/↓`, and copy the
+rendered text into your workflow.
+
 Scan screen keys:
 
 - `↑`/`↓` navigate candidates

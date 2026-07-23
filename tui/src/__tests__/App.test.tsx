@@ -132,6 +132,62 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('check-only');
   });
 
+  it('opens prompts from the menu', async () => {
+    const client = createClient();
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    for (let index = 0; index < 7; index += 1) {
+      view.stdin.write('\u001B[B');
+      await wait();
+    }
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Prompt Templates');
+
+    expect(view.lastFrame()).toContain('Prompt Templates');
+    expect(view.lastFrame()).toContain('LLM prompt: npm / JS package');
+    expect(view.lastFrame()).toContain('Tool name:');
+  });
+
+  it('generates prompt template text from tool name input', async () => {
+    const client = createClient();
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    for (let index = 0; index < 7; index += 1) {
+      view.stdin.write('\u001B[B');
+      await wait();
+    }
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Tool name:');
+
+    view.stdin.write('claude-code');
+    await waitForFrame(view, 'Prompt for tool: "claude-code"');
+
+    expect(view.lastFrame()).toContain('Prompt for tool: "claude-code"');
+    expect(view.lastFrame()).toContain('updatebar validate --from /tmp/claude-code.json --json --explain');
+  });
+
+  it('warns when pressing enter on prompts without a tool name', async () => {
+    const client = createClient();
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Scan & Add');
+    for (let index = 0; index < 7; index += 1) {
+      view.stdin.write('\u001B[B');
+      await wait();
+    }
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Tool name:');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Enter a tool name first');
+
+    expect(view.lastFrame()).toContain('Enter a tool name first');
+  });
+
   it('redacts scan rows and scan errors before rendering', async () => {
     const secret = 'sk-or-v1-scan-secret-value';
     const client = createClient({

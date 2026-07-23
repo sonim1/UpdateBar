@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import path from 'node:path';
-import {Box, Text, useApp, useInput, useStdin} from 'ink';
+import {Box, Text, useApp, useInput, useStdin, type Key} from 'ink';
 import {createDefaultClient, type UpdateBarClient} from './client.js';
 import {redactSecrets} from './secrets.js';
 import type {CheckReport, MachineEvent, ScanCandidate, ScanReport, StatusItem, StatusSnapshot} from './types.js';
@@ -13,15 +13,22 @@ type Screen =
   | 'scan'
   | 'select-update'
   | 'confirm-update'
-  | 'updating';
+  | 'updating'
+  | 'prompts';
 type MenuAction =
   | 'refresh-status'
   | 'scan-add'
+  | 'open-prompts'
   | 'check-now'
   | 'run-updates'
   | 'config-path'
   | 'view-logs'
   | 'quit';
+type PromptTemplate = {
+  id: string;
+  title: string;
+  lines: (tool: string) => string[];
+};
 type SummaryCountField<TKey extends string> = readonly [TKey, string];
 type CheckSummaryCountKey = Exclude<Extract<keyof CheckReport['summary'], string>, 'total'>;
 type StatusSummaryCountKey = Exclude<Extract<keyof StatusSnapshot['summary'], string>, 'total' | 'outdated'>;
@@ -51,7 +58,8 @@ const MENU_ITEMS: Array<{label: string; action: MenuAction}> = [
   {label: 'Run Updates', action: 'run-updates'},
   {label: 'Config Path', action: 'config-path'},
   {label: 'View Logs', action: 'view-logs'},
-  {label: 'Quit', action: 'quit'}
+  {label: 'Quit', action: 'quit'},
+  {label: 'Prompts', action: 'open-prompts'}
 ];
 
 export interface AppProps {
@@ -73,6 +81,8 @@ export function App({client: providedClient}: AppProps) {
   const [selectedScanIds, setSelectedScanIds] = useState<Set<string>>(() => new Set());
   const [updateIndex, setUpdateIndex] = useState(0);
   const [selectedUpdateIds, setSelectedUpdateIds] = useState<Set<string>>(() => new Set());
+  const [promptToolName, setPromptToolName] = useState('');
+  const [selectedPromptIndex, setSelectedPromptIndex] = useState(0);
   const [error, setError] = useState<string | undefined>();
   const [clientSetupError, setClientSetupError] = useState<string | undefined>();
   const [abortController, setAbortController] = useState<AbortController | undefined>();
@@ -120,6 +130,10 @@ export function App({client: providedClient}: AppProps) {
       }
       if (screen === 'scan') {
         handleScanInput(_input, key);
+        return;
+      }
+      if (screen === 'prompts') {
+        handlePromptsInput(_input, key);
         return;
       }
       if (screen === 'select-update') {
@@ -251,6 +265,30 @@ export function App({client: providedClient}: AppProps) {
     }
   }
 
+  function handlePromptsInput(input: string, key: Key) {
+    if (key.upArrow) {
+      setSelectedPromptIndex(index => Math.max(0, index - 1));
+      return;
+    }
+    if (key.downArrow) {
+      setSelectedPromptIndex(index => Math.min(PROMPT_TEMPLATES.length - 1, index + 1));
+      return;
+    }
+    if (key.return) {
+      setError(promptToolName.trim() ? undefined : 'Enter a tool name first');
+      return;
+    }
+    if (key.backspace || key.delete) {
+      setPromptToolName(previous => previous.slice(0, -1));
+      setError(undefined);
+      return;
+    }
+    if (!key.ctrl && !key.meta && input) {
+      setPromptToolName(previous => previous + input);
+      setError(undefined);
+    }
+  }
+
   async function runMenuAction() {
     const selected = MENU_ITEMS[menuIndex]?.action;
     switch (selected) {
@@ -263,6 +301,10 @@ export function App({client: providedClient}: AppProps) {
         if (logs.length === 0) {
           setError(undefined);
         }
+        return;
+      case 'open-prompts':
+        setScreen('prompts');
+        setError(undefined);
         return;
       case 'quit':
         exit();
@@ -461,6 +503,12 @@ export function App({client: providedClient}: AppProps) {
           <Text>{`config path: ${getConfigPath()}`}</Text>
           <Text>open this file in your editor to inspect configuration</Text>
         </Box>
+      )}
+      {screen === 'prompts' && (
+        <PromptScreen
+          toolName={promptToolName}
+          selectedIndex={selectedPromptIndex}
+        />
       )}
       {(screen === 'logs' || screen === 'updating') && (
         <Box flexDirection="column" marginTop={1}>
@@ -668,14 +716,121 @@ function updateCandidates(status: StatusSnapshot | undefined) {
   return status?.items.filter(item => item.status === 'outdated') ?? [];
 }
 
+function PromptScreen({
+  toolName,
+  selectedIndex
+}: {
+  toolName: string;
+  selectedIndex: number;
+}) {
+  const selectedTemplate = PROMPT_TEMPLATES[selectedIndex] ?? PROMPT_TEMPLATES[0];
+  const resolvedTool = toolName.trim() || '<tool>';
+  const lines = selectedTemplate.lines(resolvedTool);
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text bold>Prompt Templates</Text>
+      <Text>{`Tool name: ${toolName}`}</Text>
+      <Text dimColor>Type your tool name, select a template, and copy the lines.</Text>
+      {PROMPT_TEMPLATES.map((template, index) => (
+        <Text key={template.id} color={index === selectedIndex ? 'cyan' : undefined}>
+          {index === selectedIndex ? '› ' : '  '}
+          {template.title}
+        </Text>
+      ))}
+      <Text>{selectedTemplate.title}</Text>
+      {lines.map((line, lineIndex) => (
+        <Text key={`${selectedTemplate.id}-${lineIndex}`}>{redactSecrets(line)}</Text>
+      ))}
+      <Text dimColor>Press ↑/↓ to change template.</Text>
+    </Box>
+  );
+}
+
 function canRegister(candidate: ScanCandidate) {
   return candidate.capability === 'full' && candidate.recipe !== undefined;
+}
+
+const PROMPT_TEMPLATES: PromptTemplate[] = [
+  {
+    id: 'npm',
+    title: 'LLM prompt: npm / JS package',
+    lines: toolName => {
+      const quotedTool = shellQuoted(toolName);
+      const safeName = fileSafe(toolName);
+      return [
+        `Prompt for tool: ${quotedTool}`,
+        'You are updating UpdateBar recipes.',
+        'Write a complete UpdateBar single-item manifest JSON for this tool in one shot.',
+        'Use schema_version: 1 and keep all command fields explicit and no secrets.',
+        'Use id, name, and source.ref set to the tool name.',
+        `After receiving the JSON, I will run:`,
+        `  updatebar validate --from /tmp/${safeName}.json --json --explain`,
+        `  updatebar add --from /tmp/${safeName}.json --json --dry-run`,
+        `  updatebar add --from /tmp/${safeName}.json --json`
+      ];
+    }
+  },
+  {
+    id: 'brew',
+    title: 'LLM prompt: Homebrew package',
+    lines: toolName => {
+      const quotedTool = shellQuoted(toolName);
+      const safeName = fileSafe(toolName);
+      return [
+        `Prompt for tool: ${quotedTool}`,
+        'You are updating UpdateBar recipes.',
+        'Write a complete UpdateBar single-item manifest JSON for this tool in one shot.',
+        'Use schema_version: 1 and include check/latest/update commands for Homebrew.',
+        'Use id, name, and source.ref set to the tool name.',
+        `After receiving the JSON, I will run:`,
+        `  updatebar validate --from /tmp/${safeName}.json --json --explain`,
+        `  updatebar add --from /tmp/${safeName}.json --json --dry-run`,
+        `  updatebar add --from /tmp/${safeName}.json --json`
+      ];
+    }
+  },
+  {
+    id: 'github',
+    title: 'LLM prompt: GitHub release tool',
+    lines: toolName => {
+      const quotedTool = shellQuoted(toolName);
+      const safeName = fileSafe(toolName);
+      return [
+        `Prompt for tool: ${quotedTool}`,
+        'You are updating UpdateBar recipes.',
+        'Write a complete UpdateBar single-item manifest JSON for this tool in one shot.',
+        'Use schema_version: 1 and include commands/flow for GitHub release checks.',
+        'Use id, name, and source.ref set to the tool name.',
+        `After receiving the JSON, I will run:`,
+        `  updatebar validate --from /tmp/${safeName}.json --json --explain`,
+        `  updatebar add --from /tmp/${safeName}.json --json --dry-run`,
+        `  updatebar add --from /tmp/${safeName}.json --json`
+      ];
+    }
+  }
+];
+
+function shellQuoted(value: string) {
+  return JSON.stringify(value);
+}
+
+function fileSafe(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-+/g, '-')
+    || 'tool';
 }
 
 function helpText(screen: Screen, canCancel: boolean) {
   if (canCancel) return 'c/q cancel';
   if (screen === 'scan') {
     return '↑/↓ navigate · a all · A clear · space select · enter add · m menu · q quit';
+  }
+  if (screen === 'prompts') {
+    return '↑/↓ select template · type tool name · m menu · q quit';
   }
   if (screen === 'select-update') {
     return '↑/↓ navigate · a all · A clear · space select · enter confirm · m menu · q quit';
