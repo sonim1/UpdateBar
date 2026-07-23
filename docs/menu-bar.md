@@ -131,3 +131,9 @@ isn't launching. If it starts but no menu icon appears, try:
 open dist/UpdateBar.app
 pgrep -ax UpdateBar
 ```
+
+The menu bar app intentionally runs as an accessory process (`LSUIElement=true`).
+It is normal that Dock and Command-Tab do not show an icon while only the status
+menu is visible. Opening `Dashboard...` or `Open Config...` switches the app to
+regular mode so Dock and Command-Tab visibility appears for that window, then
+returns to accessory mode when the last titled window closes.

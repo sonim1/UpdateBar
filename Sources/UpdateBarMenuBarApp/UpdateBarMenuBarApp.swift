@@ -199,7 +199,7 @@
                 showError(MenuBarStartupError.serviceUnavailable)
                 return
             }
-            NSApp.setActivationPolicy(.regular)
+            activateApplicationForWindowedUI()
             if dashboardPanelController == nil {
                 dashboardPanelController = DashboardPanelController(
                     service: service,
@@ -223,6 +223,11 @@
                 guard !hasVisibleTitledWindow else { return }
                 NSApp.setActivationPolicy(.accessory)
             }
+        }
+
+        private func activateApplicationForWindowedUI() {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
         }
 
         @objc private func openTUIInTerminal(_ sender: NSMenuItem) {
@@ -319,6 +324,7 @@
                 showError(MenuBarStartupError.serviceUnavailable)
                 return
             }
+            activateApplicationForWindowedUI()
             if configPanelController == nil {
                 configPanelController = ConfigPanelController(
                     service: service,

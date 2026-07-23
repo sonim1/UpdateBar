@@ -660,7 +660,7 @@ final class SourceHygieneTests: XCTestCase {
         )
 
         let regular = try XCTUnwrap(
-            showDashboardSource.range(of: "NSApp.setActivationPolicy(.regular)"))
+            showDashboardSource.range(of: "activateApplicationForWindowedUI()"))
         let show = try XCTUnwrap(
             showDashboardSource.range(of: "showWindowAndReload(selecting:section)"))
         XCTAssertLessThan(regular.lowerBound, show.lowerBound)

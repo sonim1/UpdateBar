@@ -24,52 +24,57 @@
         flood-opacity="0.18"
       />
     </filter>
+    <clipPath id="iconShape">
+      <rect x="56" y="56" width="912" height="912" rx="170" ry="170"/>
+    </clipPath>
   </defs>
-  <g id="background">
-    <rect width="1024" height="1024" fill="url(#backgroundFill)"/>
-    <path
-      d="M0 0H1024"
-      stroke="#FFFFFF"
-      stroke-opacity="0.16"
-      stroke-width="10"
-    />
-  </g>
-  <g id="arrow" filter="url(#lift)">
-    <path
-      d="M512 180L754 466Q770 485 760 507Q750 530 724 530H626V688Q626 706 612 716Q598 726 582 717L512 680L442 717Q426 726 412 716Q398 706 398 688V530H300Q274 530 264 507Q254 485 270 466Z"
-      fill="url(#arrowFill)"
-      stroke="#E9FFD1"
-      stroke-opacity="0.72"
-      stroke-width="8"
-      stroke-linejoin="round"
-    />
-    <path
-      d="M512 194L744 469"
-      fill="none"
-      stroke="#FFFFFF"
-      stroke-opacity="0.34"
-      stroke-width="8"
-      stroke-linecap="round"
-    />
-  </g>
-  <g id="bar" filter="url(#lift)">
-    <rect
-      x="282"
-      y="790"
-      width="460"
-      height="74"
-      rx="37"
-      fill="url(#barFill)"
-      stroke="#E8FFF0"
-      stroke-opacity="0.62"
-      stroke-width="7"
-    />
-    <path
-      d="M320 806H704"
-      stroke="#FFFFFF"
-      stroke-opacity="0.25"
-      stroke-width="5"
-      stroke-linecap="round"
-    />
+  <g clip-path="url(#iconShape)">
+    <g id="background">
+      <rect x="56" y="56" width="912" height="912" fill="url(#backgroundFill)"/>
+      <path
+        d="M56 56H968"
+        stroke="#FFFFFF"
+        stroke-opacity="0.16"
+        stroke-width="10"
+      />
+    </g>
+    <g id="arrow" filter="url(#lift)">
+      <path
+        d="M512 180L754 466Q770 485 760 507Q750 530 724 530H626V688Q626 706 612 716Q598 726 582 717L512 680L442 717Q426 726 412 716Q398 706 398 688V530H300Q274 530 264 507Q254 485 270 466Z"
+        fill="url(#arrowFill)"
+        stroke="#E9FFD1"
+        stroke-opacity="0.72"
+        stroke-width="8"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M512 194L744 469"
+        fill="none"
+        stroke="#FFFFFF"
+        stroke-opacity="0.34"
+        stroke-width="8"
+        stroke-linecap="round"
+      />
+    </g>
+    <g id="bar" filter="url(#lift)">
+      <rect
+        x="282"
+        y="790"
+        width="460"
+        height="74"
+        rx="37"
+        fill="url(#barFill)"
+        stroke="#E8FFF0"
+        stroke-opacity="0.62"
+        stroke-width="7"
+      />
+      <path
+        d="M320 806H704"
+        stroke="#FFFFFF"
+        stroke-opacity="0.25"
+        stroke-width="5"
+        stroke-linecap="round"
+      />
+    </g>
   </g>
 </svg>

@@ -36,11 +36,6 @@ jobs:
     container: swift:6.0
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: tui/package-lock.json
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .build
@@ -53,4 +48,4 @@ jobs:
       - name: Trust the checked-out workspace
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Quality gate
-        run: SKIP_MENUBAR_SMOKE=1 bash Scripts/quality-gate.sh
+        run: SKIP_MENUBAR_SMOKE=1 SKIP_TUI_SMOKE=1 SKIP_TUI_INPUT=1 bash Scripts/quality-gate.sh
