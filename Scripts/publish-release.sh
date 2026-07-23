@@ -8,7 +8,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TAG="$1"; [[ "$TAG" =~ ^v[0-9]+([.][0-9]+){1,2}$ ]] || { echo 'Release tag must match v<version>' >&2; exit 64; }
 VERSION="${TAG#v}"
 CONFIG="${RELEASE_CONFIG_PATH:-$ROOT/.env.release.local}"
-if [[ -f "$CONFIG" ]]; then set -a; source "$CONFIG"; set +a; fi
+if [[ -f "$CONFIG" ]]; then
+  set -a
+  # RELEASE_CONFIG_PATH intentionally selects a dynamic, local release configuration.
+  # shellcheck source=/dev/null
+  source "$CONFIG"
+  set +a
+fi
 set +x
 
 REPOSITORY='sonim1/UpdateBar'; GH_REPO="$REPOSITORY"; GH_HOST='github.com'; export GH_REPO GH_HOST

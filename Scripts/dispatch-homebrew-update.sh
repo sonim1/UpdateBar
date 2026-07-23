@@ -8,8 +8,9 @@ TAG="$1"
 [[ -n "${TAP_GH_TOKEN:-}" ]] || { echo 'TAP_GH_TOKEN is required' >&2; exit 64; }
 GH_BIN="${GH_BIN:-gh}"
 
-GH_TOKEN="$TAP_GH_TOKEN" \
-TAP_GH_TOKEN='' \
+GH_TOKEN_VALUE="$TAP_GH_TOKEN"
+unset TAP_GH_TOKEN
+GH_TOKEN="$GH_TOKEN_VALUE" \
 GH_HOST='github.com' \
 GH_REPO='sonim1/homebrew-tap' \
 "$GH_BIN" api \

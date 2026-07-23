@@ -292,7 +292,7 @@ git -C "$FIXTURE/checkout" checkout --detach refs/tags/v1.2.3 >/dev/null 2>&1
   cd "$FIXTURE/checkout"
   RELEASE_TAG=v1.2.3 GITHUB_OUTPUT="$FIXTURE/github-output" bash -euo pipefail -c "$PROVENANCE_RUN"
 ) >/dev/null 2>&1
-EXPECTED_COMMIT="$(git -C "$FIXTURE/source" rev-parse refs/tags/v1.2.3^{commit})"
+EXPECTED_COMMIT="$(git -C "$FIXTURE/source" rev-parse 'refs/tags/v1.2.3^{commit}')"
 [[ "$(<"$FIXTURE/github-output")" == "release_commit=$EXPECTED_COMMIT" ]] || { echo "singleton provenance emitted the wrong commit" >&2; exit 1; }
 
 git -C "$FIXTURE/source" checkout --orphan off-main >/dev/null 2>&1

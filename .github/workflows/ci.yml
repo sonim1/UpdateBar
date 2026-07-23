@@ -50,5 +50,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y ruby shellcheck
+      - name: Trust the checked-out workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Quality gate
         run: SKIP_MENUBAR_SMOKE=1 bash Scripts/quality-gate.sh
