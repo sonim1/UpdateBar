@@ -42,8 +42,17 @@ HEAD_COMMIT="$($GIT_BIN rev-parse HEAD)" || { status=$?; echo 'Unable to resolve
 TAG_COMMIT="$($GIT_BIN rev-parse --verify "refs/tags/$TAG^{commit}")" || { status=$?; echo 'Unable to resolve exact release tag' >&2; exit "$status"; }
 [[ "$TAG_COMMIT" == "$HEAD_COMMIT" ]] || fail 'Release tag does not point to HEAD' 64
 
-TMP=''
-cleanup(){ local status=$?; trap - EXIT HUP INT TERM; [[ -z "$TMP" || ! -d "$TMP" ]] || rm -rf "$TMP"; exit "$status"; }
+TMP=''; UPDATE_SNAPSHOT=''
+cleanup(){
+  local status=$? cleanup_status=0
+  trap - EXIT HUP INT TERM
+  if [[ -n "$TMP" && -d "$TMP" ]]; then
+    [[ -z "$UPDATE_SNAPSHOT" || ! -d "$UPDATE_SNAPSHOT" || -L "$UPDATE_SNAPSHOT" ]] || chmod u+w "$UPDATE_SNAPSHOT" 2>/dev/null || :
+    rm -rf "$TMP" || cleanup_status=$?
+  fi
+  [[ "$status" != 0 || "$cleanup_status" == 0 ]] || status="$cleanup_status"
+  exit "$status"
+}
 trap cleanup EXIT; trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-publish-release.XXXXXX")" || exit $?
 SNAP="$TMP/assets"; mkdir "$SNAP" || exit $?
@@ -53,6 +62,10 @@ copy_snapshot "$DIST/$MAC_NAME" "$MAC_NAME"; copy_snapshot "$DIST/$MAC_NAME.sha2
 copy_snapshot "$DIST/$LINUX_NAME" "$LINUX_NAME"; copy_snapshot "$DIST/$LINUX_NAME.sha256" "$LINUX_NAME.sha256"
 copy_snapshot "$DIST/$DMG_NAME" "$DMG_NAME"; copy_snapshot "$DIST/$DMG_NAME.sha256" "$DMG_NAME.sha256"
 copy_snapshot "$UPDATE_DIR/$APPCAST_NAME" "$APPCAST_NAME"; copy_snapshot "$DIST/$MANIFEST_NAME" "$MANIFEST_NAME"
+UPDATE_SNAPSHOT="$TMP/update-artifacts"; mkdir "$UPDATE_SNAPSHOT" || exit $?
+/bin/cp -p "$SNAP/$DMG_NAME" "$SNAP/$DMG_NAME.sha256" "$SNAP/$APPCAST_NAME" "$UPDATE_SNAPSHOT/" || exit $?
+chmod 0444 "$UPDATE_SNAPSHOT/$DMG_NAME" "$UPDATE_SNAPSHOT/$DMG_NAME.sha256" "$UPDATE_SNAPSHOT/$APPCAST_NAME" || exit $?
+chmod 0555 "$UPDATE_SNAPSHOT" || exit $?
 
 sha_file(){ local output status; if output="$($SHASUM_BIN -a 256 "$1")"; then :; else status=$?; echo "SHA-256 failed: $1" >&2; return "$status"; fi; [[ "$output" =~ ^([0-9a-f]{64})[[:space:]] ]] || { echo "Malformed SHA-256 output: $1" >&2; return 66; }; printf '%s' "${BASH_REMATCH[1]}"; }
 verify_checksum(){
@@ -106,6 +119,16 @@ manifest_status=$?; set -e
 asset_names=("$MAC_NAME" "$MAC_NAME.sha256" "$LINUX_NAME" "$LINUX_NAME.sha256" "$DMG_NAME" "$DMG_NAME.sha256" "$APPCAST_NAME" "$MANIFEST_NAME")
 original_paths=("$DIST/$MAC_NAME" "$DIST/$MAC_NAME.sha256" "$DIST/$LINUX_NAME" "$DIST/$LINUX_NAME.sha256" "$DIST/$DMG_NAME" "$DIST/$DMG_NAME.sha256" "$UPDATE_DIR/$APPCAST_NAME" "$DIST/$MANIFEST_NAME")
 verify_snapshot(){ local i status; i=0; while [[ "$i" -lt "${#asset_names[@]}" ]]; do if "$CMP_BIN" -s "${original_paths[$i]}" "$SNAP/${asset_names[$i]}"; then :; else status=$?; [[ "$status" == 1 ]] && fail "Release input changed during publication: ${asset_names[$i]}" 64; exit "$status"; fi; i=$((i+1)); done; }
+verify_update_snapshot(){
+  local status
+  [[ -d "$UPDATE_SNAPSHOT" && ! -L "$UPDATE_SNAPSHOT" ]] || fail 'Update snapshot directory changed or became unsafe' 64
+  if "$RUBY_BIN" -e 'expected=ARGV.drop(1).sort;actual=Dir.children(ARGV[0]).sort;exit(actual==expected ? 0 : 64)' "$UPDATE_SNAPSHOT" "$DMG_NAME" "$DMG_NAME.sha256" "$APPCAST_NAME"; then :; else status=$?; echo 'Update snapshot contains an unexpected file set' >&2; exit "$status"; fi
+  for name in "$DMG_NAME" "$DMG_NAME.sha256" "$APPCAST_NAME"; do
+    [[ -f "$UPDATE_SNAPSHOT/$name" && ! -L "$UPDATE_SNAPSHOT/$name" ]] || fail "Update snapshot entry changed or became unsafe: $name" 64
+    if "$CMP_BIN" -s "$SNAP/$name" "$UPDATE_SNAPSHOT/$name"; then :; else status=$?; [[ "$status" == 1 ]] && fail "Update snapshot changed: $name" 64; exit "$status"; fi
+  done
+}
+verify_update_snapshot
 
 probe=''; set +e; probe="$($GH_BIN api --hostname github.com --include --silent "repos/$REPOSITORY/releases/tags/$TAG" 2>&1)"; probe_status=$?; set -e
 http=''; count=0
@@ -122,9 +145,21 @@ fi
 
 ASSETS="$($GH_BIN release view "$TAG" --repo "$REPOSITORY" --json assets --jq '.assets[].name')" || { status=$?; echo 'Unable to inspect GitHub release assets' >&2; exit "$status"; }
 asset_count(){ local wanted="$1" name total=0; while IFS= read -r name; do [[ "$name" == "$wanted" ]] && total=$((total+1)); done <<<"$ASSETS"; printf '%s' "$total"; }
-if [[ "$release_state" == false ]]; then
-  for name in "${asset_names[@]}"; do [[ "$(asset_count "$name")" == 1 ]] || fail "Published GitHub release is missing one exact required asset: $name" 66; done
-fi
+validate_remote_asset_set(){
+  local require_complete="$1" remote_name known name count
+  while IFS= read -r remote_name; do
+    [[ -n "$remote_name" ]] || continue
+    known=0
+    for name in "${asset_names[@]}"; do [[ "$remote_name" == "$name" ]] && known=1; done
+    [[ "$known" == 1 ]] || fail "GitHub release contains an unexpected asset: $remote_name" 66
+  done <<<"$ASSETS"
+  for name in "${asset_names[@]}"; do
+    count="$(asset_count "$name")"
+    [[ "$count" -le 1 ]] || fail "GitHub release asset name is ambiguous: $name" 66
+    [[ "$require_complete" != 1 || "$count" == 1 ]] || fail "GitHub release is missing one exact required asset: $name" 66
+  done
+}
+if [[ "$release_state" == false ]]; then validate_remote_asset_set 1; else validate_remote_asset_set 0; fi
 
 prepare_asset(){
   local name="$1" count dir status
@@ -140,8 +175,12 @@ prepare_asset(){
   if "$CMP_BIN" -s "$SNAP/$name" "$dir/$name"; then return 0; else status=$?; [[ "$status" == 1 ]] && { echo "GitHub release asset conflict: $name" >&2; return 66; }; return "$status"; fi
 }
 for name in "${asset_names[@]}"; do prepare_asset "$name" || exit $?; done
+ASSETS="$($GH_BIN release view "$TAG" --repo "$REPOSITORY" --json assets --jq '.assets[].name')" || { status=$?; echo 'Unable to re-inspect GitHub release assets' >&2; exit "$status"; }
+validate_remote_asset_set 1
 verify_snapshot
-if "$PUBLISH_UPDATE_SCRIPT"; then :; else status=$?; echo 'R2 update publication failed' >&2; exit "$status"; fi
+verify_update_snapshot
+if UPDATE_ARTIFACT_DIR="$UPDATE_SNAPSHOT" "$PUBLISH_UPDATE_SCRIPT"; then :; else status=$?; echo 'R2 update publication failed' >&2; exit "$status"; fi
+verify_update_snapshot
 verify_snapshot
 if [[ "$release_state" == true ]]; then
   if "$GH_BIN" release edit "$TAG" --repo "$REPOSITORY" --draft=false; then :; else status=$?; echo 'GitHub release publication failed' >&2; exit "$status"; fi
