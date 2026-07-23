@@ -125,7 +125,8 @@ mkdir -p "$RELEASE_TOOLING_TEST_TMP/Scripts"
 cp "$ROOT/.gitignore" "$ROOT/package.json" "$ROOT/package-lock.json" "$RELEASE_TOOLING_TEST_TMP/"
 cp "$ROOT/Scripts/release-tooling-test.sh" "$RELEASE_TOOLING_TEST_TMP/Scripts/"
 git -C "$RELEASE_TOOLING_TEST_TMP" init -q
-if ! bash "$RELEASE_TOOLING_TEST_TMP/Scripts/release-tooling-test.sh" >/dev/null 2>&1; then
+if ! bash "$RELEASE_TOOLING_TEST_TMP/Scripts/release-tooling-test.sh" >"$RELEASE_TOOLING_TEST_TMP/release-tooling-test.log" 2>&1; then
+  cat "$RELEASE_TOOLING_TEST_TMP/release-tooling-test.log" >&2
   rm -rf "$RELEASE_TOOLING_TEST_TMP"
   echo "release tooling checks must pass in a clean checkout without node_modules" >&2
   exit 1
