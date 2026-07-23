@@ -165,8 +165,12 @@ if XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$EXPECTED_SWIFT_VERIFY" "$PUBL
 cp "$P/Scripts/publish-release.sh" "$TMP/publish-release.original"
 /usr/bin/ruby -e 'path,replacement=ARGV; source=File.binread(path); abort "verifier assignment missing" unless source.sub!(/^SWIFT_VERIFY=.*$/, replacement); File.binwrite(path,source)' "$P/Scripts/publish-release.sh" "SWIFT_VERIFY='import Foundation; exit(0)'"
 XCRUN_TEST_PLATFORM=Linux run v1.2.3
-[[ "$status" != 0 && "$output" == *'signature verification failed'* ]] && no_publication_mutations \
-  || fail "weakened Swift verifier reached publication mutation: $status $output / $(cat "$ORDER")"
+if [[ "$status" == 0 || "$output" != *'signature verification failed'* ]]; then
+  fail "weakened Swift verifier reached publication mutation: $status $output / $(cat "$ORDER")"
+fi
+if ! no_publication_mutations; then
+  fail "weakened Swift verifier reached publication mutation: $status $output / $(cat "$ORDER")"
+fi
 cp "$TMP/publish-release.original" "$P/Scripts/publish-release.sh"
 
 reset
