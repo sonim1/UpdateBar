@@ -3,26 +3,22 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$ROOT/.github/workflows/release.yml"
-
 [[ -f "$WORKFLOW" ]] || { echo "release workflow is missing" >&2; exit 1; }
 
 ruby -rpsych - "$WORKFLOW" <<'RUBY'
-path = ARGV.fetch(0)
-source = File.binread(path)
-workflow = Psych.safe_load(source, permitted_classes: [], permitted_symbols: [], aliases: false)
+workflow = Psych.safe_load(File.binread(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false)
 
 def assert(value, message)
   raise "FAIL: #{message}" unless value
 end
 
 def step_map(job)
-  steps = job.fetch("steps")
-  grouped = steps.group_by { |step| step["name"] }
+  grouped = job.fetch("steps").group_by { |step| step["name"] }
   assert(grouped.none? { |name, entries| name.nil? || entries.length != 1 }, "step names must be present and unique")
   grouped.transform_values(&:first)
 end
 
-def deep_copy(value)
+def copy(value)
   Marshal.load(Marshal.dump(value))
 end
 
@@ -32,211 +28,223 @@ def move_step(job, name, before_name)
   steps.insert(steps.index { |step| step["name"] == before_name }, moving)
 end
 
-def validate_release_graph(workflow)
+def assert_commit_checkout(job, needs_expression, label, fetch_depth)
+  checkout = step_map(job).fetch("Checkout verified release commit")
+  assert(checkout["uses"] == "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", "#{label} checkout must use the reviewed SHA")
+  assert(checkout["with"] == {
+    "ref" => needs_expression, "fetch-depth" => fetch_depth, "persist-credentials" => false
+  }, "#{label} must check out only the singleton verified commit")
+end
+
+def assert_commit_check(job, expression, label)
+  step = step_map(job).fetch("Verify release commit")
+  assert(step.dig("env", "VERIFIED_RELEASE_COMMIT") == expression, "#{label} commit check must receive singleton provenance")
+  run = step.fetch("run")
+  assert(run.include?('head_commit="$(git rev-parse HEAD)"') &&
+    run.include?('[[ "$head_commit" != "$VERIFIED_RELEASE_COMMIT" ]]') &&
+    run.include?('^([0-9a-f]{40})$'), "#{label} must compare canonical HEAD with singleton provenance")
+end
+
+def validate(workflow)
   assert(workflow["name"] == "Release", "workflow name must remain Release")
   triggers = workflow["on"]
-  assert(triggers.is_a?(Hash) && triggers.keys.sort == %w[push workflow_dispatch], "only release tag pushes and manual recovery may trigger")
-  assert(triggers.dig("push", "tags") == ["v*"], "push trigger must be restricted to version tags")
-  tag_input = triggers.dig("workflow_dispatch", "inputs", "tag")
-  assert(tag_input.is_a?(Hash) && tag_input["required"] == true && tag_input["type"] == "string", "manual recovery must require an exact tag")
-  assert(workflow["permissions"] == { "contents" => "read" }, "top-level permissions must be read-only")
-  assert(workflow["concurrency"] == { "group" => "updatebar-release", "cancel-in-progress" => false }, "release runs must use one non-cancelling concurrency group")
+  assert(triggers.is_a?(Hash) && triggers.keys.sort == %w[push workflow_dispatch], "only tag push and manual recovery may trigger")
+  assert(triggers.dig("push", "tags") == ["v*"], "push trigger must be version tags")
+  manual = triggers.dig("workflow_dispatch", "inputs", "tag")
+  assert(manual.is_a?(Hash) && manual["required"] == true && manual["type"] == "string", "manual recovery must require an exact tag")
+  assert(workflow["permissions"] == { "contents" => "read" }, "workflow default must be read-only")
+  assert(workflow["concurrency"] == { "group" => "updatebar-release", "cancel-in-progress" => false }, "release concurrency must be global and non-cancelling")
 
   jobs = workflow.fetch("jobs")
-  assert(jobs.keys == %w[verify publish notify], "job graph must be verify, protected publish, protected notify")
-  %w[softprops/action-gh-release NOTARY_APPLE_ID NOTARY_PASSWORD MACOS_SIGNING_CERT_P12].each do |retired|
-    assert(!workflow.to_s.include?(retired), "retired or optional release path must be absent: #{retired}")
-  end
+  assert(jobs.keys == %w[provenance verify package publish notify], "graph must be provenance, verify, protected package, protected publish, notify")
   jobs.each_value do |job|
     job.fetch("steps").each do |step|
       next unless step.key?("uses")
-      assert(step.fetch("uses").match?(/\A[^@]+@[0-9a-f]{40}\z/), "every external action must use a full reviewed commit SHA")
+      assert(step.fetch("uses").match?(/\A[^@]+@[0-9a-f]{40}\z/), "all external actions must use reviewed full SHAs")
     end
   end
+  %w[softprops/action-gh-release NOTARY_APPLE_ID NOTARY_PASSWORD MACOS_SIGNING_CERT_P12].each do |retired|
+    assert(!workflow.to_s.include?(retired), "retired release path must be absent: #{retired}")
+  end
+
+  provenance = jobs.fetch("provenance")
   verify = jobs.fetch("verify")
+  package = jobs.fetch("package")
   publish = jobs.fetch("publish")
   notify = jobs.fetch("notify")
+  commit_output = "${{ needs.provenance.outputs.release_commit }}"
 
+  assert(!provenance.key?("strategy"), "provenance must be a singleton, never a matrix")
+  assert(provenance["runs-on"] == "ubuntu-24.04", "provenance must use the pinned Linux runner")
+  assert(provenance["permissions"] == { "contents" => "read" }, "provenance must be read-only")
+  assert(!provenance.key?("environment") && !provenance.to_s.include?("secrets."), "provenance must not enter production scope")
+  assert(provenance.dig("outputs", "release_commit") == "${{ steps.provenance.outputs.release_commit }}", "singleton must expose the only release commit output")
+  assert(provenance.dig("env", "RELEASE_TAG") == "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}", "singleton must resolve push and recovery tags")
+  assert(provenance.fetch("steps").map { |step| step["name"] } == ["Checkout release tag", "Validate release provenance"], "singleton provenance steps must be exact")
+  provenance_steps = step_map(provenance)
+  provenance_checkout = provenance_steps.fetch("Checkout release tag")
+  assert(provenance_checkout["with"] == {
+    "ref" => "refs/tags/${{ env.RELEASE_TAG }}", "fetch-depth" => 0, "persist-credentials" => false
+  }, "singleton provenance must initially check out the exact tag ref")
+  provenance_run = provenance_steps.fetch("Validate release provenance").fetch("run")
+  ["refs/tags/$RELEASE_TAG", "git show-ref --verify --quiet", "refs/heads/main:",
+   "refs/tags/$RELEASE_TAG:", "git merge-base --is-ancestor", "^UPDATEBAR_VERSION=",
+   "^([0-9a-f]{40})$", "release_commit=%s"].each do |fragment|
+    assert(provenance_run.include?(fragment), "singleton provenance is missing #{fragment}")
+  end
+  assert(provenance_run.index("git fetch") < provenance_run.index("git merge-base --is-ancestor"), "remote refs must be fetched before ancestry validation")
+
+  assert(verify["needs"] == "provenance", "matrix verification must consume singleton provenance")
+  assert(!verify.key?("outputs"), "matrix verification must never expose a last-matrix release commit")
   assert(verify["strategy"] == {
     "fail-fast" => false,
     "matrix" => { "include" => [
       { "os" => "macos-15", "artifact" => "macos-arm64" },
       { "os" => "ubuntu-24.04", "artifact" => "linux-x86_64" }
     ] }
-  }, "verification matrix must pin the canonical macOS and Linux runners")
-  assert(verify["runs-on"] == "${{ matrix.os }}", "verify must use the pinned matrix runner")
-  assert(verify["permissions"] == { "contents" => "read" }, "verify must be read-only")
-  assert(!verify.key?("environment"), "verify must not enter the release environment")
-  assert(!verify.to_s.include?("secrets."), "verify must not receive production secrets")
-  assert(verify.dig("outputs", "release_commit") == "${{ steps.provenance.outputs.release_commit }}", "verify must expose the validated tag commit")
-  assert(verify.dig("env", "RELEASE_TAG") == "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}", "verify must resolve push and recovery tags")
-
+  }, "verification matrix must pin both runners")
+  assert(verify["runs-on"] == "${{ matrix.os }}" && verify["permissions"] == { "contents" => "read" }, "matrix verification must be pinned and read-only")
+  assert(!verify.key?("environment") && !verify.to_s.include?("secrets."), "matrix verification must not receive release secrets")
+  expected_verify = ["Checkout verified release commit", "Verify release commit", "Setup Swift on Linux",
+    "Install Linux link dependencies", "Run Swift tests", "Build CLI archive", "Smoke-test CLI archive",
+    "Verify checksums", "Write artifact provenance marker", "Upload CLI artifact"]
+  assert(verify.fetch("steps").map { |step| step["name"] } == expected_verify, "matrix verification steps must be exact and ordered")
+  assert_commit_checkout(verify, commit_output, "verify", 0)
+  assert_commit_check(verify, commit_output, "verify")
   verify_steps = step_map(verify)
-  expected_verify = [
-    "Checkout release tag", "Validate release provenance", "Setup Swift on Linux",
-    "Install Linux link dependencies", "Run Swift tests", "Build CLI archive",
-    "Smoke-test CLI archive", "Verify checksums", "Upload CLI artifact"
-  ]
-  assert(verify.fetch("steps").map { |step| step["name"] } == expected_verify, "verification steps must be exact and ordered")
-  checkout = verify_steps.fetch("Checkout release tag")
-  assert(checkout["uses"] == "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", "checkout must use the reviewed SHA")
-  assert(checkout["with"] == {
-    "ref" => "refs/tags/${{ env.RELEASE_TAG }}", "fetch-depth" => 0, "persist-credentials" => false
-  }, "verify checkout must use the exact tag with no persisted credential")
-  provenance = verify_steps.fetch("Validate release provenance")
-  assert(provenance["id"] == "provenance" && provenance["shell"] == "bash", "provenance step must expose a stable output")
-  provenance_run = provenance.fetch("run")
-  [
-    "refs/tags/$RELEASE_TAG", "git show-ref --verify --quiet", "^{commit}",
-    "refs/heads/main:", "refs/tags/$RELEASE_TAG:", "git merge-base --is-ancestor",
-    "^v[0-9]+([.][0-9]+){1,2}$", "^UPDATEBAR_VERSION=", "^([0-9a-f]{40})$",
-    "release_commit=%s"
-  ].each { |fragment| assert(provenance_run.include?(fragment), "provenance is missing #{fragment}") }
-  assert(!provenance_run.match?(/rev-parse[^\n]*\$RELEASE_TAG(?![^\n]*tag_ref)/), "provenance must not resolve a bare tag")
-  assert(provenance_run.index("git fetch") < provenance_run.index("git merge-base --is-ancestor"), "remote refs must be fetched before ancestry validation")
-  assert(verify_steps.fetch("Setup Swift on Linux")["uses"] == "swift-actions/setup-swift@7591e4f04c00624cb043783da51a7fd6ee0a6bf6", "Swift setup must use the reviewed SHA")
-  assert(verify_steps.fetch("Upload CLI artifact")["uses"] == "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02", "artifact upload must use the reviewed SHA")
-  assert(verify_steps.fetch("Upload CLI artifact").dig("with", "path") == "dist/*.tar.gz\ndist/*.tar.gz.sha256\n", "verify may upload only CLI archives and checksums")
-  assert(!verify.to_s.match?(/build-app|generate-appcast|publish-release|softprops|verify-homebrew/i), "verify must not package or publish the app")
-
-  assert(publish["needs"] == "verify", "publish must depend only on verification")
-  assert(publish["environment"] == "release", "publish must use the protected release environment")
-  assert(publish["runs-on"] == "macos-15", "publish must run on the canonical macOS runner")
-  assert(publish["permissions"] == { "contents" => "write" }, "publish must receive only contents write")
-  assert(!publish.key?("if"), "manual recovery and tag pushes must both reach protected publication")
-  assert(publish.dig("env", "RELEASE_TAG") == "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}", "publish must reuse the exact selected tag")
-  assert(publish.dig("env", "NOTARYTOOL_KEYCHAIN_PROFILE") == "updatebar-notary", "notary profile must be fixed")
-  publish_steps = step_map(publish)
-  expected_publish = [
-    "Checkout verified release commit", "Verify release commit", "Download CLI artifacts",
-    "Verify downloaded checksums", "Setup Node.js", "Install release tooling",
-    "Prepare signing workspace", "Install Apple credentials", "Build notarized app DMG",
-    "Smoke-test app DMG", "Generate signed appcast", "Generate release manifest",
-    "Publish release", "Cleanup Apple credentials"
-  ]
-  assert(publish.fetch("steps").map { |step| step["name"] } == expected_publish, "publish steps must be exact and ordered")
-  publish_checkout = publish_steps.fetch("Checkout verified release commit")
-  assert(publish_checkout["uses"] == "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", "publish checkout must use the reviewed SHA")
-  assert(publish_checkout["with"] == {
-    "ref" => "${{ needs.verify.outputs.release_commit }}", "fetch-depth" => 0, "persist-credentials" => false
-  }, "publish checkout must use only the verified commit")
-  publish_commit_check = publish_steps.fetch("Verify release commit").fetch("run")
-  assert(publish_commit_check.include?('head_commit="$(git rev-parse HEAD)"') &&
-    publish_commit_check.include?('[[ "$head_commit" != "$VERIFIED_RELEASE_COMMIT" ]]'),
-    "publish must compare HEAD with the verified output")
-  download = publish_steps.fetch("Download CLI artifacts")
-  assert(download["uses"] == "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093", "artifact download must use the reviewed SHA")
-  assert(download["with"] == {
-    "pattern" => "updatebar-*", "path" => "dist", "merge-multiple" => true
-  }, "publish must download only UpdateBar CLI matrix artifacts")
-  downloaded_checks = publish_steps.fetch("Verify downloaded checksums").fetch("run")
-  %w[macos-arm64 linux-x86_64 tar.gz.sha256 Dir.children].each do |fragment|
-    assert(downloaded_checks.include?(fragment), "download verification must enforce the exact CLI set: #{fragment}")
+  marker = verify_steps.fetch("Write artifact provenance marker")
+  assert(marker["env"] == { "VERIFIED_RELEASE_COMMIT" => commit_output, "ARTIFACT_LABEL" => "${{ matrix.artifact }}" }, "marker must bind singleton provenance to its matrix artifact")
+  marker_run = marker.fetch("run")
+  ["archive_sha", "archive_name", "VERIFIED_RELEASE_COMMIT", "release-marker", "printf '%s  %s  %s\\n'"].each do |fragment|
+    assert(marker_run.include?(fragment), "artifact marker is missing #{fragment}")
   end
-  assert(publish_steps.fetch("Setup Node.js")["uses"] == "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020", "Node setup must use the reviewed SHA")
-  assert(publish_steps.fetch("Setup Node.js").dig("with", "node-version") == "24.18.0", "Node must pin the reviewed LTS patch")
+  upload = verify_steps.fetch("Upload CLI artifact")
+  assert(upload["uses"] == "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02", "CLI upload must use reviewed SHA")
+  assert(upload.dig("with", "path").include?("release-marker"), "each CLI artifact must carry its provenance marker")
+  assert(!verify.to_s.match?(/build-app|generate-appcast|publish-release|R2_ACCESS/i), "verify must not package or publish")
 
+  assert(package["needs"] == ["provenance", "verify"], "package must wait for singleton provenance and the whole matrix")
+  assert(package["environment"] == "release" && package["runs-on"] == "macos-15", "package must be protected on canonical macOS")
+  assert(package["permissions"] == { "contents" => "read" }, "package needs no repository write permission")
+  assert(!package.key?("if"), "manual recovery and tag pushes must both package")
+  expected_package = ["Checkout verified release commit", "Verify release commit", "Download verified CLI artifacts",
+    "Verify downloaded checksums", "Prepare signing workspace", "Install Apple credentials",
+    "Build notarized app DMG", "Smoke-test app DMG", "Generate signed appcast", "Generate release manifest",
+    "Stage immutable release bundle", "Upload immutable release bundle for failed-job retry", "Cleanup Apple credentials"]
+  assert(package.fetch("steps").map { |step| step["name"] } == expected_package, "protected package steps must be exact and ordered")
+  assert_commit_checkout(package, commit_output, "package", 0)
+  assert_commit_check(package, commit_output, "package")
+  package_steps = step_map(package)
+  cli_download = package_steps.fetch("Download verified CLI artifacts")
+  assert(cli_download["with"] == { "pattern" => "updatebar-*", "path" => "dist", "merge-multiple" => true }, "package must download only matrix CLI artifacts")
+  marker_validation = package_steps.fetch("Verify downloaded checksums")
+  assert(marker_validation.dig("env", "VERIFIED_RELEASE_COMMIT") == commit_output, "marker validation must use singleton provenance")
+  marker_validation_run = marker_validation.fetch("run")
+  %w[macos-arm64 linux-x86_64 release-marker Dir.children expected_file marker_commit marker_sha archive_sha].each do |fragment|
+    assert(marker_validation_run.include?(fragment), "package marker validation is missing #{fragment}")
+  end
+  assert(marker_validation_run.include?('for expected_file in "${expected_files[@]}"') &&
+    marker_validation_run.include?('-L "dist/$expected_file"'), "package must reject unsafe CLI artifact entry types")
   apple_names = %w[APPLE_CERTIFICATE_P12_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_NOTARY_KEY_P8_BASE64 APPLE_NOTARY_KEY_ID APPLE_NOTARY_ISSUER_ID]
-  credentials = publish_steps.fetch("Install Apple credentials")
-  apple_names.each { |name| assert(credentials.dig("env", name) == "${{ secrets.#{name} }}", "#{name} must be required from secrets") }
-  credential_run = credentials.fetch("run")
-  apple_names.each { |name| assert(credential_run.include?("${#{name}:?"), "credential setup must fail closed for #{name}") }
-  ["umask 077", "/usr/bin/base64 -D", "/usr/bin/security create-keychain", "/usr/bin/security import", "notarytool store-credentials"].each do |fragment|
-    assert(credential_run.include?(fragment), "credential setup is missing #{fragment}")
+  credentials = package_steps.fetch("Install Apple credentials")
+  apple_names.each do |name|
+    assert(credentials.dig("env", name) == "${{ secrets.#{name} }}", "package is missing #{name}")
+    assert(credentials.fetch("run").include?("${#{name}:?"), "package must fail closed for #{name}")
   end
-  assert(!credential_run.match?(/--apple-id|--password\s+\"\$APPLE_NOTARY/), "notary authentication must use the API key, not Apple ID credentials")
-
-  prepare_run = publish_steps.fetch("Prepare signing workspace").fetch("run")
-  assert(prepare_run.include?('mktemp -d "$RUNNER_TEMP/updatebar-release.XXXXXX"'), "signing workspace must be randomized below runner temp")
-  assert(prepare_run.include?("umask 077"), "signing workspace must be private")
-  build = publish_steps.fetch("Build notarized app DMG")
-  assert(build["env"] == {
+  assert(package_steps.fetch("Build notarized app DMG")["env"] == {
     "DEVELOPER_ID_APPLICATION" => "${{ vars.DEVELOPER_ID_APPLICATION }}",
     "SPARKLE_PUBLIC_ED_KEY" => "${{ vars.SPARKLE_PUBLIC_ED_KEY }}"
-  }, "DMG build must receive only the public signing inputs")
-  assert(build.fetch("run").include?('APP_DMG="$(bash Scripts/build-app-dmg.sh)"'), "canonical DMG builder must run once and capture its exact path")
-  appcast = publish_steps.fetch("Generate signed appcast")
-  assert(appcast["env"] == {
-    "SPARKLE_PUBLIC_ED_KEY" => "${{ vars.SPARKLE_PUBLIC_ED_KEY }}",
-    "SPARKLE_PRIVATE_ED_KEY" => "${{ secrets.SPARKLE_PRIVATE_ED_KEY }}",
-    "UPDATE_DOMAIN" => "updates.updatebar.sonim1.com"
-  }, "appcast must receive the separate UpdateBar Sparkle key and fixed domain")
-  assert(appcast["run"] == "Scripts/generate-appcast.sh", "canonical appcast generator must run once")
-  assert(publish_steps.fetch("Generate release manifest")["run"] == 'Scripts/generate-release-manifest.sh "$RELEASE_TAG"', "manifest must bind the exact tag")
+  }, "DMG build must receive only public signing settings")
+  appcast = package_steps.fetch("Generate signed appcast")
+  assert(appcast.dig("env", "SPARKLE_PRIVATE_ED_KEY") == "${{ secrets.SPARKLE_PRIVATE_ED_KEY }}", "only package may receive the UpdateBar Sparkle private key")
+  assert(appcast.dig("env", "UPDATE_DOMAIN") == "updates.updatebar.sonim1.com", "appcast domain must be fixed")
+  assert(package_steps.fetch("Generate release manifest")["run"] == 'Scripts/generate-release-manifest.sh "$RELEASE_TAG"', "manifest must bind the exact tag")
+  stage = package_steps.fetch("Stage immutable release bundle").fetch("run")
+  %w[release-bundle release-commit.txt bundle-sha256.txt dist/updates release-manifest.json].each do |fragment|
+    assert(stage.include?(fragment), "immutable bundle staging is missing #{fragment}")
+  end
+  bundle_upload = package_steps.fetch("Upload immutable release bundle for failed-job retry")
+  assert(bundle_upload["uses"] == "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02", "bundle upload must use reviewed SHA")
+  assert(bundle_upload["with"] == {
+    "name" => "updatebar-release-${{ env.RELEASE_TAG }}", "path" => "release-bundle/",
+    "if-no-files-found" => "error", "retention-days" => 7, "include-hidden-files" => false
+  }, "one immutable bundle must be retained for failed-job retry")
+  assert(!package.to_s.match?(/publish-release|R2_ACCESS|CLOUDFLARE_ACCOUNT_ID|GH_TOKEN|create-github-app-token/), "package must never perform external publication")
+  assert(!package.to_s.include?("setup-node") && !package.to_s.include?("npm ci"), "package does not need Node or Wrangler")
+  cleanup = package_steps.fetch("Cleanup Apple credentials")
+  assert(cleanup["if"] == "always()" && !cleanup.fetch("run").match?(/rm\s+-rf|rm\s+-f\s+[^\n]*[*?]/), "package cleanup must always stay within validated paths")
+
+  assert(publish["needs"] == ["provenance", "package"], "publish must consume only singleton provenance and the completed bundle")
+  assert(publish["environment"] == "release" && publish["runs-on"] == "macos-15", "publish must remain protected on macOS for DMG verification")
+  assert(publish["permissions"] == { "contents" => "write" }, "only publish receives repository write")
+  expected_publish = ["Checkout verified release commit", "Verify release commit", "Download immutable release bundle",
+    "Validate immutable release bundle", "Materialize immutable release bundle", "Publish release"]
+  assert(publish.fetch("steps").map { |step| step["name"] } == expected_publish, "publish steps must only validate and publish the immutable bundle")
+  assert_commit_checkout(publish, commit_output, "publish", 0)
+  assert_commit_check(publish, commit_output, "publish")
+  publish_steps = step_map(publish)
+  bundle_download = publish_steps.fetch("Download immutable release bundle")
+  assert(bundle_download["with"] == { "name" => "updatebar-release-${{ env.RELEASE_TAG }}", "path" => "${{ runner.temp }}/updatebar-release-bundle" }, "publish must download exactly the completed bundle")
+  bundle_validation = publish_steps.fetch("Validate immutable release bundle")
+  assert(bundle_validation.dig("env", "VERIFIED_RELEASE_COMMIT") == commit_output, "bundle validation must bind singleton provenance")
+  %w[release-commit.txt bundle-sha256.txt Dir.glob expected_dirs File.symlink? checksum_names shasum release-manifest.json dist/updates].each do |fragment|
+    assert(bundle_validation.fetch("run").include?(fragment), "bundle validation is missing #{fragment}")
+  end
   publication = publish_steps.fetch("Publish release")
   assert(publication["env"] == {
-    "GH_TOKEN" => "${{ github.token }}",
-    "CLOUDFLARE_ACCOUNT_ID" => "${{ vars.CLOUDFLARE_ACCOUNT_ID }}",
-    "R2_ACCESS_KEY_ID" => "${{ secrets.R2_ACCESS_KEY_ID }}",
-    "R2_SECRET_ACCESS_KEY" => "${{ secrets.R2_SECRET_ACCESS_KEY }}",
-    "R2_BUCKET_NAME" => "updatebar-updates",
-    "UPDATE_DOMAIN" => "updates.updatebar.sonim1.com"
-  }, "publisher must use the fixed UpdateBar release destination")
-  assert(publication["run"] == 'Scripts/publish-release.sh "$RELEASE_TAG"', "coordinated publisher must run once")
-  assert(!publish.to_s.include?("create-github-app-token"), "tap token must not enter the publish job")
-  assert(!publish.to_s.include?("dispatch-homebrew-update"), "tap dispatch must not enter the publish job")
-  cleanup = publish_steps.fetch("Cleanup Apple credentials")
-  assert(cleanup["if"] == "always()", "credential cleanup must always run")
-  cleanup_run = cleanup.fetch("run")
-  ["RUNNER_TEMP", "updatebar-release", "updatebar-release.keychain-db", "updatebar-release-certificate.p12", "updatebar-notary-auth-key.p8"].each do |fragment|
-    assert(cleanup_run.include?(fragment), "cleanup is missing the validated #{fragment} boundary")
-  end
-  assert(!cleanup_run.match?(/rm\s+-rf|rm\s+-f\s+[^\n]*[*?]|\$RUNNER_TEMP\/(?!updatebar-release)/), "cleanup must not use recursive, globbed, or broad deletion")
+    "GH_TOKEN" => "${{ github.token }}", "CLOUDFLARE_ACCOUNT_ID" => "${{ vars.CLOUDFLARE_ACCOUNT_ID }}",
+    "R2_ACCESS_KEY_ID" => "${{ secrets.R2_ACCESS_KEY_ID }}", "R2_SECRET_ACCESS_KEY" => "${{ secrets.R2_SECRET_ACCESS_KEY }}",
+    "R2_BUCKET_NAME" => "updatebar-updates", "UPDATE_DOMAIN" => "updates.updatebar.sonim1.com"
+  }, "publish must use only release publication credentials and fixed destinations")
+  assert(publication["run"] == 'Scripts/publish-release.sh "$RELEASE_TAG"', "publish must call the coordinator exactly once")
+  assert(!publish.to_s.match?(/build-app|generate-appcast|generate-release-manifest|APPLE_CERTIFICATE|APPLE_NOTARY|SPARKLE_PRIVATE|setup-node|npm ci/), "failed publish reruns must never rebuild, sign, notarize, or regenerate")
+  assert(!publish.to_s.include?("create-github-app-token"), "tap token must not enter publish")
 
-  assert(notify["needs"] == ["verify", "publish"], "notify must wait for verification and publication")
-  assert(notify["environment"] == "release", "notify must use the protected release environment")
-  assert(notify["runs-on"] == "ubuntu-24.04", "notify must use the pinned Linux runner")
-  assert(notify["permissions"] == { "contents" => "read" }, "notify must remain read-only")
-  assert(!notify.key?("if"), "manual recovery must be able to retry notification")
+  assert(notify["needs"] == ["provenance", "publish"], "notify must wait for singleton provenance and publication")
+  assert(notify["environment"] == "release" && notify["runs-on"] == "ubuntu-24.04", "notify must be isolated and protected")
+  assert(notify["permissions"] == { "contents" => "read" }, "notify must be read-only")
+  assert_commit_checkout(notify, commit_output, "notify", 1)
+  assert_commit_check(notify, commit_output, "notify")
   notify_steps = step_map(notify)
-  assert(notify.fetch("steps").map { |step| step["name"] } == [
-    "Checkout verified release commit", "Verify release commit", "Create tap GitHub App token", "Notify Homebrew tap"
-  ], "notify must remain an isolated retryable job")
-  notify_checkout = notify_steps.fetch("Checkout verified release commit")
-  assert(notify_checkout["uses"] == "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", "notify checkout must use the reviewed SHA")
-  assert(notify_checkout["with"] == {
-    "ref" => "${{ needs.verify.outputs.release_commit }}", "fetch-depth" => 1, "persist-credentials" => false
-  }, "notify checkout must use the verified commit without credentials")
-  notify_commit_check = notify_steps.fetch("Verify release commit").fetch("run")
-  assert(notify_commit_check.include?('head_commit="$(git rev-parse HEAD)"') &&
-    notify_commit_check.include?('[[ "$head_commit" != "$VERIFIED_RELEASE_COMMIT" ]]'),
-    "notify must compare HEAD with the verified output")
+  assert(notify.fetch("steps").map { |step| step["name"] } == ["Checkout verified release commit", "Verify release commit", "Create tap GitHub App token", "Notify Homebrew tap"], "notify steps must stay retryable and isolated")
   token = notify_steps.fetch("Create tap GitHub App token")
-  assert(token["uses"] == "actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42", "tap token action must use the reviewed SHA")
-  assert(token["with"] == {
-    "app-id" => "${{ vars.TAP_GITHUB_APP_ID }}", "private-key" => "${{ secrets.TAP_GITHUB_APP_PRIVATE_KEY }}",
-    "owner" => "sonim1", "repositories" => "homebrew-tap", "permission-contents" => "write"
-  }, "tap token must be scoped to homebrew-tap contents write")
-  dispatch = notify_steps.fetch("Notify Homebrew tap")
-  assert(dispatch["env"] == { "TAP_GH_TOKEN" => "${{ steps.tap-token.outputs.token }}" }, "dispatch may receive only the app installation token")
-  assert(dispatch["run"] == 'Scripts/dispatch-homebrew-update.sh "$RELEASE_TAG"', "dispatch must bind the exact published tag")
-  %w[build-app generate-appcast generate-release-manifest publish-release SPARKLE_PRIVATE R2_ACCESS APPLE_CERTIFICATE APPLE_NOTARY].each do |forbidden|
-    assert(!notify.to_s.include?(forbidden), "notify must not rebuild or republish: #{forbidden}")
-  end
+  assert(token["uses"] == "actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42", "tap token action must use reviewed SHA")
+  assert(token["with"] == { "app-id" => "${{ vars.TAP_GITHUB_APP_ID }}", "private-key" => "${{ secrets.TAP_GITHUB_APP_PRIVATE_KEY }}", "owner" => "sonim1", "repositories" => "homebrew-tap", "permission-contents" => "write" }, "tap token must be scoped to homebrew-tap contents write")
+  assert(notify_steps.fetch("Notify Homebrew tap")["run"] == 'Scripts/dispatch-homebrew-update.sh "$RELEASE_TAG"', "notify must dispatch the exact published tag")
+  assert(!notify.to_s.match?(/build-app|generate-appcast|publish-release|R2_ACCESS|APPLE_CERTIFICATE/), "notify must not rebuild or republish")
 end
 
-validate_release_graph(workflow)
+validate(workflow)
 
 mutations = {}
-mutations["publish bypasses verify"] = deep_copy(workflow).tap { |w| w["jobs"]["publish"].delete("needs") }
-mutations["publication precedes appcast"] = deep_copy(workflow).tap { |w| move_step(w["jobs"]["publish"], "Publish release", "Generate signed appcast") }
-mutations["Apple secret becomes optional"] = deep_copy(workflow).tap do |w|
-  run = step_map(w["jobs"]["publish"]).fetch("Install Apple credentials")["run"]
-  step_map(w["jobs"]["publish"]).fetch("Install Apple credentials")["run"] = run.gsub('${APPLE_CERTIFICATE_PASSWORD:?', '${APPLE_CERTIFICATE_PASSWORD:-')
+mutations["singleton becomes matrix"] = copy(workflow).tap { |w| w["jobs"]["provenance"]["strategy"] = { "matrix" => { "os" => ["ubuntu-24.04"] } } }
+mutations["last matrix output becomes authoritative"] = copy(workflow).tap { |w| w["jobs"]["verify"]["outputs"] = { "release_commit" => "${{ steps.commit.outputs.value }}" } }
+mutations["verify uses a movable tag"] = copy(workflow).tap { |w| step_map(w["jobs"]["verify"]).fetch("Checkout verified release commit")["with"]["ref"] = "refs/tags/${{ env.RELEASE_TAG }}" }
+mutations["matrix marker is removed"] = copy(workflow).tap { |w| w["jobs"]["verify"]["steps"].reject! { |step| step["name"] == "Write artifact provenance marker" } }
+mutations["package stops comparing marker commit"] = copy(workflow).tap do |w|
+  step = step_map(w["jobs"]["package"]).fetch("Verify downloaded checksums")
+  step["run"] = step["run"].gsub("marker_commit", "ignored_commit")
 end
-mutations["verify checks out bare tag"] = deep_copy(workflow).tap { |w| step_map(w["jobs"]["verify"]).fetch("Checkout release tag")["with"]["ref"] = "${{ env.RELEASE_TAG }}" }
-mutations["checkout persists credentials"] = deep_copy(workflow).tap { |w| step_map(w["jobs"]["publish"]).fetch("Checkout verified release commit")["with"]["persist-credentials"] = true }
-mutations["tap token enters publish"] = deep_copy(workflow).tap do |w|
-  w["jobs"]["publish"]["steps"].insert(-2, deep_copy(step_map(w["jobs"]["notify"]).fetch("Create tap GitHub App token")))
+mutations["package publishes externally"] = copy(workflow).tap do |w|
+  w["jobs"]["package"]["steps"].insert(-1, { "name" => "Publish release", "run" => 'Scripts/publish-release.sh "$RELEASE_TAG"' })
 end
-mutations["notify is merged into publish"] = deep_copy(workflow).tap { |w| w["jobs"].delete("notify") }
-mutations["cleanup becomes recursive"] = deep_copy(workflow).tap do |w|
-  step_map(w["jobs"]["publish"]).fetch("Cleanup Apple credentials")["run"] << "\nrm -rf \"$RUNNER_TEMP\"\n"
+mutations["bundle upload moves after publication"] = copy(workflow).tap do |w|
+  w["jobs"]["publish"]["steps"].insert(-1, copy(step_map(w["jobs"]["package"]).fetch("Upload immutable release bundle for failed-job retry")))
 end
+mutations["publish rebuilds the DMG"] = copy(workflow).tap { |w| w["jobs"]["publish"]["steps"].insert(-1, { "name" => "Build notarized app DMG", "run" => "Scripts/build-app-dmg.sh" }) }
+mutations["publish bypasses singleton"] = copy(workflow).tap { |w| w["jobs"]["publish"]["needs"] = ["package"] }
+mutations["bundle download is broad"] = copy(workflow).tap { |w| step_map(w["jobs"]["publish"]).fetch("Download immutable release bundle")["with"].delete("name") }
+mutations["Apple secret becomes optional"] = copy(workflow).tap do |w|
+  step = step_map(w["jobs"]["package"]).fetch("Install Apple credentials")
+  step["run"] = step["run"].gsub('${APPLE_CERTIFICATE_PASSWORD:?', '${APPLE_CERTIFICATE_PASSWORD:-')
+end
+mutations["checkout credentials persist"] = copy(workflow).tap { |w| step_map(w["jobs"]["package"]).fetch("Checkout verified release commit")["with"]["persist-credentials"] = true }
+mutations["notify is merged away"] = copy(workflow).tap { |w| w["jobs"].delete("notify") }
+mutations["cleanup becomes recursive"] = copy(workflow).tap { |w| step_map(w["jobs"]["package"]).fetch("Cleanup Apple credentials")["run"] << "\nrm -rf \"$RUNNER_TEMP\"\n" }
 
 mutations.each do |label, mutation|
   begin
-    validate_release_graph(mutation)
+    validate(mutation)
   rescue RuntimeError => error
     raise unless error.message.start_with?("FAIL:")
   else
@@ -247,23 +255,21 @@ end
 puts "release workflow structure and mutation tests passed"
 RUBY
 
-PROVENANCE_RUN="$(ruby -rpsych - "$WORKFLOW" <<'RUBY'
+extract_run() {
+  ruby -rpsych - "$WORKFLOW" "$1" "$2" <<'RUBY'
 workflow = Psych.safe_load(File.binread(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false)
-steps = workflow.fetch("jobs").fetch("verify").fetch("steps")
-matches = steps.select { |step| step["name"] == "Validate release provenance" }
-abort "expected exactly one provenance step" unless matches.length == 1
-run = matches.first["run"]
-abort "provenance step has no shell body" unless run.is_a?(String)
-print run
+steps = workflow.fetch("jobs").fetch(ARGV.fetch(1)).fetch("steps")
+matches = steps.select { |step| step["name"] == ARGV.fetch(2) }
+abort "expected exactly one step" unless matches.length == 1 && matches.first["run"].is_a?(String)
+print matches.first["run"]
 RUBY
-)"
-
-FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-workflow-provenance.XXXXXX")"
-cleanup_fixture() {
-  rm -rf "$FIXTURE"
 }
+
+FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-workflow-contract.XXXXXX")"
+cleanup_fixture() { rm -rf "$FIXTURE"; }
 trap cleanup_fixture EXIT
 
+PROVENANCE_RUN="$(extract_run provenance "Validate release provenance")"
 git init --bare "$FIXTURE/origin.git" >/dev/null
 git init "$FIXTURE/source" >/dev/null
 git -C "$FIXTURE/source" config user.name "Release Contract"
@@ -275,7 +281,6 @@ git -C "$FIXTURE/source" branch -M main
 git -C "$FIXTURE/source" tag v1.2.3
 git -C "$FIXTURE/source" remote add origin "$FIXTURE/origin.git"
 git -C "$FIXTURE/source" push origin main refs/tags/v1.2.3 >/dev/null 2>&1
-
 git clone "$FIXTURE/origin.git" "$FIXTURE/checkout" >/dev/null 2>&1
 git -C "$FIXTURE/checkout" checkout --detach refs/tags/v1.2.3 >/dev/null 2>&1
 : > "$FIXTURE/github-output"
@@ -284,10 +289,7 @@ git -C "$FIXTURE/checkout" checkout --detach refs/tags/v1.2.3 >/dev/null 2>&1
   RELEASE_TAG=v1.2.3 GITHUB_OUTPUT="$FIXTURE/github-output" bash -euo pipefail -c "$PROVENANCE_RUN"
 ) >/dev/null 2>&1
 EXPECTED_COMMIT="$(git -C "$FIXTURE/source" rev-parse refs/tags/v1.2.3^{commit})"
-[[ "$(<"$FIXTURE/github-output")" == "release_commit=$EXPECTED_COMMIT" ]] || {
-  echo "provenance shell did not emit the exact verified tag commit" >&2
-  exit 1
-}
+[[ "$(<"$FIXTURE/github-output")" == "release_commit=$EXPECTED_COMMIT" ]] || { echo "singleton provenance emitted the wrong commit" >&2; exit 1; }
 
 git -C "$FIXTURE/source" checkout --orphan off-main >/dev/null 2>&1
 git -C "$FIXTURE/source" rm -f version.env >/dev/null
@@ -298,11 +300,58 @@ git -C "$FIXTURE/source" tag v1.2.4
 git -C "$FIXTURE/source" push origin refs/tags/v1.2.4 >/dev/null 2>&1
 git -C "$FIXTURE/checkout" fetch --no-tags origin refs/tags/v1.2.4:refs/tags/v1.2.4 >/dev/null 2>&1
 git -C "$FIXTURE/checkout" checkout --detach refs/tags/v1.2.4 >/dev/null 2>&1
+if (cd "$FIXTURE/checkout" && RELEASE_TAG=v1.2.4 GITHUB_OUTPUT="$FIXTURE/github-output" bash -euo pipefail -c "$PROVENANCE_RUN") >/dev/null 2>&1; then
+  echo "singleton provenance accepted an off-main movable tag" >&2
+  exit 1
+fi
+
+MARKER_RUN="$(extract_run verify "Write artifact provenance marker")"
+mkdir -p "$FIXTURE/marker/dist"
+printf 'archive bytes\n' > "$FIXTURE/marker/dist/updatebar-1.2.3-macos-arm64.tar.gz"
+(
+  cd "$FIXTURE/marker"
+  (cd dist && shasum -a 256 updatebar-1.2.3-macos-arm64.tar.gz > updatebar-1.2.3-macos-arm64.tar.gz.sha256)
+  VERIFIED_RELEASE_COMMIT="$EXPECTED_COMMIT" ARTIFACT_LABEL=macos-arm64 bash -euo pipefail -c "$MARKER_RUN"
+)
+MARKER_LINE="$(<"$FIXTURE/marker/dist/updatebar-macos-arm64.release-marker")"
+[[ "$MARKER_LINE" == "$EXPECTED_COMMIT  "*"  updatebar-1.2.3-macos-arm64.tar.gz" ]] || { echo "matrix marker did not bind commit, checksum, and archive" >&2; exit 1; }
+
+BUNDLE_RUN="$(extract_run publish "Validate immutable release bundle")"
+BUNDLE_CHECKOUT="$FIXTURE/bundle-checkout"
+BUNDLE_ROOT="$FIXTURE/runner/updatebar-release-bundle"
+mkdir -p "$BUNDLE_CHECKOUT" "$BUNDLE_ROOT/dist/updates"
+printf 'UPDATEBAR_VERSION=1.2.3\n' > "$BUNDLE_CHECKOUT/version.env"
+bundle_files=(
+  dist/updatebar-1.2.3-macos-arm64.tar.gz
+  dist/updatebar-1.2.3-macos-arm64.tar.gz.sha256
+  dist/updatebar-1.2.3-linux-x86_64.tar.gz
+  dist/updatebar-1.2.3-linux-x86_64.tar.gz.sha256
+  dist/UpdateBar-1.2.3-macos-arm64.dmg
+  dist/UpdateBar-1.2.3-macos-arm64.dmg.sha256
+  dist/release-manifest.json
+  dist/updates/UpdateBar-1.2.3-macos-arm64.dmg
+  dist/updates/UpdateBar-1.2.3-macos-arm64.dmg.sha256
+  dist/updates/appcast.xml
+)
+for bundle_file in "${bundle_files[@]}"; do
+  printf 'fixture: %s\n' "$bundle_file" > "$BUNDLE_ROOT/$bundle_file"
+done
+printf '{"commit":"%s"}\n' "$EXPECTED_COMMIT" > "$BUNDLE_ROOT/dist/release-manifest.json"
+printf '%s\n' "$EXPECTED_COMMIT" > "$BUNDLE_ROOT/release-commit.txt"
+(
+  cd "$BUNDLE_ROOT"
+  shasum -a 256 release-commit.txt "${bundle_files[@]}" > bundle-sha256.txt
+)
+(
+  cd "$BUNDLE_CHECKOUT"
+  RUNNER_TEMP="$FIXTURE/runner" VERIFIED_RELEASE_COMMIT="$EXPECTED_COMMIT" bash -euo pipefail -c "$BUNDLE_RUN"
+) >/dev/null
+printf 'unexpected\n' > "$BUNDLE_ROOT/dist/unexpected"
 if (
-  cd "$FIXTURE/checkout"
-  RELEASE_TAG=v1.2.4 GITHUB_OUTPUT="$FIXTURE/github-output" bash -euo pipefail -c "$PROVENANCE_RUN"
+  cd "$BUNDLE_CHECKOUT"
+  RUNNER_TEMP="$FIXTURE/runner" VERIFIED_RELEASE_COMMIT="$EXPECTED_COMMIT" bash -euo pipefail -c "$BUNDLE_RUN"
 ) >/dev/null 2>&1; then
-  echo "provenance shell accepted a release tag that is not on remote main" >&2
+  echo "immutable bundle validation accepted an extra file" >&2
   exit 1
 fi
 
