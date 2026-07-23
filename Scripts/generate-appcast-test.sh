@@ -45,7 +45,7 @@ esac
 if [[ -n "${FAKE_INTERLEAVE:-}" ]]; then
   arguments[2]="$(/usr/bin/ruby -e '
     code = ARGV.fetch(0)
-    needle = "  result = DarwinRename.renameatx_np"
+    needle = "  if backend == :darwin\n    operation = \"renameatx_np\"\n    result = DarwinRename.renameatx_np(-2, source, -2, destination, flags)"
     injection = <<~RUBY
       if ENV["FAKE_INTERLEAVE"] == "source"
         File.rename(source, ENV.fetch("FAKE_SAVED_SOURCE"))
@@ -59,8 +59,17 @@ if [[ -n "${FAKE_INTERLEAVE:-}" ]]; then
         File.write(ENV.fetch("FAKE_SOURCE_LOG"), source)
       end
     RUBY
-    abort "rename interleave needle missing" unless code.include?(needle)
-    print code.sub(needle, injection + needle)
+    abort "rename interleave seam missing or duplicated" unless code.scan(needle).length == 1
+    code = code.sub(needle, injection + needle)
+    if ENV["FAKE_FORCE_LINUX_STUB"] == "1"
+      host_needle = "host_os = RbConfig::CONFIG.fetch(\"host_os\")"
+      library_needle = "      dlload Fiddle.dlopen(nil)\n      extern \"int renameat2(int, const char *, int, const char *, unsigned int)\""
+      abort "host platform needle missing or duplicated" unless code.scan(host_needle).length == 1
+      abort "Linux rename library needle missing or duplicated" unless code.scan(library_needle).length == 1
+      code = code.sub(host_needle, "host_os = \"linux-gnu\"")
+      code = code.sub(library_needle, "      dlload ENV.fetch(\"LINUX_RENAME_STUB\")\n      extern \"int renameat2(int, const char *, int, const char *, unsigned int)\"")
+    end
+    print code
   ' "${arguments[2]}")"
 fi
 exec /usr/bin/ruby "${arguments[@]}"
@@ -242,7 +251,7 @@ chmod +x "$T/evil/generate_appcast"
 run_case() {
   local name="$1" expected="$2"; shift 2; rm -rf "$R/dist/updates"; : >"$LOG"
   [[ "$name" != dest-conflict ]] || ln -s "$T/elsewhere" "$R/dist/updates"
-  case "$name" in replace-existing|removal-interleave|interleave-swap|interleave-destination-swap|linux-swap) mkdir "$R/dist/updates"; printf 'old\n' >"$R/dist/updates/old";; esac
+  case "$name" in replace-existing|removal-interleave|interleave-swap|interleave-destination-swap|linux-swap|linux-interleave-destination) mkdir "$R/dist/updates"; printf 'old\n' >"$R/dist/updates/old";; esac
   set +e
   : >"$T/children"
   env PATH="$B:$PATH" OBSERVER="$B/observe" CHILD_LOG="$T/children" CALL_LOG="$LOG" SPARKLE_PUBLIC_ED_KEY="$KEY" APP_DMG_SMOKE_BIN="$B/smoke" CODESIGN_BIN="$B/codesign" SPCTL_BIN="$B/spctl" XCRUN_BIN="$B/xcrun" FILE_BIN="$B/file" HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN="$B/plutil" "$@" "$R/Scripts/generate-appcast.sh" >"$T/$name.out" 2>"$T/$name.err"
@@ -283,6 +292,19 @@ if [[ -n "$LINUX_RENAME_STUB" ]]; then
   run_case linux-rename-error 73 RENAME_BIN="$B/linux-rename" LINUX_RENAME_STUB="$LINUX_RENAME_STUB" LINUX_RENAME_STUB_ERRNO=18
   grep -Fq 'renameat2 failed with errno 18' "$T/linux-rename-error.err"
   test ! -e "$R/dist/updates/appcast.xml"
+  linux_saved_source="$T/linux-saved-source"
+  linux_source_log="$T/linux-source-log"
+  run_case linux-interleave-source 74 RENAME_BIN="$B/rename" FAKE_FORCE_LINUX_STUB=1 LINUX_RENAME_STUB="$LINUX_RENAME_STUB" FAKE_INTERLEAVE=source FAKE_SAVED_SOURCE="$linux_saved_source" FAKE_SOURCE_LOG="$linux_source_log"
+  test -f "$R/dist/updates/foreign"
+  test -f "$linux_saved_source/appcast.xml"
+  rm -rf "$R/dist/updates" "$linux_saved_source"; rm -f "$linux_source_log"
+  linux_saved_destination="$T/linux-saved-destination"
+  run_case linux-interleave-destination 74 RENAME_BIN="$B/rename" FAKE_FORCE_LINUX_STUB=1 LINUX_RENAME_STUB="$LINUX_RENAME_STUB" FAKE_INTERLEAVE=destination FAKE_SAVED_DESTINATION="$linux_saved_destination" FAKE_SOURCE_LOG="$linux_source_log"
+  linux_interleaved_source="$(cat "$linux_source_log")"
+  test -f "$R/dist/updates/appcast.xml"
+  test -f "$linux_saved_destination/old"
+  test -f "$linux_interleaved_source/foreign"
+  rm -rf "$R/dist/updates" "$linux_saved_destination" "$linux_interleaved_source"; rm -f "$linux_source_log"
 fi
 cp "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg" "$T/original-dmg"
 run_case source-substitution 0 FAKE_SUBSTITUTE_SOURCE_AFTER_SIGN=1 SOURCE_DMG="$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
