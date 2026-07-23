@@ -223,7 +223,7 @@ jobs:
             > "dist/updatebar-${ARTIFACT_LABEL}.release-marker"
 
       - name: Upload CLI artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: updatebar-${{ matrix.artifact }}
           path: |
@@ -505,7 +505,7 @@ jobs:
           )
 
       - name: Upload immutable release bundle for failed-job retry
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: updatebar-release-${{ env.RELEASE_TAG }}
           path: release-bundle/
