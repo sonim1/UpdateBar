@@ -101,8 +101,8 @@ open dist/UpdateBar.app
 
 The app packaging script creates `dist/UpdateBar.app` with the menu bar executable
 in `Contents/MacOS/UpdateBar` and the CLI in `Contents/Resources/updatebar`.
-The current `v0.5.0` app release remains the published legacy asset
-`UpdateBar-0.5.0-macos-arm64.app.tar.gz`. Starting with the next published app
+The current `v0.6.1` app release remains the published legacy asset
+`UpdateBar-0.6.1-macos-arm64.app.tar.gz`. Starting with the next published app
 release, tagged macOS releases upload the canonical Apple Silicon asset
 `UpdateBar-<version>-macos-arm64.dmg` and its `.sha256` checksum.
 `Scripts/build-app-dmg.sh` verifies the selected Developer ID identity and
@@ -118,7 +118,7 @@ the release workflow's temporary pre-release metadata check uses
 structure without comparing their SHAs to the fresh build. After the assets are
 public, release manifest/tap automation performs the authoritative
 post-publication SHA and DMG cask update from those published assets.
-The in-repository `v0.5.0` Homebrew cask must keep targeting the published
+The in-repository `v0.6.1` Homebrew cask must keep targeting the published
 legacy app archive until a canonical DMG and manifest for a later release are
 public. Tap automation then updates the authoritative cask from those published
 assets.
@@ -186,7 +186,7 @@ Release identity:
 - GitHub repo slug: `sonim1/UpdateBar`.
 - Current release metadata in this repo targets `v0.6.1`.
 - Published prebuilt CLI archives cover Apple Silicon macOS and Linux x86_64.
-  The current app asset is `UpdateBar-0.5.0-macos-arm64.app.tar.gz`; starting
+  The current app asset is `UpdateBar-0.6.1-macos-arm64.app.tar.gz`; starting
   with the next published app release, tags also publish
   `UpdateBar-<version>-macos-arm64.dmg`. The workflow fails if signing,
   notarization, or Sparkle public-key inputs are unavailable.
@@ -219,7 +219,7 @@ Before tagging:
 - Clean source-copy release dry run passes.
 - Formula URL/version match the tag and formula SHA matches the uploaded release
   asset's `.sha256`.
-- For `v0.5.0`, the Cask URL and SHA still match the published legacy app
+- For `v0.6.1`, the Cask URL and SHA still match the published legacy app
   archive. For the next app release, the Cask URL/version match the tag and its
   SHA matches the uploaded app DMG's `.sha256`.
 - `UPDATEBAR_VERIFY_STRICT=1 Scripts/verify-homebrew-metadata.sh` verifies release

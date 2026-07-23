@@ -233,6 +233,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Scan & Add",
                 "Open Config",
                 "View Logs",
+                "Check for Updates...",
                 "Quit",
             ])
         XCTAssertEqual(
@@ -245,6 +246,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.scanAndAdd),
                 .menu(.openConfig),
                 .menu(.viewLogs),
+                .menu(.checkForUpdates),
                 .menu(.quit),
             ])
     }

@@ -45,9 +45,9 @@ printf 'app\n' >"$MOUNT_DIR/UpdateBar.app/Contents/MacOS/UpdateBar"
 chmod +x "$MOUNT_DIR/UpdateBar.app/Contents/MacOS/UpdateBar"
 printf 'plist\n' >"$MOUNT_DIR/UpdateBar.app/Contents/Info.plist"
 printf 'icon\n' >"$MOUNT_DIR/UpdateBar.app/Contents/Resources/UpdateBar.icns"
-cat >"$MOUNT_DIR/UpdateBar.app/Contents/Resources/updatebar" <<'SH'
+cat >"$MOUNT_DIR/UpdateBar.app/Contents/Resources/updatebar" <<SH
 #!/usr/bin/env bash
-printf '%s\n' "${FAKE_CLI_VERSION:-0.5.0}"
+printf '%s\n' "\${FAKE_CLI_VERSION:-$UPDATEBAR_VERSION}"
 SH
 chmod +x "$MOUNT_DIR/UpdateBar.app/Contents/Resources/updatebar"
 ln -s /Applications "$MOUNT_DIR/Applications"

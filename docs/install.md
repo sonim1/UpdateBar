@@ -68,7 +68,7 @@ updatebar doctor
 Install a specific version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.6.0
+curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.6.1
 ```
 
 Set `UPDATEBAR_INSTALL_PREFIX` when installing outside `~/.local/bin`.

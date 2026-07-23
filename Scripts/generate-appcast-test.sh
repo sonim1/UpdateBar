@@ -9,9 +9,9 @@ mkdir -p "$R/Scripts" "$R/dist" "$R/.build/artifacts/sparkle/Sparkle/bin" "$B"
 cp "$ROOT/Scripts/generate-appcast.sh" "$R/Scripts/generate-appcast.sh" 2>/dev/null || true
 cp "$ROOT/version.env" "$R/version.env"
 cp "$ROOT/Package.resolved" "$R/Package.resolved"
-printf 'dmg bytes\n' >"$R/dist/UpdateBar-0.5.0-macos-arm64.dmg"
-hash="$(shasum -a 256 "$R/dist/UpdateBar-0.5.0-macos-arm64.dmg" | awk '{print $1}')"
-printf '%s  UpdateBar-0.5.0-macos-arm64.dmg\n' "$hash" >"$R/dist/UpdateBar-0.5.0-macos-arm64.dmg.sha256"
+printf 'dmg bytes\n' >"$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
+hash="$(shasum -a 256 "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg" | awk '{print $1}')"
+printf '%s  UpdateBar-0.6.1-macos-arm64.dmg\n' "$hash" >"$R/dist/UpdateBar-0.6.1-macos-arm64.dmg.sha256"
 
 cat >"$B/observe" <<'SH'
 #!/usr/bin/env bash
@@ -135,8 +135,8 @@ set -euo pipefail
 "$OBSERVER" plutil "$@"
 key="$2"
 case "$key" in
-  CFBundleShortVersionString) [[ "${BAD_PLIST:-}" != version ]] && echo 0.5.0 || echo 9.9.9;;
-  CFBundleVersion) [[ "${BAD_PLIST:-}" != build ]] && echo 0.5.0 || echo abc;;
+  CFBundleShortVersionString) [[ "${BAD_PLIST:-}" != version ]] && echo 0.6.1 || echo 9.9.9;;
+  CFBundleVersion) [[ "${BAD_PLIST:-}" != build ]] && echo 0.6.1 || echo abc;;
   SUFeedURL) [[ "${BAD_PLIST:-}" != feed ]] && echo https://updates.updatebar.sonim1.com/appcast.xml || echo https://evil.example/appcast.xml;;
   SUPublicEDKey) [[ "${BAD_PLIST:-}" != key ]] && echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= || echo BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=;;
   *) exit 90;;
@@ -154,11 +154,11 @@ if [[ -n "$keyfile" ]]; then
   stat -f '%Lp' "$keyfile" >"${CALL_LOG}.mode"; printf '%s' "$keyfile" >"${CALL_LOG}.keypath"; grep -Fq 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=' "$keyfile" || exit 36
 fi
 [[ "${FAIL_TOOL:-0}" == 0 ]] || exit 37
-dmg="$dir/UpdateBar-0.5.0-macos-arm64.dmg"; length="$(stat -f '%z' "$dmg")"
+dmg="$dir/UpdateBar-0.6.1-macos-arm64.dmg"; length="$(stat -f '%z' "$dmg")"
 signature=' sparkle:edSignature="Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQw=="'
 case "${BAD_XML:-}" in malformed) printf '<rss' >"$out"; exit 0;; multi) extra='<enclosure url="x" />';; wrong) version=9.9.9;; unsafe-url) url='https://evil.example/file.dmg';; wrong-length) length=999;; no-signature) signature='';; esac
-version="${version:-0.5.0}"
-url="${url:-https://updates.updatebar.sonim1.com/UpdateBar-0.5.0-macos-arm64.dmg}"
+version="${version:-0.6.1}"
+url="${url:-https://updates.updatebar.sonim1.com/UpdateBar-0.6.1-macos-arm64.dmg}"
 cat >"$out" <<XML
 <?xml version="1.0"?><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="$url" length="$length" sparkle:version="$version" sparkle:shortVersionString="$version"$signature />${extra:-}</item></channel></rss>
 XML
@@ -199,10 +199,10 @@ grep -Fq 'child:ruby' "$T/children"
 ! grep -Fq "$PRIVATE" "$T/children"
 test ! -e "$(cat "$LOG.keypath")"
 run_case fixed-provenance 0 SPARKLE_ARTIFACT_ROOT="$T/evil"
-cp "$R/dist/UpdateBar-0.5.0-macos-arm64.dmg" "$T/original-dmg"
-run_case source-substitution 0 FAKE_SUBSTITUTE_SOURCE_AFTER_SIGN=1 SOURCE_DMG="$R/dist/UpdateBar-0.5.0-macos-arm64.dmg"
-cmp "$T/original-dmg" "$R/dist/updates/UpdateBar-0.5.0-macos-arm64.dmg"
-cp "$T/original-dmg" "$R/dist/UpdateBar-0.5.0-macos-arm64.dmg"
+cp "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg" "$T/original-dmg"
+run_case source-substitution 0 FAKE_SUBSTITUTE_SOURCE_AFTER_SIGN=1 SOURCE_DMG="$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
+cmp "$T/original-dmg" "$R/dist/updates/UpdateBar-0.6.1-macos-arm64.dmg"
+cp "$T/original-dmg" "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
 run_case key-mismatch 35 SPARKLE_PRIVATE_ED_KEY="$PRIVATE" KEY_MISMATCH=1
 test ! -e "$R/dist/updates/appcast.xml"
 run_case invalid-private 64 SPARKLE_PRIVATE_ED_KEY=not-base64
@@ -286,11 +286,11 @@ mkdir "$R/dist/.generate-appcast.lock"
 run_case concurrent-output 1
 rmdir "$R/dist/.generate-appcast.lock"
 
-cp "$R/dist/UpdateBar-0.5.0-macos-arm64.dmg" "$T/dmg"
-printf 'wrong\n' >"$R/dist/UpdateBar-0.5.0-macos-arm64.dmg"
+cp "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg" "$T/dmg"
+printf 'wrong\n' >"$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
 run_case checksum-mismatch 1
-cp "$T/dmg" "$R/dist/UpdateBar-0.5.0-macos-arm64.dmg"
-printf 'UPDATEBAR_VERSION=0.5.0\nEXTRA=1\n' >"$R/version.env"
+cp "$T/dmg" "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
+printf 'UPDATEBAR_VERSION=0.6.1\nEXTRA=1\n' >"$R/version.env"
 run_case invalid-version-file 64
 cp "$ROOT/version.env" "$R/version.env"
 

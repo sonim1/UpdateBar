@@ -54,7 +54,7 @@ can find `XCTest`. If direct `swift test` fails, set `DEVELOPER_DIR` or see
 curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash
 
 # Or install a specific version:
-curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.6.0
+curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.6.1
 
 # Optional: change install directory
 curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | UPDATEBAR_INSTALL_PREFIX="$HOME/.local/bin" bash
@@ -68,9 +68,9 @@ before installing `updatebar`.
 
 ### Menu bar app
 
-`updatebar-menubar` ships as an optional macOS wrapper. The current `v0.5.0`
+`updatebar-menubar` ships as an optional macOS wrapper. The current `v0.6.1`
 release provides the signed and notarized Apple Silicon asset
-`UpdateBar-0.5.0-macos-arm64.app.tar.gz`. Starting with the next published app
+`UpdateBar-0.6.1-macos-arm64.app.tar.gz`. Starting with the next published app
 release, tags publish the canonical `UpdateBar-<version>-macos-arm64.dmg` and
 its checksum. `Scripts/package-app.sh` builds the local app bundle used by the
 DMG release builder.
@@ -161,14 +161,33 @@ key to a permission-restricted temporary file and pipe it into the Environment
 secret prompt; remove the export immediately:
 
 ```bash
-sparkle_secret_dir="$(mktemp -d)"
+(
+set -euo pipefail
+set +x
+unset SPARKLE_PRIVATE_ED_KEY
+sparkle_secret_dir=''
+sparkle_private_key_path=''
+cleanup_sparkle_export() {
+  local status=$?
+  trap - EXIT HUP INT TERM
+  unset SPARKLE_PRIVATE_ED_KEY
+  [[ -z "$sparkle_private_key_path" ]] || rm -f -- "$sparkle_private_key_path" || :
+  [[ -z "$sparkle_secret_dir" ]] || rmdir "$sparkle_secret_dir" || :
+  exit "$status"
+}
+trap cleanup_sparkle_export EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+umask 077
+sparkle_secret_dir="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-sparkle-export.XXXXXX")"
 chmod 700 "$sparkle_secret_dir"
+sparkle_private_key_path="$sparkle_secret_dir/updatebar-sparkle-private-key"
 .build/artifacts/sparkle/Sparkle/bin/generate_keys \
-  --account updatebar -x "$sparkle_secret_dir/updatebar-sparkle-private-key"
-gh secret set --env release SPARKLE_PRIVATE_ED_KEY \
-  < "$sparkle_secret_dir/updatebar-sparkle-private-key"
-rm -f "$sparkle_secret_dir/updatebar-sparkle-private-key"
-rmdir "$sparkle_secret_dir"
+  --account updatebar -x "$sparkle_private_key_path"
+chmod 600 "$sparkle_private_key_path"
+gh secret set --env release SPARKLE_PRIVATE_ED_KEY < "$sparkle_private_key_path"
+)
 ```
 
 Do not pass the private key on a command line, print it, commit it, or leave the
@@ -236,15 +255,19 @@ only its fully qualified ref:
 ```bash
 (
 set -euo pipefail
-release_tag=v0.6.0
+version_lines=()
+while IFS= read -r version_line || [[ -n "$version_line" ]]; do
+  version_lines+=("$version_line")
+done < version.env
+test "${#version_lines[@]}" -eq 1
+[[ "${version_lines[0]}" =~ ^UPDATEBAR_VERSION=([0-9]+([.][0-9]+){1,2})$ ]]
+release_version="${BASH_REMATCH[1]}"
+release_tag="v$release_version"
 git fetch --prune --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
 git fetch --prune --tags origin
 test -z "$(git status --porcelain=v1 --untracked-files=all)"
 test "$(git branch --show-current)" = main
 test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
-version_line="$(< version.env)"
-[[ "$version_line" =~ ^UPDATEBAR_VERSION=([0-9]+([.][0-9]+){1,2})$ ]]
-test "${release_tag#v}" = "${BASH_REMATCH[1]}"
 if git show-ref --verify --quiet "refs/tags/$release_tag"; then
   echo "Release tag already exists: $release_tag" >&2
   exit 64
@@ -269,9 +292,13 @@ The workflow executes this graph:
 provenance -> verify (macOS/Linux matrix) -> package -> publish -> notify
 ```
 
-`provenance` resolves the exact tag once and proves that it belongs to freshly
-fetched `origin/main`. The secret-free `verify` matrix runs Swift tests and
-builds and smoke-checks the Apple Silicon macOS and x86-64 Linux CLI archives.
+`provenance` resolves the exact tag once, requires the local and freshly
+fetched remote tag to identify the checked-out commit, and proves that commit
+is an ancestor of freshly fetched `origin/main`. Unlike tag creation, queued or
+retried execution does not require current `origin/main` to equal the tagged
+commit; `main` may contain newer descendants. The secret-free `verify` matrix
+runs Swift tests and builds and smoke-checks the Apple Silicon macOS and x86-64
+Linux CLI archives.
 Those intermediate artifacts are retained for 7 days. After approval,
 `package` signs and notarizes the arm64 DMG, signs the Sparkle appcast, creates
 the release manifest, and uploads one checksum-bound immutable bundle retained
@@ -305,6 +332,9 @@ GitHub tag archive, then opens one guarded pull request for CI and auto-merge.
 Every tag shares the non-cancelling `updatebar-release` concurrency group. Its
 current `queue: max` behavior keeps the full queue, subject to GitHub Actions'
 limit of up to 100 queued workflow runs, instead of replacing pending tags.
+When an older queued tag starts after `main` advances, the workflow still
+checks out that exact immutable tag and accepts the run only while the tag
+remains on the current remote `main` history.
 
 ### Failed-job recovery
 
@@ -340,14 +370,44 @@ short-lived R2 and tap credentials without placing them in shell history:
 (
 set -euo pipefail
 set +x
-release_tag=v0.6.0
-trap 'unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY TAP_GH_TOKEN' EXIT HUP INT TERM
+version_lines=()
+while IFS= read -r version_line || [[ -n "$version_line" ]]; do
+  version_lines+=("$version_line")
+done < version.env
+test "${#version_lines[@]}" -eq 1
+[[ "${version_lines[0]}" =~ ^UPDATEBAR_VERSION=([0-9]+([.][0-9]+){1,2})$ ]]
+release_version="${BASH_REMATCH[1]}"
+release_tag="v$release_version"
+remote_tag_ref=''
+remote_ref_nonce=''
+cleanup_local_release() {
+  local status=$?
+  trap - EXIT HUP INT TERM
+  [[ -z "$remote_tag_ref" ]] || git update-ref -d "$remote_tag_ref" >/dev/null 2>&1 || :
+  [[ -z "$remote_ref_nonce" || ! -d "$remote_ref_nonce" ]] || rmdir "$remote_ref_nonce" || :
+  unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY TAP_GH_TOKEN
+  exit "$status"
+}
+trap cleanup_local_release EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 git fetch --prune --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
-git fetch --prune --tags origin
 test -z "$(git status --porcelain=v1 --untracked-files=all)"
-test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
+release_commit="$(git rev-parse HEAD)"
+remote_main_commit="$(git rev-parse refs/remotes/origin/main)"
 git show-ref --verify --quiet "refs/tags/$release_tag"
-test "$(git rev-parse "refs/tags/$release_tag^{commit}")" = "$(git rev-parse HEAD)"
+test "$(git rev-parse "refs/tags/$release_tag^{commit}")" = "$release_commit"
+remote_ref_nonce="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-manual-tag.XXXXXX")"
+remote_tag_ref="refs/updatebar-release-verification/${remote_ref_nonce##*/}"
+git fetch --force --no-tags origin \
+  "+refs/tags/$release_tag:$remote_tag_ref"
+test "$(git rev-parse "$remote_tag_ref^{commit}")" = "$release_commit"
+git merge-base --is-ancestor "$release_commit" "$remote_main_commit"
+git update-ref -d "$remote_tag_ref"
+remote_tag_ref=''
+rmdir "$remote_ref_nonce"
+remote_ref_nonce=''
 
 read -r -s -p 'R2 access key ID: ' R2_ACCESS_KEY_ID; printf '\n'
 read -r -s -p 'R2 secret access key: ' R2_SECRET_ACCESS_KEY; printf '\n'
