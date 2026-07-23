@@ -158,7 +158,7 @@ no_publication_mutations() {
 exact_swift_verifier_assignment() {
   /usr/bin/ruby -e '
     source, expected = ARGV
-    assignments = File.binread(source).lines.grep(/\ASWIFT_VERIFY=/).map(&:chomp)
+    assignments = File.binread(source).lines.grep(/\A[ \t]*SWIFT_VERIFY=/).map(&:chomp)
     quote = 39.chr
     exit(assignments == ["SWIFT_VERIFY=#{quote}#{expected}#{quote}"] ? 0 : 1)
   ' "$1" "$EXPECTED_SWIFT_VERIFY"
@@ -182,6 +182,13 @@ cp "$P/Scripts/publish-release.sh" "$TMP/publish-release.original"
 if exact_swift_verifier_assignment "$P/Scripts/publish-release.sh"; then fail "weakened Swift verifier matched the pinned assignment"; fi
 cp "$TMP/publish-release.original" "$P/Scripts/publish-release.sh"
 exact_swift_verifier_assignment "$P/Scripts/publish-release.sh" || fail "restored Swift verifier assignment does not match the pinned contract"
+printf "  SWIFT_VERIFY='%s'\n" "$EXPECTED_SWIFT_VERIFY" >>"$P/Scripts/publish-release.sh"
+if exact_swift_verifier_assignment "$P/Scripts/publish-release.sh"; then fail "space-indented duplicate Swift verifier assignment was accepted"; fi
+cp "$TMP/publish-release.original" "$P/Scripts/publish-release.sh"
+printf "\tSWIFT_VERIFY='%s'\n" "$EXPECTED_SWIFT_VERIFY" >>"$P/Scripts/publish-release.sh"
+if exact_swift_verifier_assignment "$P/Scripts/publish-release.sh"; then fail "tab-indented duplicate Swift verifier assignment was accepted"; fi
+cp "$TMP/publish-release.original" "$P/Scripts/publish-release.sh"
+exact_swift_verifier_assignment "$P/Scripts/publish-release.sh" || fail "duplicate verifier mutations were not restored"
 
 reset
 VERIFIER_LOG="$VERIFIER_LOG" XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$EXPECTED_SWIFT_VERIFY" "$PUBLIC_KEY" "$VALID_SIGNATURE" "$P/dist/$DMG"
