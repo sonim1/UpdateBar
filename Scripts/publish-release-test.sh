@@ -138,8 +138,22 @@ EOF
 }
 reset(){ rm -rf "$STATE" "${A:?}"/* "$R2_CAPTURE" "$TMP/substituted"; : >"$ORDER"; : >"$GHLOG"; : >"$TMP/git.log"; FAKE_UPLOAD_STATUS=0; FAKE_EDIT_STATUS=0; FAKE_R2_STATUS=0; FAKE_CREATE_STATUS=0; FAKE_ORIGIN='git@github.com:sonim1/UpdateBar.git'; FAKE_HEAD="$COMMIT"; FAKE_TAG="$COMMIT"; FAKE_MAIN="$COMMIT"; FAKE_REMOTE_TAG="$COMMIT"; FAKE_ANCESTOR_STATUS=0; FAKE_DIRTY=''; FAKE_MAIN_FETCH_STATUS=0; FAKE_REMOTE_FETCH_STATUS=0; FAKE_REF_CLEANUP_STATUS=0; EXTRA_NAMES=''; CONCURRENT_REPLACE=0; FAKE_SOURCE_SUBSTITUTE=0; DMG_PUBLIC_KEY_FIXTURE="$PUBLIC_KEY"; write_files; }
 run(){ set +e; output="$(GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN="$B/cmp" RUBY_BIN=/usr/bin/ruby HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN=/usr/bin/plutil REALPATH_BIN=/bin/realpath XCRUN_BIN="$B/xcrun" XCRUN_TEST_PLATFORM="${XCRUN_TEST_PLATFORM:-}" PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" GIT_LOG="$TMP/git.log" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" LIVE_DIST_DIR="$P/dist" MAC_NAME="$MAC" DMG_NAME="$DMG" DMG_PUBLIC_KEY_FIXTURE="$DMG_PUBLIC_KEY_FIXTURE" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_SOURCE_SUBSTITUTE="$FAKE_SOURCE_SUBSTITUTE" TARGET_SOURCE="$P/dist/$MAC" SUBSTITUTE_MARKER="$TMP/substituted" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" FAKE_MAIN="$FAKE_MAIN" FAKE_REMOTE_TAG="$FAKE_REMOTE_TAG" FAKE_ANCESTOR_STATUS="$FAKE_ANCESTOR_STATUS" FAKE_DIRTY="$FAKE_DIRTY" FAKE_MAIN_FETCH_STATUS="$FAKE_MAIN_FETCH_STATUS" FAKE_REMOTE_FETCH_STATUS="$FAKE_REMOTE_FETCH_STATUS" FAKE_REF_CLEANUP_STATUS="$FAKE_REF_CLEANUP_STATUS" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
+no_publication_mutations() {
+  ! grep -Eq '^(create|upload |publish-r2$|publish-github$)' "$ORDER" \
+    && ! grep -Eq '^release (create|upload|edit)( |$)' "$GHLOG"
+}
 
 required=(updatebar-1.2.3-macos-arm64.tar.gz updatebar-1.2.3-macos-arm64.tar.gz.sha256 updatebar-1.2.3-linux-x86_64.tar.gz updatebar-1.2.3-linux-x86_64.tar.gz.sha256 UpdateBar-1.2.3-macos-arm64.dmg UpdateBar-1.2.3-macos-arm64.dmg.sha256 appcast.xml release-manifest.json)
+: >"$ORDER"; : >"$GHLOG"
+printf 'verify-xcrun\n' >"$ORDER"
+printf 'api --hostname github.com --include --silent repos/sonim1/UpdateBar/releases/tags/v1.2.3\n' >"$GHLOG"
+no_publication_mutations || fail "verifier/read-only observations were counted as publication mutations"
+printf 'publish-r2\n' >>"$ORDER"
+if no_publication_mutations; then fail "R2 publication mutation was not detected"; fi
+: >"$ORDER"
+printf 'release upload v1.2.3 asset --repo sonim1/UpdateBar\n' >>"$GHLOG"
+if no_publication_mutations; then fail "GitHub publication mutation was not detected"; fi
+
 reset
 XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$EXPECTED_SWIFT_VERIFY" "$PUBLIC_KEY" "$VALID_SIGNATURE" "$P/dist/$DMG"
 if XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e 'import Foundation; exit(0)' "$PUBLIC_KEY" "$VALID_SIGNATURE" "$P/dist/$DMG"; then fail "Linux xcrun fixture accepted a weak verifier"; fi
@@ -151,7 +165,8 @@ if XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$EXPECTED_SWIFT_VERIFY" "$PUBL
 cp "$P/Scripts/publish-release.sh" "$TMP/publish-release.original"
 /usr/bin/ruby -e 'path,replacement=ARGV; source=File.binread(path); abort "verifier assignment missing" unless source.sub!(/^SWIFT_VERIFY=.*$/, replacement); File.binwrite(path,source)' "$P/Scripts/publish-release.sh" "SWIFT_VERIFY='import Foundation; exit(0)'"
 XCRUN_TEST_PLATFORM=Linux run v1.2.3
-[[ "$status" != 0 && "$output" == *'signature verification failed'* && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "weakened Swift verifier reached mutation: $status $output / $(cat "$ORDER")"
+[[ "$status" != 0 && "$output" == *'signature verification failed'* ]] && no_publication_mutations \
+  || fail "weakened Swift verifier reached publication mutation: $status $output / $(cat "$ORDER")"
 cp "$TMP/publish-release.original" "$P/Scripts/publish-release.sh"
 
 reset
