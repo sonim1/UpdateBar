@@ -151,7 +151,13 @@ keyfile=''; out=''; dir=''; prev=''
 for arg in "$@"; do [[ "$prev" == --ed-key-file ]] && keyfile="$arg"; [[ "$prev" == -o ]] && out="$arg"; prev="$arg"; dir="$arg"; done
 if [[ -n "$keyfile" ]]; then
   [[ -z "${SPARKLE_PRIVATE_ED_KEY+x}" && -z "${PRIVATE_KEY+x}" ]] || exit 38
-  /usr/bin/ruby -e 'printf "%o\n", File.stat(ARGV.fetch(0)).mode & 0777' "$keyfile" >"${CALL_LOG}.mode"; printf '%s' "$keyfile" >"${CALL_LOG}.keypath"; grep -Fq 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=' "$keyfile" || exit 36
+  if [[ "${FAKE_KEYFILE_SYMLINK:-0}" == 1 ]]; then
+    cp "$keyfile" "${FAKE_KEYFILE_SYMLINK_TARGET:?}"
+    chmod 600 "$FAKE_KEYFILE_SYMLINK_TARGET"
+    rm "$keyfile"
+    ln -s "$FAKE_KEYFILE_SYMLINK_TARGET" "$keyfile"
+  fi
+  /usr/bin/ruby -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; printf "%o\n", s.mode & 0777' "$keyfile" >"${CALL_LOG}.mode"; printf '%s' "$keyfile" >"${CALL_LOG}.keypath"; grep -Fq 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=' "$keyfile" || exit 36
 fi
 [[ "${FAIL_TOOL:-0}" == 0 ]] || exit 37
 dmg="$dir/UpdateBar-0.6.1-macos-arm64.dmg"; length="$(/usr/bin/ruby -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; print s.size' "$dmg")"
@@ -198,6 +204,11 @@ run_case ci 0 SPARKLE_PRIVATE_ED_KEY="$PRIVATE"
 grep -Fq 'child:ruby' "$T/children"
 ! grep -Fq "$PRIVATE" "$T/children"
 test ! -e "$(cat "$LOG.keypath")"
+symlink_key_target="$T/symlink-key-target"
+run_case symlink-private-key 1 SPARKLE_PRIVATE_ED_KEY="$PRIVATE" FAKE_KEYFILE_SYMLINK=1 FAKE_KEYFILE_SYMLINK_TARGET="$symlink_key_target"
+[[ -f "$symlink_key_target" && ! -L "$symlink_key_target" ]]
+[[ "$(/usr/bin/ruby -e 'printf "%o", File.stat(ARGV.fetch(0)).mode & 0777' "$symlink_key_target")" == 600 ]]
+test ! -e "$R/dist/updates/appcast.xml"
 run_case fixed-provenance 0 SPARKLE_ARTIFACT_ROOT="$T/evil"
 cp "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg" "$T/original-dmg"
 run_case source-substitution 0 FAKE_SUBSTITUTE_SOURCE_AFTER_SIGN=1 SOURCE_DMG="$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
