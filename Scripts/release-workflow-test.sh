@@ -53,7 +53,8 @@ def validate(workflow)
   manual = triggers.dig("workflow_dispatch", "inputs", "tag")
   assert(manual.is_a?(Hash) && manual["required"] == true && manual["type"] == "string", "manual recovery must require an exact tag")
   assert(workflow["permissions"] == { "contents" => "read" }, "workflow default must be read-only")
-  assert(workflow["concurrency"] == { "group" => "updatebar-release", "cancel-in-progress" => false }, "release concurrency must be global and non-cancelling")
+  assert(workflow["concurrency"] == { "group" => "updatebar-release", "queue" => "max", "cancel-in-progress" => false }, "release concurrency must preserve the full non-cancelling tag queue")
+  assert(!workflow.to_s.match?(/re[- ]?run all/i), "recovery must not promise an all-jobs rerun that could replace immutable bytes")
 
   jobs = workflow.fetch("jobs")
   assert(jobs.keys == %w[provenance verify package publish notify], "graph must be provenance, verify, protected package, protected publish, notify")
@@ -121,12 +122,13 @@ def validate(workflow)
   upload = verify_steps.fetch("Upload CLI artifact")
   assert(upload["uses"] == "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02", "CLI upload must use reviewed SHA")
   assert(upload.dig("with", "path").include?("release-marker"), "each CLI artifact must carry its provenance marker")
+  assert(upload.dig("with", "retention-days") == 7, "intermediate CLI artifacts must keep their short retention")
   assert(!verify.to_s.match?(/build-app|generate-appcast|publish-release|R2_ACCESS/i), "verify must not package or publish")
 
   assert(package["needs"] == ["provenance", "verify"], "package must wait for singleton provenance and the whole matrix")
   assert(package["environment"] == "release" && package["runs-on"] == "macos-15", "package must be protected on canonical macOS")
   assert(package["permissions"] == { "contents" => "read" }, "package needs no repository write permission")
-  assert(!package.key?("if"), "manual recovery and tag pushes must both package")
+  assert(!package.key?("if"), "workflow_dispatch and tag pushes must both package")
   expected_package = ["Checkout verified release commit", "Verify release commit", "Download verified CLI artifacts",
     "Verify downloaded checksums", "Prepare signing workspace", "Install Apple credentials",
     "Build notarized app DMG", "Smoke-test app DMG", "Generate signed appcast", "Generate release manifest",
@@ -167,8 +169,8 @@ def validate(workflow)
   assert(bundle_upload["uses"] == "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02", "bundle upload must use reviewed SHA")
   assert(bundle_upload["with"] == {
     "name" => "updatebar-release-${{ env.RELEASE_TAG }}", "path" => "release-bundle/",
-    "if-no-files-found" => "error", "retention-days" => 7, "include-hidden-files" => false
-  }, "one immutable bundle must be retained for failed-job retry")
+    "if-no-files-found" => "error", "retention-days" => 30, "include-hidden-files" => false
+  }, "one immutable bundle must remain available for the full failed-job rerun window")
   assert(!package.to_s.match?(/publish-release|R2_ACCESS|CLOUDFLARE_ACCOUNT_ID|GH_TOKEN|create-github-app-token/), "package must never perform external publication")
   assert(!package.to_s.include?("setup-node") && !package.to_s.include?("npm ci"), "package does not need Node or Wrangler")
   cleanup = package_steps.fetch("Cleanup Apple credentials")
@@ -217,6 +219,8 @@ end
 validate(workflow)
 
 mutations = {}
+mutations["release queue is removed"] = copy(workflow).tap { |w| w["concurrency"].delete("queue") }
+mutations["release queue replaces pending tags"] = copy(workflow).tap { |w| w["concurrency"]["queue"] = "single" }
 mutations["singleton becomes matrix"] = copy(workflow).tap { |w| w["jobs"]["provenance"]["strategy"] = { "matrix" => { "os" => ["ubuntu-24.04"] } } }
 mutations["last matrix output becomes authoritative"] = copy(workflow).tap { |w| w["jobs"]["verify"]["outputs"] = { "release_commit" => "${{ steps.commit.outputs.value }}" } }
 mutations["verify uses a movable tag"] = copy(workflow).tap { |w| step_map(w["jobs"]["verify"]).fetch("Checkout verified release commit")["with"]["ref"] = "refs/tags/${{ env.RELEASE_TAG }}" }
