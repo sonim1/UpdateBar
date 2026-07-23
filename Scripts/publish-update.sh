@@ -18,6 +18,9 @@ CURL_BIN="${CURL_BIN:-/usr/bin/curl}"; SHASUM_BIN="${SHASUM_BIN:-/usr/bin/shasum
 
 fail() { echo "$1" >&2; exit "${2:-1}"; }
 regular() { [[ -f "$1" && ! -L "$1" ]] || fail "Missing or unsafe $2: $1" 66; }
+file_size() {
+  ruby -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; print s.size' "$1"
+}
 escape() { local v="$1"; v="${v//\\/\\\\}"; v="${v//\"/\\\"}"; printf '%s' "$v"; }
 AUTH_ACCESS="$(escape "$ACCESS")"; AUTH_SECRET="$(escape "$SECRET")"
 export -n AUTH_ACCESS AUTH_SECRET 2>/dev/null || :; ACCESS=''; SECRET=''
@@ -54,7 +57,8 @@ IFS=$'\t' read -r enclosure length build version _signature <<<"$metadata"
 prefix="${PUBLIC}UpdateBar-"; case "$enclosure" in "$prefix"*'-macos-arm64.dmg') ;; *) fail "Appcast enclosure URL is not canonical";; esac
 NAME="${enclosure#"$PUBLIC"}"; [[ "$NAME" == "UpdateBar-${version}-macos-arm64.dmg" && "$NAME" != */* ]] || fail "Appcast artifact name/version mismatch"
 DMG="$DIR/$NAME"; CHECKSUM="$DMG.sha256"; regular "$DMG" DMG; regular "$CHECKSUM" checksum
-[[ "$length" == "$(stat -f %z "$DMG")" ]] || fail "Appcast enclosure length mismatch"
+DMG_SIZE="$(file_size "$DMG")" || fail "DMG is missing or unsafe" 66
+[[ "$length" == "$DMG_SIZE" ]] || fail "Appcast enclosure length mismatch"
 read -r recorded recorded_name extra <"$CHECKSUM" || fail "Unable to read checksum"
 [[ -z "${extra:-}" && "$recorded" =~ ^[0-9a-f]{64}$ && "$recorded_name" == "$NAME" && "$(wc -l <"$CHECKSUM"|tr -d ' ')" == 1 ]] || fail "Checksum record is malformed or unbound"
 sha() { local o; o="$("$SHASUM_BIN" -a 256 "$1")" || return $?; [[ "$o" =~ ^([0-9a-f]{64})[[:space:]] ]] || return 66; printf '%s' "${BASH_REMATCH[1]}"; }

@@ -112,7 +112,7 @@ write_files(){
   MAC=updatebar-1.2.3-macos-arm64.tar.gz; LINUX=updatebar-1.2.3-linux-x86_64.tar.gz; DMG=UpdateBar-1.2.3-macos-arm64.dmg
   printf mac >"$P/dist/$MAC"; checksum "$P/dist/$MAC"; printf linux >"$P/dist/$LINUX"; checksum "$P/dist/$LINUX"; printf dmg >"$P/dist/$DMG"; checksum "$P/dist/$DMG"
   cp "$P/dist/$DMG" "$P/dist/updates/$DMG"; cp "$P/dist/$DMG.sha256" "$P/dist/updates/$DMG.sha256"
-  length="$(stat -f %z "$P/dist/$DMG")"
+  length="$(/usr/bin/ruby -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; print s.size' "$P/dist/$DMG")"
   cat >"$P/dist/updates/appcast.xml" <<EOF
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="https://updates.updatebar.sonim1.com/$DMG" length="$length" sparkle:version="12" sparkle:shortVersionString="1.2.3" sparkle:edSignature="$VALID_SIGNATURE"/></item></channel></rss>
 EOF

@@ -27,6 +27,7 @@ MAC_NAME="updatebar-$VERSION-macos-arm64.tar.gz"; LINUX_NAME="updatebar-$VERSION
 
 fail(){ echo "$1" >&2; exit "${2:-66}"; }
 regular(){ [[ -f "$1" && ! -L "$1" ]] || fail "Required file is missing or unsafe: $1" 66; }
+file_size(){ "$RUBY_BIN" -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; print s.size' "$1"; }
 for command_path in "$GIT_BIN" "$GH_BIN" "$SHASUM_BIN" "$CMP_BIN" "$RUBY_BIN" "$HDIUTIL_BIN" "$PLUTIL_BIN" "$REALPATH_BIN" "$XCRUN_BIN"; do
   if [[ "$command_path" == */* ]]; then [[ -x "$command_path" ]] || fail "Required command is unavailable: $command_path" 66
   else command -v "$command_path" >/dev/null 2>&1 || fail "Required command is unavailable: $command_path" 66; fi
@@ -111,6 +112,7 @@ verify_checksum(){
   printf '%s' "$actual"
 }
 MAC_SHA="$(verify_checksum "$MAC_NAME")"; verify_checksum "$LINUX_NAME" >/dev/null; DMG_SHA="$(verify_checksum "$DMG_NAME")"
+DMG_SIZE="$(file_size "$SNAP/$DMG_NAME")" || fail 'Snapshot DMG is missing or unsafe' 66
 
 if APPCAST_SIGNATURE="$($RUBY_BIN -rrexml/document -rbase64 -e '
   path,url,version,length=ARGV
@@ -121,7 +123,7 @@ if APPCAST_SIGNATURE="$($RUBY_BIN -rrexml/document -rbase64 -e '
     valid=e.attributes["url"]==url && e.attributes["length"]==length && a.call("shortVersionString")==version && a.call("version")&.match?(/\A[0-9]+(?:\.[0-9]+){0,2}\z/) && sig && Base64.strict_decode64(sig).bytesize==64
     exit 1 unless valid; print sig
   rescue; exit 1; end
-' "$SNAP/$APPCAST_NAME" "https://updates.updatebar.sonim1.com/$DMG_NAME" "$VERSION" "$(stat -f %z "$SNAP/$DMG_NAME")")"; then :; else fail 'Appcast is not bound to the release DMG and version' 64; fi
+' "$SNAP/$APPCAST_NAME" "https://updates.updatebar.sonim1.com/$DMG_NAME" "$VERSION" "$DMG_SIZE")"; then :; else fail 'Appcast is not bound to the release DMG and version' 64; fi
 
 DMG_MOUNT="$TMP/dmg-mount"; mkdir "$DMG_MOUNT" || exit $?; DMG_MOUNT="$($REALPATH_BIN "$DMG_MOUNT")" || exit $?
 ATTACH_PLIST="$TMP/dmg-attach.plist"

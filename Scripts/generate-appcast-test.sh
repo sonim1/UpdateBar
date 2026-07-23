@@ -151,10 +151,10 @@ keyfile=''; out=''; dir=''; prev=''
 for arg in "$@"; do [[ "$prev" == --ed-key-file ]] && keyfile="$arg"; [[ "$prev" == -o ]] && out="$arg"; prev="$arg"; dir="$arg"; done
 if [[ -n "$keyfile" ]]; then
   [[ -z "${SPARKLE_PRIVATE_ED_KEY+x}" && -z "${PRIVATE_KEY+x}" ]] || exit 38
-  stat -f '%Lp' "$keyfile" >"${CALL_LOG}.mode"; printf '%s' "$keyfile" >"${CALL_LOG}.keypath"; grep -Fq 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=' "$keyfile" || exit 36
+  /usr/bin/ruby -e 'printf "%o\n", File.stat(ARGV.fetch(0)).mode & 0777' "$keyfile" >"${CALL_LOG}.mode"; printf '%s' "$keyfile" >"${CALL_LOG}.keypath"; grep -Fq 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=' "$keyfile" || exit 36
 fi
 [[ "${FAIL_TOOL:-0}" == 0 ]] || exit 37
-dmg="$dir/UpdateBar-0.6.1-macos-arm64.dmg"; length="$(stat -f '%z' "$dmg")"
+dmg="$dir/UpdateBar-0.6.1-macos-arm64.dmg"; length="$(/usr/bin/ruby -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; print s.size' "$dmg")"
 signature=' sparkle:edSignature="Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQw=="'
 case "${BAD_XML:-}" in malformed) printf '<rss' >"$out"; exit 0;; multi) extra='<enclosure url="x" />';; wrong) version=9.9.9;; unsafe-url) url='https://evil.example/file.dmg';; wrong-length) length=999;; no-signature) signature='';; esac
 version="${version:-0.6.1}"
