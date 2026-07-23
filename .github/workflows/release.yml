@@ -145,7 +145,7 @@ jobs:
 
       - name: Setup Swift on Linux
         if: runner.os == 'Linux'
-        uses: swift-actions/setup-swift@7ca6abe6b3b0e8b5421b88be48feee39cbf52c6a
+        uses: swift-actions/setup-swift@7591e4f04c00624cb043783da51a7fd6ee0a6bf6
         with:
           swift-version: "6.0"
 
@@ -223,7 +223,7 @@ jobs:
             > "dist/updatebar-${ARTIFACT_LABEL}.release-marker"
 
       - name: Upload CLI artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: updatebar-${{ matrix.artifact }}
           path: |
@@ -268,7 +268,7 @@ jobs:
           fi
 
       - name: Download verified CLI artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           pattern: updatebar-*
           path: dist
@@ -505,7 +505,7 @@ jobs:
           )
 
       - name: Upload immutable release bundle for failed-job retry
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: updatebar-release-${{ env.RELEASE_TAG }}
           path: release-bundle/
@@ -576,7 +576,7 @@ jobs:
           fi
 
       - name: Download immutable release bundle
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: updatebar-release-${{ env.RELEASE_TAG }}
           path: ${{ runner.temp }}/updatebar-release-bundle
