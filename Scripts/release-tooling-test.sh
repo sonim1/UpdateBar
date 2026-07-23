@@ -22,6 +22,8 @@ assert.equal(sharp.version, '0.35.3');
 assert.match(sharp.integrity, /^sha512-/);
 NODE
 
-ignore_source="$(git -C "$ROOT" check-ignore -v node_modules)"
+ignore_source="$(
+  git -C "$ROOT" check-ignore -v --no-index node_modules/.release-tooling-ignore-probe
+)"
 case "$ignore_source" in .gitignore:*) ;; *) echo "root node_modules must be ignored" >&2; exit 1 ;; esac
 echo "release tooling tests passed"

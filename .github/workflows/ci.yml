@@ -46,9 +46,9 @@ jobs:
           path: .build
           key: linux-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
           restore-keys: linux-spm-${{ runner.os }}-
-      - name: Install shellcheck
+      - name: Install quality gate dependencies
         run: |
           apt-get update
-          apt-get install -y shellcheck
+          apt-get install -y ruby shellcheck
       - name: Quality gate
         run: SKIP_MENUBAR_SMOKE=1 bash Scripts/quality-gate.sh
