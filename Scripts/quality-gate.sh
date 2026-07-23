@@ -6,6 +6,19 @@ cd "$ROOT"
 
 SWIFT_BIN="${SWIFT_BIN:-swift}"
 SKIP_MENUBAR_SMOKE="${SKIP_MENUBAR_SMOKE:-0}"
+RELEASE_SYNTAX_SCRIPTS=(
+  "Scripts/setup-update-hosting.sh"
+  "Scripts/generate-appcast.sh"
+  "Scripts/publish-update.sh"
+  "Scripts/generate-release-manifest.sh"
+  "Scripts/publish-release.sh"
+  "Scripts/dispatch-homebrew-update.sh"
+  "Scripts/build-release.sh"
+  "Scripts/package-app.sh"
+  "Scripts/build-app-icon.sh"
+  "Scripts/build-app-dmg.sh"
+  "Scripts/app-dmg-smoke-test.sh"
+)
 
 if [[ "$(uname -s)" == "Darwin" && -z "${DEVELOPER_DIR:-}" ]]; then
   XCODE_DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
@@ -40,9 +53,34 @@ require_swift_xctest() {
 
 echo "running script syntax checks"
 bash Scripts/script-syntax-test.sh
+bash -n "${RELEASE_SYNTAX_SCRIPTS[@]}"
 
 echo "running quality gate contract checks"
 bash Scripts/quality-gate-contract-test.sh
+
+echo "running locked release tooling checks"
+bash Scripts/release-tooling-test.sh
+
+echo "running update hosting setup checks"
+bash Scripts/setup-update-hosting-test.sh
+
+echo "running signed appcast checks"
+bash Scripts/generate-appcast-test.sh
+
+echo "running update publication checks"
+bash Scripts/publish-update-test.sh
+
+echo "running release manifest checks"
+bash Scripts/generate-release-manifest-test.sh
+
+echo "running release publication checks"
+bash Scripts/publish-release-test.sh
+
+echo "running Homebrew tap dispatch checks"
+bash Scripts/dispatch-homebrew-update-test.sh
+
+echo "running protected release workflow checks"
+bash Scripts/release-workflow-test.sh
 
 SWIFT_FORMAT_COMMAND=()
 if command -v swift-format >/dev/null 2>&1; then
@@ -103,14 +141,11 @@ bash Scripts/build-release-archive-test.sh
 echo "running app icon asset check"
 bash Scripts/app-icon-test.sh
 
-echo "running app archive behavior check"
-bash Scripts/build-app-archive-test.sh
+echo "running app DMG behavior check"
+bash Scripts/build-app-dmg-test.sh
 
 echo "running app signing behavior check"
 bash Scripts/package-app-signing-test.sh
-
-echo "running archive version checks"
-bash Scripts/archive-version-smoke-test.sh
 
 echo "running archive smoke test"
 bash Scripts/archive-smoke-test.sh
@@ -136,13 +171,11 @@ bash Scripts/tui-input-test.sh
 if [[ "$SKIP_MENUBAR_SMOKE" != "1" ]]; then
   if [[ "$(uname -s)" == "Darwin" ]]; then
     echo "packaging menu bar app"
-    UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE=1 bash Scripts/package-app.sh >/dev/null
+    QUALITY_GATE_SPARKLE_KEY="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+    SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-$QUALITY_GATE_SPARKLE_KEY}" \
+      UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE=1 bash Scripts/package-app.sh >/dev/null
     echo "running menubar smoke test"
     bash Scripts/menubar-smoke-test.sh dist/UpdateBar.app
-    echo "building app archive"
-    APP_ARCHIVE="$(bash Scripts/build-app-archive.sh)"
-    echo "running app archive smoke test"
-    bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"
   else
     echo "skipping menubar smoke on non-macOS"
   fi

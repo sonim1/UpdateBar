@@ -1,0 +1,370 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; SOURCE="$ROOT/Scripts/publish-release.sh"
+fail(){ echo "FAIL: $*" >&2; exit 1; }
+[[ -x "$SOURCE" ]] || fail "publish-release.sh is missing or not executable"
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-publish-release-test.XXXXXX")"; trap 'rm -rf "$TMP"' EXIT
+P="$TMP/project"; B="$TMP/bin"; A="$TMP/assets"; STATE="$TMP/state"; ORDER="$TMP/order"; GHLOG="$TMP/gh"; VERIFIER_LOG="$TMP/verifier"; R2_CAPTURE="$TMP/r2-capture"; COMMIT=0123456789abcdef0123456789abcdef01234567
+PUBLIC_KEY='6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw='
+VALID_SIGNATURE='88snSkTEGzck0rEKyJqk9xhfNefxjQMDShO8eWEjfO8VxqKa8a3dozGbF4XtHzJ+kInVeBRVV7Xdz1Yr26rPBQ=='
+EXPECTED_SWIFT_VERIFY='import Foundation; import CryptoKit; let a=CommandLine.arguments; guard let p=Data(base64Encoded:a[1]),let s=Data(base64Encoded:a[2]) else{exit(2)}; do{let k=try Curve25519.Signing.PublicKey(rawRepresentation:p);let d=try Data(contentsOf:URL(fileURLWithPath:a[3]));exit(k.isValidSignature(s,for:d) ? 0:1)}catch{exit(2)}'
+HOST_PLATFORM="$(uname -s)"
+case "$HOST_PLATFORM" in Darwin|Linux) ;; *) fail "unsupported publish-release test platform: $HOST_PLATFORM";; esac
+unset XCRUN_TEST_PLATFORM PLUTIL_TEST_PLATFORM
+mkdir -p "$P/Scripts" "$P/dist/updates" "$B" "$A"; cp "$SOURCE" "$P/Scripts/publish-release.sh"; chmod +x "$P/Scripts/publish-release.sh"
+
+cat >"$B/git" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$GIT_LOG"
+case "$*" in
+ 'remote get-url origin') printf '%s\n' "${FAKE_ORIGIN:-git@github.com:sonim1/UpdateBar.git}";;
+ 'rev-parse HEAD') printf '%s\n' "${FAKE_HEAD:-0123456789abcdef0123456789abcdef01234567}";;
+ 'rev-parse --verify refs/tags/v1.2.3^{commit}') printf '%s\n' "${FAKE_TAG:-0123456789abcdef0123456789abcdef01234567}";;
+ 'status --porcelain --untracked-files=all') printf '%s' "${FAKE_DIRTY:-}";;
+ fetch\ --quiet\ --no-tags\ origin\ refs/heads/main:refs/updatebar-release-verification/*-main) exit "${FAKE_MAIN_FETCH_STATUS:-0}";;
+ rev-parse\ --verify\ refs/updatebar-release-verification/*-main'^{commit}') printf '%s\n' "${FAKE_MAIN:-0123456789abcdef0123456789abcdef01234567}";;
+ merge-base\ --is-ancestor\ *) exit "${FAKE_ANCESTOR_STATUS:-0}";;
+ fetch\ --quiet\ --no-tags\ origin\ refs/tags/v1.2.3:refs/updatebar-release-verification/*) exit "${FAKE_REMOTE_FETCH_STATUS:-0}";;
+ rev-parse\ --verify\ refs/updatebar-release-verification/*'^{commit}') printf '%s\n' "${FAKE_REMOTE_TAG:-0123456789abcdef0123456789abcdef01234567}";;
+ update-ref\ -d\ refs/updatebar-release-verification/*) exit "${FAKE_REF_CLEANUP_STATUS:-0}";;
+ *) exit 90;;
+esac
+EOF
+cat >"$B/hdiutil" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == detach ]]; then exit "${FAKE_DETACH_STATUS:-0}"; fi
+[[ "$1" == attach ]] || exit 90
+mount=''; while [[ $# -gt 0 ]]; do case "$1" in -mountpoint) mount="$2"; shift 2;; *) shift;; esac; done
+[[ -n "$mount" ]] || exit 91
+mkdir -p "$mount/UpdateBar.app/Contents"
+cat >"$mount/UpdateBar.app/Contents/Info.plist" <<PLIST
+<?xml version="1.0"?><plist version="1.0"><dict><key>SUFeedURL</key><string>https://updates.updatebar.sonim1.com/appcast.xml</string><key>SUPublicEDKey</key><string>${DMG_PUBLIC_KEY_FIXTURE}</string></dict></plist>
+PLIST
+printf '<plist><dict><key>system-entities</key><array><dict><key>mount-point</key><string>%s</string></dict></array></dict></plist>\n' "$mount"
+EOF
+cat >"$B/plutil" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+platform="${PLUTIL_TEST_PLATFORM:-$(uname -s)}"
+if [[ "$platform" == Darwin ]]; then
+  exec /usr/bin/plutil "$@"
+fi
+[[ "$platform" == Linux ]] || exit 90
+[[ $# == 6 ]] || exit 90
+[[ "$1" == -extract && "$3" == raw && "$4" == -o && "$5" == - && -f "$6" && ! -L "$6" ]] || exit 90
+"${RUBY_BIN:-/usr/bin/ruby}" -rrexml/document -e '
+  key,path=ARGV
+  begin
+    raw=File.binread(path)
+    exit 1 if raw.include?("<!DOCTYPE")
+    root=REXML::Document.new(raw).root
+    children=root&.elements&.to_a
+    exit 1 unless root&.name=="plist"&&children&.length==1&&children[0].name=="dict"
+    entries=children[0].elements.to_a
+    exit 1 unless entries.length.even?
+    values=[]
+    entries.each_slice(2) do |key_element,value_element|
+      exit 1 unless key_element.name=="key"
+      key_children=key_element.children
+      exit 1 unless key_children.all?{|child|child.is_a?(REXML::Text)}
+      key_value=key_children.map(&:value).join
+      exit 1 unless value_element.name=="string"
+      string_children=value_element.children
+      exit 1 unless string_children.all?{|child|child.is_a?(REXML::Text)}
+      string_value=string_children.map(&:value).join
+      next unless key_value==key
+      values << string_value
+    end
+    exit 1 unless values.length==1&&!values[0].match?(/[\0\r\n]/)
+    print values[0]
+  rescue REXML::ParseException,SystemCallError
+    exit 1
+  end
+' "$2" "$6"
+EOF
+cat >"$B/xcrun" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+expected_verifier='import Foundation; import CryptoKit; let a=CommandLine.arguments; guard let p=Data(base64Encoded:a[1]),let s=Data(base64Encoded:a[2]) else{exit(2)}; do{let k=try Curve25519.Signing.PublicKey(rawRepresentation:p);let d=try Data(contentsOf:URL(fileURLWithPath:a[3]));exit(k.isValidSignature(s,for:d) ? 0:1)}catch{exit(2)}'
+case "${3:-}" in
+  "$expected_verifier") verifier_observation=expected-verifier;;
+  'import Foundation; exit(0)') verifier_observation=weak-verifier;;
+  'import Foundation; exit(1)') verifier_observation=failing-verifier;;
+  *) verifier_observation=other-verifier;;
+esac
+printf '%s\n' "$verifier_observation" >>"${VERIFIER_LOG:?}"
+platform="${XCRUN_TEST_PLATFORM:-$(uname -s)}"
+if [[ "$platform" == Darwin ]]; then
+  exec /usr/bin/xcrun "$@"
+fi
+[[ "$platform" == Linux ]] || exit 90
+[[ $# == 6 && "$1" == swift && "$2" == -e && "$3" == "$expected_verifier" && -f "$6" ]] || exit 90
+[[ "$4" == '6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=' ]] || exit 1
+[[ "$5" == '88snSkTEGzck0rEKyJqk9xhfNefxjQMDShO8eWEjfO8VxqKa8a3dozGbF4XtHzJ+kInVeBRVV7Xdz1Yr26rPBQ==' ]] || exit 1
+[[ "$(<"$6")" == dmg ]] || exit 1
+EOF
+cat >"$B/gh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "${GH_REPO:-}" == sonim1/UpdateBar && "${GH_HOST:-}" == github.com ]] || exit 70
+printf '%q ' "$@" >>"$GH_LOG"; printf '\n' >>"$GH_LOG"
+state=absent; [[ ! -f "$GH_STATE" ]] || state="$(cat "$GH_STATE")"
+if [[ "$1" == api ]]; then
+  [[ "$*" == 'api --hostname github.com --include --silent repos/sonim1/UpdateBar/releases/tags/v1.2.3' ]] || exit 71
+  if [[ "$state" == absent ]]; then printf 'HTTP/2.0 404 Not Found\n'; exit 1; fi
+  printf 'HTTP/2.0 200 OK\n'; exit 0
+fi
+[[ "$1" == release ]] || exit 72
+case "$2" in
+ create)
+  [[ "$*" == 'release create v1.2.3 --repo sonim1/UpdateBar --draft --verify-tag --generate-notes --title UpdateBar 1.2.3' ]] || exit 73
+  printf 'create\n' >>"$ORDER"; [[ "${FAKE_CREATE_STATUS:-0}" == 0 ]] || exit "$FAKE_CREATE_STATUS"; printf draft >"$GH_STATE";;
+ view)
+  [[ "$3" == v1.2.3 && "$4" == --repo && "$5" == sonim1/UpdateBar ]] || exit 74
+  [[ "$state" != absent ]] || exit 75
+  if [[ "$*" == *'--json isDraft --jq .isDraft' ]]; then [[ "$state" == draft ]] && echo true || echo false
+  elif [[ "$*" == *'--json assets --jq .assets[].name' ]]; then for f in "$GH_ASSETS"/*; do [[ -e "$f" ]] && basename "$f"; done; [[ -z "${EXTRA_NAMES:-}" ]] || printf '%s\n' "$EXTRA_NAMES"
+  else exit 76; fi;;
+ upload)
+  # gh release upload TAG FILE --repo REPO
+  [[ "$3" == v1.2.3 && "$5" == --repo && "$6" == sonim1/UpdateBar && -f "$4" ]] || exit 78
+  printf 'upload %s\n' "$(basename "$4")" >>"$ORDER"; [[ "${FAKE_UPLOAD_STATUS:-0}" == 0 ]] || exit "$FAKE_UPLOAD_STATUS"; cp "$4" "$GH_ASSETS/$(basename "$4")";;
+ download)
+  [[ "$3" == v1.2.3 && "$4" == --repo && "$5" == sonim1/UpdateBar && "$6" == --pattern && "$8" == --dir ]] || exit 79
+  [[ -f "$GH_ASSETS/$7" ]] || exit 80; cp "$GH_ASSETS/$7" "$9/$7";;
+ edit)
+  [[ "$*" == 'release edit v1.2.3 --repo sonim1/UpdateBar --draft=false' ]] || exit 81
+  printf 'publish-github\n' >>"$ORDER"; [[ "${FAKE_EDIT_STATUS:-0}" == 0 ]] || exit "$FAKE_EDIT_STATUS"; printf published >"$GH_STATE";;
+ *) exit 82;;
+esac
+EOF
+cat >"$B/cmp" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${FAKE_SOURCE_SUBSTITUTE:-0}" == 1 && "${2:-}" == */project/dist/"${TARGET_SOURCE##*/}" && ! -e "$SUBSTITUTE_MARKER" ]]; then
+  : >"$SUBSTITUTE_MARKER"
+  printf 'substituted after snapshot copy\n' >"$TARGET_SOURCE"
+fi
+exec /usr/bin/cmp "$@"
+EOF
+cat >"$P/Scripts/publish-update.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ $# == 0 ]] || exit 90
+printf 'publish-r2\n' >>"$ORDER"
+artifact_dir="${UPDATE_ARTIFACT_DIR:-$LIVE_UPDATE_DIR}"
+if [[ "${CONCURRENT_REPLACE:-0}" == 1 ]]; then
+  printf 'replacement dmg\n' >"$LIVE_UPDATE_DIR/$DMG_NAME"
+  printf '%064d  %s\n' 0 "$DMG_NAME" >"$LIVE_UPDATE_DIR/$DMG_NAME.sha256"
+  printf '<replacement-appcast/>\n' >"$LIVE_UPDATE_DIR/appcast.xml"
+  printf 'replacement tracked release asset\n' >"$LIVE_DIST_DIR/$MAC_NAME"
+  entries="$(find "$artifact_dir" -mindepth 1 -maxdepth 1 -type f -exec basename {} \; | sort)"
+  expected="$(printf '%s\n' "$DMG_NAME" "$DMG_NAME.sha256" appcast.xml | sort)"
+  [[ "$artifact_dir" != "$LIVE_UPDATE_DIR" && "$entries" == "$expected" ]] || exit 91
+  mkdir "$R2_CAPTURE"
+  cp "$artifact_dir/$DMG_NAME" "$artifact_dir/$DMG_NAME.sha256" "$artifact_dir/appcast.xml" "$R2_CAPTURE/"
+fi
+exit "${FAKE_R2_STATUS:-0}"
+EOF
+chmod +x "$B"/* "$P/Scripts/publish-update.sh"
+
+checksum(){ local path="$1" name; name="$(basename "$1")"; printf '%s  %s\n' "$(/usr/bin/shasum -a 256 "$path"|awk '{print $1}')" "$name" >"$path.sha256"; }
+write_files(){
+  rm -rf "$P/dist"; mkdir -p "$P/dist/updates"
+  MAC=updatebar-1.2.3-macos-arm64.tar.gz; LINUX=updatebar-1.2.3-linux-x86_64.tar.gz; DMG=UpdateBar-1.2.3-macos-arm64.dmg
+  printf mac >"$P/dist/$MAC"; checksum "$P/dist/$MAC"; printf linux >"$P/dist/$LINUX"; checksum "$P/dist/$LINUX"; printf dmg >"$P/dist/$DMG"; checksum "$P/dist/$DMG"
+  cp "$P/dist/$DMG" "$P/dist/updates/$DMG"; cp "$P/dist/$DMG.sha256" "$P/dist/updates/$DMG.sha256"
+  length="$(/usr/bin/ruby -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; print s.size' "$P/dist/$DMG")"
+  cat >"$P/dist/updates/appcast.xml" <<EOF
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="https://updates.updatebar.sonim1.com/$DMG" length="$length" sparkle:version="12" sparkle:shortVersionString="1.2.3" sparkle:edSignature="$VALID_SIGNATURE"/></item></channel></rss>
+EOF
+  msh="$(/usr/bin/shasum -a 256 "$P/dist/$MAC"|awk '{print $1}')"; dsh="$(/usr/bin/shasum -a 256 "$P/dist/$DMG"|awk '{print $1}')"
+  cat >"$P/dist/release-manifest.json" <<EOF
+{"schemaVersion":1,"repository":"sonim1/UpdateBar","tag":"v1.2.3","version":"1.2.3","commit":"$COMMIT","packages":[{"type":"formula","token":"updatebar","source":{"kind":"release-asset","name":"$MAC","sha256":"$msh"}},{"type":"cask","token":"updatebar-app","source":{"kind":"release-asset","name":"$DMG","sha256":"$dsh"}},{"type":"formula","token":"updatebar-tui","source":{"kind":"github-tag-archive","sha256":"$(printf '%064d' 1)"}}]}
+EOF
+}
+reset(){ rm -rf "$STATE" "${A:?}"/* "$R2_CAPTURE" "$TMP/substituted"; : >"$ORDER"; : >"$GHLOG"; : >"$VERIFIER_LOG"; : >"$TMP/git.log"; FAKE_UPLOAD_STATUS=0; FAKE_EDIT_STATUS=0; FAKE_R2_STATUS=0; FAKE_CREATE_STATUS=0; FAKE_ORIGIN='git@github.com:sonim1/UpdateBar.git'; FAKE_HEAD="$COMMIT"; FAKE_TAG="$COMMIT"; FAKE_MAIN="$COMMIT"; FAKE_REMOTE_TAG="$COMMIT"; FAKE_ANCESTOR_STATUS=0; FAKE_DIRTY=''; FAKE_MAIN_FETCH_STATUS=0; FAKE_REMOTE_FETCH_STATUS=0; FAKE_REF_CLEANUP_STATUS=0; EXTRA_NAMES=''; CONCURRENT_REPLACE=0; FAKE_SOURCE_SUBSTITUTE=0; DMG_PUBLIC_KEY_FIXTURE="$PUBLIC_KEY"; write_files; }
+run(){ set +e; output="$(GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN="$B/cmp" RUBY_BIN=/usr/bin/ruby HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN="$B/plutil" REALPATH_BIN=/bin/realpath XCRUN_BIN="$B/xcrun" XCRUN_TEST_PLATFORM="${XCRUN_TEST_PLATFORM:-}" VERIFIER_LOG="$VERIFIER_LOG" PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" GIT_LOG="$TMP/git.log" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" LIVE_DIST_DIR="$P/dist" MAC_NAME="$MAC" DMG_NAME="$DMG" DMG_PUBLIC_KEY_FIXTURE="$DMG_PUBLIC_KEY_FIXTURE" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_SOURCE_SUBSTITUTE="$FAKE_SOURCE_SUBSTITUTE" TARGET_SOURCE="$P/dist/$MAC" SUBSTITUTE_MARKER="$TMP/substituted" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" FAKE_MAIN="$FAKE_MAIN" FAKE_REMOTE_TAG="$FAKE_REMOTE_TAG" FAKE_ANCESTOR_STATUS="$FAKE_ANCESTOR_STATUS" FAKE_DIRTY="$FAKE_DIRTY" FAKE_MAIN_FETCH_STATUS="$FAKE_MAIN_FETCH_STATUS" FAKE_REMOTE_FETCH_STATUS="$FAKE_REMOTE_FETCH_STATUS" FAKE_REF_CLEANUP_STATUS="$FAKE_REF_CLEANUP_STATUS" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
+publication_mutation_entries() {
+  awk '/^(create|upload |publish-r2$|publish-github$)/ { print "ORDER: " $0 }' "$ORDER"
+  awk '/^release (create|upload|edit)( |$)/ { print "GHLOG: " $0 }' "$GHLOG"
+}
+no_publication_mutations() {
+  [[ -z "$(publication_mutation_entries)" ]]
+}
+exact_swift_verifier_assignment() {
+  /usr/bin/ruby -e '
+    source, expected = ARGV
+    assignments = File.binread(source).lines.grep(/\A[ \t]*SWIFT_VERIFY=/).map(&:chomp)
+    quote = 39.chr
+    exit(assignments == ["SWIFT_VERIFY=#{quote}#{expected}#{quote}"] ? 0 : 1)
+  ' "$1" "$EXPECTED_SWIFT_VERIFY"
+}
+
+required=(updatebar-1.2.3-macos-arm64.tar.gz updatebar-1.2.3-macos-arm64.tar.gz.sha256 updatebar-1.2.3-linux-x86_64.tar.gz updatebar-1.2.3-linux-x86_64.tar.gz.sha256 UpdateBar-1.2.3-macos-arm64.dmg UpdateBar-1.2.3-macos-arm64.dmg.sha256 appcast.xml release-manifest.json)
+: >"$ORDER"; : >"$GHLOG"
+printf 'verify-xcrun\n' >"$ORDER"
+printf 'api --hostname github.com --include --silent repos/sonim1/UpdateBar/releases/tags/v1.2.3\n' >"$GHLOG"
+no_publication_mutations || fail "verifier/read-only observations were counted as publication mutations"
+printf 'publish-r2\n' >>"$ORDER"
+if no_publication_mutations; then fail "R2 publication mutation was not detected"; fi
+: >"$ORDER"
+printf 'release upload v1.2.3 asset --repo sonim1/UpdateBar\n' >>"$GHLOG"
+if no_publication_mutations; then fail "GitHub publication mutation was not detected"; fi
+
+reset
+exact_swift_verifier_assignment "$P/Scripts/publish-release.sh" || fail "production Swift verifier assignment does not match the pinned contract"
+cp "$P/Scripts/publish-release.sh" "$TMP/publish-release.original"
+/usr/bin/ruby -e 'path,replacement=ARGV; source=File.binread(path); abort "verifier assignment missing" unless source.sub!(/^SWIFT_VERIFY=.*$/, replacement); File.binwrite(path,source)' "$P/Scripts/publish-release.sh" "SWIFT_VERIFY='import Foundation; exit(0)'"
+if exact_swift_verifier_assignment "$P/Scripts/publish-release.sh"; then fail "weakened Swift verifier matched the pinned assignment"; fi
+cp "$TMP/publish-release.original" "$P/Scripts/publish-release.sh"
+exact_swift_verifier_assignment "$P/Scripts/publish-release.sh" || fail "restored Swift verifier assignment does not match the pinned contract"
+printf "  SWIFT_VERIFY='%s'\n" "$EXPECTED_SWIFT_VERIFY" >>"$P/Scripts/publish-release.sh"
+if exact_swift_verifier_assignment "$P/Scripts/publish-release.sh"; then fail "space-indented duplicate Swift verifier assignment was accepted"; fi
+cp "$TMP/publish-release.original" "$P/Scripts/publish-release.sh"
+printf "\tSWIFT_VERIFY='%s'\n" "$EXPECTED_SWIFT_VERIFY" >>"$P/Scripts/publish-release.sh"
+if exact_swift_verifier_assignment "$P/Scripts/publish-release.sh"; then fail "tab-indented duplicate Swift verifier assignment was accepted"; fi
+cp "$TMP/publish-release.original" "$P/Scripts/publish-release.sh"
+exact_swift_verifier_assignment "$P/Scripts/publish-release.sh" || fail "duplicate verifier mutations were not restored"
+
+reset
+VERIFIER_LOG="$VERIFIER_LOG" XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$EXPECTED_SWIFT_VERIFY" "$PUBLIC_KEY" "$VALID_SIGNATURE" "$P/dist/$DMG"
+if VERIFIER_LOG="$VERIFIER_LOG" XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e 'import Foundation; exit(0)' "$PUBLIC_KEY" "$VALID_SIGNATURE" "$P/dist/$DMG"; then fail "Linux xcrun fixture accepted a weak verifier"; fi
+if VERIFIER_LOG="$VERIFIER_LOG" XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$EXPECTED_SWIFT_VERIFY" wrong "$VALID_SIGNATURE" "$P/dist/$DMG"; then fail "Linux xcrun fixture accepted a wrong public key"; fi
+if VERIFIER_LOG="$VERIFIER_LOG" XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$EXPECTED_SWIFT_VERIFY" "$PUBLIC_KEY" wrong "$P/dist/$DMG"; then fail "Linux xcrun fixture accepted a wrong signature"; fi
+printf bad >"$TMP/bad-dmg"
+if VERIFIER_LOG="$VERIFIER_LOG" XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$EXPECTED_SWIFT_VERIFY" "$PUBLIC_KEY" "$VALID_SIGNATURE" "$TMP/bad-dmg"; then fail "Linux xcrun fixture accepted changed DMG bytes"; fi
+DMG_PUBLIC_KEY_FIXTURE="$PUBLIC_KEY" "$B/hdiutil" attach -mountpoint "$TMP/plutil-mount" -plist -nobrowse -readonly "$P/dist/$DMG" >/dev/null
+PLUTIL_FIXTURE="$TMP/plutil-mount/UpdateBar.app/Contents/Info.plist"
+if ! feed="$(PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract SUFeedURL raw -o - "$PLUTIL_FIXTURE" 2>/dev/null)"; then
+  fail "Linux plutil fixture did not support extracting the Sparkle feed URL"
+fi
+[[ "$feed" == 'https://updates.updatebar.sonim1.com/appcast.xml' ]] || fail "Linux plutil fixture returned the wrong Sparkle feed URL"
+if ! key="$(PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract SUPublicEDKey raw -o - "$PLUTIL_FIXTURE" 2>/dev/null)"; then
+  fail "Linux plutil fixture did not support extracting the Sparkle public key"
+fi
+[[ "$key" == "$PUBLIC_KEY" ]] || fail "Linux plutil fixture returned the wrong Sparkle public key"
+if PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract UnexpectedKey raw -o - "$PLUTIL_FIXTURE" >/dev/null 2>&1; then
+  fail "Linux plutil fixture accepted an unexpected metadata key"
+fi
+MALFORMED_PLUTIL_FIXTURE="$TMP/malformed-plutil-fixture.plist"
+printf '%s\n' '<?xml version="1.0"?><plist version="1.0"><dict><key>SUFeedURL</key><string>https://updates.updatebar.sonim1.com/appcast.xml</string>' >"$MALFORMED_PLUTIL_FIXTURE"
+if PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract SUFeedURL raw -o - "$MALFORMED_PLUTIL_FIXTURE" >/dev/null 2>&1; then
+  fail "Linux plutil fixture accepted a malformed property list"
+fi
+NESTED_PLUTIL_FIXTURE="$TMP/nested-plutil-fixture.plist"
+printf '%s\n' '<?xml version="1.0"?><plist version="1.0"><dict><key>SUFeedURL</key><string>https://updates.updatebar.sonim1.com/appcast.xml<evil/></string></dict></plist>' >"$NESTED_PLUTIL_FIXTURE"
+if PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract SUFeedURL raw -o - "$NESTED_PLUTIL_FIXTURE" >/dev/null 2>&1; then
+  fail "Linux plutil fixture accepted a nested element inside a string"
+fi
+MALFORMED_OTHER_VALUE_FIXTURE="$TMP/malformed-other-value-fixture.plist"
+printf '%s\n' '<?xml version="1.0"?><plist version="1.0"><dict><key>Other</key><evil/><key>SUFeedURL</key><string>https://updates.updatebar.sonim1.com/appcast.xml</string></dict></plist>' >"$MALFORMED_OTHER_VALUE_FIXTURE"
+if PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract SUFeedURL raw -o - "$MALFORMED_OTHER_VALUE_FIXTURE" >/dev/null 2>&1; then
+  fail "Linux plutil fixture ignored a malformed non-target value"
+fi
+MALFORMED_TARGET_KEY_FIXTURE="$TMP/malformed-target-key-fixture.plist"
+printf '%s\n' '<?xml version="1.0"?><plist version="1.0"><dict><key>SUFeedURL<evil/></key><string>https://updates.updatebar.sonim1.com/appcast.xml</string></dict></plist>' >"$MALFORMED_TARGET_KEY_FIXTURE"
+if PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract SUFeedURL raw -o - "$MALFORMED_TARGET_KEY_FIXTURE" >/dev/null 2>&1; then
+  fail "Linux plutil fixture accepted a nested element inside a key"
+fi
+
+if [[ "$HOST_PLATFORM" == Darwin ]]; then
+  reset
+  cp "$P/Scripts/publish-release.sh" "$TMP/publish-release.original"
+  /usr/bin/ruby -e 'path,replacement=ARGV; source=File.binread(path); abort "verifier assignment missing" unless source.sub!(/^SWIFT_VERIFY=.*$/, replacement); File.binwrite(path,source)' "$P/Scripts/publish-release.sh" "SWIFT_VERIFY='import Foundation; exit(1)'"
+  run v1.2.3
+  if [[ "$status" == 0 || "$(<"$VERIFIER_LOG")" != failing-verifier ]] || ! no_publication_mutations; then
+    fail "Darwin verifier mutation was not rejected before publication: status=$status verifier=$(<"$VERIFIER_LOG") mutations=$(publication_mutation_entries)"
+  fi
+  cp "$TMP/publish-release.original" "$P/Scripts/publish-release.sh"
+  exact_swift_verifier_assignment "$P/Scripts/publish-release.sh" || fail "Darwin verifier mutation was not restored"
+fi
+
+reset
+FAKE_SOURCE_SUBSTITUTE=1; run v1.2.3
+[[ "$status" == 64 && "$output" == *'while creating the snapshot'* && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "source substitution was not rejected before mutation: $status $output / $(cat "$ORDER")"
+
+reset; FAKE_REMOTE_TAG=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; run v1.2.3
+[[ "$status" == 64 && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "stale remote tag reached mutation: $status $output"
+grep -q '^update-ref -d refs/updatebar-release-verification/' "$TMP/git.log" || fail "isolated tag ref was not cleaned after provenance mismatch"
+reset; FAKE_REMOTE_FETCH_STATUS=47; run v1.2.3
+[[ "$status" == 47 && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "missing/branch-only remote tag status was translated or mutated"
+grep -q '^update-ref -d refs/updatebar-release-verification/' "$TMP/git.log" || fail "isolated tag ref was not cleaned after fetch failure"
+reset; FAKE_MAIN_FETCH_STATUS=46; run v1.2.3
+[[ "$status" == 46 && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "origin/main fetch status was translated or mutated"
+grep -q '^update-ref -d refs/updatebar-release-verification/.*-main$' "$TMP/git.log" || fail "isolated main ref was not cleaned after missing/failing main"
+reset; FAKE_DIRTY='?? unexpected.txt'; run v1.2.3
+[[ "$status" == 64 && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "dirty worktree reached mutation"
+reset; FAKE_MAIN=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; FAKE_ANCESTOR_STATUS=1; run v1.2.3
+[[ "$status" == 64 && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "divergent remote main reached GitHub/R2 mutation"
+reset; FAKE_MAIN=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; FAKE_ANCESTOR_STATUS=45; run v1.2.3
+[[ "$status" == 45 && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "merge-base failure status was translated or mutated"
+reset; FAKE_MAIN=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; FAKE_ANCESTOR_STATUS=0; run v1.2.3
+[[ "$status" == 0 && "$(cat "$STATE")" == published ]] || fail "queued exact tag was rejected after remote main advanced: $status $output"
+
+reset; /usr/bin/ruby -e 'p=ARGV[0];s=File.read(p);s.sub!(/sparkle:edSignature="[^"]+"/,%q{sparkle:edSignature="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="});File.write(p,s)' "$P/dist/updates/appcast.xml"; run v1.2.3
+[[ "$status" != 0 && "$output" == *'signature verification failed'* && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "zero/random Sparkle signature was accepted"
+reset; DMG_PUBLIC_KEY_FIXTURE='E5j2LG0aRXxRumpLXz29L2n8qTIWIY3ImX5Ba9F9k8o='; run v1.2.3
+[[ "$status" != 0 && "$output" == *'signature verification failed'* && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "wrong packaged Sparkle key was accepted"
+reset; printf bad >"$P/dist/$DMG"; checksum "$P/dist/$DMG"; cp "$P/dist/$DMG" "$P/dist/updates/$DMG"; cp "$P/dist/$DMG.sha256" "$P/dist/updates/$DMG.sha256"; new_sha="$(/usr/bin/shasum -a 256 "$P/dist/$DMG"|awk '{print $1}')"; /usr/bin/ruby -rjson -e 'p=ARGV[0];d=JSON.parse(File.read(p));d["packages"][1]["source"]["sha256"]=ARGV[1];File.write(p,JSON.generate(d))' "$P/dist/release-manifest.json" "$new_sha"; run v1.2.3
+[[ "$status" != 0 && "$output" == *'signature verification failed'* && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "mutated DMG with rebound checksums was accepted"
+reset; run v1.2.3; [[ "$status" == 0 ]] || fail "new release failed ($status): $output"
+[[ "$(grep -c '^update-ref -d refs/updatebar-release-verification/' "$TMP/git.log")" -eq 2 ]] || fail "isolated publisher main/tag refs were not both cleaned after success"
+for n in "${required[@]}"; do [[ -f "$A/$n" ]] || fail "missing uploaded $n"; done
+[[ "$(tail -2 "$ORDER")" == $'publish-r2\npublish-github' ]] || fail "publication order wrong: $(cat "$ORDER")"
+! grep -Fq -- --clobber "$GHLOG" || fail "publisher used clobber"
+
+# A byte-identical draft rerun compares instead of overwriting; a published rerun is also immutable.
+printf draft >"$STATE"; : >"$ORDER"; run v1.2.3; [[ "$status" == 0 ]] || fail "draft rerun failed: $output"; ! grep -q '^upload ' "$ORDER" || fail "rerun reuploaded assets"
+printf published >"$STATE"; : >"$ORDER"; run v1.2.3; [[ "$status" == 0 ]] || fail "published rerun failed: $output"; [[ "$(cat "$ORDER")" == publish-r2 ]] || fail "published release was mutated"
+
+# Unknown remote assets make both draft and published releases invalid before mutation/R2.
+for remote_state in draft published; do
+  reset; printf '%s' "$remote_state" >"$STATE"
+  for n in "${required[@]}"; do cp "$P/dist/$n" "$A/$n" 2>/dev/null || cp "$P/dist/updates/$n" "$A/$n"; done
+  EXTRA_NAMES='unexpected-debug-symbols.zip'; run v1.2.3
+  [[ "$status" != 0 && "$output" == *unexpected* && ! -s "$ORDER" ]] || fail "$remote_state release accepted an extra asset or mutated: $output / $(cat "$ORDER")"
+done
+for remote_state in draft published; do
+  reset; printf '%s' "$remote_state" >"$STATE"
+  for n in "${required[@]}"; do cp "$P/dist/$n" "$A/$n" 2>/dev/null || cp "$P/dist/updates/$n" "$A/$n"; done
+  EXTRA_NAMES="${required[0]}"; run v1.2.3
+  [[ "$status" != 0 && "$output" == *ambiguous* && ! -s "$ORDER" ]] || fail "$remote_state release accepted a duplicate asset or mutated: $output / $(cat "$ORDER")"
+done
+
+reset; printf draft >"$STATE"; for n in "${required[@]}"; do cp "$P/dist/$n" "$A/$n" 2>/dev/null || cp "$P/dist/updates/$n" "$A/$n"; done; printf conflict >"$A/${required[0]}"; run v1.2.3
+[[ "$status" != 0 && "$output" == *conflict* ]] || fail "existing byte conflict accepted"; [[ ! -s "$ORDER" ]] || fail "conflict mutated state"
+
+reset; printf published >"$STATE"; for n in "${required[@]:1}"; do cp "$P/dist/$n" "$A/$n" 2>/dev/null || cp "$P/dist/updates/$n" "$A/$n"; done; run v1.2.3
+[[ "$status" != 0 && "$output" == *missing* ]] || fail "public release missing asset accepted"; [[ ! -s "$ORDER" ]] || fail "public missing asset mutated state"
+
+reset; /usr/bin/ruby -e 'p=ARGV[0];s=File.read(p);s.sub!(%q{"repository":"sonim1/UpdateBar"},%q{"repository":"evil/repo","repository":"sonim1/UpdateBar"});File.write(p,s)' "$P/dist/release-manifest.json"; run v1.2.3
+[[ "$status" == 64 && ! -s "$ORDER" ]] || fail "duplicate manifest key accepted: $output"
+reset; /usr/bin/ruby -rjson -e 'p=ARGV[0];d=JSON.parse(File.read(p));d["packages"].pop;File.write(p,JSON.generate(d))' "$P/dist/release-manifest.json"; run v1.2.3
+[[ "$status" == 64 && ! -s "$ORDER" ]] || fail "missing manifest package accepted"
+reset; /usr/bin/ruby -rjson -e 'p=ARGV[0];d=JSON.parse(File.read(p));d["packages"]<<d["packages"].last;File.write(p,JSON.generate(d))' "$P/dist/release-manifest.json"; run v1.2.3
+[[ "$status" == 64 && ! -s "$ORDER" ]] || fail "extra manifest package accepted"
+reset; FAKE_ORIGIN=https://github.com/evil/UpdateBar.git; run v1.2.3; [[ "$status" == 64 && ! -s "$ORDER" ]] || fail "foreign origin accepted"
+
+reset; FAKE_UPLOAD_STATUS=37; run v1.2.3; [[ "$status" == 37 ]] || fail "upload status translated: $status"
+reset; FAKE_R2_STATUS=38; run v1.2.3; [[ "$status" == 38 && "$(tail -1 "$ORDER")" == publish-r2 ]] || fail "R2 status/order wrong"
+reset; FAKE_EDIT_STATUS=39; run v1.2.3; [[ "$status" == 39 && "$(tail -2 "$ORDER")" == $'publish-r2\npublish-github' ]] || fail "GitHub publication status/order wrong"
+
+# R2 consumes a dedicated immutable three-file snapshot. Replacing live
+# dist/updates at publisher invocation cannot split GitHub and R2 bytes.
+reset; original_dmg="$(cat "$P/dist/$DMG")"; CONCURRENT_REPLACE=1; run v1.2.3
+[[ "$status" == 0 ]] || fail "concurrent live replacement disturbed snapshot publication: $output"
+[[ -f "$R2_CAPTURE/$DMG" && "$(cat "$R2_CAPTURE/$DMG")" == "$original_dmg" ]] || fail "R2 read replacement bytes instead of the release snapshot"
+for n in "$DMG" "$DMG.sha256" appcast.xml; do /usr/bin/cmp -s "$A/$n" "$R2_CAPTURE/$n" || fail "GitHub and R2 snapshot bytes diverged for $n"; done
+[[ "$(cat "$STATE")" == published ]] || fail "consistent frozen release was not published"
+write_files; CONCURRENT_REPLACE=0; : >"$ORDER"; run v1.2.3
+[[ "$status" == 0 && "$(cat "$ORDER")" == publish-r2 ]] || fail "identical published rerun failed or mutated GitHub: $output / $(cat "$ORDER")"
+
+# Config cannot redirect the fixed repository or host, and secrets never appear in output.
+reset; printf "GH_REPO=evil/repo\nGH_HOST=evil.invalid\nR2_SECRET_ACCESS_KEY=secret-sentinel\n" >"$P/.env.release.local"; run v1.2.3
+[[ "$status" == 0 && "$output" != *secret-sentinel* ]] || fail "config redirected or leaked: $output"
+
+bash -n "$SOURCE" "$0"; echo "publish-release contract tests passed"

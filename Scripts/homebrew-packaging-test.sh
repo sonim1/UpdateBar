@@ -46,6 +46,15 @@ for cask in "${casks[@]}"; do
     echo "app cask must not link the CLI binary: $cask" >&2
     exit 1
   fi
+
+  if ! grep -Fq 'UpdateBar-#{version}-macos-arm64.app.tar.gz' "$cask"; then
+    echo "current v0.6.1 app cask must remain on its published legacy archive: $cask" >&2
+    exit 1
+  fi
+  if grep -Fq 'UpdateBar-#{version}-macos-arm64.dmg' "$cask"; then
+    echo "current v0.6.1 cask must not point at the not-yet-published DMG: $cask" >&2
+    exit 1
+  fi
 done
 
 echo "homebrew packaging ok"

@@ -108,6 +108,18 @@ if [[ ! -f "$expected_archive" ]]; then
   exit 1
 fi
 
+expected_checksum="$expected_archive.sha256"
+expected_checksum_entry="$(basename "$expected_archive")"
+if [[ ! -f "$expected_checksum" ]] \
+  || ! awk -v expected="$expected_checksum_entry" '
+    NF == 2 && $1 ~ /^[0-9a-f]{64}$/ && $2 == expected { matched = 1 }
+    END { exit(matched ? 0 : 1) }
+  ' "$expected_checksum"; then
+  echo "release archive checksum must contain only the portable archive basename" >&2
+  cat "$expected_checksum" >&2 2>/dev/null || true
+  exit 1
+fi
+
 if ! grep -Fx -- "-cf" "$TAR_LOG" >/dev/null || ! grep -Fx -- "-" "$TAR_LOG" >/dev/null; then
   echo "build-release.sh did not stream tar output to stdout" >&2
   exit 1

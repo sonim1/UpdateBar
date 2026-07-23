@@ -24,8 +24,8 @@ CASK_PATH="${UPDATEBAR_HOMEBREW_CASK_PATH:-Packaging/homebrew/Casks/updatebar-ap
 STRICT="${UPDATEBAR_VERIFY_STRICT:-0}"
 STATIC_ONLY="${UPDATEBAR_VERIFY_STATIC_ONLY:-0}"
 # Skip "committed formula/cask SHA == freshly built archive SHA" checks.
-# Signed + notarized (stapled) app archives and toolchain drift make
-# rebuilt archives differ from published assets, so release builds verify
+# Signed + notarized app archives and toolchain drift make rebuilt artifacts
+# differ from published assets, so release builds verify
 # structure strictly but leave SHA equality to the tap update step.
 SKIP_SHA_EQUALITY="${UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY:-0}"
 

@@ -68,7 +68,7 @@ updatebar doctor
 Install a specific version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.6.0
+curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.6.1
 ```
 
 Set `UPDATEBAR_INSTALL_PREFIX` when installing outside `~/.local/bin`.
@@ -122,11 +122,11 @@ tar -xzf /tmp/UpdateBar.app.tar.gz -C /Applications
 open /Applications/UpdateBar.app
 ```
 
-Releases from v0.3.0 are signed with a Developer ID certificate and notarized
-by Apple, so the app opens without Gatekeeper prompts. Pre-0.3.0 assets are
-unsigned; if Gatekeeper blocks one of those, open
-System Settings > Privacy & Security and choose Open Anyway for
-`UpdateBar.app`.
+The current `v0.6.1` app asset uses the legacy `.app.tar.gz` format. It is signed
+with a Developer ID certificate and notarized by Apple. Starting with the next
+published app release, download `UpdateBar-<version>-macos-arm64.dmg`, open it,
+and drag `UpdateBar.app` to the DMG's `Applications` shortcut. Those DMGs are
+signed, notarized, stapled, and verified with Gatekeeper before publication.
 
 Runtime logs are written to:
 

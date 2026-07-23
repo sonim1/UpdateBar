@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 QUALITY_GATE="$ROOT/Scripts/quality-gate.sh"
-APP_ARCHIVE_SMOKE="$ROOT/Scripts/app-archive-smoke-test.sh"
+APP_DMG_SMOKE="$ROOT/Scripts/app-dmg-smoke-test.sh"
 CI_WORKFLOW="$ROOT/.github/workflows/ci.yml"
 RELEASE_WORKFLOW="$ROOT/.github/workflows/release.yml"
 
@@ -32,10 +32,250 @@ if ! grep -Fq 'concurrency:' "$CI_WORKFLOW" || ! grep -Fq 'cancel-in-progress: t
   exit 1
 fi
 
+ruby -rpsych -e '
+  workflow = Psych.safe_load(File.read(ARGV.fetch(0)), aliases: true)
+  linux_steps = workflow.fetch("jobs").fetch("linux").fetch("steps")
+  install_step = linux_steps.find do |step|
+    step.is_a?(Hash) && step.fetch("run", "").include?("apt-get install")
+  end
+  abort "ci.yml Linux job must install Ruby before quality-gate.sh" unless install_step
+  install_run = install_step.fetch("run")
+  abort "ci.yml Linux job must install Ruby before quality-gate.sh" unless install_run.match?(/\bruby\b/)
+  install_index = linux_steps.index(install_step)
+  quality_index = linux_steps.index do |step|
+    step.is_a?(Hash) && step.fetch("run", "").include?("Scripts/quality-gate.sh")
+  end
+  abort "ci.yml Linux job must install Ruby before quality-gate.sh" unless quality_index && install_index < quality_index
+
+  expected_safe_directory = %q(git config --global --add safe.directory "$GITHUB_WORKSPACE")
+  safe_directory_steps = linux_steps.select do |step|
+    step.is_a?(Hash) && step.fetch("run", "").include?("safe.directory")
+  end
+  safe_directory_commands = safe_directory_steps.flat_map do |step|
+    step.fetch("run").lines.map(&:strip).grep(/safe[.]directory/)
+  end
+  unless safe_directory_commands == [expected_safe_directory]
+    abort "ci.yml Linux job must mark only GITHUB_WORKSPACE as a safe Git directory"
+  end
+  safe_directory_index = linux_steps.index(safe_directory_steps.fetch(0))
+  unless quality_index && safe_directory_index < quality_index
+    abort "ci.yml Linux job must mark GITHUB_WORKSPACE safe before quality-gate.sh"
+  end
+' "$CI_WORKFLOW"
+
 if [[ ! -f "$RELEASE_WORKFLOW" ]]; then
   echo "release.yml must exist for tag publishing" >&2
   exit 1
 fi
+
+ruby -e '
+  quality_gate = File.binread(ARGV.fetch(0))
+  expected_contracts = %w[
+    Scripts/release-tooling-test.sh
+    Scripts/setup-update-hosting-test.sh
+    Scripts/generate-appcast-test.sh
+    Scripts/publish-update-test.sh
+    Scripts/generate-release-manifest-test.sh
+    Scripts/publish-release-test.sh
+    Scripts/dispatch-homebrew-update-test.sh
+    Scripts/release-workflow-test.sh
+  ]
+  invocations = quality_gate.lines.map do |line|
+    match = line.match(/\A\s*bash\s+(Scripts\/[A-Za-z0-9-]+-test[.]sh)\s*\z/)
+    match && match[1]
+  end.compact
+  counts = invocations.each_with_object(Hash.new(0)) { |path, result| result[path] += 1 }
+  missing = expected_contracts.reject { |path| counts[path] == 1 }
+  duplicated = expected_contracts.select { |path| counts[path].to_i > 1 }
+  unless missing.empty? && duplicated.empty?
+    warn "quality-gate.sh release contract coverage is incomplete or duplicated"
+    exit 1
+  end
+
+  expected_syntax = %w[
+    Scripts/setup-update-hosting.sh
+    Scripts/generate-appcast.sh
+    Scripts/publish-update.sh
+    Scripts/generate-release-manifest.sh
+    Scripts/publish-release.sh
+    Scripts/dispatch-homebrew-update.sh
+    Scripts/build-release.sh
+    Scripts/package-app.sh
+    Scripts/build-app-icon.sh
+    Scripts/build-app-dmg.sh
+    Scripts/app-dmg-smoke-test.sh
+  ].sort
+  array_match = quality_gate.match(/\nRELEASE_SYNTAX_SCRIPTS=\(\n(?<body>.*?)\n\)\n/m)
+  abort "quality-gate.sh must declare release syntax coverage" unless array_match
+  syntax_paths = array_match[:body].lines.map do |line|
+    match = line.match(/\A\s*"(Scripts\/[A-Za-z0-9.-]+[.]sh)"\s*\z/)
+    abort "release syntax coverage must contain literal script paths" unless match
+    match[1]
+  end.compact
+  unless syntax_paths.length == syntax_paths.uniq.length && syntax_paths.sort == expected_syntax
+    warn "quality-gate.sh release syntax coverage does not match the supported release scripts"
+    exit 1
+  end
+  syntax_runs = quality_gate.scan(/^bash -n "\$\{RELEASE_SYNTAX_SCRIPTS\[@\]\}"$/).length
+  abort "quality-gate.sh must syntax-check the declared release scripts exactly once" unless syntax_runs == 1
+' "$QUALITY_GATE"
+
+RELEASE_TOOLING_TEST_TMP="$(mktemp -d)"
+mkdir -p "$RELEASE_TOOLING_TEST_TMP/Scripts"
+cp "$ROOT/.gitignore" "$ROOT/package.json" "$ROOT/package-lock.json" "$RELEASE_TOOLING_TEST_TMP/"
+cp "$ROOT/Scripts/release-tooling-test.sh" "$RELEASE_TOOLING_TEST_TMP/Scripts/"
+git -C "$RELEASE_TOOLING_TEST_TMP" init -q
+if ! bash "$RELEASE_TOOLING_TEST_TMP/Scripts/release-tooling-test.sh" >/dev/null 2>&1; then
+  rm -rf "$RELEASE_TOOLING_TEST_TMP"
+  echo "release tooling checks must pass in a clean checkout without node_modules" >&2
+  exit 1
+fi
+rm -rf "$RELEASE_TOOLING_TEST_TMP"
+
+for obsolete_script in \
+  Scripts/build-app-archive.sh \
+  Scripts/build-app-archive-test.sh \
+  Scripts/app-archive-smoke-test.sh \
+  Scripts/archive-version-smoke-test.sh; do
+  if [[ -e "$ROOT/$obsolete_script" || -L "$ROOT/$obsolete_script" ]]; then
+    echo "obsolete app archive script must be absent: $obsolete_script" >&2
+    exit 1
+  fi
+done
+
+CHECKSUM_TEST_TMP="$(mktemp -d)"
+trap 'rm -rf "$CHECKSUM_TEST_TMP"' EXIT
+CHECKSUM_TOOL_PATHS=()
+REAL_SHASUM="$(command -v shasum || true)"
+REAL_SHA256SUM="$(command -v sha256sum || true)"
+if [[ -n "$REAL_SHASUM" ]]; then
+  mkdir "$CHECKSUM_TEST_TMP/shasum-bin"
+  ln -s "$REAL_SHASUM" "$CHECKSUM_TEST_TMP/shasum-bin/shasum"
+  CHECKSUM_TOOL_PATHS+=("$CHECKSUM_TEST_TMP/shasum-bin")
+fi
+if [[ -n "$REAL_SHA256SUM" ]]; then
+  mkdir "$CHECKSUM_TEST_TMP/sha256sum-bin"
+  ln -s "$REAL_SHA256SUM" "$CHECKSUM_TEST_TMP/sha256sum-bin/sha256sum"
+  CHECKSUM_TOOL_PATHS+=("$CHECKSUM_TEST_TMP/sha256sum-bin")
+fi
+if [[ "${#CHECKSUM_TOOL_PATHS[@]}" -eq 0 ]]; then
+  echo "shasum or sha256sum is required for release checksum contract tests" >&2
+  exit 1
+fi
+extract_checksum_run_block() {
+  ruby -rpsych -e '
+    workflow = Psych.safe_load(File.read(ARGV.fetch(0)), aliases: true)
+    name = ARGV.fetch(1)
+    steps = workflow.fetch("jobs").values.flat_map { |job| job.fetch("steps", []) }
+    matches = steps.select do |step|
+      step.is_a?(Hash) && step["name"] == name
+    end
+    abort "expected exactly one #{name} step" unless matches.length == 1
+    run = matches.first["run"]
+    abort "#{name} step must have a run block" unless run.is_a?(String)
+    print run
+  ' "$RELEASE_WORKFLOW" "$1"
+}
+BUILD_CHECKSUM_RUN_BLOCK="$(extract_checksum_run_block "Verify checksums")"
+PUBLISH_CHECKSUM_RUN_BLOCK="$(extract_checksum_run_block "Verify downloaded checksums")"
+
+if ! bash "$ROOT/Scripts/build-release-archive-test.sh" >/dev/null 2>&1; then
+  echo "release archive fixture must produce a portable CLI checksum" >&2
+  exit 1
+fi
+CLI_ARCHIVES=("$ROOT"/dist/updatebar-*.tar.gz)
+if [[ "${#CLI_ARCHIVES[@]}" -ne 1 || ! -f "${CLI_ARCHIVES[0]}" ]]; then
+  echo "release archive fixture must produce exactly one CLI archive" >&2
+  exit 1
+fi
+CLI_ARCHIVE_SOURCE="${CLI_ARCHIVES[0]}"
+CLI_CHECKSUM_SOURCE="$CLI_ARCHIVE_SOURCE.sha256"
+if [[ ! -f "$CLI_CHECKSUM_SOURCE" ]]; then
+  echo "release archive fixture did not produce its CLI checksum" >&2
+  exit 1
+fi
+
+CHECKSUM_TEST_ROOT="$CHECKSUM_TEST_TMP/repo-root"
+CHECKSUM_TEST_DIST="$CHECKSUM_TEST_ROOT/dist"
+CLI_TEST_ASSET="$(basename "$CLI_ARCHIVE_SOURCE")"
+DMG_TEST_ASSET="UpdateBar-contract.dmg"
+mkdir -p "$CHECKSUM_TEST_DIST"
+cp "$CLI_ARCHIVE_SOURCE" "$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET"
+cp "$CLI_CHECKSUM_SOURCE" "$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET.sha256"
+printf 'app DMG artifact\n' >"$CHECKSUM_TEST_DIST/$DMG_TEST_ASSET"
+if command -v shasum >/dev/null 2>&1; then
+  DMG_TEST_SHA="$(shasum -a 256 "$CHECKSUM_TEST_DIST/$DMG_TEST_ASSET" | awk '{print $1}')"
+else
+  DMG_TEST_SHA="$(sha256sum "$CHECKSUM_TEST_DIST/$DMG_TEST_ASSET" | awk '{print $1}')"
+fi
+printf '%s  %s\n' "$DMG_TEST_SHA" "$DMG_TEST_ASSET" \
+  >"$CHECKSUM_TEST_DIST/$DMG_TEST_ASSET.sha256"
+
+run_checksum_block() {
+  local run_block="$1"
+  local checksum_path="$2"
+  (
+    cd "$CHECKSUM_TEST_ROOT"
+    PATH="$checksum_path" /bin/bash -e -o pipefail -c "$run_block"
+  )
+}
+
+expect_checksum_failure() {
+  local run_block="$1"
+  local checksum_path="$2"
+  local scenario="$3"
+  local status=0
+  set +e
+  run_checksum_block "$run_block" "$checksum_path" >/dev/null 2>&1
+  status=$?
+  set -e
+  if [[ "$status" -eq 0 ]]; then
+    echo "release checksum step accepted $scenario" >&2
+    exit 1
+  fi
+}
+
+for checksum_step in build publish; do
+  if [[ "$checksum_step" == "build" ]]; then
+    checksum_run_block="$BUILD_CHECKSUM_RUN_BLOCK"
+  else
+    checksum_run_block="$PUBLISH_CHECKSUM_RUN_BLOCK"
+  fi
+  for checksum_tool_path in "${CHECKSUM_TOOL_PATHS[@]}"; do
+    if ! run_checksum_block "$checksum_run_block" "$checksum_tool_path" >/dev/null; then
+      echo "$checksum_step checksum step must verify CLI and DMG basename entries from dist" >&2
+      exit 1
+    fi
+
+    printf 'tampered CLI\n' >>"$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET"
+    expect_checksum_failure "$checksum_run_block" "$checksum_tool_path" "tampered CLI bytes"
+    cp "$CLI_ARCHIVE_SOURCE" "$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET"
+
+    printf 'tampered DMG\n' >>"$CHECKSUM_TEST_DIST/$DMG_TEST_ASSET"
+    expect_checksum_failure "$checksum_run_block" "$checksum_tool_path" "tampered DMG bytes"
+    printf 'app DMG artifact\n' >"$CHECKSUM_TEST_DIST/$DMG_TEST_ASSET"
+
+    : >"$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET.sha256"
+    expect_checksum_failure "$checksum_run_block" "$checksum_tool_path" "an empty checksum file"
+    cp "$CLI_CHECKSUM_SOURCE" "$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET.sha256"
+
+    rm -f "$CHECKSUM_TEST_DIST"/*.sha256
+    expect_checksum_failure "$checksum_run_block" "$checksum_tool_path" "missing checksum files"
+    cp "$CLI_CHECKSUM_SOURCE" "$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET.sha256"
+    printf '%s  %s\n' "$DMG_TEST_SHA" "$DMG_TEST_ASSET" \
+      >"$CHECKSUM_TEST_DIST/$DMG_TEST_ASSET.sha256"
+
+    rm -f "$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET"
+    expect_checksum_failure "$checksum_run_block" "$checksum_tool_path" "a missing release artifact"
+    cp "$CLI_ARCHIVE_SOURCE" "$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET"
+
+    rm -f "$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET.sha256"
+    ln -s "$CLI_CHECKSUM_SOURCE" "$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET.sha256"
+    expect_checksum_failure "$checksum_run_block" "$checksum_tool_path" "a symlink checksum file"
+    rm -f "$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET.sha256"
+    cp "$CLI_CHECKSUM_SOURCE" "$CHECKSUM_TEST_DIST/$CLI_TEST_ASSET.sha256"
+  done
+done
 
 if ! grep -Fq 'GITHUB_REF_NAME' "$RELEASE_WORKFLOW" || ! grep -Fq 'version.env' "$RELEASE_WORKFLOW"; then
   echo "release.yml must verify that the pushed tag matches version.env" >&2
@@ -180,14 +420,44 @@ if ! grep -Fq 'bash Scripts/menubar-smoke-test.sh dist/UpdateBar.app' "$QUALITY_
   exit 1
 fi
 
-if ! grep -Fq 'bash Scripts/app-archive-smoke-test.sh "$APP_ARCHIVE"' "$QUALITY_GATE"; then
-  echo "quality-gate.sh must run app archive smoke checks" >&2
+if ! grep -Fq 'bash Scripts/build-app-dmg-test.sh' "$QUALITY_GATE"; then
+  echo "quality-gate.sh must run the app DMG builder contract without live notarization" >&2
   exit 1
 fi
 
-if grep -Fq 'build-app-archive.sh | tail -n 1' "$QUALITY_GATE" \
-  || grep -Fq 'build-app-archive.sh" | tail -n 1' "$APP_ARCHIVE_SMOKE" \
-  || grep -Fq 'build-app-archive.sh | tail -n 1' "$RELEASE_WORKFLOW"; then
-  echo "quality gate, app archive smoke, and release workflow must consume build-app-archive.sh output directly" >&2
+if grep -Eq 'build-app-archive|app-archive-smoke|archive-version-smoke' \
+  "$QUALITY_GATE" "$RELEASE_WORKFLOW" "$APP_DMG_SMOKE"; then
+  echo "live quality and release callers must not reference obsolete app archive scripts" >&2
+  exit 1
+fi
+
+if grep -Fq 'bash Scripts/build-app-dmg.sh' "$QUALITY_GATE"; then
+  echo "the normal quality gate must not perform live signing or notarization" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'APP_DMG="$(bash Scripts/build-app-dmg.sh)"' "$RELEASE_WORKFLOW" \
+  || ! grep -Fq 'bash Scripts/app-dmg-smoke-test.sh "$APP_DMG"' "$RELEASE_WORKFLOW" \
+  || ! grep -Fq 'dist/*.dmg' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must build, smoke-check, and upload the canonical app DMG" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}' "$RELEASE_WORKFLOW" \
+  || ! grep -Fq 'DEVELOPER_ID_APPLICATION=$IDENTITY' "$RELEASE_WORKFLOW" \
+  || ! grep -Fq 'NOTARYTOOL_KEYCHAIN_PROFILE=updatebar-notary' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must provide the standard signing, notary, and Sparkle inputs" >&2
+  exit 1
+fi
+
+if ! grep -Fq '$(/usr/bin/uname -m)' "$RELEASE_WORKFLOW" \
+  || ! grep -Fq 'arm64 macOS runner' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must fail closed unless the macOS app runner is arm64" >&2
+  exit 1
+fi
+
+if grep -Fq 'building unsigned app' "$RELEASE_WORKFLOW" \
+  || grep -Fq 'app will be signed but not notarized' "$RELEASE_WORKFLOW"; then
+  echo "release.yml must fail closed rather than publish unsigned or unnotarized apps" >&2
   exit 1
 fi

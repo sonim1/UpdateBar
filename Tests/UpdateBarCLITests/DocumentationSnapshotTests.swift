@@ -981,10 +981,12 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(releaseDocs.contains("npm --prefix tui run build"))
         XCTAssertTrue(releaseDocs.contains("UPDATEBAR_VERIFY_STATIC_ONLY=1"))
         XCTAssertTrue(releaseDocs.contains("For source checkouts, build the Ink TUI with npm"))
-        XCTAssertTrue(releaseDocs.contains("macOS app archive for the build host"))
-        XCTAssertFalse(releaseDocs.contains("Apple Silicon macOS app archive"))
-        XCTAssertTrue(readme.contains("macOS app archive for the build host architecture"))
-        XCTAssertFalse(readme.contains("Apple Silicon app archive"))
+        XCTAssertTrue(releaseDocs.contains("UpdateBar-<version>-macos-arm64.dmg"))
+        XCTAssertTrue(readme.contains("UpdateBar-<version>-macos-arm64.dmg"))
+        XCTAssertTrue(releaseDocs.contains("UpdateBar-0.6.1-macos-arm64.app.tar.gz"))
+        XCTAssertTrue(readme.contains("UpdateBar-0.6.1-macos-arm64.app.tar.gz"))
+        XCTAssertTrue(releaseDocs.contains("next published app release"))
+        XCTAssertFalse(releaseDocs.contains("The published Homebrew cask targets this arm64 DMG"))
         XCTAssertFalse(releaseDocs.contains("Install the Ink TUI separately through npm"))
         XCTAssertFalse(combined.contains("npm link"))
     }
@@ -1045,8 +1047,8 @@ final class DocumentationSnapshotTests: XCTestCase {
             "brew upgrade --cask sonim1/tap/updatebar-app",
             "brew uninstall sonim1/tap/updatebar",
             "brew uninstall --cask sonim1/tap/updatebar-app",
-            "System Settings > Privacy & Security",
-            "Open Anyway",
+            "macos-arm64.dmg",
+            "notarized",
             "Apple Silicon",
         ] {
             XCTAssertTrue(installDocs.contains(phrase), "install docs missing \(phrase)")
@@ -1385,7 +1387,7 @@ final class DocumentationSnapshotTests: XCTestCase {
         )
         let readmeMenuBarSection = try readmeSection(
             "### Menu bar app",
-            before: "Build a local unsigned app:",
+            before: "Build a local development app (not a public release artifact):",
             in: readme
         )
 

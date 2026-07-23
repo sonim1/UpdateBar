@@ -33,8 +33,13 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Scan & Add",
                 "Open Config",
                 "View Logs",
+                "Check for Updates...",
                 "Quit",
             ])
+        XCTAssertEqual(
+            Array(model.entries.actions.suffix(2)),
+            [.menu(.checkForUpdates), .menu(.quit)]
+        )
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 
@@ -228,6 +233,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Scan & Add",
                 "Open Config",
                 "View Logs",
+                "Check for Updates...",
                 "Quit",
             ])
         XCTAssertEqual(
@@ -240,6 +246,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.scanAndAdd),
                 .menu(.openConfig),
                 .menu(.viewLogs),
+                .menu(.checkForUpdates),
                 .menu(.quit),
             ])
     }
@@ -320,6 +327,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Scan & Add",
                 "Open Config",
                 "View Logs",
+                "Check for Updates...",
                 "Quit",
             ])
         XCTAssertEqual(
@@ -335,6 +343,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.scanAndAdd),
                 .menu(.openConfig),
                 .menu(.viewLogs),
+                .menu(.checkForUpdates),
                 .menu(.quit),
             ])
         XCTAssertTrue(model.entries.labels.contains("Command Approval Required (1)"))
@@ -636,6 +645,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Scan & Add",
                 "Open Config",
                 "View Logs",
+                "Check for Updates...",
                 "Quit",
             ])
         XCTAssertEqual(
@@ -649,6 +659,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.scanAndAdd),
                 .menu(.openConfig),
                 .menu(.viewLogs),
+                .menu(.checkForUpdates),
                 .menu(.quit),
             ])
         XCTAssertFalse(model.entries.hasRepeatedSeparators)

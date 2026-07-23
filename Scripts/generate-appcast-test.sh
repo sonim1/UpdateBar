@@ -1,0 +1,411 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+T="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/updatebar-appcast-test.XXXXXX")" && pwd -P)"
+trap 'rm -rf "$T"' EXIT
+R="$T/root"; B="$T/bin"; LOG="$T/calls"; KEY='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='; PRIVATE='AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE='
+mkdir -p "$R/Scripts" "$R/dist" "$R/.build/artifacts/sparkle/Sparkle/bin" "$B"
+cp "$ROOT/Scripts/generate-appcast.sh" "$R/Scripts/generate-appcast.sh" 2>/dev/null || true
+cp "$ROOT/version.env" "$R/version.env"
+cp "$ROOT/Package.resolved" "$R/Package.resolved"
+printf 'dmg bytes\n' >"$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
+hash="$(shasum -a 256 "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg" | awk '{print $1}')"
+printf '%s  UpdateBar-0.6.1-macos-arm64.dmg\n' "$hash" >"$R/dist/UpdateBar-0.6.1-macos-arm64.dmg.sha256"
+
+cat >"$B/observe" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+private='AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE='
+for value in "$@"; do
+  [[ "$value" != *"$private"* ]] || { printf 'secret leaked in child argv\n' >&2; exit 70; }
+done
+while IFS='=' read -r _ value; do
+  [[ "$value" != *"$private"* ]] || { printf 'secret leaked in child environment\n' >&2; exit 71; }
+done < <(/usr/bin/env)
+printf 'child:%s\n' "$1" >>"$CHILD_LOG"
+SH
+cat >"$B/ruby" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+"$OBSERVER" ruby "$@"
+exec /usr/bin/ruby "$@"
+SH
+cat >"$B/rename" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+"$OBSERVER" rename "$@"
+[[ -z "${FAKE_RENAME_EXIT:-}" ]] || exit "$FAKE_RENAME_EXIT"
+arguments=("$@")
+destination="${arguments[${#arguments[@]}-2]}"
+case "${FAKE_SWAP_DESTINATION:-}" in
+  directory) mkdir "$destination"; printf 'preserve\n' >"$destination/sentinel";;
+  symlink) mkdir -p "${FAKE_SWAP_TARGET:?}"; printf 'preserve\n' >"$FAKE_SWAP_TARGET/sentinel"; ln -s "$FAKE_SWAP_TARGET" "$destination";;
+esac
+if [[ -n "${FAKE_INTERLEAVE:-}" ]]; then
+  arguments[2]="$(/usr/bin/ruby -e '
+    code = ARGV.fetch(0)
+    needle = "  if backend == :darwin\n    operation = \"renameatx_np\"\n    result = DarwinRename.renameatx_np(-2, source, -2, destination, flags)"
+    injection = <<~RUBY
+      if ENV["FAKE_INTERLEAVE"] == "source"
+        File.rename(source, ENV.fetch("FAKE_SAVED_SOURCE"))
+        Dir.mkdir(source)
+        File.write(File.join(source, "foreign"), "preserve\\n")
+        File.write(ENV.fetch("FAKE_SOURCE_LOG"), source)
+      elsif ENV["FAKE_INTERLEAVE"] == "destination"
+        File.rename(destination, ENV.fetch("FAKE_SAVED_DESTINATION"))
+        Dir.mkdir(destination)
+        File.write(File.join(destination, "foreign"), "preserve\\n")
+        File.write(ENV.fetch("FAKE_SOURCE_LOG"), source)
+      end
+    RUBY
+    abort "rename interleave seam missing or duplicated" unless code.scan(needle).length == 1
+    code = code.sub(needle, injection + needle)
+    if ENV["FAKE_FORCE_LINUX_STUB"] == "1"
+      host_needle = "host_os = RbConfig::CONFIG.fetch(\"host_os\")"
+      library_needle = "      dlload Fiddle.dlopen(nil)\n      extern \"int renameat2(int, const char *, int, const char *, unsigned int)\""
+      abort "host platform needle missing or duplicated" unless code.scan(host_needle).length == 1
+      abort "Linux rename library needle missing or duplicated" unless code.scan(library_needle).length == 1
+      code = code.sub(host_needle, "host_os = \"linux-gnu\"")
+      code = code.sub(library_needle, "      dlload ENV.fetch(\"LINUX_RENAME_STUB\")\n      extern \"int renameat2(int, const char *, int, const char *, unsigned int)\"")
+    end
+    print code
+  ' "${arguments[2]}")"
+fi
+exec /usr/bin/ruby "${arguments[@]}"
+SH
+cat >"$B/linux-rename" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+arguments=("$@")
+arguments[2]="$(/usr/bin/ruby -e '
+  code = ARGV.fetch(0)
+  host_needle = "host_os = RbConfig::CONFIG.fetch(\"host_os\")"
+  library_needle = "      dlload Fiddle.dlopen(nil)\n      extern \"int renameat2(int, const char *, int, const char *, unsigned int)\""
+  abort "host platform needle missing" unless code.include?(host_needle)
+  abort "Linux rename library needle missing" unless code.include?(library_needle)
+  code = code.sub(host_needle, "host_os = \"linux-gnu\"")
+  code = code.sub(library_needle, "      dlload ENV.fetch(\"LINUX_RENAME_STUB\")\n      extern \"int renameat2(int, const char *, int, const char *, unsigned int)\"")
+  print code
+' "${arguments[2]}")"
+exec /usr/bin/ruby "${arguments[@]}"
+SH
+cat >"$B/unsupported-rename" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+arguments=("$@")
+arguments[2]="$(/usr/bin/ruby -e '
+  code = ARGV.fetch(0)
+  needle = "host_os = RbConfig::CONFIG.fetch(\"host_os\")"
+  abort "host platform needle missing" unless code.include?(needle)
+  print code.sub(needle, "host_os = \"unsupported-test-os\"")
+' "${arguments[2]}")"
+exec /usr/bin/ruby "${arguments[@]}"
+SH
+cat >"$B/remove" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+"$OBSERVER" remove "$@"
+arguments=("$@")
+if [[ "${FAKE_REMOVE_INTERLEAVE:-0}" == 1 ]]; then
+  arguments[2]="$(/usr/bin/ruby -e '
+    code = ARGV.fetch(0)
+    needle = "    FileUtils.remove_entry_secure(path, true)"
+    injection = <<~RUBY
+      File.rename(path, ENV.fetch("FAKE_REMOVE_SAVED"))
+      Dir.mkdir(path)
+      File.write(File.join(path, "foreign"), "preserve\\n")
+      File.write(ENV.fetch("FAKE_REMOVE_CALLED"), path)
+    RUBY
+    abort "remove interleave needle missing" unless code.include?(needle)
+    print code.sub(needle, injection + needle)
+  ' "${arguments[2]}")"
+fi
+exec /usr/bin/ruby "${arguments[@]}"
+SH
+
+cat >"$B/smoke" <<'SH'
+#!/usr/bin/env bash
+"$OBSERVER" smoke "$@"
+printf 'smoke:%s\n' "$*" >>"$CALL_LOG"
+[[ "${FAIL_SMOKE:-0}" == 0 ]] || exit 31
+SH
+cat >"$B/codesign" <<'SH'
+#!/usr/bin/env bash
+"$OBSERVER" codesign "$@"
+printf 'codesign:%s\n' "$*" >>"$CALL_LOG"; [[ "${FAIL_VERIFY:-}" != codesign ]] || exit 32
+SH
+cat >"$B/spctl" <<'SH'
+#!/usr/bin/env bash
+"$OBSERVER" spctl "$@"
+printf 'spctl:%s\n' "$*" >>"$CALL_LOG"; [[ "${FAIL_VERIFY:-}" != gatekeeper ]] || exit 33
+SH
+cat >"$B/xcrun" <<'SH'
+#!/usr/bin/env bash
+"$OBSERVER" xcrun "$@"
+printf 'xcrun:%s\n' "$*" >>"$CALL_LOG"
+if [[ "$1" == stapler ]]; then [[ "${FAIL_VERIFY:-}" != staple ]] || exit 34; exit 0; fi
+[[ "$1" == swift ]] || exit 90
+[[ "${KEY_MISMATCH:-0}" == 0 ]] || exit 35
+SH
+cat >"$B/file" <<'SH'
+#!/usr/bin/env bash
+"$OBSERVER" file "$@"
+[[ "${BAD_PLATFORM:-0}" == 0 ]] || { echo "$1: data"; exit 0; }
+echo "$1: Mach-O 64-bit executable arm64"
+SH
+cat >"$B/hdiutil" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+"$OBSERVER" hdiutil "$@"
+printf 'hdiutil:%s\n' "$*" >>"$CALL_LOG"
+if [[ "$1" == detach ]]; then exit 0; fi
+[[ "${FAIL_HDIUTIL:-0}" == 0 ]] || exit 39
+mount=''; prev=''; for a in "$@"; do [[ "$prev" == -mountpoint ]] && mount="$a"; prev="$a"; done
+mkdir -p "$mount/UpdateBar.app/Contents"; printf plist >"$mount/UpdateBar.app/Contents/Info.plist"
+reported="$mount"; [[ "${BAD_MOUNT:-0}" == 0 ]] || reported=/tmp/evil
+printf '<plist><array><dict><key>mount-point</key><string>%s</string></dict></array></plist>\n' "$reported"
+SH
+cat >"$B/plutil" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+"$OBSERVER" plutil "$@"
+key="$2"
+case "$key" in
+  CFBundleShortVersionString) [[ "${BAD_PLIST:-}" != version ]] && echo 0.6.1 || echo 9.9.9;;
+  CFBundleVersion) [[ "${BAD_PLIST:-}" != build ]] && echo 0.6.1 || echo abc;;
+  SUFeedURL) [[ "${BAD_PLIST:-}" != feed ]] && echo https://updates.updatebar.sonim1.com/appcast.xml || echo https://evil.example/appcast.xml;;
+  SUPublicEDKey) [[ "${BAD_PLIST:-}" != key ]] && echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= || echo BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=;;
+  *) exit 90;;
+esac
+SH
+cat >"$R/.build/artifacts/sparkle/Sparkle/bin/generate_appcast" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+"$OBSERVER" generate_appcast "$@"
+printf 'appcast:' >>"$CALL_LOG"; printf '%q ' "$@" >>"$CALL_LOG"; printf '\n' >>"$CALL_LOG"
+keyfile=''; out=''; dir=''; prev=''
+for arg in "$@"; do [[ "$prev" == --ed-key-file ]] && keyfile="$arg"; [[ "$prev" == -o ]] && out="$arg"; prev="$arg"; dir="$arg"; done
+if [[ -n "$keyfile" ]]; then
+  [[ -z "${SPARKLE_PRIVATE_ED_KEY+x}" && -z "${PRIVATE_KEY+x}" ]] || exit 38
+  if [[ "${FAKE_KEYFILE_SYMLINK:-0}" == 1 ]]; then
+    cp "$keyfile" "${FAKE_KEYFILE_SYMLINK_TARGET:?}"
+    chmod 600 "$FAKE_KEYFILE_SYMLINK_TARGET"
+    rm "$keyfile"
+    ln -s "$FAKE_KEYFILE_SYMLINK_TARGET" "$keyfile"
+  fi
+  /usr/bin/ruby -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; printf "%o\n", s.mode & 0777' "$keyfile" >"${CALL_LOG}.mode"; printf '%s' "$keyfile" >"${CALL_LOG}.keypath"; grep -Fq 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=' "$keyfile" || exit 36
+fi
+[[ "${FAIL_TOOL:-0}" == 0 ]] || exit 37
+dmg="$dir/UpdateBar-0.6.1-macos-arm64.dmg"; length="$(/usr/bin/ruby -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; print s.size' "$dmg")"
+signature=' sparkle:edSignature="Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQw=="'
+case "${BAD_XML:-}" in malformed) printf '<rss' >"$out"; exit 0;; multi) extra='<enclosure url="x" />';; wrong) version=9.9.9;; unsafe-url) url='https://evil.example/file.dmg';; wrong-length) length=999;; no-signature) signature='';; esac
+version="${version:-0.6.1}"
+url="${url:-https://updates.updatebar.sonim1.com/UpdateBar-0.6.1-macos-arm64.dmg}"
+cat >"$out" <<XML
+<?xml version="1.0"?><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="$url" length="$length" sparkle:version="$version" sparkle:shortVersionString="$version"$signature />${extra:-}</item></channel></rss>
+XML
+[[ "${FAKE_SUBSTITUTE_SOURCE_AFTER_SIGN:-0}" == 0 ]] || printf 'bad bytes\n' >"${SOURCE_DMG:?}"
+SH
+chmod +x "$B"/* "$R/.build/artifacts/sparkle/Sparkle/bin/generate_appcast"
+LINUX_RENAME_STUB=''
+if [[ "$(uname -s)" == Darwin ]]; then
+  LINUX_RENAME_STUB="$T/liblinux-rename-stub.dylib"
+  cat >"$T/linux-rename-stub.c" <<'C'
+#include <errno.h>
+#include <stdlib.h>
+
+extern int renameatx_np(int, const char *, int, const char *, unsigned int);
+
+int renameat2(int olddirfd, const char *oldpath, int newdirfd, const char *newpath, unsigned int flags) {
+  const char *forced_errno = getenv("LINUX_RENAME_STUB_ERRNO");
+  if (forced_errno != NULL) {
+    errno = atoi(forced_errno);
+    return -1;
+  }
+  if (olddirfd != -100 || newdirfd != -100) {
+    errno = EINVAL;
+    return -1;
+  }
+  unsigned int darwin_flags;
+  if (flags == 1) {
+    darwin_flags = 4;
+  } else if (flags == 2) {
+    darwin_flags = 2;
+  } else {
+    errno = EINVAL;
+    return -1;
+  }
+  return renameatx_np(-2, oldpath, -2, newpath, darwin_flags);
+}
+C
+  /usr/bin/xcrun --sdk macosx clang -dynamiclib -o "$LINUX_RENAME_STUB" "$T/linux-rename-stub.c"
+fi
+mkdir -p "$T/evil"
+cat >"$T/evil/generate_appcast" <<'SH'
+#!/usr/bin/env bash
+exit 77
+SH
+chmod +x "$T/evil/generate_appcast"
+
+run_case() {
+  local name="$1" expected="$2"; shift 2; rm -rf "$R/dist/updates"; : >"$LOG"
+  [[ "$name" != dest-conflict ]] || ln -s "$T/elsewhere" "$R/dist/updates"
+  case "$name" in replace-existing|removal-interleave|interleave-swap|interleave-destination-swap|linux-swap|linux-interleave-destination) mkdir "$R/dist/updates"; printf 'old\n' >"$R/dist/updates/old";; esac
+  set +e
+  : >"$T/children"
+  env PATH="$B:$PATH" OBSERVER="$B/observe" CHILD_LOG="$T/children" CALL_LOG="$LOG" SPARKLE_PUBLIC_ED_KEY="$KEY" APP_DMG_SMOKE_BIN="$B/smoke" CODESIGN_BIN="$B/codesign" SPCTL_BIN="$B/spctl" XCRUN_BIN="$B/xcrun" FILE_BIN="$B/file" HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN="$B/plutil" "$@" "$R/Scripts/generate-appcast.sh" >"$T/$name.out" 2>"$T/$name.err"
+  status=$?; set -e
+  [[ "$status" == "$expected" ]] || { cat "$T/$name.out" >&2; cat "$T/$name.err" >&2; echo "$name expected $expected got $status" >&2; exit 1; }
+}
+
+preserved_previous_path() {
+  awk '/^Preserved previous update output at: / { sub(/^Preserved previous update output at: /, ""); path=$0 } END { print path }' "$1"
+}
+
+# RED: copied implementation is absent before production script exists.
+run_case keychain 0
+test -f "$R/dist/updates/appcast.xml"
+test -z "$(find "$R/dist" -maxdepth 1 -name '.generate-appcast-final.*' -print -quit)"
+grep -Fq -- '--account updatebar' "$LOG"
+run_case ci 0 SPARKLE_PRIVATE_ED_KEY="$PRIVATE"
+[[ "$(cat "$LOG.mode")" == 600 ]]
+! grep -Fq "$PRIVATE" "$LOG" "$T/ci.out"
+grep -Fq 'child:ruby' "$T/children"
+! grep -Fq "$PRIVATE" "$T/children"
+test ! -e "$(cat "$LOG.keypath")"
+symlink_key_target="$T/symlink-key-target"
+run_case symlink-private-key 1 SPARKLE_PRIVATE_ED_KEY="$PRIVATE" FAKE_KEYFILE_SYMLINK=1 FAKE_KEYFILE_SYMLINK_TARGET="$symlink_key_target"
+[[ -f "$symlink_key_target" && ! -L "$symlink_key_target" ]]
+[[ "$(/usr/bin/ruby -e 'printf "%o", File.stat(ARGV.fetch(0)).mode & 0777' "$symlink_key_target")" == 600 ]]
+test ! -e "$R/dist/updates/appcast.xml"
+run_case fixed-provenance 0 SPARKLE_ARTIFACT_ROOT="$T/evil"
+run_case unsupported-rename-platform 1 RENAME_BIN="$B/unsupported-rename"
+test ! -e "$R/dist/updates/appcast.xml"
+if [[ -n "$LINUX_RENAME_STUB" ]]; then
+  run_case linux-exclusive 0 RENAME_BIN="$B/linux-rename" LINUX_RENAME_STUB="$LINUX_RENAME_STUB"
+  test -f "$R/dist/updates/appcast.xml"
+  run_case linux-swap 0 RENAME_BIN="$B/linux-rename" LINUX_RENAME_STUB="$LINUX_RENAME_STUB"
+  linux_previous="$(preserved_previous_path "$T/linux-swap.err")"
+  test -f "$linux_previous/old"
+  rm -rf "$linux_previous"
+  run_case linux-rename-error 73 RENAME_BIN="$B/linux-rename" LINUX_RENAME_STUB="$LINUX_RENAME_STUB" LINUX_RENAME_STUB_ERRNO=18
+  grep -Fq 'renameat2 failed with errno 18' "$T/linux-rename-error.err"
+  test ! -e "$R/dist/updates/appcast.xml"
+  linux_saved_source="$T/linux-saved-source"
+  linux_source_log="$T/linux-source-log"
+  run_case linux-interleave-source 74 RENAME_BIN="$B/rename" FAKE_FORCE_LINUX_STUB=1 LINUX_RENAME_STUB="$LINUX_RENAME_STUB" FAKE_INTERLEAVE=source FAKE_SAVED_SOURCE="$linux_saved_source" FAKE_SOURCE_LOG="$linux_source_log"
+  test -f "$R/dist/updates/foreign"
+  test -f "$linux_saved_source/appcast.xml"
+  rm -rf "$R/dist/updates" "$linux_saved_source"; rm -f "$linux_source_log"
+  linux_saved_destination="$T/linux-saved-destination"
+  run_case linux-interleave-destination 74 RENAME_BIN="$B/rename" FAKE_FORCE_LINUX_STUB=1 LINUX_RENAME_STUB="$LINUX_RENAME_STUB" FAKE_INTERLEAVE=destination FAKE_SAVED_DESTINATION="$linux_saved_destination" FAKE_SOURCE_LOG="$linux_source_log"
+  linux_interleaved_source="$(cat "$linux_source_log")"
+  test -f "$R/dist/updates/appcast.xml"
+  test -f "$linux_saved_destination/old"
+  test -f "$linux_interleaved_source/foreign"
+  rm -rf "$R/dist/updates" "$linux_saved_destination" "$linux_interleaved_source"; rm -f "$linux_source_log"
+fi
+cp "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg" "$T/original-dmg"
+run_case source-substitution 0 FAKE_SUBSTITUTE_SOURCE_AFTER_SIGN=1 SOURCE_DMG="$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
+cmp "$T/original-dmg" "$R/dist/updates/UpdateBar-0.6.1-macos-arm64.dmg"
+cp "$T/original-dmg" "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
+run_case key-mismatch 35 SPARKLE_PRIVATE_ED_KEY="$PRIVATE" KEY_MISMATCH=1
+test ! -e "$R/dist/updates/appcast.xml"
+run_case invalid-private 64 SPARKLE_PRIVATE_ED_KEY=not-base64
+run_case invalid-public 64 SPARKLE_PUBLIC_ED_KEY=not-base64
+run_case dmg-signature 31 FAIL_SMOKE=1
+run_case dmg-plist-feed-key-version 31 FAIL_SMOKE=1
+run_case codesign 32 FAIL_VERIFY=codesign
+run_case staple 34 FAIL_VERIFY=staple
+run_case gatekeeper 33 FAIL_VERIFY=gatekeeper
+run_case metadata-mount 39 FAIL_HDIUTIL=1
+run_case unsafe-mount 1 BAD_MOUNT=1
+run_case plist-version 1 BAD_PLIST=version
+run_case plist-build 1 BAD_PLIST=build
+run_case plist-feed 1 BAD_PLIST=feed
+run_case plist-key 1 BAD_PLIST=key
+run_case tool 37 FAIL_TOOL=1
+run_case malformed 1 BAD_XML=malformed
+run_case multi 1 BAD_XML=multi
+run_case wrong 1 BAD_XML=wrong
+run_case unsafe-url 1 BAD_XML=unsafe-url
+run_case wrong-length 1 BAD_XML=wrong-length
+run_case no-signature 1 BAD_XML=no-signature
+run_case platform 66 BAD_PLATFORM=1
+run_case dest-conflict 1
+run_case destination-directory-substitution 1 RENAME_BIN="$B/rename" FAKE_SWAP_DESTINATION=directory
+test -f "$R/dist/updates/sentinel"
+! grep -Fq "$R/dist/updates/appcast.xml" "$T/destination-directory-substitution.out"
+rm -rf "$R/dist/updates"
+swap_target="$T/swap-target"
+run_case destination-symlink-substitution 1 RENAME_BIN="$B/rename" FAKE_SWAP_DESTINATION=symlink FAKE_SWAP_TARGET="$swap_target"
+test -L "$R/dist/updates"
+test -f "$swap_target/sentinel"
+! grep -Fq "$R/dist/updates/appcast.xml" "$T/destination-symlink-substitution.out"
+rm "$R/dist/updates"; rm -rf "$swap_target"
+saved_exclusive="$T/saved-exclusive"
+source_log="$T/interleave-source"
+run_case interleave-exclusive 74 RENAME_BIN="$B/rename" FAKE_INTERLEAVE=source FAKE_SAVED_SOURCE="$saved_exclusive" FAKE_SOURCE_LOG="$source_log"
+test -f "$R/dist/updates/foreign"
+test -f "$saved_exclusive/appcast.xml"
+! grep -Fq "$R/dist/updates/appcast.xml" "$T/interleave-exclusive.out"
+rm -rf "$R/dist/updates" "$saved_exclusive"; rm -f "$source_log"
+saved_swap="$T/saved-swap"
+run_case interleave-swap 74 RENAME_BIN="$B/rename" FAKE_INTERLEAVE=source FAKE_SAVED_SOURCE="$saved_swap" FAKE_SOURCE_LOG="$source_log"
+interleaved_source="$(cat "$source_log")"
+test -f "$R/dist/updates/foreign"
+test -f "$saved_swap/appcast.xml"
+test -f "$interleaved_source/old"
+! grep -Fq "$R/dist/updates/appcast.xml" "$T/interleave-swap.out"
+rm -rf "$R/dist/updates" "$saved_swap" "$interleaved_source"; rm -f "$source_log"
+saved_destination="$T/saved-destination"
+run_case interleave-destination-swap 74 RENAME_BIN="$B/rename" FAKE_INTERLEAVE=destination FAKE_SAVED_DESTINATION="$saved_destination" FAKE_SOURCE_LOG="$source_log"
+interleaved_source="$(cat "$source_log")"
+test -f "$R/dist/updates/appcast.xml"
+test -f "$saved_destination/old"
+test -f "$interleaved_source/foreign"
+! grep -Fq "$R/dist/updates/appcast.xml" "$T/interleave-destination-swap.out"
+rm -rf "$R/dist/updates" "$saved_destination" "$interleaved_source"; rm -f "$source_log"
+run_case rename-failure 47 RENAME_BIN="$B/rename" FAKE_RENAME_EXIT=47
+! grep -Fq "$R/dist/updates/appcast.xml" "$T/rename-failure.out"
+remove_saved="$T/remove-saved"
+remove_called="$T/remove-called"
+run_case removal-interleave 0 RENAME_BIN="$B/rename" REMOVE_BIN="$B/remove" FAKE_REMOVE_INTERLEAVE=1 FAKE_REMOVE_SAVED="$remove_saved" FAKE_REMOVE_CALLED="$remove_called"
+if [[ -e "$remove_called" ]]; then
+  removed_path="$(cat "$remove_called")"
+  test ! -e "$removed_path/foreign"
+  echo "recursive cleanup deleted the replacement at $removed_path" >&2
+  exit 1
+fi
+removal_backup="$(preserved_previous_path "$T/removal-interleave.err")"
+[[ "$removal_backup" == "$R/dist/.generate-appcast-final."* ]]
+test -f "$removal_backup/old"
+rm -rf "$removal_backup"
+run_case replace-existing 0 RENAME_BIN="$B/rename"
+test -f "$R/dist/updates/appcast.xml"
+test ! -e "$R/dist/updates/old"
+replace_backup="$(preserved_previous_path "$T/replace-existing.err")"
+[[ "$replace_backup" == "$R/dist/.generate-appcast-final."* ]]
+test -f "$replace_backup/old"
+rm -rf "$replace_backup"
+mkdir "$R/dist/.generate-appcast.lock"
+run_case concurrent-output 1
+rmdir "$R/dist/.generate-appcast.lock"
+
+cp "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg" "$T/dmg"
+printf 'wrong\n' >"$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
+run_case checksum-mismatch 1
+cp "$T/dmg" "$R/dist/UpdateBar-0.6.1-macos-arm64.dmg"
+printf 'UPDATEBAR_VERSION=0.6.1\nEXTRA=1\n' >"$R/version.env"
+run_case invalid-version-file 64
+cp "$ROOT/version.env" "$R/version.env"
+
+mkdir "$R/.build/artifacts/sparkle/Sparkle/alternate"
+cp "$R/.build/artifacts/sparkle/Sparkle/bin/generate_appcast" "$R/.build/artifacts/sparkle/Sparkle/alternate/generate_appcast"
+chmod +x "$R/.build/artifacts/sparkle/Sparkle/alternate/generate_appcast"
+run_case ambiguous-tool 66
+rm -rf "$R/.build/artifacts/sparkle/Sparkle/alternate"
+rm "$R/.build/artifacts/sparkle/Sparkle/bin/generate_appcast"
+run_case missing-tool 66
+echo "generate appcast tests passed"

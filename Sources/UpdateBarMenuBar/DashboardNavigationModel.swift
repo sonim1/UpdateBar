@@ -46,7 +46,7 @@ public struct DashboardNavigationModel: Equatable, Sendable {
         case .scanAndAdd:
             return .scan
         case .refreshStatus, .checkNow, .updateAllApprovedOutdated, .openTUI, .openConfig,
-            .viewLogs, .quit:
+            .viewLogs, .checkForUpdates, .quit:
             return nil
         }
     }

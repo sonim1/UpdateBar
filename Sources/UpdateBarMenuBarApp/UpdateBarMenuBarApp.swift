@@ -1,6 +1,7 @@
 #if os(macOS)
     import AppKit
     import Foundation
+    import Sparkle
     import UpdateBarCore
     import UpdateBarMenuBar
 
@@ -17,6 +18,11 @@
         private let menuBuilder = MenuBarMenuModelBuilder()
         private let actionCoordinator = MenuBarActionCoordinator()
         private let dashboardNavigationModel = DashboardNavigationModel()
+        private let updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
         private var refreshGenerationGate = MenuBarRefreshGenerationGate()
         private var stateChangeMonitor = MenuBarStateChangeMonitor()
         private var stateChangeTimer: Timer?
@@ -99,6 +105,10 @@
             runAction("Updating approved items") { [service] token in
                 try service?.updateAllApproved(cancellationToken: token)
             }
+        }
+
+        @objc private func checkForUpdates() {
+            updaterController.checkForUpdates(nil)
         }
 
         @objc private func updateSelected(_ sender: NSMenuItem) {
@@ -686,6 +696,8 @@
                 return #selector(openConfig)
             case .viewLogs:
                 return #selector(viewLogs)
+            case .checkForUpdates:
+                return #selector(checkForUpdates)
             case .quit:
                 return #selector(quit)
             }
