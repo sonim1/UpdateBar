@@ -11,7 +11,7 @@ VALID_SIGNATURE='88snSkTEGzck0rEKyJqk9xhfNefxjQMDShO8eWEjfO8VxqKa8a3dozGbF4XtHzJ
 EXPECTED_SWIFT_VERIFY='import Foundation; import CryptoKit; let a=CommandLine.arguments; guard let p=Data(base64Encoded:a[1]),let s=Data(base64Encoded:a[2]) else{exit(2)}; do{let k=try Curve25519.Signing.PublicKey(rawRepresentation:p);let d=try Data(contentsOf:URL(fileURLWithPath:a[3]));exit(k.isValidSignature(s,for:d) ? 0:1)}catch{exit(2)}'
 HOST_PLATFORM="$(uname -s)"
 case "$HOST_PLATFORM" in Darwin|Linux) ;; *) fail "unsupported publish-release test platform: $HOST_PLATFORM";; esac
-unset XCRUN_TEST_PLATFORM
+unset XCRUN_TEST_PLATFORM PLUTIL_TEST_PLATFORM
 mkdir -p "$P/Scripts" "$P/dist/updates" "$B" "$A"; cp "$SOURCE" "$P/Scripts/publish-release.sh"; chmod +x "$P/Scripts/publish-release.sh"
 
 cat >"$B/git" <<'EOF'
@@ -44,6 +44,46 @@ cat >"$mount/UpdateBar.app/Contents/Info.plist" <<PLIST
 <?xml version="1.0"?><plist version="1.0"><dict><key>SUFeedURL</key><string>https://updates.updatebar.sonim1.com/appcast.xml</string><key>SUPublicEDKey</key><string>${DMG_PUBLIC_KEY_FIXTURE}</string></dict></plist>
 PLIST
 printf '<plist><dict><key>system-entities</key><array><dict><key>mount-point</key><string>%s</string></dict></array></dict></plist>\n' "$mount"
+EOF
+cat >"$B/plutil" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+platform="${PLUTIL_TEST_PLATFORM:-$(uname -s)}"
+if [[ "$platform" == Darwin ]]; then
+  exec /usr/bin/plutil "$@"
+fi
+[[ "$platform" == Linux ]] || exit 90
+[[ $# == 6 ]] || exit 90
+[[ "$1" == -extract && "$3" == raw && "$4" == -o && "$5" == - && -f "$6" && ! -L "$6" ]] || exit 90
+"${RUBY_BIN:-/usr/bin/ruby}" -rrexml/document -e '
+  key,path=ARGV
+  begin
+    raw=File.binread(path)
+    exit 1 if raw.include?("<!DOCTYPE")
+    root=REXML::Document.new(raw).root
+    children=root&.elements&.to_a
+    exit 1 unless root&.name=="plist"&&children&.length==1&&children[0].name=="dict"
+    entries=children[0].elements.to_a
+    exit 1 unless entries.length.even?
+    values=[]
+    entries.each_slice(2) do |key_element,value_element|
+      exit 1 unless key_element.name=="key"
+      key_children=key_element.children
+      exit 1 unless key_children.all?{|child|child.is_a?(REXML::Text)}
+      key_value=key_children.map(&:value).join
+      exit 1 unless value_element.name=="string"
+      string_children=value_element.children
+      exit 1 unless string_children.all?{|child|child.is_a?(REXML::Text)}
+      string_value=string_children.map(&:value).join
+      next unless key_value==key
+      values << string_value
+    end
+    exit 1 unless values.length==1&&!values[0].match?(/[\0\r\n]/)
+    print values[0]
+  rescue REXML::ParseException,SystemCallError
+    exit 1
+  end
+' "$2" "$6"
 EOF
 cat >"$B/xcrun" <<'EOF'
 #!/usr/bin/env bash
@@ -147,7 +187,7 @@ EOF
 EOF
 }
 reset(){ rm -rf "$STATE" "${A:?}"/* "$R2_CAPTURE" "$TMP/substituted"; : >"$ORDER"; : >"$GHLOG"; : >"$VERIFIER_LOG"; : >"$TMP/git.log"; FAKE_UPLOAD_STATUS=0; FAKE_EDIT_STATUS=0; FAKE_R2_STATUS=0; FAKE_CREATE_STATUS=0; FAKE_ORIGIN='git@github.com:sonim1/UpdateBar.git'; FAKE_HEAD="$COMMIT"; FAKE_TAG="$COMMIT"; FAKE_MAIN="$COMMIT"; FAKE_REMOTE_TAG="$COMMIT"; FAKE_ANCESTOR_STATUS=0; FAKE_DIRTY=''; FAKE_MAIN_FETCH_STATUS=0; FAKE_REMOTE_FETCH_STATUS=0; FAKE_REF_CLEANUP_STATUS=0; EXTRA_NAMES=''; CONCURRENT_REPLACE=0; FAKE_SOURCE_SUBSTITUTE=0; DMG_PUBLIC_KEY_FIXTURE="$PUBLIC_KEY"; write_files; }
-run(){ set +e; output="$(GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN="$B/cmp" RUBY_BIN=/usr/bin/ruby HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN=/usr/bin/plutil REALPATH_BIN=/bin/realpath XCRUN_BIN="$B/xcrun" XCRUN_TEST_PLATFORM="${XCRUN_TEST_PLATFORM:-}" VERIFIER_LOG="$VERIFIER_LOG" PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" GIT_LOG="$TMP/git.log" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" LIVE_DIST_DIR="$P/dist" MAC_NAME="$MAC" DMG_NAME="$DMG" DMG_PUBLIC_KEY_FIXTURE="$DMG_PUBLIC_KEY_FIXTURE" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_SOURCE_SUBSTITUTE="$FAKE_SOURCE_SUBSTITUTE" TARGET_SOURCE="$P/dist/$MAC" SUBSTITUTE_MARKER="$TMP/substituted" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" FAKE_MAIN="$FAKE_MAIN" FAKE_REMOTE_TAG="$FAKE_REMOTE_TAG" FAKE_ANCESTOR_STATUS="$FAKE_ANCESTOR_STATUS" FAKE_DIRTY="$FAKE_DIRTY" FAKE_MAIN_FETCH_STATUS="$FAKE_MAIN_FETCH_STATUS" FAKE_REMOTE_FETCH_STATUS="$FAKE_REMOTE_FETCH_STATUS" FAKE_REF_CLEANUP_STATUS="$FAKE_REF_CLEANUP_STATUS" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
+run(){ set +e; output="$(GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN="$B/cmp" RUBY_BIN=/usr/bin/ruby HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN="$B/plutil" REALPATH_BIN=/bin/realpath XCRUN_BIN="$B/xcrun" XCRUN_TEST_PLATFORM="${XCRUN_TEST_PLATFORM:-}" VERIFIER_LOG="$VERIFIER_LOG" PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" GIT_LOG="$TMP/git.log" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" LIVE_DIST_DIR="$P/dist" MAC_NAME="$MAC" DMG_NAME="$DMG" DMG_PUBLIC_KEY_FIXTURE="$DMG_PUBLIC_KEY_FIXTURE" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_SOURCE_SUBSTITUTE="$FAKE_SOURCE_SUBSTITUTE" TARGET_SOURCE="$P/dist/$MAC" SUBSTITUTE_MARKER="$TMP/substituted" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" FAKE_MAIN="$FAKE_MAIN" FAKE_REMOTE_TAG="$FAKE_REMOTE_TAG" FAKE_ANCESTOR_STATUS="$FAKE_ANCESTOR_STATUS" FAKE_DIRTY="$FAKE_DIRTY" FAKE_MAIN_FETCH_STATUS="$FAKE_MAIN_FETCH_STATUS" FAKE_REMOTE_FETCH_STATUS="$FAKE_REMOTE_FETCH_STATUS" FAKE_REF_CLEANUP_STATUS="$FAKE_REF_CLEANUP_STATUS" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
 publication_mutation_entries() {
   awk '/^(create|upload |publish-r2$|publish-github$)/ { print "ORDER: " $0 }' "$ORDER"
   awk '/^release (create|upload|edit)( |$)/ { print "GHLOG: " $0 }' "$GHLOG"
@@ -197,6 +237,39 @@ if VERIFIER_LOG="$VERIFIER_LOG" XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$
 if VERIFIER_LOG="$VERIFIER_LOG" XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$EXPECTED_SWIFT_VERIFY" "$PUBLIC_KEY" wrong "$P/dist/$DMG"; then fail "Linux xcrun fixture accepted a wrong signature"; fi
 printf bad >"$TMP/bad-dmg"
 if VERIFIER_LOG="$VERIFIER_LOG" XCRUN_TEST_PLATFORM=Linux "$B/xcrun" swift -e "$EXPECTED_SWIFT_VERIFY" "$PUBLIC_KEY" "$VALID_SIGNATURE" "$TMP/bad-dmg"; then fail "Linux xcrun fixture accepted changed DMG bytes"; fi
+DMG_PUBLIC_KEY_FIXTURE="$PUBLIC_KEY" "$B/hdiutil" attach -mountpoint "$TMP/plutil-mount" -plist -nobrowse -readonly "$P/dist/$DMG" >/dev/null
+PLUTIL_FIXTURE="$TMP/plutil-mount/UpdateBar.app/Contents/Info.plist"
+if ! feed="$(PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract SUFeedURL raw -o - "$PLUTIL_FIXTURE" 2>/dev/null)"; then
+  fail "Linux plutil fixture did not support extracting the Sparkle feed URL"
+fi
+[[ "$feed" == 'https://updates.updatebar.sonim1.com/appcast.xml' ]] || fail "Linux plutil fixture returned the wrong Sparkle feed URL"
+if ! key="$(PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract SUPublicEDKey raw -o - "$PLUTIL_FIXTURE" 2>/dev/null)"; then
+  fail "Linux plutil fixture did not support extracting the Sparkle public key"
+fi
+[[ "$key" == "$PUBLIC_KEY" ]] || fail "Linux plutil fixture returned the wrong Sparkle public key"
+if PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract UnexpectedKey raw -o - "$PLUTIL_FIXTURE" >/dev/null 2>&1; then
+  fail "Linux plutil fixture accepted an unexpected metadata key"
+fi
+MALFORMED_PLUTIL_FIXTURE="$TMP/malformed-plutil-fixture.plist"
+printf '%s\n' '<?xml version="1.0"?><plist version="1.0"><dict><key>SUFeedURL</key><string>https://updates.updatebar.sonim1.com/appcast.xml</string>' >"$MALFORMED_PLUTIL_FIXTURE"
+if PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract SUFeedURL raw -o - "$MALFORMED_PLUTIL_FIXTURE" >/dev/null 2>&1; then
+  fail "Linux plutil fixture accepted a malformed property list"
+fi
+NESTED_PLUTIL_FIXTURE="$TMP/nested-plutil-fixture.plist"
+printf '%s\n' '<?xml version="1.0"?><plist version="1.0"><dict><key>SUFeedURL</key><string>https://updates.updatebar.sonim1.com/appcast.xml<evil/></string></dict></plist>' >"$NESTED_PLUTIL_FIXTURE"
+if PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract SUFeedURL raw -o - "$NESTED_PLUTIL_FIXTURE" >/dev/null 2>&1; then
+  fail "Linux plutil fixture accepted a nested element inside a string"
+fi
+MALFORMED_OTHER_VALUE_FIXTURE="$TMP/malformed-other-value-fixture.plist"
+printf '%s\n' '<?xml version="1.0"?><plist version="1.0"><dict><key>Other</key><evil/><key>SUFeedURL</key><string>https://updates.updatebar.sonim1.com/appcast.xml</string></dict></plist>' >"$MALFORMED_OTHER_VALUE_FIXTURE"
+if PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract SUFeedURL raw -o - "$MALFORMED_OTHER_VALUE_FIXTURE" >/dev/null 2>&1; then
+  fail "Linux plutil fixture ignored a malformed non-target value"
+fi
+MALFORMED_TARGET_KEY_FIXTURE="$TMP/malformed-target-key-fixture.plist"
+printf '%s\n' '<?xml version="1.0"?><plist version="1.0"><dict><key>SUFeedURL<evil/></key><string>https://updates.updatebar.sonim1.com/appcast.xml</string></dict></plist>' >"$MALFORMED_TARGET_KEY_FIXTURE"
+if PLUTIL_TEST_PLATFORM=Linux "$B/plutil" -extract SUFeedURL raw -o - "$MALFORMED_TARGET_KEY_FIXTURE" >/dev/null 2>&1; then
+  fail "Linux plutil fixture accepted a nested element inside a key"
+fi
 
 if [[ "$HOST_PLATFORM" == Darwin ]]; then
   reset
