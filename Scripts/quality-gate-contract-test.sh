@@ -37,6 +37,69 @@ if [[ ! -f "$RELEASE_WORKFLOW" ]]; then
   exit 1
 fi
 
+ruby -e '
+  quality_gate = File.binread(ARGV.fetch(0))
+  expected_contracts = %w[
+    Scripts/release-tooling-test.sh
+    Scripts/setup-update-hosting-test.sh
+    Scripts/generate-appcast-test.sh
+    Scripts/publish-update-test.sh
+    Scripts/generate-release-manifest-test.sh
+    Scripts/publish-release-test.sh
+    Scripts/dispatch-homebrew-update-test.sh
+    Scripts/release-workflow-test.sh
+  ]
+  invocations = quality_gate.lines.map do |line|
+    match = line.match(/\A\s*bash\s+(Scripts\/[A-Za-z0-9-]+-test[.]sh)\s*\z/)
+    match && match[1]
+  end.compact
+  counts = invocations.each_with_object(Hash.new(0)) { |path, result| result[path] += 1 }
+  missing = expected_contracts.reject { |path| counts[path] == 1 }
+  duplicated = expected_contracts.select { |path| counts[path].to_i > 1 }
+  unless missing.empty? && duplicated.empty?
+    warn "quality-gate.sh release contract coverage is incomplete or duplicated"
+    exit 1
+  end
+
+  expected_syntax = %w[
+    Scripts/setup-update-hosting.sh
+    Scripts/generate-appcast.sh
+    Scripts/publish-update.sh
+    Scripts/generate-release-manifest.sh
+    Scripts/publish-release.sh
+    Scripts/dispatch-homebrew-update.sh
+    Scripts/build-release.sh
+    Scripts/package-app.sh
+    Scripts/build-app-icon.sh
+    Scripts/build-app-dmg.sh
+    Scripts/app-dmg-smoke-test.sh
+  ].sort
+  array_match = quality_gate.match(/\nRELEASE_SYNTAX_SCRIPTS=\(\n(?<body>.*?)\n\)\n/m)
+  abort "quality-gate.sh must declare release syntax coverage" unless array_match
+  syntax_paths = array_match[:body].lines.map do |line|
+    match = line.match(/\A\s*"(Scripts\/[A-Za-z0-9.-]+[.]sh)"\s*\z/)
+    abort "release syntax coverage must contain literal script paths" unless match
+    match[1]
+  end.compact
+  unless syntax_paths.length == syntax_paths.uniq.length && syntax_paths.sort == expected_syntax
+    warn "quality-gate.sh release syntax coverage does not match the supported release scripts"
+    exit 1
+  end
+  syntax_runs = quality_gate.scan(/^bash -n "\$\{RELEASE_SYNTAX_SCRIPTS\[@\]\}"$/).length
+  abort "quality-gate.sh must syntax-check the declared release scripts exactly once" unless syntax_runs == 1
+' "$QUALITY_GATE"
+
+for obsolete_script in \
+  Scripts/build-app-archive.sh \
+  Scripts/build-app-archive-test.sh \
+  Scripts/app-archive-smoke-test.sh \
+  Scripts/archive-version-smoke-test.sh; do
+  if [[ -e "$ROOT/$obsolete_script" || -L "$ROOT/$obsolete_script" ]]; then
+    echo "obsolete app archive script must be absent: $obsolete_script" >&2
+    exit 1
+  fi
+done
+
 CHECKSUM_TEST_TMP="$(mktemp -d)"
 trap 'rm -rf "$CHECKSUM_TEST_TMP"' EXIT
 CHECKSUM_TOOL_PATHS=()

@@ -105,6 +105,271 @@ npm --prefix tui run build
 UPDATEBAR_BIN=$PWD/.build/debug/updatebar UPDATEBAR_TUI=$PWD/tui/dist/index.js .build/debug/updatebar tui
 ```
 
+## Release Operations
+
+The normal release path is the protected GitHub Actions workflow in
+`.github/workflows/release.yml`. A version tag selects one immutable commit;
+GitHub Actions builds the two CLI archives, signs and notarizes the macOS app,
+publishes the Sparkle feed and GitHub Release, and then asks
+`sonim1/homebrew-tap` to update its packages.
+
+### One-time update hosting setup
+
+Install exactly the release tooling recorded in `package-lock.json`. Lifecycle
+scripts are disabled, and the local Wrangler version is fixed at 4.112.0:
+
+```bash
+npm ci --ignore-scripts
+node_modules/.bin/wrangler --version
+```
+
+Authenticate Wrangler with a Cloudflare identity that can inspect and create
+the R2 bucket and bind its custom domain. Then provide the 32-character account
+and zone IDs to the idempotent setup script:
+
+```bash
+CLOUDFLARE_ACCOUNT_ID=your-32-character-account-id \
+CLOUDFLARE_ZONE_ID=your-32-character-zone-id \
+Scripts/setup-update-hosting.sh
+```
+
+The script accepts only the `updatebar-updates` bucket and
+`updates.updatebar.sonim1.com` custom domain. It creates missing resources,
+accepts an exact existing configuration, and stops on conflicting state; it
+never deletes a bucket or domain. `updatebar.sonim1.com` is an optional future
+product website and is separate from the update host. A later move to
+`updatebar.app` must keep `https://updates.updatebar.sonim1.com/appcast.xml`
+reachable for installed builds. Introduce a new feed domain only with a tested
+compatibility or redirect strategy.
+
+### Sparkle signing key
+
+UpdateBar must use its own Sparkle Ed25519 key pair. Do not reuse SwitchTab's
+Sparkle key even when both apps share the same Apple Developer team,
+Developer ID certificate, and notarization credentials. After SwiftPM has
+resolved the pinned Sparkle package, create the local key under the Keychain
+account `updatebar`:
+
+```bash
+.build/artifacts/sparkle/Sparkle/bin/generate_keys --account updatebar
+```
+
+Set the printed public key as `SPARKLE_PUBLIC_ED_KEY`. The local
+`Scripts/generate-appcast.sh` path reads the private key directly from that
+Keychain account and never prints it. For GitHub Actions, export the private
+key to a permission-restricted temporary file and pipe it into the Environment
+secret prompt; remove the export immediately:
+
+```bash
+sparkle_secret_dir="$(mktemp -d)"
+chmod 700 "$sparkle_secret_dir"
+.build/artifacts/sparkle/Sparkle/bin/generate_keys \
+  --account updatebar -x "$sparkle_secret_dir/updatebar-sparkle-private-key"
+gh secret set --env release SPARKLE_PRIVATE_ED_KEY \
+  < "$sparkle_secret_dir/updatebar-sparkle-private-key"
+rm -f "$sparkle_secret_dir/updatebar-sparkle-private-key"
+rmdir "$sparkle_secret_dir"
+```
+
+Do not pass the private key on a command line, print it, commit it, or leave the
+export behind. The release script writes the CI value to a mode-0600 temporary
+file, removes the environment copy, verifies that the public and private keys
+match cryptographically, and deletes the temporary file on exit.
+
+### GitHub release environment
+
+Create a GitHub Environment named `release` and require reviewer approval.
+Configure these Environment variables, grouped by the job that references
+them:
+
+- `package`: `DEVELOPER_ID_APPLICATION`, `SPARKLE_PUBLIC_ED_KEY`
+- `publish`: `CLOUDFLARE_ACCOUNT_ID`
+- `notify`: `TAP_GITHUB_APP_ID`
+
+Configure these Environment secrets:
+
+- `package`: `APPLE_CERTIFICATE_P12_BASE64`,
+  `APPLE_CERTIFICATE_PASSWORD`, `APPLE_NOTARY_KEY_P8_BASE64`,
+  `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_ISSUER_ID`, and
+  `SPARKLE_PRIVATE_ED_KEY`
+- `publish`: `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, using R2 Object
+  Read & Write credentials scoped only to `updatebar-updates`
+- `notify`: `TAP_GITHUB_APP_PRIVATE_KEY`
+
+The `publish` job also receives GitHub's built-in `github.token`; it is not a
+configured secret. Each of `package`, `publish`, and `notify` enters the same
+protected Environment in sequence, so one release can present multiple
+approval prompts. The workflow injects only the listed values into each job,
+but all secrets in one Environment become available after that job's approval.
+Use separate Environments if availability isolation is required.
+
+The Apple certificate and notarization secrets may be the same values used by
+SwitchTab because the apps share the Apple team and certificate. The Sparkle
+key and bucket-scoped R2 credentials remain UpdateBar-specific.
+
+### Homebrew GitHub App
+
+Use one shared GitHub App for the unified tap automation and install it only on
+`sonim1/homebrew-tap`, not on `sonim1/UpdateBar` or `sonim1/switchtab`. Its
+minimum permission union is:
+
+- `Administration: Read` for the tap workflow's branch-protection preflight
+- `Contents: Read and write` for dispatches and the generated update branch
+- `Pull requests: Read and write` for pull-request creation and auto-merge
+
+Set `TAP_GITHUB_APP_ID` and `TAP_GITHUB_APP_PRIVATE_KEY` in UpdateBar's
+protected `release` Environment. Set the same variable and secret at repository
+scope in `sonim1/homebrew-tap`, because the receiving workflow needs them to
+create its guarded branch and pull request. Scope the installation owner to
+`sonim1` and the repository selection to `homebrew-tap` only. Enable auto-merge
+and strict default-branch protection in the tap repository with the exact
+required checks `contracts` and `homebrew`; the release scripts do not change
+these administrative settings.
+
+### Create and push a release tag
+
+Start from a clean `main` checkout after updating `version.env` and the
+changelog. Use one guarded flow that compares the local commit with freshly
+fetched `origin/main`, creates one exact annotated tag, verifies it, and pushes
+only its fully qualified ref:
+
+```bash
+(
+set -euo pipefail
+release_tag=v0.6.0
+git fetch --prune --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+git fetch --prune --tags origin
+test -z "$(git status --porcelain=v1 --untracked-files=all)"
+test "$(git branch --show-current)" = main
+test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
+version_line="$(< version.env)"
+[[ "$version_line" =~ ^UPDATEBAR_VERSION=([0-9]+([.][0-9]+){1,2})$ ]]
+test "${release_tag#v}" = "${BASH_REMATCH[1]}"
+if git show-ref --verify --quiet "refs/tags/$release_tag"; then
+  echo "Release tag already exists: $release_tag" >&2
+  exit 64
+fi
+release_commit="$(git rev-parse HEAD)"
+git tag -a "$release_tag" "$release_commit" -m "UpdateBar ${release_tag#v}"
+git show-ref --verify --quiet "refs/tags/$release_tag"
+test "$(git rev-parse "refs/tags/$release_tag^{commit}")" = "$release_commit"
+git push origin "refs/tags/$release_tag:refs/tags/$release_tag"
+)
+```
+
+Do not use a shorter tag command, move or recreate a release tag, or publish
+from an unverified local branch. The tag push is the end of the normal local
+procedure; GitHub Actions owns publication.
+
+### Automated release graph
+
+The workflow executes this graph:
+
+```text
+provenance -> verify (macOS/Linux matrix) -> package -> publish -> notify
+```
+
+`provenance` resolves the exact tag once and proves that it belongs to freshly
+fetched `origin/main`. The secret-free `verify` matrix runs Swift tests and
+builds and smoke-checks the Apple Silicon macOS and x86-64 Linux CLI archives.
+Those intermediate artifacts are retained for 7 days. After approval,
+`package` signs and notarizes the arm64 DMG, signs the Sparkle appcast, creates
+the release manifest, and uploads one checksum-bound immutable bundle retained
+for 30 days. After another approval, `publish` downloads that same bundle,
+validates its commit and checksums, publishes R2 and the GitHub Release, and
+makes the complete draft public. `notify` then enters the Environment and
+dispatches the exact repository and tag to the tap.
+
+All external Actions are pinned to reviewed 40-character commit SHAs:
+`actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1`,
+`swift-actions/setup-swift@7591e4f04c00624cb043783da51a7fd6ee0a6bf6`,
+`actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02`,
+`actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093`,
+and
+`actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42`.
+
+Every release publishes exactly eight GitHub assets:
+
+- `updatebar-<version>-macos-arm64.tar.gz` and its `.sha256`
+- `updatebar-<version>-linux-x86_64.tar.gz` and its `.sha256`
+- `UpdateBar-<version>-macos-arm64.dmg` and its `.sha256`
+- `appcast.xml`
+- `release-manifest.json`
+
+The tap dispatch payload contains only `repository=sonim1/UpdateBar` and the
+exact tag. The tap downloads and validates the public manifest. It updates the
+`updatebar` formula from the CLI release asset, the `updatebar-app` cask from
+the same DMG used by Sparkle, and the `updatebar-tui` formula from the immutable
+GitHub tag archive, then opens one guarded pull request for CI and auto-merge.
+
+Every tag shares the non-cancelling `updatebar-release` concurrency group. Its
+current `queue: max` behavior keeps the full queue, subject to GitHub Actions'
+limit of up to 100 queued workflow runs, instead of replacing pending tags.
+
+### Failed-job recovery
+
+If `package` fails before publication, fix the cause and use **Re-run failed
+jobs**. No GitHub Release or R2 update has occurred at that point, so the failed
+package job may build again.
+
+If `publish` fails, use **Re-run failed jobs** or rerun that specific failed
+`publish` job within the bundle's 30-day retention window. The rerun must reuse
+the existing `updatebar-release-<tag>` bundle; do not rerun all jobs, rebuild
+the bundle, or recreate, move, or delete the tag. The publisher can reuse an
+existing complete draft only when every required asset has identical bytes.
+R2 versioned objects are reused only when their bytes match, and the mutable
+appcast is updated last with an ETag precondition. These are script guarantees,
+not permission to replace conflicting state. Investigate any conflict instead
+of deleting or rolling back remote objects.
+
+If `notify` fails after publication, rerun only `notify`. It can request the
+`release` Environment approval again, but it does not rebuild or republish the
+release.
+
+### Local publication fallback
+
+Use this fallback only after the tag-triggered workflow is cancelled or
+disabled and no active run owns the tag. First produce both canonical CLI
+archives and checksums for their supported platforms in `dist/` without
+changing the tagged checkout. Then run the remaining steps from the same clean,
+freshly fetched tag. Keep Apple signing and notarization credentials in the
+Keychain, the Sparkle private key in Keychain account `updatebar`, and read
+short-lived R2 and tap credentials without placing them in shell history:
+
+```bash
+(
+set -euo pipefail
+set +x
+release_tag=v0.6.0
+trap 'unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY TAP_GH_TOKEN' EXIT HUP INT TERM
+git fetch --prune --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+git fetch --prune --tags origin
+test -z "$(git status --porcelain=v1 --untracked-files=all)"
+test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
+git show-ref --verify --quiet "refs/tags/$release_tag"
+test "$(git rev-parse "refs/tags/$release_tag^{commit}")" = "$(git rev-parse HEAD)"
+
+read -r -s -p 'R2 access key ID: ' R2_ACCESS_KEY_ID; printf '\n'
+read -r -s -p 'R2 secret access key: ' R2_SECRET_ACCESS_KEY; printf '\n'
+read -r -s -p 'Temporary tap token: ' TAP_GH_TOKEN; printf '\n'
+export R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY TAP_GH_TOKEN
+
+app_dmg="$(Scripts/build-app-dmg.sh)"
+Scripts/app-dmg-smoke-test.sh "$app_dmg"
+Scripts/generate-appcast.sh
+Scripts/generate-release-manifest.sh "$release_tag"
+Scripts/publish-release.sh "$release_tag"
+Scripts/dispatch-homebrew-update.sh "$release_tag"
+)
+```
+
+Before the block, export the non-secret `DEVELOPER_ID_APPLICATION`,
+`NOTARYTOOL_KEYCHAIN_PROFILE`, `SPARKLE_PUBLIC_ED_KEY`, and
+`CLOUDFLARE_ACCOUNT_ID` values. `publish-release.sh` publishes the exact eight
+assets, calls `publish-update.sh` for the immutable DMG/checksum and ETag-guarded
+appcast, and makes the GitHub draft public last. Dispatch runs only after that
+succeeds. Do not invent a rollback path or race local publication against CI.
+
 ## Quick Start
 
 ```bash
