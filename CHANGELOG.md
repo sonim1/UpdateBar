@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.6.3 - 2026-07-23
+
+### Added
+
+- Added the TUI Prompts helper screen for reusable update-bar update templates.
+
+### Fixed
+
+- Synchronized CLI `--version` output and release checks by aligning generated version
+  sources with `version.env`.
+
 ## 0.6.1 - 2026-07-22
 
 ### Changed
