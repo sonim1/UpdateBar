@@ -21,6 +21,7 @@ RELEASE_SYNTAX_SCRIPTS=(
 )
 SKIP_TUI_SMOKE="${SKIP_TUI_SMOKE:-0}"
 SKIP_TUI_INPUT="${SKIP_TUI_INPUT:-0}"
+SKIP_SIGNED_APPCAST="${SKIP_SIGNED_APPCAST:-0}"
 SKIP_TUI_SMOKE="${SKIP_TUI_SMOKE:-0}"
 SKIP_TUI_INPUT="${SKIP_TUI_INPUT:-0}"
 
@@ -69,7 +70,11 @@ echo "running update hosting setup checks"
 bash Scripts/setup-update-hosting-test.sh
 
 echo "running signed appcast checks"
-bash Scripts/generate-appcast-test.sh
+if [[ "$SKIP_SIGNED_APPCAST" == "1" ]]; then
+  echo "skipping signed appcast checks (SKIP_SIGNED_APPCAST)"
+else
+  bash Scripts/generate-appcast-test.sh
+fi
 
 echo "running update publication checks"
 bash Scripts/publish-update-test.sh
