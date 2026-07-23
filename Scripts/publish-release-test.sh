@@ -53,6 +53,15 @@ case "$2" in
  *) exit 82;;
 esac
 EOF
+cat >"$B/cmp" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${FAKE_SOURCE_SUBSTITUTE:-0}" == 1 && "${2:-}" == */project/dist/"${TARGET_SOURCE##*/}" && ! -e "$SUBSTITUTE_MARKER" ]]; then
+  : >"$SUBSTITUTE_MARKER"
+  printf 'substituted after snapshot copy\n' >"$TARGET_SOURCE"
+fi
+exec /usr/bin/cmp "$@"
+EOF
 cat >"$P/Scripts/publish-update.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -62,10 +71,13 @@ artifact_dir="${UPDATE_ARTIFACT_DIR:-$LIVE_UPDATE_DIR}"
 if [[ "${CONCURRENT_REPLACE:-0}" == 1 ]]; then
   printf 'replacement dmg\n' >"$LIVE_UPDATE_DIR/$DMG_NAME"
   printf '%064d  %s\n' 0 "$DMG_NAME" >"$LIVE_UPDATE_DIR/$DMG_NAME.sha256"
+  printf '<replacement-appcast/>\n' >"$LIVE_UPDATE_DIR/appcast.xml"
+  printf 'replacement tracked release asset\n' >"$LIVE_DIST_DIR/$MAC_NAME"
   entries="$(find "$artifact_dir" -mindepth 1 -maxdepth 1 -type f -exec basename {} \; | sort)"
   expected="$(printf '%s\n' "$DMG_NAME" "$DMG_NAME.sha256" appcast.xml | sort)"
   [[ "$artifact_dir" != "$LIVE_UPDATE_DIR" && "$entries" == "$expected" ]] || exit 91
-  cp "$artifact_dir/$DMG_NAME" "$R2_CAPTURE"
+  mkdir "$R2_CAPTURE"
+  cp "$artifact_dir/$DMG_NAME" "$artifact_dir/$DMG_NAME.sha256" "$artifact_dir/appcast.xml" "$R2_CAPTURE/"
 fi
 exit "${FAKE_R2_STATUS:-0}"
 EOF
@@ -86,10 +98,12 @@ EOF
 {"schemaVersion":1,"repository":"sonim1/UpdateBar","tag":"v1.2.3","version":"1.2.3","commit":"$COMMIT","packages":[{"type":"formula","token":"updatebar","source":{"kind":"release-asset","name":"$MAC","sha256":"$msh"}},{"type":"cask","token":"updatebar-app","source":{"kind":"release-asset","name":"$DMG","sha256":"$dsh"}},{"type":"formula","token":"updatebar-tui","source":{"kind":"github-tag-archive","sha256":"$(printf '%064d' 1)"}}]}
 EOF
 }
-reset(){ rm -f "$STATE" "$A"/* "$R2_CAPTURE"; : >"$ORDER"; : >"$GHLOG"; FAKE_UPLOAD_STATUS=0; FAKE_EDIT_STATUS=0; FAKE_R2_STATUS=0; FAKE_CREATE_STATUS=0; FAKE_ORIGIN='git@github.com:sonim1/UpdateBar.git'; FAKE_HEAD="$COMMIT"; FAKE_TAG="$COMMIT"; EXTRA_NAMES=''; CONCURRENT_REPLACE=0; write_files; }
-run(){ set +e; output="$(GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN=/usr/bin/cmp RUBY_BIN=/usr/bin/ruby PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" DMG_NAME="$DMG" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
+reset(){ rm -rf "$STATE" "$A"/* "$R2_CAPTURE" "$TMP/substituted"; : >"$ORDER"; : >"$GHLOG"; FAKE_UPLOAD_STATUS=0; FAKE_EDIT_STATUS=0; FAKE_R2_STATUS=0; FAKE_CREATE_STATUS=0; FAKE_ORIGIN='git@github.com:sonim1/UpdateBar.git'; FAKE_HEAD="$COMMIT"; FAKE_TAG="$COMMIT"; EXTRA_NAMES=''; CONCURRENT_REPLACE=0; FAKE_SOURCE_SUBSTITUTE=0; write_files; }
+run(){ set +e; output="$(GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN="$B/cmp" RUBY_BIN=/usr/bin/ruby PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" LIVE_DIST_DIR="$P/dist" MAC_NAME="$MAC" DMG_NAME="$DMG" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_SOURCE_SUBSTITUTE="$FAKE_SOURCE_SUBSTITUTE" TARGET_SOURCE="$P/dist/$MAC" SUBSTITUTE_MARKER="$TMP/substituted" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
 
 required=(updatebar-1.2.3-macos-arm64.tar.gz updatebar-1.2.3-macos-arm64.tar.gz.sha256 updatebar-1.2.3-linux-x86_64.tar.gz updatebar-1.2.3-linux-x86_64.tar.gz.sha256 UpdateBar-1.2.3-macos-arm64.dmg UpdateBar-1.2.3-macos-arm64.dmg.sha256 appcast.xml release-manifest.json)
+reset; FAKE_SOURCE_SUBSTITUTE=1; run v1.2.3
+[[ "$status" == 64 && "$output" == *'while creating the snapshot'* && ! -s "$ORDER" && ! -s "$GHLOG" ]] || fail "source substitution was not rejected before mutation: $status $output / $(cat "$ORDER")"
 reset; run v1.2.3; [[ "$status" == 0 ]] || fail "new release failed ($status): $output"
 for n in "${required[@]}"; do [[ -f "$A/$n" ]] || fail "missing uploaded $n"; done
 [[ "$(tail -2 "$ORDER")" == $'publish-r2\npublish-github' ]] || fail "publication order wrong: $(cat "$ORDER")"
@@ -135,8 +149,11 @@ reset; FAKE_EDIT_STATUS=39; run v1.2.3; [[ "$status" == 39 && "$(tail -2 "$ORDER
 # dist/updates at publisher invocation cannot split GitHub and R2 bytes.
 reset; original_dmg="$(cat "$P/dist/$DMG")"; CONCURRENT_REPLACE=1; run v1.2.3
 [[ "$status" == 0 ]] || fail "concurrent live replacement disturbed snapshot publication: $output"
-[[ -f "$R2_CAPTURE" && "$(cat "$R2_CAPTURE")" == "$original_dmg" ]] || fail "R2 read replacement bytes instead of the release snapshot"
-[[ "$(cat "$A/$DMG")" == "$original_dmg" ]] || fail "GitHub and R2 snapshot bytes diverged"
+[[ -f "$R2_CAPTURE/$DMG" && "$(cat "$R2_CAPTURE/$DMG")" == "$original_dmg" ]] || fail "R2 read replacement bytes instead of the release snapshot"
+for n in "$DMG" "$DMG.sha256" appcast.xml; do /usr/bin/cmp -s "$A/$n" "$R2_CAPTURE/$n" || fail "GitHub and R2 snapshot bytes diverged for $n"; done
+[[ "$(cat "$STATE")" == published ]] || fail "consistent frozen release was not published"
+write_files; CONCURRENT_REPLACE=0; : >"$ORDER"; run v1.2.3
+[[ "$status" == 0 && "$(cat "$ORDER")" == publish-r2 ]] || fail "identical published rerun failed or mutated GitHub: $output / $(cat "$ORDER")"
 
 # Config cannot redirect the fixed repository or host, and secrets never appear in output.
 reset; printf "GH_REPO=evil/repo\nGH_HOST=evil.invalid\nR2_SECRET_ACCESS_KEY=secret-sentinel\n" >"$P/.env.release.local"; run v1.2.3

@@ -42,11 +42,13 @@ HEAD_COMMIT="$($GIT_BIN rev-parse HEAD)" || { status=$?; echo 'Unable to resolve
 TAG_COMMIT="$($GIT_BIN rev-parse --verify "refs/tags/$TAG^{commit}")" || { status=$?; echo 'Unable to resolve exact release tag' >&2; exit "$status"; }
 [[ "$TAG_COMMIT" == "$HEAD_COMMIT" ]] || fail 'Release tag does not point to HEAD' 64
 
-TMP=''; UPDATE_SNAPSHOT=''
+TMP=''; SNAP=''; SNAP_GUARD=''; UPDATE_SNAPSHOT=''
 cleanup(){
   local status=$? cleanup_status=0
   trap - EXIT HUP INT TERM
   if [[ -n "$TMP" && -d "$TMP" ]]; then
+    [[ -z "$SNAP" || ! -d "$SNAP" || -L "$SNAP" ]] || chmod u+w "$SNAP" 2>/dev/null || :
+    [[ -z "$SNAP_GUARD" || ! -d "$SNAP_GUARD" || -L "$SNAP_GUARD" ]] || chmod u+w "$SNAP_GUARD" 2>/dev/null || :
     [[ -z "$UPDATE_SNAPSHOT" || ! -d "$UPDATE_SNAPSHOT" || -L "$UPDATE_SNAPSHOT" ]] || chmod u+w "$UPDATE_SNAPSHOT" 2>/dev/null || :
     rm -rf "$TMP" || cleanup_status=$?
   fi
@@ -56,16 +58,37 @@ cleanup(){
 trap cleanup EXIT; trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-publish-release.XXXXXX")" || exit $?
 SNAP="$TMP/assets"; mkdir "$SNAP" || exit $?
+asset_names=("$MAC_NAME" "$MAC_NAME.sha256" "$LINUX_NAME" "$LINUX_NAME.sha256" "$DMG_NAME" "$DMG_NAME.sha256" "$APPCAST_NAME" "$MANIFEST_NAME")
+original_paths=("$DIST/$MAC_NAME" "$DIST/$MAC_NAME.sha256" "$DIST/$LINUX_NAME" "$DIST/$LINUX_NAME.sha256" "$DIST/$DMG_NAME" "$DIST/$DMG_NAME.sha256" "$UPDATE_DIR/$APPCAST_NAME" "$DIST/$MANIFEST_NAME")
 
 copy_snapshot(){ local source="$1" name="$2"; /bin/cp -p "$source" "$SNAP/$name" || exit $?; regular "$SNAP/$name"; }
 copy_snapshot "$DIST/$MAC_NAME" "$MAC_NAME"; copy_snapshot "$DIST/$MAC_NAME.sha256" "$MAC_NAME.sha256"
 copy_snapshot "$DIST/$LINUX_NAME" "$LINUX_NAME"; copy_snapshot "$DIST/$LINUX_NAME.sha256" "$LINUX_NAME.sha256"
 copy_snapshot "$DIST/$DMG_NAME" "$DMG_NAME"; copy_snapshot "$DIST/$DMG_NAME.sha256" "$DMG_NAME.sha256"
 copy_snapshot "$UPDATE_DIR/$APPCAST_NAME" "$APPCAST_NAME"; copy_snapshot "$DIST/$MANIFEST_NAME" "$MANIFEST_NAME"
+verify_source_binding(){ local i status; i=0; while [[ "$i" -lt "${#asset_names[@]}" ]]; do if "$CMP_BIN" -s "${original_paths[$i]}" "$SNAP/${asset_names[$i]}"; then :; else status=$?; [[ "$status" == 1 ]] && fail "Release input changed while creating the snapshot: ${asset_names[$i]}" 64; exit "$status"; fi; i=$((i+1)); done; }
+verify_source_binding
+if "$CMP_BIN" -s "$SNAP/$DMG_NAME" "$UPDATE_DIR/$DMG_NAME"; then :; else status=$?; [[ "$status" == 1 ]] && fail 'GitHub and Sparkle DMG bytes differ' 64; exit "$status"; fi
+if "$CMP_BIN" -s "$SNAP/$DMG_NAME.sha256" "$UPDATE_DIR/$DMG_NAME.sha256"; then :; else status=$?; [[ "$status" == 1 ]] && fail 'GitHub and Sparkle DMG checksum bytes differ' 64; exit "$status"; fi
+
+SNAP_GUARD="$TMP/asset-guard"; mkdir "$SNAP_GUARD" || exit $?
+for name in "${asset_names[@]}"; do /bin/cp -p "$SNAP/$name" "$SNAP_GUARD/$name" || exit $?; chmod 0444 "$SNAP/$name" "$SNAP_GUARD/$name" || exit $?; done
+chmod 0555 "$SNAP" "$SNAP_GUARD" || exit $?
 UPDATE_SNAPSHOT="$TMP/update-artifacts"; mkdir "$UPDATE_SNAPSHOT" || exit $?
 /bin/cp -p "$SNAP/$DMG_NAME" "$SNAP/$DMG_NAME.sha256" "$SNAP/$APPCAST_NAME" "$UPDATE_SNAPSHOT/" || exit $?
 chmod 0444 "$UPDATE_SNAPSHOT/$DMG_NAME" "$UPDATE_SNAPSHOT/$DMG_NAME.sha256" "$UPDATE_SNAPSHOT/$APPCAST_NAME" || exit $?
 chmod 0555 "$UPDATE_SNAPSHOT" || exit $?
+
+verify_frozen_asset_snapshot(){
+  local name status
+  [[ -d "$SNAP" && ! -L "$SNAP" && -d "$SNAP_GUARD" && ! -L "$SNAP_GUARD" ]] || fail 'Frozen release snapshot changed or became unsafe' 64
+  if "$RUBY_BIN" -e 'expected=ARGV.drop(2).sort;exit(Dir.children(ARGV[0]).sort==expected && Dir.children(ARGV[1]).sort==expected ? 0 : 64)' "$SNAP" "$SNAP_GUARD" "${asset_names[@]}"; then :; else status=$?; echo 'Frozen release snapshot contains an unexpected file set' >&2; exit "$status"; fi
+  for name in "${asset_names[@]}"; do
+    [[ -f "$SNAP/$name" && ! -L "$SNAP/$name" && -f "$SNAP_GUARD/$name" && ! -L "$SNAP_GUARD/$name" ]] || fail "Frozen release snapshot entry became unsafe: $name" 64
+    if "$CMP_BIN" -s "$SNAP/$name" "$SNAP_GUARD/$name"; then :; else status=$?; [[ "$status" == 1 ]] && fail "Frozen release snapshot changed: $name" 64; exit "$status"; fi
+  done
+}
+verify_frozen_asset_snapshot
 
 sha_file(){ local output status; if output="$($SHASUM_BIN -a 256 "$1")"; then :; else status=$?; echo "SHA-256 failed: $1" >&2; return "$status"; fi; [[ "$output" =~ ^([0-9a-f]{64})[[:space:]] ]] || { echo "Malformed SHA-256 output: $1" >&2; return 66; }; printf '%s' "${BASH_REMATCH[1]}"; }
 verify_checksum(){
@@ -77,9 +100,6 @@ verify_checksum(){
   printf '%s' "$actual"
 }
 MAC_SHA="$(verify_checksum "$MAC_NAME")"; verify_checksum "$LINUX_NAME" >/dev/null; DMG_SHA="$(verify_checksum "$DMG_NAME")"
-
-if "$CMP_BIN" -s "$DIST/$DMG_NAME" "$UPDATE_DIR/$DMG_NAME"; then :; else status=$?; [[ "$status" == 1 ]] && fail 'GitHub and Sparkle DMG bytes differ' 64; exit "$status"; fi
-if "$CMP_BIN" -s "$DIST/$DMG_NAME.sha256" "$UPDATE_DIR/$DMG_NAME.sha256"; then :; else status=$?; [[ "$status" == 1 ]] && fail 'GitHub and Sparkle DMG checksum bytes differ' 64; exit "$status"; fi
 
 if "$RUBY_BIN" -rrexml/document -rbase64 -e '
   path,url,version,length=ARGV
@@ -116,9 +136,6 @@ set +e
 manifest_status=$?; set -e
 [[ "$manifest_status" == 0 ]] || { echo 'Release manifest is malformed or does not exactly bind this release' >&2; exit "$manifest_status"; }
 
-asset_names=("$MAC_NAME" "$MAC_NAME.sha256" "$LINUX_NAME" "$LINUX_NAME.sha256" "$DMG_NAME" "$DMG_NAME.sha256" "$APPCAST_NAME" "$MANIFEST_NAME")
-original_paths=("$DIST/$MAC_NAME" "$DIST/$MAC_NAME.sha256" "$DIST/$LINUX_NAME" "$DIST/$LINUX_NAME.sha256" "$DIST/$DMG_NAME" "$DIST/$DMG_NAME.sha256" "$UPDATE_DIR/$APPCAST_NAME" "$DIST/$MANIFEST_NAME")
-verify_snapshot(){ local i status; i=0; while [[ "$i" -lt "${#asset_names[@]}" ]]; do if "$CMP_BIN" -s "${original_paths[$i]}" "$SNAP/${asset_names[$i]}"; then :; else status=$?; [[ "$status" == 1 ]] && fail "Release input changed during publication: ${asset_names[$i]}" 64; exit "$status"; fi; i=$((i+1)); done; }
 verify_update_snapshot(){
   local status
   [[ -d "$UPDATE_SNAPSHOT" && ! -L "$UPDATE_SNAPSHOT" ]] || fail 'Update snapshot directory changed or became unsafe' 64
@@ -177,11 +194,11 @@ prepare_asset(){
 for name in "${asset_names[@]}"; do prepare_asset "$name" || exit $?; done
 ASSETS="$($GH_BIN release view "$TAG" --repo "$REPOSITORY" --json assets --jq '.assets[].name')" || { status=$?; echo 'Unable to re-inspect GitHub release assets' >&2; exit "$status"; }
 validate_remote_asset_set 1
-verify_snapshot
+verify_frozen_asset_snapshot
 verify_update_snapshot
 if UPDATE_ARTIFACT_DIR="$UPDATE_SNAPSHOT" "$PUBLISH_UPDATE_SCRIPT"; then :; else status=$?; echo 'R2 update publication failed' >&2; exit "$status"; fi
 verify_update_snapshot
-verify_snapshot
+verify_frozen_asset_snapshot
 if [[ "$release_state" == true ]]; then
   if "$GH_BIN" release edit "$TAG" --repo "$REPOSITORY" --draft=false; then :; else status=$?; echo 'GitHub release publication failed' >&2; exit "$status"; fi
 fi
