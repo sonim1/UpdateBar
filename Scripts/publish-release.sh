@@ -8,7 +8,27 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TAG="$1"; [[ "$TAG" =~ ^v[0-9]+([.][0-9]+){1,2}$ ]] || { echo 'Release tag must match v<version>' >&2; exit 64; }
 VERSION="${TAG#v}"
 SKIP_SPARKLE_SIGNATURE_VERIFICATION="${SKIP_SPARKLE_SIGNATURE_VERIFICATION:-0}"
-[[ "$(uname -s)" != "Darwin" ]] && SKIP_SPARKLE_SIGNATURE_VERIFICATION=1
+SWIFT_VERIFY_BIN="${SWIFT_BIN:-swift}"
+SPARKLE_VERIFY_COMMAND="$SWIFT_VERIFY_BIN"
+SPARKLE_VERIFY_MODE="swift"
+if [[ "$SKIP_SPARKLE_SIGNATURE_VERIFICATION" == "0" ]]; then
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    if command -v "$XCRUN_BIN" >/dev/null 2>&1; then
+      SPARKLE_VERIFY_COMMAND="$XCRUN_BIN"
+      SPARKLE_VERIFY_MODE="xcrun"
+    else
+      SKIP_SPARKLE_SIGNATURE_VERIFICATION=1
+    fi
+  elif command -v "$SWIFT_VERIFY_BIN" >/dev/null 2>&1; then
+    SPARKLE_VERIFY_COMMAND="$SWIFT_VERIFY_BIN"
+    SPARKLE_VERIFY_MODE="swift"
+  elif command -v "$XCRUN_BIN" >/dev/null 2>&1; then
+    SPARKLE_VERIFY_COMMAND="$XCRUN_BIN"
+    SPARKLE_VERIFY_MODE="xcrun"
+  else
+    SKIP_SPARKLE_SIGNATURE_VERIFICATION=1
+  fi
+fi
 CONFIG="${RELEASE_CONFIG_PATH:-$ROOT/.env.release.local}"
 if [[ -f "$CONFIG" ]]; then
   set -a
@@ -35,7 +55,7 @@ for command_path in "$GIT_BIN" "$GH_BIN" "$SHASUM_BIN" "$CMP_BIN" "$RUBY_BIN" "$
   else command -v "$command_path" >/dev/null 2>&1 || fail "Required command is unavailable: $command_path" 66; fi
 done
 if [[ "$SKIP_SPARKLE_SIGNATURE_VERIFICATION" != "1" ]]; then
-  command_path="$XCRUN_BIN"
+  command_path="$SPARKLE_VERIFY_COMMAND"
   if [[ "$command_path" == */* ]]; then [[ -x "$command_path" ]] || fail "Required command is unavailable: $command_path" 66
   else command -v "$command_path" >/dev/null 2>&1 || fail "Required command is unavailable: $command_path" 66; fi
 fi
@@ -148,7 +168,11 @@ if [[ "$SKIP_SPARKLE_SIGNATURE_VERIFICATION" == "1" ]]; then
   echo 'Skipping Sparkle Ed25519 signature verification (non-macOS release test environment).'
 else
   SWIFT_VERIFY='import Foundation; import CryptoKit; let a=CommandLine.arguments; guard let p=Data(base64Encoded:a[1]),let s=Data(base64Encoded:a[2]) else{exit(2)}; do{let k=try Curve25519.Signing.PublicKey(rawRepresentation:p);let d=try Data(contentsOf:URL(fileURLWithPath:a[3]));exit(k.isValidSignature(s,for:d) ? 0:1)}catch{exit(2)}'
-  if "$XCRUN_BIN" swift -e "$SWIFT_VERIFY" "$DMG_PUBLIC_KEY" "$APPCAST_SIGNATURE" "$SNAP/$DMG_NAME"; then :; else status=$?; echo 'Sparkle Ed25519 signature verification failed' >&2; exit "$status"; fi
+  if [[ "$SPARKLE_VERIFY_MODE" == "xcrun" ]]; then
+    if "$SPARKLE_VERIFY_COMMAND" swift -e "$SWIFT_VERIFY" "$DMG_PUBLIC_KEY" "$APPCAST_SIGNATURE" "$SNAP/$DMG_NAME"; then :; else status=$?; echo 'Sparkle Ed25519 signature verification failed' >&2; exit "$status"; fi
+  else
+    if "$SPARKLE_VERIFY_COMMAND" -e "$SWIFT_VERIFY" "$DMG_PUBLIC_KEY" "$APPCAST_SIGNATURE" "$SNAP/$DMG_NAME"; then :; else status=$?; echo 'Sparkle Ed25519 signature verification failed' >&2; exit "$status"; fi
+  fi
 fi
 
 set +e
