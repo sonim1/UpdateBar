@@ -19,11 +19,6 @@ RELEASE_SYNTAX_SCRIPTS=(
   "Scripts/build-app-dmg.sh"
   "Scripts/app-dmg-smoke-test.sh"
 )
-SKIP_TUI_SMOKE="${SKIP_TUI_SMOKE:-0}"
-SKIP_TUI_INPUT="${SKIP_TUI_INPUT:-0}"
-SKIP_SIGNED_APPCAST="${SKIP_SIGNED_APPCAST:-0}"
-SKIP_TUI_SMOKE="${SKIP_TUI_SMOKE:-0}"
-SKIP_TUI_INPUT="${SKIP_TUI_INPUT:-0}"
 
 if [[ "$(uname -s)" == "Darwin" && -z "${DEVELOPER_DIR:-}" ]]; then
   XCODE_DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
@@ -70,11 +65,7 @@ echo "running update hosting setup checks"
 bash Scripts/setup-update-hosting-test.sh
 
 echo "running signed appcast checks"
-if [[ "$SKIP_SIGNED_APPCAST" == "1" ]]; then
-  echo "skipping signed appcast checks (SKIP_SIGNED_APPCAST)"
-else
-  bash Scripts/generate-appcast-test.sh
-fi
+bash Scripts/generate-appcast-test.sh
 
 echo "running update publication checks"
 bash Scripts/publish-update-test.sh
@@ -171,27 +162,11 @@ UPDATEBAR_VERIFY_STATIC_ONLY=1 bash Scripts/verify-homebrew-metadata.sh
 echo "running homebrew metadata behavior check"
 bash Scripts/verify-homebrew-metadata-test.sh
 
-if [[ "$SKIP_TUI_SMOKE" != "1" ]]; then
-  if command -v npm >/dev/null 2>&1; then
-    echo "running tui smoke test"
-    bash Scripts/tui-smoke-test.sh
-  else
-    echo "skipping tui smoke test (npm not found)"
-  fi
-else
-  echo "skipping tui smoke test (SKIP_TUI_SMOKE)"
-fi
+echo "running tui smoke test"
+bash Scripts/tui-smoke-test.sh
 
-if [[ "$SKIP_TUI_INPUT" != "1" ]]; then
-  if command -v npm >/dev/null 2>&1; then
-    echo "running tui input regression test"
-    bash Scripts/tui-input-test.sh
-  else
-    echo "skipping tui input regression test (npm not found)"
-  fi
-else
-  echo "skipping tui input regression test (SKIP_TUI_INPUT)"
-fi
+echo "running tui input regression test"
+bash Scripts/tui-input-test.sh
 
 if [[ "$SKIP_MENUBAR_SMOKE" != "1" ]]; then
   if [[ "$(uname -s)" == "Darwin" ]]; then
