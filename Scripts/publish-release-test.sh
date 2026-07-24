@@ -41,6 +41,12 @@ cat >"$mount/UpdateBar.app/Contents/Info.plist" <<PLIST
 PLIST
 printf '<plist><dict><key>system-entities</key><array><dict><key>mount-point</key><string>%s</string></dict></array></dict></plist>\n' "$mount"
 EOF
+cat >"$B/plutil" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$1" == -extract && "$3" == raw && "$4" == -o && "$5" == - && -f "$6" ]] || exit 90
+/usr/bin/ruby -e 'key,path=ARGV;raw=File.binread(path);m=raw.match(%r{<key>\s*#{Regexp.escape(key)}\s*</key>\s*<string>([^<]*)</string>});exit 1 unless m;print m[1]' "$2" "$6"
+EOF
 cat >"$B/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -105,6 +111,8 @@ fi
 exit "${FAKE_R2_STATUS:-0}"
 EOF
 chmod +x "$B"/* "$P/Scripts/publish-update.sh"
+PLUTIL_TEST_BIN=/usr/bin/plutil
+[[ "$(uname -s)" == Darwin ]] || PLUTIL_TEST_BIN="$B/plutil"
 
 checksum() {
   local path="$1" name
@@ -126,7 +134,7 @@ EOF
 EOF
 }
 reset(){ rm -rf "$STATE" "${A:?}"/* "$R2_CAPTURE" "$TMP/substituted"; : >"$ORDER"; : >"$GHLOG"; : >"$TMP/git.log"; FAKE_UPLOAD_STATUS=0; FAKE_EDIT_STATUS=0; FAKE_R2_STATUS=0; FAKE_CREATE_STATUS=0; FAKE_ORIGIN='git@github.com:sonim1/UpdateBar.git'; FAKE_HEAD="$COMMIT"; FAKE_TAG="$COMMIT"; FAKE_MAIN="$COMMIT"; FAKE_REMOTE_TAG="$COMMIT"; FAKE_ANCESTOR_STATUS=0; FAKE_DIRTY=''; FAKE_MAIN_FETCH_STATUS=0; FAKE_REMOTE_FETCH_STATUS=0; FAKE_REF_CLEANUP_STATUS=0; EXTRA_NAMES=''; CONCURRENT_REPLACE=0; FAKE_SOURCE_SUBSTITUTE=0; DMG_PUBLIC_KEY_FIXTURE="$PUBLIC_KEY"; write_files; }
-run_mode(){ local skip="$1"; shift; set +e; output="$(SKIP_SPARKLE_SIGNATURE_VERIFICATION="$skip" GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN="$B/cmp" RUBY_BIN=/usr/bin/ruby HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN=/usr/bin/plutil REALPATH_BIN=/bin/realpath PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" GIT_LOG="$TMP/git.log" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" LIVE_DIST_DIR="$P/dist" MAC_NAME="$MAC" DMG_NAME="$DMG" DMG_PUBLIC_KEY_FIXTURE="$DMG_PUBLIC_KEY_FIXTURE" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_SOURCE_SUBSTITUTE="$FAKE_SOURCE_SUBSTITUTE" TARGET_SOURCE="$P/dist/$MAC" SUBSTITUTE_MARKER="$TMP/substituted" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" FAKE_MAIN="$FAKE_MAIN" FAKE_REMOTE_TAG="$FAKE_REMOTE_TAG" FAKE_ANCESTOR_STATUS="$FAKE_ANCESTOR_STATUS" FAKE_DIRTY="$FAKE_DIRTY" FAKE_MAIN_FETCH_STATUS="$FAKE_MAIN_FETCH_STATUS" FAKE_REMOTE_FETCH_STATUS="$FAKE_REMOTE_FETCH_STATUS" FAKE_REF_CLEANUP_STATUS="$FAKE_REF_CLEANUP_STATUS" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
+run_mode(){ local skip="$1"; shift; set +e; output="$(SKIP_SPARKLE_SIGNATURE_VERIFICATION="$skip" GIT_BIN="$B/git" GH_BIN="$B/gh" CMP_BIN="$B/cmp" RUBY_BIN=/usr/bin/ruby HDIUTIL_BIN="$B/hdiutil" PLUTIL_BIN="$PLUTIL_TEST_BIN" REALPATH_BIN=/bin/realpath PUBLISH_UPDATE_SCRIPT="$P/Scripts/publish-update.sh" GH_STATE="$STATE" GH_ASSETS="$A" GH_LOG="$GHLOG" GIT_LOG="$TMP/git.log" ORDER="$ORDER" R2_CAPTURE="$R2_CAPTURE" LIVE_UPDATE_DIR="$P/dist/updates" LIVE_DIST_DIR="$P/dist" MAC_NAME="$MAC" DMG_NAME="$DMG" DMG_PUBLIC_KEY_FIXTURE="$DMG_PUBLIC_KEY_FIXTURE" CONCURRENT_REPLACE="$CONCURRENT_REPLACE" FAKE_SOURCE_SUBSTITUTE="$FAKE_SOURCE_SUBSTITUTE" TARGET_SOURCE="$P/dist/$MAC" SUBSTITUTE_MARKER="$TMP/substituted" FAKE_UPLOAD_STATUS="$FAKE_UPLOAD_STATUS" FAKE_EDIT_STATUS="$FAKE_EDIT_STATUS" FAKE_R2_STATUS="$FAKE_R2_STATUS" FAKE_CREATE_STATUS="$FAKE_CREATE_STATUS" FAKE_ORIGIN="$FAKE_ORIGIN" FAKE_HEAD="$FAKE_HEAD" FAKE_TAG="$FAKE_TAG" FAKE_MAIN="$FAKE_MAIN" FAKE_REMOTE_TAG="$FAKE_REMOTE_TAG" FAKE_ANCESTOR_STATUS="$FAKE_ANCESTOR_STATUS" FAKE_DIRTY="$FAKE_DIRTY" FAKE_MAIN_FETCH_STATUS="$FAKE_MAIN_FETCH_STATUS" FAKE_REMOTE_FETCH_STATUS="$FAKE_REMOTE_FETCH_STATUS" FAKE_REF_CLEANUP_STATUS="$FAKE_REF_CLEANUP_STATUS" EXTRA_NAMES="$EXTRA_NAMES" GH_REPO=attacker/repo GH_HOST=evil.invalid "$P/Scripts/publish-release.sh" "$@" 2>&1)"; status=$?; set -e; }
 run(){ run_mode 1 "$@"; }
 run_verified(){ run_mode 0 "$@"; }
 

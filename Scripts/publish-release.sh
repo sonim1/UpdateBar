@@ -154,8 +154,8 @@ REPORTED_MOUNT="$($RUBY_BIN -e 'raw=File.binread(ARGV[0]);v=raw.scan(/<key>\s*mo
 [[ "$REPORTED_MOUNT" == "$DMG_MOUNT" && "$($REALPATH_BIN "$REPORTED_MOUNT")" == "$DMG_MOUNT" ]] || fail 'DMG mounted outside the private mount point' 64
 MOUNTED_PLIST="$DMG_MOUNT/UpdateBar.app/Contents/Info.plist"; regular "$MOUNTED_PLIST"
 case "$($REALPATH_BIN "$MOUNTED_PLIST")" in "$DMG_MOUNT"/*) ;; *) fail 'Mounted app metadata escapes the private DMG mount' 64;; esac
-DMG_FEED="$($PLUTIL_BIN -extract SUFeedURL raw -o - "$MOUNTED_PLIST")" || exit $?
-DMG_PUBLIC_KEY="$($PLUTIL_BIN -extract SUPublicEDKey raw -o - "$MOUNTED_PLIST")" || exit $?
+DMG_FEED="$($PLUTIL_BIN -extract SUFeedURL raw -o - "$MOUNTED_PLIST")" || { status=$?; echo 'Unable to read the packaged Sparkle feed URL' >&2; exit "$status"; }
+DMG_PUBLIC_KEY="$($PLUTIL_BIN -extract SUPublicEDKey raw -o - "$MOUNTED_PLIST")" || { status=$?; echo 'Unable to read the packaged Sparkle public key' >&2; exit "$status"; }
 [[ "$DMG_FEED" == 'https://updates.updatebar.sonim1.com/appcast.xml' ]] || fail 'Packaged Sparkle feed URL is invalid' 64
 "$RUBY_BIN" -rbase64 -e 'begin;b=Base64.strict_decode64(ARGV[0]);exit(b.bytesize==32&&Base64.strict_encode64(b)==ARGV[0] ? 0:1);rescue;exit 1;end' "$DMG_PUBLIC_KEY" || fail 'Packaged Sparkle public key is invalid' 64
 if "$HDIUTIL_BIN" detach "$DMG_MOUNT" >/dev/null; then DMG_ATTACHED=0; else status=$?; echo 'Unable to detach frozen DMG metadata mount' >&2; exit "$status"; fi
