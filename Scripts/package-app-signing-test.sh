@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/version.env"
 
 VALID_SPARKLE_KEY="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+HOST_OS="${PACKAGE_APP_TEST_HOST_OS:-$(/usr/bin/uname -s)}"
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -95,14 +96,44 @@ BIN
 esac
 SH
 
-  cat >"$BIN_DIR/plutil" <<'SH'
+cat >"$BIN_DIR/plutil" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >>"${PLUTIL_LOG:?}"
 if [[ "${PLUTIL_FAIL_STATUS:-0}" != "0" ]]; then
   exit "$PLUTIL_FAIL_STATUS"
 fi
-exec /usr/bin/plutil "$@"
+if [[ "${PACKAGE_APP_TEST_HOST_OS:-$(/usr/bin/uname -s)}" == Darwin ]]; then
+  exec /usr/bin/plutil "$@"
+fi
+case "${1:-}" in
+  -insert)
+    [[ $# == 5 && ("$3" == -string || "$3" == -bool) && -f "$5" ]] || exit 90
+    /usr/bin/ruby -rcgi -e '
+      key,type,value,path=ARGV
+      entry="<key>#{CGI.escapeHTML(key)}</key>\n  "
+      entry += type=="-string" ? "<string>#{CGI.escapeHTML(value)}</string>" : (value=="false" ? "<false/>" : "<true/>")
+      raw=File.binread(path)
+      exit 1 unless raw.sub!(%r{</dict>\s*</plist>\s*\z}, "#{entry}\n</dict>\n</plist>\n")
+      File.binwrite(path,raw)
+    ' "$2" "$3" "$4" "$5"
+    ;;
+  -lint)
+    [[ $# == 2 && -f "$2" ]] || exit 90
+    /usr/bin/ruby -rrexml/document -e 'REXML::Document.new(File.binread(ARGV[0]))' "$2"
+    ;;
+  -extract)
+    [[ $# == 6 && "$3" == raw && "$4" == -o && "$5" == - && -f "$6" ]] || exit 90
+    /usr/bin/ruby -rcgi -e '
+      key,path=ARGV
+      raw=File.binread(path)
+      match=raw.match(%r{<key>\s*#{Regexp.escape(key)}\s*</key>\s*(?:<string>([^<]*)</string>|<(true|false)/>)})
+      exit 1 unless match
+      print(match[1] ? CGI.unescapeHTML(match[1]) : match[2])
+    ' "$2" "$6"
+    ;;
+  *) exit 90 ;;
+esac
 SH
 
   cat >"$BIN_DIR/codesign" <<'SH'
@@ -111,14 +142,18 @@ set -euo pipefail
 printf '%s\n' "$*" >>"${CODESIGN_LOG:?}"
 SH
 
-  cat >"$BIN_DIR/ditto" <<'SH'
+cat >"$BIN_DIR/ditto" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >>"${DITTO_LOG:?}"
 if [[ "${DITTO_FAIL_STATUS:-0}" != "0" ]]; then
   exit "$DITTO_FAIL_STATUS"
 fi
-exec /usr/bin/ditto "$@"
+if [[ "${PACKAGE_APP_TEST_HOST_OS:-$(/usr/bin/uname -s)}" == Darwin ]]; then
+  exec /usr/bin/ditto "$@"
+fi
+[[ $# == 2 && -d "$1" ]] || exit 90
+cp -R "$1" "$2"
 SH
 
   cat >"$BIN_DIR/otool" <<'SH'
@@ -199,6 +234,16 @@ assert_no_build_or_sign() {
   fi
   if [[ -s "$LOG_DIR/codesign.log" ]]; then
     fail "validation failure must happen before codesign"
+  fi
+}
+
+plist_extract() {
+  local key="$1"
+  local plist="$2"
+  if [[ "$HOST_OS" == Darwin ]]; then
+    /usr/bin/plutil -extract "$key" raw -o - "$plist"
+  else
+    PLUTIL_LOG="$LOG_DIR/plutil.log" "$BIN_DIR/plutil" -extract "$key" raw -o - "$plist"
   fi
 }
 
@@ -318,9 +363,9 @@ UNSIGNED_APP="$CASE_ROOT/dist/UpdateBar.app"
 UNSIGNED_PLIST="$UNSIGNED_APP/Contents/Info.plist"
 [[ -d "$UNSIGNED_APP/Contents/Frameworks/Sparkle.framework" ]] || \
   fail "unsigned packaging should copy Sparkle.framework"
-unsigned_feed="$(/usr/bin/plutil -extract SUFeedURL raw -o - "$UNSIGNED_PLIST")"
-unsigned_key="$(/usr/bin/plutil -extract SUPublicEDKey raw -o - "$UNSIGNED_PLIST")"
-unsigned_automatic="$(/usr/bin/plutil -extract SUEnableAutomaticChecks raw -o - "$UNSIGNED_PLIST")"
+unsigned_feed="$(plist_extract SUFeedURL "$UNSIGNED_PLIST")"
+unsigned_key="$(plist_extract SUPublicEDKey "$UNSIGNED_PLIST")"
+unsigned_automatic="$(plist_extract SUEnableAutomaticChecks "$UNSIGNED_PLIST")"
 [[ "$unsigned_feed" == "https://updates.updatebar.sonim1.com/appcast.xml" ]] || \
   fail "unsigned package has unexpected SUFeedURL"
 [[ "$unsigned_key" == "$VALID_SPARKLE_KEY" ]] || fail "unsigned package has unexpected SUPublicEDKey"
@@ -340,9 +385,9 @@ FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
 [[ -d "$FRAMEWORK" ]] || fail "package app should copy Sparkle.framework"
 [[ -f "$APP/Contents/Resources/UpdateBar.icns" ]] || fail "package app should copy UpdateBar.icns"
 
-feed="$(/usr/bin/plutil -extract SUFeedURL raw -o - "$PLIST")"
-key="$(/usr/bin/plutil -extract SUPublicEDKey raw -o - "$PLIST")"
-automatic="$(/usr/bin/plutil -extract SUEnableAutomaticChecks raw -o - "$PLIST")"
+feed="$(plist_extract SUFeedURL "$PLIST")"
+key="$(plist_extract SUPublicEDKey "$PLIST")"
+automatic="$(plist_extract SUEnableAutomaticChecks "$PLIST")"
 [[ "$feed" == "https://updates.updatebar.sonim1.com/appcast.xml" ]] || fail "unexpected SUFeedURL: $feed"
 [[ "$key" == "$VALID_SPARKLE_KEY" ]] || fail "unexpected SUPublicEDKey"
 [[ "$automatic" == "false" ]] || fail "SUEnableAutomaticChecks must be boolean false"
