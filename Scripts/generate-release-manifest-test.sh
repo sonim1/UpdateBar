@@ -166,7 +166,7 @@ reset_fixture; FAKE_CURL_STATUS=38; run_generator "$TAG"; [[ "$status" == 38 ]] 
 # Exact-path finalization must preserve substituted destinations and propagate rename errors.
 reset_fixture; mkdir "$P/dist/release-manifest.json"; printf keep >"$P/dist/release-manifest.json/sentinel"; run_generator "$TAG"
 [[ "$status" != 0 && -f "$P/dist/release-manifest.json/sentinel" ]] || fail "unsafe destination was changed"
-reset_fixture; printf old >"$P/dist/release-manifest.json"; RENAME_BIN="$B/rename-fail"
+reset_fixture; printf old >"$P/dist/release-manifest.json"
 cat >"$B/rename-fail" <<'EOF'
 #!/usr/bin/env bash
 exit 39

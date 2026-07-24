@@ -18,8 +18,12 @@ CURL_BIN="${CURL_BIN:-/usr/bin/curl}"; SHASUM_BIN="${SHASUM_BIN:-/usr/bin/shasum
 
 fail() { echo "$1" >&2; exit "${2:-1}"; }
 regular() { [[ -f "$1" && ! -L "$1" ]] || fail "Missing or unsafe $2: $1" 66; }
+file_size() {
+  ruby -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; print s.size' "$1"
+}
 escape() { local v="$1"; v="${v//\\/\\\\}"; v="${v//\"/\\\"}"; printf '%s' "$v"; }
-AUTH="user = \"$(escape "$ACCESS"):$(escape "$SECRET")\""; export -n AUTH 2>/dev/null || :; ACCESS=''; SECRET=''
+AUTH_ACCESS="$(escape "$ACCESS")"; AUTH_SECRET="$(escape "$SECRET")"
+export -n AUTH_ACCESS AUTH_SECRET 2>/dev/null || :; ACCESS=''; SECRET=''
 ORIGIN="https://$ACCOUNT_ID.r2.cloudflarestorage.com/$BUCKET/"; PUBLIC="https://$DOMAIN/"
 APPCAST="$DIR/appcast.xml"; regular "$APPCAST" appcast
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-publish.XXXXXX")"
@@ -48,12 +52,13 @@ appcast_metadata() {
   ' "$1"
 }
 metadata="$(appcast_metadata "$APPCAST")" || fail "Appcast is malformed or unsigned"
-IFS=$'\t' read -r enclosure length build version signature <<<"$metadata"
+IFS=$'\t' read -r enclosure length build version _signature <<<"$metadata"
 [[ "$version" =~ ^[0-9]+([.][0-9]+){1,2}$ && "$build" =~ ^[0-9]+([.][0-9]+){0,2}$ ]] || fail "Appcast version metadata is invalid"
 prefix="${PUBLIC}UpdateBar-"; case "$enclosure" in "$prefix"*'-macos-arm64.dmg') ;; *) fail "Appcast enclosure URL is not canonical";; esac
 NAME="${enclosure#"$PUBLIC"}"; [[ "$NAME" == "UpdateBar-${version}-macos-arm64.dmg" && "$NAME" != */* ]] || fail "Appcast artifact name/version mismatch"
 DMG="$DIR/$NAME"; CHECKSUM="$DMG.sha256"; regular "$DMG" DMG; regular "$CHECKSUM" checksum
-[[ "$length" == "$(stat -f %z "$DMG")" ]] || fail "Appcast enclosure length mismatch"
+DMG_SIZE="$(file_size "$DMG")" || fail "DMG is missing or unsafe" 66
+[[ "$length" == "$DMG_SIZE" ]] || fail "Appcast enclosure length mismatch"
 read -r recorded recorded_name extra <"$CHECKSUM" || fail "Unable to read checksum"
 [[ -z "${extra:-}" && "$recorded" =~ ^[0-9a-f]{64}$ && "$recorded_name" == "$NAME" && "$(wc -l <"$CHECKSUM"|tr -d ' ')" == 1 ]] || fail "Checksum record is malformed or unbound"
 sha() { local o; o="$("$SHASUM_BIN" -a 256 "$1")" || return $?; [[ "$o" =~ ^([0-9a-f]{64})[[:space:]] ]] || return 66; printf '%s' "${BASH_REMATCH[1]}"; }
@@ -65,7 +70,7 @@ public_get() {
   [[ -z "$headers" ]] || args+=(--dump-header "$headers")
   if status="$("$CURL_BIN" "${args[@]}" "$url")"; then printf '%s' "$status"; else code=$?; echo "Public GET failed" >&2; return "$code"; fi
 }
-authenticated_curl() { printf '%s\n' "$AUTH" | "$CURL_BIN" "$@"; }
+authenticated_curl() { printf 'user = "%s:%s"\n' "$AUTH_ACCESS" "$AUTH_SECRET" | "$CURL_BIN" "$@"; }
 signed_get() {
   local key="$1" out="$2" headers="${3:-}" args status
   args=(--config - --silent --show-error --aws-sigv4 aws:amz:auto:s3 --request GET --output "$out" --write-out '%{http_code}')
@@ -105,7 +110,7 @@ case "$PRE_STATUS" in
     "$CMP_BIN" -s "$PUBLIC_PRE" "$PRE" || fail "Public and authoritative appcast bytes disagree"
     etag "$PUBLIC_PRE_HEADERS" >/dev/null || fail "Public appcast ETag is missing, weak, duplicated, or unsafe"
     PRE_META="$(appcast_metadata "$PRE")" || fail "Remote appcast is malformed"
-    IFS=$'\t' read -r REMOTE_URL REMOTE_LENGTH REMOTE_BUILD REMOTE_VERSION REMOTE_SIGNATURE <<<"$PRE_META"
+    IFS=$'\t' read -r REMOTE_URL REMOTE_LENGTH REMOTE_BUILD REMOTE_VERSION _REMOTE_SIGNATURE <<<"$PRE_META"
     validate_remote_metadata "$REMOTE_URL" "$REMOTE_LENGTH" "$REMOTE_BUILD" "$REMOTE_VERSION" || fail "Remote appcast metadata is unsafe"
     comparison="$(compare_versions "$REMOTE_VERSION" "$version")"
     [[ "$comparison" -le 0 ]] || fail "Refusing appcast rollback from $REMOTE_VERSION to $version"
