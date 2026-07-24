@@ -7,7 +7,7 @@ R="$T/root"; B="$T/bin"; REMOTE="$T/remote"; LOG="$T/calls"; mkdir -p "$R/Script
 cp "$ROOT/Scripts/publish-update.sh" "$R/Scripts/publish-update.sh" 2>/dev/null || true
 name=UpdateBar-0.5.0-macos-arm64.dmg; printf 'local dmg\n' >"$R/dist/updates/$name"; hash="$(shasum -a 256 "$R/dist/updates/$name"|awk '{print $1}')"; printf '%s  %s\n' "$hash" "$name" >"$R/dist/updates/$name.sha256"
 make_appcast() { local version="$1" sig="${2:-Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQw==}"; cat >"$3" <<XML
-<?xml version="1.0"?><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="https://updates.updatebar.sonim1.com/UpdateBar-${version}-macos-arm64.dmg" length="$(stat -f %z "$R/dist/updates/$name")" sparkle:version="$version" sparkle:shortVersionString="$version" sparkle:edSignature="$sig" /></item></channel></rss>
+<?xml version="1.0"?><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="https://updates.updatebar.sonim1.com/UpdateBar-${version}-macos-arm64.dmg" length="$(/usr/bin/ruby -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; print s.size' "$R/dist/updates/$name")" sparkle:version="$version" sparkle:shortVersionString="$version" sparkle:edSignature="$sig" /></item></channel></rss>
 XML
 }
 make_appcast 0.5.0 '' "$R/dist/updates/appcast.xml"
