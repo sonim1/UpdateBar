@@ -9,24 +9,19 @@ TAG="$1"; [[ "$TAG" =~ ^v[0-9]+([.][0-9]+){1,2}$ ]] || { echo 'Release tag must 
 VERSION="${TAG#v}"
 SKIP_SPARKLE_SIGNATURE_VERIFICATION="${SKIP_SPARKLE_SIGNATURE_VERIFICATION:-0}"
 SWIFT_VERIFY_BIN="${SWIFT_BIN:-swift}"
+XCRUN_BIN="${XCRUN_BIN:-/usr/bin/xcrun}"
 SPARKLE_VERIFY_COMMAND="$SWIFT_VERIFY_BIN"
 SPARKLE_VERIFY_MODE="swift"
 if [[ "$SKIP_SPARKLE_SIGNATURE_VERIFICATION" == "0" ]]; then
   if [[ "$(uname -s)" == "Darwin" ]]; then
-    if command -v "$XCRUN_BIN" >/dev/null 2>&1; then
-      SPARKLE_VERIFY_COMMAND="$XCRUN_BIN"
-      SPARKLE_VERIFY_MODE="xcrun"
-    else
-      SKIP_SPARKLE_SIGNATURE_VERIFICATION=1
-    fi
+    SPARKLE_VERIFY_COMMAND="$XCRUN_BIN"
+    SPARKLE_VERIFY_MODE="xcrun"
   elif command -v "$SWIFT_VERIFY_BIN" >/dev/null 2>&1; then
     SPARKLE_VERIFY_COMMAND="$SWIFT_VERIFY_BIN"
     SPARKLE_VERIFY_MODE="swift"
   elif command -v "$XCRUN_BIN" >/dev/null 2>&1; then
     SPARKLE_VERIFY_COMMAND="$XCRUN_BIN"
     SPARKLE_VERIFY_MODE="xcrun"
-  else
-    SKIP_SPARKLE_SIGNATURE_VERIFICATION=1
   fi
 fi
 CONFIG="${RELEASE_CONFIG_PATH:-$ROOT/.env.release.local}"
@@ -42,7 +37,7 @@ set +x
 REPOSITORY='sonim1/UpdateBar'; GH_REPO="$REPOSITORY"; GH_HOST='github.com'; export GH_REPO GH_HOST
 GIT_BIN="${GIT_BIN:-git}"; GH_BIN="${GH_BIN:-gh}"; SHASUM_BIN="${SHASUM_BIN:-/usr/bin/shasum}"
 CMP_BIN="${CMP_BIN:-/usr/bin/cmp}"; RUBY_BIN="${RUBY_BIN:-/usr/bin/ruby}"
-HDIUTIL_BIN="${HDIUTIL_BIN:-/usr/bin/hdiutil}"; PLUTIL_BIN="${PLUTIL_BIN:-/usr/bin/plutil}"; REALPATH_BIN="${REALPATH_BIN:-realpath}"; XCRUN_BIN="${XCRUN_BIN:-/usr/bin/xcrun}"
+HDIUTIL_BIN="${HDIUTIL_BIN:-/usr/bin/hdiutil}"; PLUTIL_BIN="${PLUTIL_BIN:-/usr/bin/plutil}"; REALPATH_BIN="${REALPATH_BIN:-realpath}"
 PUBLISH_UPDATE_SCRIPT="${PUBLISH_UPDATE_SCRIPT:-$ROOT/Scripts/publish-update.sh}"
 DIST="$ROOT/dist"; UPDATE_DIR="$DIST/updates"; MANIFEST_NAME=release-manifest.json; APPCAST_NAME=appcast.xml
 MAC_NAME="updatebar-$VERSION-macos-arm64.tar.gz"; LINUX_NAME="updatebar-$VERSION-linux-x86_64.tar.gz"; DMG_NAME="UpdateBar-$VERSION-macos-arm64.dmg"
