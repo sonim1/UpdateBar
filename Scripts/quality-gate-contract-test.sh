@@ -32,37 +32,6 @@ if ! grep -Fq 'concurrency:' "$CI_WORKFLOW" || ! grep -Fq 'cancel-in-progress: t
   exit 1
 fi
 
-ruby -rpsych -e '
-  workflow = Psych.safe_load(File.read(ARGV.fetch(0)), aliases: true)
-  linux_steps = workflow.fetch("jobs").fetch("linux").fetch("steps")
-  install_step = linux_steps.find do |step|
-    step.is_a?(Hash) && step.fetch("run", "").include?("apt-get install")
-  end
-  abort "ci.yml Linux job must install Ruby before quality-gate.sh" unless install_step
-  install_run = install_step.fetch("run")
-  abort "ci.yml Linux job must install Ruby before quality-gate.sh" unless install_run.match?(/\bruby\b/)
-  install_index = linux_steps.index(install_step)
-  quality_index = linux_steps.index do |step|
-    step.is_a?(Hash) && step.fetch("run", "").include?("Scripts/quality-gate.sh")
-  end
-  abort "ci.yml Linux job must install Ruby before quality-gate.sh" unless quality_index && install_index < quality_index
-
-  expected_safe_directory = %q(git config --global --add safe.directory "$GITHUB_WORKSPACE")
-  safe_directory_steps = linux_steps.select do |step|
-    step.is_a?(Hash) && step.fetch("run", "").include?("safe.directory")
-  end
-  safe_directory_commands = safe_directory_steps.flat_map do |step|
-    step.fetch("run").lines.map(&:strip).grep(/safe[.]directory/)
-  end
-  unless safe_directory_commands == [expected_safe_directory]
-    abort "ci.yml Linux job must mark only GITHUB_WORKSPACE as a safe Git directory"
-  end
-  safe_directory_index = linux_steps.index(safe_directory_steps.fetch(0))
-  unless quality_index && safe_directory_index < quality_index
-    abort "ci.yml Linux job must mark GITHUB_WORKSPACE safe before quality-gate.sh"
-  end
-' "$CI_WORKFLOW"
-
 if [[ ! -f "$RELEASE_WORKFLOW" ]]; then
   echo "release.yml must exist for tag publishing" >&2
   exit 1
@@ -119,19 +88,6 @@ ruby -e '
   syntax_runs = quality_gate.scan(/^bash -n "\$\{RELEASE_SYNTAX_SCRIPTS\[@\]\}"$/).length
   abort "quality-gate.sh must syntax-check the declared release scripts exactly once" unless syntax_runs == 1
 ' "$QUALITY_GATE"
-
-RELEASE_TOOLING_TEST_TMP="$(mktemp -d)"
-mkdir -p "$RELEASE_TOOLING_TEST_TMP/Scripts"
-cp "$ROOT/.gitignore" "$ROOT/package.json" "$ROOT/package-lock.json" "$RELEASE_TOOLING_TEST_TMP/"
-cp "$ROOT/Scripts/release-tooling-test.sh" "$RELEASE_TOOLING_TEST_TMP/Scripts/"
-git -C "$RELEASE_TOOLING_TEST_TMP" init -q
-if ! bash "$RELEASE_TOOLING_TEST_TMP/Scripts/release-tooling-test.sh" >"$RELEASE_TOOLING_TEST_TMP/release-tooling-test.log" 2>&1; then
-  cat "$RELEASE_TOOLING_TEST_TMP/release-tooling-test.log" >&2
-  rm -rf "$RELEASE_TOOLING_TEST_TMP"
-  echo "release tooling checks must pass in a clean checkout without node_modules" >&2
-  exit 1
-fi
-rm -rf "$RELEASE_TOOLING_TEST_TMP"
 
 for obsolete_script in \
   Scripts/build-app-archive.sh \

@@ -149,31 +149,7 @@ lock_owned=1
 if [[ -L "$OUTPUT" || ( -e "$OUTPUT" && ! -d "$OUTPUT" ) ]]; then fail "Unsafe update output destination"; fi
 if [[ -d "$OUTPUT" ]]; then rename_mode=swap; else rename_mode=exclusive; fi
 if "$RENAME_BIN" -rfiddle/import -e '
-  require "rbconfig"
   source, destination, mode = ARGV
-  host_os = RbConfig::CONFIG.fetch("host_os")
-  case host_os
-  when /darwin/
-    backend = :darwin
-    exclusive_flag = 0x00000004 # RENAME_EXCL
-    swap_flag = 0x00000002 # RENAME_SWAP
-    module DarwinRename
-      extend Fiddle::Importer
-      dlload Fiddle.dlopen(nil)
-      extern "int renameatx_np(int, const char *, int, const char *, unsigned int)"
-    end
-  when /linux/
-    backend = :linux
-    exclusive_flag = 0x00000001 # RENAME_NOREPLACE
-    swap_flag = 0x00000002 # RENAME_EXCHANGE
-    module LinuxRename
-      extend Fiddle::Importer
-      dlload Fiddle.dlopen(nil)
-      extern "int renameat2(int, const char *, int, const char *, unsigned int)"
-    end
-  else
-    abort "Unsupported appcast atomic rename platform: #{host_os}"
-  end
   source_stat = File.lstat(source)
   abort "Appcast source is not a real directory" unless source_stat.directory? && !source_stat.symlink?
   source_identity = "#{source_stat.dev}:#{source_stat.ino}"
@@ -184,25 +160,23 @@ if "$RENAME_BIN" -rfiddle/import -e '
       abort "Appcast destination appeared during finalization"
     rescue Errno::ENOENT
     end
-    flags = exclusive_flag
+    flags = 0x00000004 # RENAME_EXCL
   elsif mode == "swap"
     destination_stat = File.lstat(destination)
     abort "Appcast destination changed during finalization" unless destination_stat.directory? && !destination_stat.symlink?
     destination_identity = "#{destination_stat.dev}:#{destination_stat.ino}"
-    flags = swap_flag
+    flags = 0x00000002 # RENAME_SWAP
   else
     abort "Unknown appcast rename mode"
   end
-  if backend == :darwin
-    operation = "renameatx_np"
-    result = DarwinRename.renameatx_np(-2, source, -2, destination, flags)
-  else
-    operation = "renameat2"
-    result = LinuxRename.renameat2(-100, source, -100, destination, flags)
+  module DarwinRename
+    extend Fiddle::Importer
+    dlload Fiddle.dlopen(nil)
+    extern "int renameatx_np(int, const char *, int, const char *, unsigned int)"
   end
-  rename_errno = Fiddle.last_error
+  result = DarwinRename.renameatx_np(-2, source, -2, destination, flags)
   if result != 0
-    warn "#{operation} failed with errno #{rename_errno}"
+    warn "renameatx_np failed with errno #{Fiddle.last_error}"
     exit 73
   end
   begin

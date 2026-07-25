@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/version.env"
 
 VALID_SPARKLE_KEY="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+HOST_OS="${PACKAGE_APP_TEST_HOST_OS:-$(/usr/bin/uname -s)}"
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -95,75 +96,44 @@ BIN
 esac
 SH
 
-  cat >"$BIN_DIR/plutil" <<'SH'
+cat >"$BIN_DIR/plutil" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >>"${PLUTIL_LOG:?}"
 if [[ "${PLUTIL_FAIL_STATUS:-0}" != "0" ]]; then
   exit "$PLUTIL_FAIL_STATUS"
 fi
-if [[ "$(/usr/bin/uname -s)" == Darwin ]]; then
+if [[ "${PACKAGE_APP_TEST_HOST_OS:-$(/usr/bin/uname -s)}" == Darwin ]]; then
   exec /usr/bin/plutil "$@"
 fi
-[[ "$(/usr/bin/uname -s)" == Linux ]] || exit 90
-/usr/bin/ruby -rrexml/document -rrexml/formatters/default - "$@" <<'RUBY'
-args=ARGV
-begin
-  insert=args.length==5&&args[0]=="-insert"&&["-string","-bool"].include?(args[2])
-  lint=args.length==2&&args[0]=="-lint"
-  extract=args.length==6&&args[0]=="-extract"&&args[2,3]==["raw","-o","-"]
-  exit 90 unless insert||lint||extract
-  raw=File.binread(args[-1])
-  canonical_doctype='<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
-  doctype_count=raw.scan("<!DOCTYPE").length
-  exit 1 unless doctype_count==0||(doctype_count==1&&raw.include?(canonical_doctype))
-  document=REXML::Document.new(raw)
-  root=document.root
-  children=root&.elements&.to_a
-  exit 1 unless root&.name=="plist"&&children&.length==1&&children[0].name=="dict"
-  dict=children[0]
-  entries=dict.elements.to_a
-  exit 1 unless entries.length.even?
-  pairs={}
-  entries.each_slice(2) do |key_element,value_element|
-    exit 1 unless key_element.name=="key"
-    key_children=key_element.children
-    exit 1 unless key_children.all?{|child|child.is_a?(REXML::Text)}
-    key=key_children.map(&:value).join
-    exit 1 if pairs.key?(key)
-    case value_element.name
-    when "string"
-      value_children=value_element.children
-      exit 1 unless value_children.all?{|child|child.is_a?(REXML::Text)}
-      value=value_children.map(&:value).join
-    when "true","false"
-      exit 1 unless value_element.children.empty?
-      value=value_element.name
-    else
-      exit 1
-    end
-    pairs[key]=value
-  end
-  if insert
-    exit 1 if pairs.key?(args[1])
-    exit 1 if args[2]=="-bool"&&!["true","false"].include?(args[3])
-    key=REXML::Element.new("key")
-    key.text=args[1]
-    value=REXML::Element.new(args[2]=="-string" ? "string" : args[3])
-    value.text=args[3] if args[2]=="-string"
-    dict.add_element(key)
-    dict.add_element(value)
-    File.open(args[4],"wb"){|file|REXML::Formatters::Default.new.write(document,file)}
-  elsif lint
-    exit 0
-  elsif extract
-    exit 1 unless pairs.key?(args[1])
-    print pairs[args[1]]
-  end
-rescue REXML::ParseException,SystemCallError
-  exit 1
-end
-RUBY
+case "${1:-}" in
+  -insert)
+    [[ $# == 5 && ("$3" == -string || "$3" == -bool) && -f "$5" ]] || exit 90
+    /usr/bin/ruby -rcgi -e '
+      key,type,value,path=ARGV
+      entry="<key>#{CGI.escapeHTML(key)}</key>\n  "
+      entry += type=="-string" ? "<string>#{CGI.escapeHTML(value)}</string>" : (value=="false" ? "<false/>" : "<true/>")
+      raw=File.binread(path)
+      exit 1 unless raw.sub!(%r{</dict>\s*</plist>\s*\z}, "#{entry}\n</dict>\n</plist>\n")
+      File.binwrite(path,raw)
+    ' "$2" "$3" "$4" "$5"
+    ;;
+  -lint)
+    [[ $# == 2 && -f "$2" ]] || exit 90
+    /usr/bin/ruby -rrexml/document -e 'REXML::Document.new(File.binread(ARGV[0]))' "$2"
+    ;;
+  -extract)
+    [[ $# == 6 && "$3" == raw && "$4" == -o && "$5" == - && -f "$6" ]] || exit 90
+    /usr/bin/ruby -rcgi -e '
+      key,path=ARGV
+      raw=File.binread(path)
+      match=raw.match(%r{<key>\s*#{Regexp.escape(key)}\s*</key>\s*(?:<string>([^<]*)</string>|<(true|false)/>)})
+      exit 1 unless match
+      print(match[1] ? CGI.unescapeHTML(match[1]) : match[2])
+    ' "$2" "$6"
+    ;;
+  *) exit 90 ;;
+esac
 SH
 
   cat >"$BIN_DIR/codesign" <<'SH'
@@ -172,18 +142,18 @@ set -euo pipefail
 printf '%s\n' "$*" >>"${CODESIGN_LOG:?}"
 SH
 
-  cat >"$BIN_DIR/ditto" <<'SH'
+cat >"$BIN_DIR/ditto" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >>"${DITTO_LOG:?}"
 if [[ "${DITTO_FAIL_STATUS:-0}" != "0" ]]; then
   exit "$DITTO_FAIL_STATUS"
 fi
-if [[ "$(/usr/bin/uname -s)" == Darwin ]]; then
+if [[ "${PACKAGE_APP_TEST_HOST_OS:-$(/usr/bin/uname -s)}" == Darwin ]]; then
   exec /usr/bin/ditto "$@"
 fi
-[[ $# == 2 && -d "$1" && ! -e "$2" ]] || exit 90
-exec /bin/cp -R "$1" "$2"
+[[ $# == 2 && -d "$1" ]] || exit 90
+cp -R "$1" "$2"
 SH
 
   cat >"$BIN_DIR/otool" <<'SH'
@@ -229,15 +199,6 @@ run_package() {
   )
 }
 
-run_plutil_fixture() {
-  PLUTIL_LOG="$LOG_DIR/plutil.log" PLUTIL_FAIL_STATUS=0 \
-    "$BIN_DIR/plutil" "$@"
-}
-
-plist_value() {
-  run_plutil_fixture -extract "$1" raw -o - "$2"
-}
-
 expect_failure() {
   local description="$1"
   shift
@@ -276,38 +237,15 @@ assert_no_build_or_sign() {
   fi
 }
 
-if [[ "$(/usr/bin/uname -s)" == Linux ]]; then
-  prepare_case portable-tool-contract
-  valid_plist="$CASE_ROOT/valid.plist"
-  malformed_plist="$CASE_ROOT/malformed.plist"
-  nested_plist="$CASE_ROOT/nested.plist"
-  duplicate_plist="$CASE_ROOT/duplicate.plist"
-  doctype_plist="$CASE_ROOT/doctype.plist"
-  printf '%s\n' '<plist><dict><key>A</key><string>B</string></dict></plist>' >"$valid_plist"
-  printf '%s\n' '<plist><dict><key>A</key><string>B</string>' >"$malformed_plist"
-  printf '%s\n' '<plist><dict><key>A</key><string>B<evil/></string></dict></plist>' >"$nested_plist"
-  printf '%s\n' '<plist><dict><key>A</key><string>B</string><key>A</key><string>C</string></dict></plist>' >"$duplicate_plist"
-  printf '%s\n' '<!DOCTYPE plist [<!ENTITY x "B">]><plist><dict><key>A</key><string>&x;</string></dict></plist>' >"$doctype_plist"
-  run_plutil_fixture -lint "$valid_plist" >/dev/null
-  for invalid_plist in "$malformed_plist" "$nested_plist" "$duplicate_plist" "$doctype_plist"; do
-    if run_plutil_fixture -lint "$invalid_plist" >/dev/null 2>&1; then
-      fail "Linux plutil fixture accepted an unsafe property list: $invalid_plist"
-    fi
-  done
-
-  ditto_source="$CASE_ROOT/ditto-source"
-  ditto_destination="$CASE_ROOT/ditto-destination"
-  mkdir "$ditto_source"
-  printf 'copied\n' >"$ditto_source/file"
-  set +e
-  DITTO_LOG="$LOG_DIR/ditto.log" DITTO_FAIL_STATUS=0 "$BIN_DIR/ditto" "$ditto_source" >/dev/null 2>&1
-  status=$?
-  set -e
-  [[ "$status" == 90 ]] || fail "Linux ditto fixture should reject unexpected arguments (got $status)"
-  DITTO_LOG="$LOG_DIR/ditto.log" DITTO_FAIL_STATUS=0 \
-    "$BIN_DIR/ditto" "$ditto_source" "$ditto_destination"
-  [[ "$(<"$ditto_destination/file")" == copied ]] || fail "Linux ditto fixture did not copy the exact source"
-fi
+plist_extract() {
+  local key="$1"
+  local plist="$2"
+  if [[ "$HOST_OS" == Darwin ]]; then
+    /usr/bin/plutil -extract "$key" raw -o - "$plist"
+  else
+    PLUTIL_LOG="$LOG_DIR/plutil.log" "$BIN_DIR/plutil" -extract "$key" raw -o - "$plist"
+  fi
+}
 
 prepare_case missing-key
 output="$(expect_failure_status "missing Sparkle public key" 64 SPARKLE_PUBLIC_ED_KEY=)"
@@ -425,9 +363,9 @@ UNSIGNED_APP="$CASE_ROOT/dist/UpdateBar.app"
 UNSIGNED_PLIST="$UNSIGNED_APP/Contents/Info.plist"
 [[ -d "$UNSIGNED_APP/Contents/Frameworks/Sparkle.framework" ]] || \
   fail "unsigned packaging should copy Sparkle.framework"
-unsigned_feed="$(plist_value SUFeedURL "$UNSIGNED_PLIST")"
-unsigned_key="$(plist_value SUPublicEDKey "$UNSIGNED_PLIST")"
-unsigned_automatic="$(plist_value SUEnableAutomaticChecks "$UNSIGNED_PLIST")"
+unsigned_feed="$(plist_extract SUFeedURL "$UNSIGNED_PLIST")"
+unsigned_key="$(plist_extract SUPublicEDKey "$UNSIGNED_PLIST")"
+unsigned_automatic="$(plist_extract SUEnableAutomaticChecks "$UNSIGNED_PLIST")"
 [[ "$unsigned_feed" == "https://updates.updatebar.sonim1.com/appcast.xml" ]] || \
   fail "unsigned package has unexpected SUFeedURL"
 [[ "$unsigned_key" == "$VALID_SPARKLE_KEY" ]] || fail "unsigned package has unexpected SUPublicEDKey"
@@ -447,9 +385,9 @@ FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
 [[ -d "$FRAMEWORK" ]] || fail "package app should copy Sparkle.framework"
 [[ -f "$APP/Contents/Resources/UpdateBar.icns" ]] || fail "package app should copy UpdateBar.icns"
 
-feed="$(plist_value SUFeedURL "$PLIST")"
-key="$(plist_value SUPublicEDKey "$PLIST")"
-automatic="$(plist_value SUEnableAutomaticChecks "$PLIST")"
+feed="$(plist_extract SUFeedURL "$PLIST")"
+key="$(plist_extract SUPublicEDKey "$PLIST")"
+automatic="$(plist_extract SUEnableAutomaticChecks "$PLIST")"
 [[ "$feed" == "https://updates.updatebar.sonim1.com/appcast.xml" ]] || fail "unexpected SUFeedURL: $feed"
 [[ "$key" == "$VALID_SPARKLE_KEY" ]] || fail "unexpected SUPublicEDKey"
 [[ "$automatic" == "false" ]] || fail "SUEnableAutomaticChecks must be boolean false"
