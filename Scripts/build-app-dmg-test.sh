@@ -45,9 +45,9 @@ printf 'app\n' >"$MOUNT_DIR/UpdateBar.app/Contents/MacOS/UpdateBar"
 chmod +x "$MOUNT_DIR/UpdateBar.app/Contents/MacOS/UpdateBar"
 printf 'plist\n' >"$MOUNT_DIR/UpdateBar.app/Contents/Info.plist"
 printf 'icon\n' >"$MOUNT_DIR/UpdateBar.app/Contents/Resources/UpdateBar.icns"
-cat >"$MOUNT_DIR/UpdateBar.app/Contents/Resources/updatebar" <<SH
+cat >"$MOUNT_DIR/UpdateBar.app/Contents/Resources/updatebar" <<'SH'
 #!/usr/bin/env bash
-printf '%s\n' "\${FAKE_CLI_VERSION:-$UPDATEBAR_VERSION}"
+printf '%s\n' "${FAKE_CLI_VERSION:-$UPDATEBAR_VERSION}"
 SH
 chmod +x "$MOUNT_DIR/UpdateBar.app/Contents/Resources/updatebar"
 ln -s /Applications "$MOUNT_DIR/Applications"
@@ -262,6 +262,8 @@ run_builder() {
 run_smoke() {
   env \
     COMMAND_LOG="$LOG" FAKE_MOUNT_DIR="$MOUNT_DIR" FAKE_VERSION="$UPDATEBAR_VERSION" \
+    FAKE_CLI_VERSION="$UPDATEBAR_VERSION" \
+    UPDATEBAR_VERSION="$UPDATEBAR_VERSION" \
     FAKE_PUBLIC_KEY="$VALID_KEY" SPARKLE_PUBLIC_ED_KEY="$VALID_KEY" \
     HDIUTIL_BIN="$BIN_DIR/hdiutil" PLUTIL_BIN="$BIN_DIR/plutil" \
     SHASUM_BIN="$BIN_DIR/shasum" RUBY_BIN="$(command -v ruby)" \
@@ -472,6 +474,7 @@ env \
   COMMAND_LOG="$LOG" \
   FAKE_MOUNT_DIR="$MOUNT_DIR" \
   FAKE_VERSION="$UPDATEBAR_VERSION" \
+  FAKE_CLI_VERSION="$UPDATEBAR_VERSION" \
   FAKE_PUBLIC_KEY="$VALID_KEY" \
   SPARKLE_PUBLIC_ED_KEY="$VALID_KEY" \
   HDIUTIL_BIN="$BIN_DIR/hdiutil" \
@@ -488,8 +491,9 @@ fi
 
 for smoke_device_mode in missing malformed multiple; do
   : >"$LOG"
-  env \
+env \
     COMMAND_LOG="$LOG" FAKE_MOUNT_DIR="$MOUNT_DIR" FAKE_VERSION="$UPDATEBAR_VERSION" \
+    FAKE_CLI_VERSION="$UPDATEBAR_VERSION" \
     FAKE_PUBLIC_KEY="$VALID_KEY" FAKE_DEVICE_MODE="$smoke_device_mode" \
     SPARKLE_PUBLIC_ED_KEY="$VALID_KEY" HDIUTIL_BIN="$BIN_DIR/hdiutil" \
     PLUTIL_BIN="$BIN_DIR/plutil" SHASUM_BIN="$BIN_DIR/shasum" \
@@ -544,6 +548,7 @@ ln -s ../Applications "$MOUNT_DIR/Applications"
 set +e
 env \
   COMMAND_LOG="$LOG" FAKE_MOUNT_DIR="$MOUNT_DIR" FAKE_VERSION="$UPDATEBAR_VERSION" \
+  FAKE_CLI_VERSION="$UPDATEBAR_VERSION" \
   FAKE_PUBLIC_KEY="$VALID_KEY" \
   SPARKLE_PUBLIC_ED_KEY="$VALID_KEY" HDIUTIL_BIN="$BIN_DIR/hdiutil" \
   PLUTIL_BIN="$BIN_DIR/plutil" SHASUM_BIN="$BIN_DIR/shasum" \
@@ -579,6 +584,7 @@ for smoke_failure in zero-mount multiple-mount parser-failure missing-device-par
   set +e
   env \
     COMMAND_LOG="$LOG" FAKE_MOUNT_DIR="$MOUNT_DIR" FAKE_VERSION="$UPDATEBAR_VERSION" \
+    FAKE_CLI_VERSION="$UPDATEBAR_VERSION" \
     FAKE_PUBLIC_KEY="$VALID_KEY" FAKE_MOUNT_MODE="$smoke_mode" FAIL_PLUTIL="$smoke_plutil" \
     FAKE_DEVICE_MODE="$smoke_device" FAIL_DETACH="$smoke_detach" \
     SPARKLE_PUBLIC_ED_KEY="$VALID_KEY" \
@@ -613,6 +619,7 @@ set +e
 env \
   COMMAND_LOG="$LOG" FAKE_MOUNT_DIR="$MOUNT_DIR" FAKE_VERSION="$UPDATEBAR_VERSION" \
   FAKE_PUBLIC_KEY="$VALID_KEY" FAIL_DETACH=1 \
+  FAKE_CLI_VERSION="$UPDATEBAR_VERSION" \
   SPARKLE_PUBLIC_ED_KEY="$VALID_KEY" HDIUTIL_BIN="$BIN_DIR/hdiutil" \
   PLUTIL_BIN="$BIN_DIR/plutil" SHASUM_BIN="$BIN_DIR/shasum" \
   RUBY_BIN="$(command -v ruby)" REALPATH_BIN="$(command -v realpath)" \

@@ -54,7 +54,7 @@ can find `XCTest`. If direct `swift test` fails, set `DEVELOPER_DIR` or see
 curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash
 
 # Or install a specific version:
-curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.6.1
+curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.5.0
 
 # Optional: change install directory
 curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | UPDATEBAR_INSTALL_PREFIX="$HOME/.local/bin" bash
@@ -68,9 +68,9 @@ before installing `updatebar`.
 
 ### Menu bar app
 
-`updatebar-menubar` ships as an optional macOS wrapper. The current `v0.6.1`
+`updatebar-menubar` ships as an optional macOS wrapper. The current `v0.5.0`
 release provides the signed and notarized Apple Silicon asset
-`UpdateBar-0.6.1-macos-arm64.app.tar.gz`. Starting with the next published app
+`UpdateBar-0.5.0-macos-arm64.app.tar.gz`. Starting with the next published app
 release, tags publish the canonical `UpdateBar-<version>-macos-arm64.dmg` and
 its checksum. `Scripts/package-app.sh` builds the local app bundle used by the
 DMG release builder.
@@ -255,19 +255,15 @@ only its fully qualified ref:
 ```bash
 (
 set -euo pipefail
-version_lines=()
-while IFS= read -r version_line || [[ -n "$version_line" ]]; do
-  version_lines+=("$version_line")
-done < version.env
-test "${#version_lines[@]}" -eq 1
-[[ "${version_lines[0]}" =~ ^UPDATEBAR_VERSION=([0-9]+([.][0-9]+){1,2})$ ]]
-release_version="${BASH_REMATCH[1]}"
-release_tag="v$release_version"
+release_tag=v0.6.0
 git fetch --prune --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
 git fetch --prune --tags origin
 test -z "$(git status --porcelain=v1 --untracked-files=all)"
 test "$(git branch --show-current)" = main
 test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
+version_line="$(< version.env)"
+[[ "$version_line" =~ ^UPDATEBAR_VERSION=([0-9]+([.][0-9]+){1,2})$ ]]
+test "${release_tag#v}" = "${BASH_REMATCH[1]}"
 if git show-ref --verify --quiet "refs/tags/$release_tag"; then
   echo "Release tag already exists: $release_tag" >&2
   exit 64
@@ -370,14 +366,7 @@ short-lived R2 and tap credentials without placing them in shell history:
 (
 set -euo pipefail
 set +x
-version_lines=()
-while IFS= read -r version_line || [[ -n "$version_line" ]]; do
-  version_lines+=("$version_line")
-done < version.env
-test "${#version_lines[@]}" -eq 1
-[[ "${version_lines[0]}" =~ ^UPDATEBAR_VERSION=([0-9]+([.][0-9]+){1,2})$ ]]
-release_version="${BASH_REMATCH[1]}"
-release_tag="v$release_version"
+release_tag=v0.6.0
 remote_tag_ref=''
 remote_ref_nonce=''
 cleanup_local_release() {
@@ -477,20 +466,6 @@ v1 ships the CLI first, with optional Ink TUI and macOS Menu Bar presentation la
 Built-in AI generation, OAuth providers, and local LLM providers are removed by design — recipe authoring belongs to external agents. Sync, community registries, recipe signing, and `diff` are not planned until real external demand appears. Current architecture notes live in [current-architecture.md](current-architecture.md); [next-plan.md](next-plan.md) is retained as historical planning context.
 
 UpdateBar has no telemetry.
-
-## Agent Command Editing
-
-External agents can inspect and correct one command field without a TTY:
-
-```bash
-updatebar approvals demo-tool --json
-updatebar edit demo-tool --field check.cmd --from check-command.txt --json
-updatebar approvals demo-tool --json
-```
-
-Editing validates the complete recipe and invalidates affected approvals. It
-never approves or executes the new command; approval remains a separate,
-explicit action after review.
 
 ## Safety Model
 

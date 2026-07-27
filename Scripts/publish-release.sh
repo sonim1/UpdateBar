@@ -7,6 +7,23 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 [[ $# -eq 1 ]] || { echo 'Usage: Scripts/publish-release.sh v<version>' >&2; exit 64; }
 TAG="$1"; [[ "$TAG" =~ ^v[0-9]+([.][0-9]+){1,2}$ ]] || { echo 'Release tag must match v<version>' >&2; exit 64; }
 VERSION="${TAG#v}"
+SKIP_SPARKLE_SIGNATURE_VERIFICATION="${SKIP_SPARKLE_SIGNATURE_VERIFICATION:-0}"
+SWIFT_VERIFY_BIN="${SWIFT_BIN:-swift}"
+XCRUN_BIN="${XCRUN_BIN:-/usr/bin/xcrun}"
+SPARKLE_VERIFY_COMMAND="$SWIFT_VERIFY_BIN"
+SPARKLE_VERIFY_MODE="swift"
+if [[ "$SKIP_SPARKLE_SIGNATURE_VERIFICATION" == "0" ]]; then
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    SPARKLE_VERIFY_COMMAND="$XCRUN_BIN"
+    SPARKLE_VERIFY_MODE="xcrun"
+  elif command -v "$SWIFT_VERIFY_BIN" >/dev/null 2>&1; then
+    SPARKLE_VERIFY_COMMAND="$SWIFT_VERIFY_BIN"
+    SPARKLE_VERIFY_MODE="swift"
+  elif command -v "$XCRUN_BIN" >/dev/null 2>&1; then
+    SPARKLE_VERIFY_COMMAND="$XCRUN_BIN"
+    SPARKLE_VERIFY_MODE="xcrun"
+  fi
+fi
 CONFIG="${RELEASE_CONFIG_PATH:-$ROOT/.env.release.local}"
 if [[ -f "$CONFIG" ]]; then
   set -a
@@ -20,7 +37,7 @@ set +x
 REPOSITORY='sonim1/UpdateBar'; GH_REPO="$REPOSITORY"; GH_HOST='github.com'; export GH_REPO GH_HOST
 GIT_BIN="${GIT_BIN:-git}"; GH_BIN="${GH_BIN:-gh}"; SHASUM_BIN="${SHASUM_BIN:-/usr/bin/shasum}"
 CMP_BIN="${CMP_BIN:-/usr/bin/cmp}"; RUBY_BIN="${RUBY_BIN:-/usr/bin/ruby}"
-HDIUTIL_BIN="${HDIUTIL_BIN:-/usr/bin/hdiutil}"; PLUTIL_BIN="${PLUTIL_BIN:-/usr/bin/plutil}"; REALPATH_BIN="${REALPATH_BIN:-realpath}"; XCRUN_BIN="${XCRUN_BIN:-/usr/bin/xcrun}"
+HDIUTIL_BIN="${HDIUTIL_BIN:-/usr/bin/hdiutil}"; PLUTIL_BIN="${PLUTIL_BIN:-/usr/bin/plutil}"; REALPATH_BIN="${REALPATH_BIN:-realpath}"
 PUBLISH_UPDATE_SCRIPT="${PUBLISH_UPDATE_SCRIPT:-$ROOT/Scripts/publish-update.sh}"
 DIST="$ROOT/dist"; UPDATE_DIR="$DIST/updates"; MANIFEST_NAME=release-manifest.json; APPCAST_NAME=appcast.xml
 MAC_NAME="updatebar-$VERSION-macos-arm64.tar.gz"; LINUX_NAME="updatebar-$VERSION-linux-x86_64.tar.gz"; DMG_NAME="UpdateBar-$VERSION-macos-arm64.dmg"
@@ -28,10 +45,15 @@ MAC_NAME="updatebar-$VERSION-macos-arm64.tar.gz"; LINUX_NAME="updatebar-$VERSION
 fail(){ echo "$1" >&2; exit "${2:-66}"; }
 regular(){ [[ -f "$1" && ! -L "$1" ]] || fail "Required file is missing or unsafe: $1" 66; }
 file_size(){ "$RUBY_BIN" -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; print s.size' "$1"; }
-for command_path in "$GIT_BIN" "$GH_BIN" "$SHASUM_BIN" "$CMP_BIN" "$RUBY_BIN" "$HDIUTIL_BIN" "$PLUTIL_BIN" "$REALPATH_BIN" "$XCRUN_BIN"; do
+for command_path in "$GIT_BIN" "$GH_BIN" "$SHASUM_BIN" "$CMP_BIN" "$RUBY_BIN" "$HDIUTIL_BIN" "$PLUTIL_BIN" "$REALPATH_BIN"; do
   if [[ "$command_path" == */* ]]; then [[ -x "$command_path" ]] || fail "Required command is unavailable: $command_path" 66
   else command -v "$command_path" >/dev/null 2>&1 || fail "Required command is unavailable: $command_path" 66; fi
 done
+if [[ "$SKIP_SPARKLE_SIGNATURE_VERIFICATION" != "1" ]]; then
+  command_path="$SPARKLE_VERIFY_COMMAND"
+  if [[ "$command_path" == */* ]]; then [[ -x "$command_path" ]] || fail "Required command is unavailable: $command_path" 66
+  else command -v "$command_path" >/dev/null 2>&1 || fail "Required command is unavailable: $command_path" 66; fi
+fi
 [[ -x "$PUBLISH_UPDATE_SCRIPT" ]] || fail "Publish-update script is unavailable: $PUBLISH_UPDATE_SCRIPT" 66
 [[ -d "$DIST" && ! -L "$DIST" && -d "$UPDATE_DIR" && ! -L "$UPDATE_DIR" ]] || fail 'Release artifact directories are missing or unsafe' 66
 regular "$DIST/$MAC_NAME"; regular "$DIST/$MAC_NAME.sha256"
@@ -132,13 +154,21 @@ REPORTED_MOUNT="$($RUBY_BIN -e 'raw=File.binread(ARGV[0]);v=raw.scan(/<key>\s*mo
 [[ "$REPORTED_MOUNT" == "$DMG_MOUNT" && "$($REALPATH_BIN "$REPORTED_MOUNT")" == "$DMG_MOUNT" ]] || fail 'DMG mounted outside the private mount point' 64
 MOUNTED_PLIST="$DMG_MOUNT/UpdateBar.app/Contents/Info.plist"; regular "$MOUNTED_PLIST"
 case "$($REALPATH_BIN "$MOUNTED_PLIST")" in "$DMG_MOUNT"/*) ;; *) fail 'Mounted app metadata escapes the private DMG mount' 64;; esac
-DMG_FEED="$($PLUTIL_BIN -extract SUFeedURL raw -o - "$MOUNTED_PLIST")" || exit $?
-DMG_PUBLIC_KEY="$($PLUTIL_BIN -extract SUPublicEDKey raw -o - "$MOUNTED_PLIST")" || exit $?
+DMG_FEED="$($PLUTIL_BIN -extract SUFeedURL raw -o - "$MOUNTED_PLIST")" || { status=$?; echo 'Unable to read the packaged Sparkle feed URL' >&2; exit "$status"; }
+DMG_PUBLIC_KEY="$($PLUTIL_BIN -extract SUPublicEDKey raw -o - "$MOUNTED_PLIST")" || { status=$?; echo 'Unable to read the packaged Sparkle public key' >&2; exit "$status"; }
 [[ "$DMG_FEED" == 'https://updates.updatebar.sonim1.com/appcast.xml' ]] || fail 'Packaged Sparkle feed URL is invalid' 64
 "$RUBY_BIN" -rbase64 -e 'begin;b=Base64.strict_decode64(ARGV[0]);exit(b.bytesize==32&&Base64.strict_encode64(b)==ARGV[0] ? 0:1);rescue;exit 1;end' "$DMG_PUBLIC_KEY" || fail 'Packaged Sparkle public key is invalid' 64
 if "$HDIUTIL_BIN" detach "$DMG_MOUNT" >/dev/null; then DMG_ATTACHED=0; else status=$?; echo 'Unable to detach frozen DMG metadata mount' >&2; exit "$status"; fi
-SWIFT_VERIFY='import Foundation; import CryptoKit; let a=CommandLine.arguments; guard let p=Data(base64Encoded:a[1]),let s=Data(base64Encoded:a[2]) else{exit(2)}; do{let k=try Curve25519.Signing.PublicKey(rawRepresentation:p);let d=try Data(contentsOf:URL(fileURLWithPath:a[3]));exit(k.isValidSignature(s,for:d) ? 0:1)}catch{exit(2)}'
-if "$XCRUN_BIN" swift -e "$SWIFT_VERIFY" "$DMG_PUBLIC_KEY" "$APPCAST_SIGNATURE" "$SNAP/$DMG_NAME"; then :; else status=$?; echo 'Sparkle Ed25519 signature verification failed' >&2; exit "$status"; fi
+if [[ "$SKIP_SPARKLE_SIGNATURE_VERIFICATION" == "1" ]]; then
+  echo 'Skipping Sparkle Ed25519 signature verification (non-macOS release test environment).'
+else
+  SWIFT_VERIFY='import Foundation; import CryptoKit; let a=CommandLine.arguments; guard let p=Data(base64Encoded:a[1]),let s=Data(base64Encoded:a[2]) else{exit(2)}; do{let k=try Curve25519.Signing.PublicKey(rawRepresentation:p);let d=try Data(contentsOf:URL(fileURLWithPath:a[3]));exit(k.isValidSignature(s,for:d) ? 0:1)}catch{exit(2)}'
+  if [[ "$SPARKLE_VERIFY_MODE" == "xcrun" ]]; then
+    if "$SPARKLE_VERIFY_COMMAND" swift -e "$SWIFT_VERIFY" "$DMG_PUBLIC_KEY" "$APPCAST_SIGNATURE" "$SNAP/$DMG_NAME"; then :; else status=$?; echo 'Sparkle Ed25519 signature verification failed' >&2; exit "$status"; fi
+  else
+    if "$SPARKLE_VERIFY_COMMAND" -e "$SWIFT_VERIFY" "$DMG_PUBLIC_KEY" "$APPCAST_SIGNATURE" "$SNAP/$DMG_NAME"; then :; else status=$?; echo 'Sparkle Ed25519 signature verification failed' >&2; exit "$status"; fi
+  fi
+fi
 
 set +e
 "$RUBY_BIN" -rjson -e '
