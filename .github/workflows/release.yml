@@ -449,6 +449,8 @@ jobs:
 
       - name: Smoke-test app DMG
         shell: bash
+        env:
+          SPARKLE_PUBLIC_ED_KEY: "${{ vars.SPARKLE_PUBLIC_ED_KEY }}"
         run: bash Scripts/app-dmg-smoke-test.sh "$APP_DMG"
 
       - name: Generate signed appcast
