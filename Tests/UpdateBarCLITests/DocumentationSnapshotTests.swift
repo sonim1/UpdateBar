@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 
 final class DocumentationSnapshotTests: XCTestCase {
@@ -983,8 +984,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(releaseDocs.contains("For source checkouts, build the Ink TUI with npm"))
         XCTAssertTrue(releaseDocs.contains("UpdateBar-<version>-macos-arm64.dmg"))
         XCTAssertTrue(readme.contains("UpdateBar-<version>-macos-arm64.dmg"))
-        XCTAssertTrue(releaseDocs.contains("UpdateBar-0.6.1-macos-arm64.app.tar.gz"))
-        XCTAssertTrue(readme.contains("UpdateBar-0.6.1-macos-arm64.app.tar.gz"))
+        XCTAssertTrue(containsLegacyAppTarballAsset(releaseDocs))
+        XCTAssertTrue(containsLegacyAppTarballAsset(readme))
         XCTAssertTrue(releaseDocs.contains("next published app release"))
         XCTAssertFalse(releaseDocs.contains("The published Homebrew cask targets this arm64 DMG"))
         XCTAssertFalse(releaseDocs.contains("Install the Ink TUI separately through npm"))
@@ -1536,6 +1537,16 @@ final class DocumentationSnapshotTests: XCTestCase {
 
     private func normalizedWhitespace(_ value: String) -> String {
         value.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
+
+    private func containsLegacyAppTarballAsset(_ value: String) -> Bool {
+        let pattern = #"`UpdateBar-\d+\.\d+\.\d+-macos-arm64\.app\.tar\.gz`"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            XCTFail("legacy app tarball regex should compile")
+            return false
+        }
+        let range = NSRange(value.startIndex..., in: value)
+        return regex.firstMatch(in: value, range: range) != nil
     }
 
     private func readmeTail(_ heading: String, in readme: String) throws -> String {

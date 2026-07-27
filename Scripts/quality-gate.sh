@@ -6,6 +6,9 @@ cd "$ROOT"
 
 SWIFT_BIN="${SWIFT_BIN:-swift}"
 SKIP_MENUBAR_SMOKE="${SKIP_MENUBAR_SMOKE:-0}"
+SKIP_TUI_SMOKE="${SKIP_TUI_SMOKE:-0}"
+SKIP_TUI_INPUT="${SKIP_TUI_INPUT:-0}"
+SKIP_SIGNED_APPCAST="${SKIP_SIGNED_APPCAST:-0}"
 RELEASE_SYNTAX_SCRIPTS=(
   "Scripts/setup-update-hosting.sh"
   "Scripts/generate-appcast.sh"
@@ -19,11 +22,6 @@ RELEASE_SYNTAX_SCRIPTS=(
   "Scripts/build-app-dmg.sh"
   "Scripts/app-dmg-smoke-test.sh"
 )
-SKIP_TUI_SMOKE="${SKIP_TUI_SMOKE:-0}"
-SKIP_TUI_INPUT="${SKIP_TUI_INPUT:-0}"
-SKIP_SIGNED_APPCAST="${SKIP_SIGNED_APPCAST:-0}"
-SKIP_TUI_SMOKE="${SKIP_TUI_SMOKE:-0}"
-SKIP_TUI_INPUT="${SKIP_TUI_INPUT:-0}"
 
 if [[ "$(uname -s)" == "Darwin" && -z "${DEVELOPER_DIR:-}" ]]; then
   XCODE_DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
