@@ -16,6 +16,7 @@ EOF
   exit 0
 fi
 
+# shellcheck source=/dev/null
 source version.env
 
 DIST_DIR="${1:-dist}"

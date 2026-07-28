@@ -10,6 +10,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# shellcheck source=/dev/null
 source version.env
 
 formula_asset="updatebar-${UPDATEBAR_VERSION}-macos-arm64.tar.gz"
