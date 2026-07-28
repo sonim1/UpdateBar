@@ -1,21 +1,231 @@
 name: CI
 
-on:
+"on":
   push:
   pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  policy:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    permissions: {}
+    outputs:
+      trusted: ${{ steps.policy.outputs.trusted }}
+      release_kind: ${{ steps.policy.outputs.release_kind }}
+    steps:
+      - name: Validate pull request policy
+        id: policy
+        shell: bash
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
+          AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          ACTOR: ${{ github.actor }}
+          AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+          LABELS_JSON: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -euo pipefail
+
+          reject() {
+            echo "pull request policy rejected: $1" >&2
+            exit 65
+          }
+
+          printf 'trusted=false\n' >> "$GITHUB_OUTPUT"
+
+          if [[ "$BASE_REF" != "main" ]]; then
+            reject "base branch must be main"
+          fi
+          if [[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]; then
+            reject "head repository must match the base repository"
+          fi
+          if [[ "$ACTOR" == "dependabot[bot]" || "$AUTHOR_LOGIN" == "dependabot[bot]" ]]; then
+            reject "Dependabot pull requests cannot prepare versions"
+          fi
+
+          case "$AUTHOR_ASSOCIATION" in
+            OWNER | MEMBER | COLLABORATOR) ;;
+            *) reject "author association is not trusted: $AUTHOR_ASSOCIATION" ;;
+          esac
+
+          if ! release_kind="$(
+            /usr/bin/ruby -rjson -e '
+              labels = JSON.parse(ARGV.fetch(0))
+              unless labels.is_a?(Array) && labels.all? { |label| label.is_a?(String) }
+                abort "pull request labels must be a JSON string array"
+              end
+              release_labels = labels & %w[release:minor release:major]
+              abort "release:minor and release:major are mutually exclusive" if release_labels.length > 1
+              puts(release_labels.empty? ? "patch" : release_labels.fetch(0).delete_prefix("release:"))
+            ' "$LABELS_JSON"
+          )"; then
+            reject "release labels are invalid"
+          fi
+
+          printf 'release_kind=%s\n' "$release_kind" >> "$GITHUB_OUTPUT"
+          printf 'trusted=true\n' >> "$GITHUB_OUTPUT"
+
+  version:
+    needs: policy
+    if: ${{ always() && github.event_name == 'pull_request' && needs.policy.result == 'success' && needs.policy.outputs.trusted == 'true' }}
+    runs-on: ubuntu-24.04
+    permissions: {}
+    outputs:
+      ready: ${{ steps.prepare.outputs.ready }}
+      release: ${{ steps.prepare.outputs.release }}
+      version: ${{ steps.prepare.outputs.version }}
+    steps:
+      - name: Create version GitHub App token
+        id: version-token
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42
+        with:
+          app-id: ${{ vars.VERSION_GITHUB_APP_ID }}
+          private-key: ${{ secrets.VERSION_GITHUB_APP_PRIVATE_KEY }}
+          owner: sonim1
+          repositories: UpdateBar
+          permission-contents: write
+
+      - name: Checkout pull request head
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          token: ${{ steps.version-token.outputs.token }}
+          persist-credentials: true
+
+      - name: Verify pull request head
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$EXPECTED_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "pull request head SHA is not canonical" >&2
+            exit 64
+          fi
+          actual_head="$(git rev-parse HEAD)"
+          if [[ "$actual_head" != "$EXPECTED_HEAD_SHA" ]]; then
+            echo "checked-out HEAD does not match the pull request event" >&2
+            exit 64
+          fi
+
+      - name: Prepare pull request version
+        id: prepare
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RELEASE_KIND: ${{ needs.policy.outputs.release_kind }}
+        run: bash Scripts/prepare-pr-version.sh "$BASE_SHA" "$HEAD_SHA" "$RELEASE_KIND" "$GITHUB_OUTPUT"
+
+      - name: Commit prepared version
+        if: ${{ steps.prepare.outputs.changed == 'true' }}
+        shell: bash
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          VERSION: ${{ steps.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          allowed_paths=(
+            "version.env"
+            "Sources/UpdateBarCLI/UpdateBarVersion.swift"
+            "CHANGELOG.md"
+          )
+
+          reject() {
+            echo "version commit rejected: $1" >&2
+            exit 65
+          }
+
+          assert_exact_paths() {
+            local label="$1"
+            shift
+            local actual_path
+            local allowed_path
+            local matches
+
+            if [[ "$#" -ne "${#allowed_paths[@]}" ]]; then
+              reject "$label must contain exactly the version artifact allowlist"
+            fi
+            for allowed_path in "${allowed_paths[@]}"; do
+              matches=0
+              for actual_path in "$@"; do
+                if [[ "$actual_path" == "$allowed_path" ]]; then
+                  matches=$((matches + 1))
+                fi
+              done
+              if [[ "$matches" -ne 1 ]]; then
+                reject "$label does not match the version artifact allowlist"
+              fi
+            done
+          }
+
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$ ]]; then
+            reject "prepared version is not canonical"
+          fi
+          if ! git check-ref-format --branch "$HEAD_REF" >/dev/null; then
+            reject "pull request head branch is invalid"
+          fi
+          if ! git diff --cached --quiet --; then
+            reject "index must be clean before staging version artifacts"
+          fi
+
+          worktree_paths=()
+          while IFS= read -r -d '' changed_path; do
+            worktree_paths+=("$changed_path")
+          done < <(git diff --name-only -z --)
+          assert_exact_paths "worktree diff" "${worktree_paths[@]}"
+
+          untracked_paths=()
+          while IFS= read -r -d '' untracked_path; do
+            untracked_paths+=("$untracked_path")
+          done < <(git ls-files --others --exclude-standard -z)
+          if [[ "${#untracked_paths[@]}" -ne 0 ]]; then
+            reject "worktree contains untracked files"
+          fi
+
+          git add -- "${allowed_paths[@]}"
+
+          staged_paths=()
+          while IFS= read -r -d '' staged_path; do
+            staged_paths+=("$staged_path")
+          done < <(git diff --cached --name-only -z --)
+          assert_exact_paths "staged diff" "${staged_paths[@]}"
+          if ! git diff --quiet --; then
+            reject "worktree contains unstaged changes after staging"
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Prepare UpdateBar $VERSION release"
+          git push origin "HEAD:refs/heads/$HEAD_REF"
+
   macos:
+    needs: version
+    if: ${{ always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.version.result == 'success' && needs.version.outputs.ready == 'true')) }}
     runs-on: macos-15
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 20
@@ -32,10 +242,15 @@ jobs:
         run: SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh
 
   linux:
+    needs: version
+    if: ${{ always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.version.result == 'success' && needs.version.outputs.ready == 'true')) }}
     runs-on: ubuntu-latest
     container: swift:6.0
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .build
