@@ -125,7 +125,10 @@ write-token version job; a maintainer must move an approved change to a
 maintainer-owned branch in this repository.
 
 A code or release pull request must contain nonempty notes under the canonical
-`## Unreleased` heading. The bot updates and commits only `version.env`, the
+`## Unreleased` heading before the bot's first preparation. After that
+preparation, a fresh empty `## Unreleased` section is expected; the exact bot
+candidate version section (for example, `## X.Y.Z - YYYY-MM-DD`) immediately
+below it must be nonempty. The bot updates and commits only `version.env`, the
 exact generated `Sources/UpdateBarCLI/UpdateBarVersion.swift`, and the
 `CHANGELOG.md` release entry. Do not manually bump a future version in a normal
 pull request.
@@ -159,9 +162,11 @@ hands-off after merge. If a required reviewer is added later, it would
 intentionally pause `package`, `publish`, and `notify`; approval is not required
 by the current setup.
 
-The committed Homebrew formula/cask metadata is the last-published snapshot and
-may lag a candidate version while a pull request is in flight. The tap updates
-that metadata after the corresponding GitHub Release is public.
+The checked-in Homebrew formula/cask metadata is a coherent packaging snapshot;
+it may differ from both the candidate version and the public tap. Public latest
+is currently `v0.6.1`, while the checked-in packaging snapshot is `0.6.3`.
+Authoritative public tap metadata is updated after the corresponding GitHub
+Release is public.
 
 ### One-time update hosting setup
 
@@ -184,11 +189,11 @@ Scripts/setup-update-hosting.sh
 ```
 
 The script accepts only the `updatebar-updates` bucket and
-`updates.updatebar.royjen.com` custom domain. It creates missing resources,
+`updates.updatebar.sonim1.com` custom domain. It creates missing resources,
 accepts an exact existing configuration, and stops on conflicting state; it
-never deletes a bucket or domain. `updatebar.royjen.com` is an optional future
+never deletes a bucket or domain. `updatebar.sonim1.com` is an optional future
 product website and is separate from the update host. A later move to
-`updatebar.app` must keep `https://updates.updatebar.royjen.com/appcast.xml`
+`updatebar.app` must keep `https://updates.updatebar.sonim1.com/appcast.xml`
 reachable for installed builds. Introduce a new feed domain only with a tested
 compatibility or redirect strategy.
 

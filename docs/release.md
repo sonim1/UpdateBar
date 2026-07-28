@@ -21,7 +21,10 @@ in `sonim1/UpdateBar`. Root Markdown files, `docs/`, and `openspec/`-only pull
 requests are documentation-only and never release.
 
 For a code or release pull request, keep nonempty notes under the canonical
-`## Unreleased` heading. The default is a patch release; `release:minor` and
+`## Unreleased` heading before the bot's first preparation. After that
+preparation, a fresh empty `## Unreleased` section is expected; the exact bot
+candidate version section (for example, `## X.Y.Z - YYYY-MM-DD`) immediately
+below it must be nonempty. The default is a patch release; `release:minor` and
 `release:major` select the other bumps. The bot updates and commits only
 `version.env`, the exact generated `Sources/UpdateBarCLI/UpdateBarVersion.swift`,
 and the changelog release entry. Do not manually bump a future version in a
@@ -52,8 +55,10 @@ publish, and notify proceed hands-off after merge. Adding a required reviewer
 would intentionally pause those jobs; approval is not required by the current
 setup.
 
-The committed Homebrew formula/cask metadata is the last-published snapshot and
-may lag a candidate version. The tap updates it after the corresponding GitHub
+The checked-in Homebrew formula/cask metadata is a coherent packaging snapshot;
+it may differ from both the candidate version and the public tap. Public latest
+is currently `v0.6.1`, while the checked-in packaging snapshot is `0.6.3`.
+Authoritative public tap metadata is updated after the corresponding GitHub
 Release is public.
 
 Release checklist:
@@ -297,7 +302,8 @@ Before automatic release:
 - TUI smoke test passes and verifies the npm package contents.
 - Archive-install smoke passes: unpack the archive, run `updatebar --version`,
   `updatebar guide agent`, and `updatebar template recipe --kind npm`.
-- Clean source-copy release dry run passes.
+- Clean source-copy release rehearsal passes without changing the tagged
+  checkout.
 - Formula URL/version match the tag and formula SHA matches the uploaded release
   asset's `.sha256`.
 - For `v0.5.0`, the Cask URL and SHA still match the published legacy app
