@@ -79,6 +79,10 @@ OWNED_PATHS=(
 )
 for owned_path in "${OWNED_PATHS[@]}"; do
   [[ -f "$owned_path" && ! -L "$owned_path" ]] || reject "$owned_path is not a regular file"
+  [[ -w "$owned_path" ]] || reject "$owned_path is not writable"
+  owned_directory="$(dirname -- "$owned_path")"
+  [[ -d "$owned_directory" && -w "$owned_directory" ]] ||
+    reject "$owned_path parent directory is not writable"
 done
 
 UTC_DATE="$(date -u +%F)"
@@ -88,6 +92,7 @@ PREPARE_RESULT="$(
   /usr/bin/ruby - "$BASE_COMMIT" "$RELEASE_KIND" "$UTC_DATE" <<'RUBY'
 require "date"
 require "open3"
+require "tempfile"
 
 class PreparationError < StandardError; end
 
@@ -96,8 +101,9 @@ SWIFT_FILE = "Sources/UpdateBarCLI/UpdateBarVersion.swift"
 CHANGELOG_FILE = "CHANGELOG.md"
 VERSION_COMPONENT = "(?:0|[1-9][0-9]*)"
 VERSION_PATTERN = /\AUPDATEBAR_VERSION=(#{VERSION_COMPONENT})\.(#{VERSION_COMPONENT})\.(#{VERSION_COMPONENT})\n\z/
-CANDIDATE_VERSION_PATTERN = /\A## (#{VERSION_COMPONENT}\.#{VERSION_COMPONENT}\.#{VERSION_COMPONENT})(?:\z|[ \t])/
+RELEASE_VERSION_PREFIX_PATTERN = /\A## (#{VERSION_COMPONENT}\.#{VERSION_COMPONENT}\.#{VERSION_COMPONENT})(?:\z|[ \t])/
 CANDIDATE_PATTERN = /\A## (#{VERSION_COMPONENT}\.#{VERSION_COMPONENT}\.#{VERSION_COMPONENT}) - ([0-9]{4}-[0-9]{2}-[0-9]{2})\z/
+RELEASE_HEADING_PATTERN = /\A## (#{VERSION_COMPONENT}\.#{VERSION_COMPONENT}\.#{VERSION_COMPONENT})(?: - ([0-9]{4}-[0-9]{2}-[0-9]{2}))?\z/
 
 def parse_version(source, location)
   match = VERSION_PATTERN.match(source)
@@ -141,8 +147,40 @@ def section_body(changelog, headings, index)
   changelog[headings.fetch(index)[:end]...body_end]
 end
 
+def validate_release_headings(headings)
+  versions = Hash.new(0)
+
+  headings.each do |heading|
+    version_match = RELEASE_VERSION_PREFIX_PATTERN.match(heading[:text])
+    next unless version_match
+
+    match = RELEASE_HEADING_PATTERN.match(heading[:text])
+    unless match
+      raise PreparationError,
+        "#{CHANGELOG_FILE} has an ambiguous release version heading for #{version_match[1]}"
+    end
+
+    if match[2]
+      begin
+        parsed_date = Date.iso8601(match[2])
+      rescue Date::Error
+        raise PreparationError, "#{CHANGELOG_FILE} has a malformed release date for #{match[1]}"
+      end
+      unless parsed_date.iso8601 == match[2]
+        raise PreparationError, "#{CHANGELOG_FILE} has a malformed release date for #{match[1]}"
+      end
+    end
+    versions[match[1]] += 1
+  end
+
+  duplicate = versions.find { |_version, count| count > 1 }
+  if duplicate
+    raise PreparationError, "#{CHANGELOG_FILE} has a duplicate release version heading: #{duplicate[0]}"
+  end
+end
+
 def parsed_candidate(heading, allowed_versions)
-  version_match = CANDIDATE_VERSION_PATTERN.match(heading[:text])
+  version_match = RELEASE_VERSION_PREFIX_PATTERN.match(heading[:text])
   return nil unless version_match && allowed_versions.include?(version_match[1])
 
   match = CANDIDATE_PATTERN.match(heading[:text])
@@ -162,8 +200,105 @@ def parsed_candidate(heading, allowed_versions)
   { heading: heading, version: match[1], date: match[2] }
 end
 
+def writable_regular_stat(path)
+  stat = File.lstat(path)
+  unless stat.file? && !stat.symlink?
+    raise PreparationError, "#{path} is not a regular file"
+  end
+  unless File.writable?(path)
+    raise PreparationError, "#{path} is not writable"
+  end
+
+  directory = File.dirname(path)
+  unless File.directory?(directory) && File.writable?(directory)
+    raise PreparationError, "#{path} parent directory is not writable"
+  end
+  stat
+end
+
+def staged_file(path, content, mode, label)
+  tempfile = Tempfile.new([".prepare-pr-version-#{File.basename(path)}-", ".#{label}"], File.dirname(path))
+  tempfile.binmode
+  tempfile.write(content)
+  tempfile.flush
+  tempfile.fsync
+  File.chmod(mode & 0o777, tempfile.path)
+  tempfile.close
+  tempfile
+rescue StandardError
+  tempfile&.close!
+  raise
+end
+
+def replace_artifacts(artifacts)
+  states = []
+  committed = []
+
+  begin
+    artifacts.each do |artifact|
+      state = artifact.merge(stat: writable_regular_stat(artifact[:path]))
+      states << state
+    end
+
+    states.each do |state|
+      state[:replacement] = staged_file(
+        state[:path],
+        state[:expected],
+        state[:stat].mode,
+        "replacement",
+      )
+      state[:backup] = staged_file(
+        state[:path],
+        state[:current],
+        state[:stat].mode,
+        "backup",
+      )
+    end
+
+    states.each do |state|
+      current_stat = writable_regular_stat(state[:path])
+      unless current_stat.dev == state[:stat].dev && current_stat.ino == state[:stat].ino
+        raise PreparationError, "#{state[:path]} changed during version preparation"
+      end
+    end
+
+    states.each do |state|
+      File.rename(state[:replacement].path, state[:path])
+      committed << state
+    end
+  rescue StandardError => error
+    rollback_errors = []
+    committed.reverse_each do |state|
+      begin
+        File.rename(state[:backup].path, state[:path])
+      rescue StandardError => rollback_error
+        rollback_errors << "#{state[:path]}: #{rollback_error.message}"
+      end
+    end
+
+    unless rollback_errors.empty?
+      raise PreparationError,
+        "artifact replacement failed (#{error.message}); rollback failed for #{rollback_errors.join(', ')}"
+    end
+    raise error if error.is_a?(PreparationError)
+
+    raise PreparationError, "artifact replacement failed: #{error.message}"
+  ensure
+    states.each do |state|
+      [state[:replacement], state[:backup]].compact.each do |tempfile|
+        begin
+          tempfile.close!
+        rescue Errno::ENOENT
+          nil
+        end
+      end
+    end
+  end
+end
+
 def prepared_changelog(changelog, targets, target_version, utc_date)
   headings = level_two_headings(changelog)
+  validate_release_headings(headings)
   unreleased_headings = headings.select do |heading|
     heading[:text].sub(/[ \t]+\z/, "") == "## Unreleased"
   end
@@ -218,7 +353,8 @@ begin
   end
 
   base_components = parse_version(base_source, "the base commit")
-  parse_version(File.binread(VERSION_FILE), "the pull-request head")
+  current_version_source = File.binread(VERSION_FILE)
+  parse_version(current_version_source, "the pull-request head")
 
   targets = %w[patch minor major].map { |kind| bumped_version(base_components, kind) }
   target_version = bumped_version(base_components, release_kind)
@@ -238,22 +374,22 @@ begin
     utc_date,
   )
 
-  changed =
-    expected_version_source != File.binread(VERSION_FILE) ||
-    expected_swift_source != current_swift_source ||
-    expected_changelog != current_changelog
+  artifacts = [
+    { path: VERSION_FILE, current: current_version_source, expected: expected_version_source },
+    { path: SWIFT_FILE, current: current_swift_source, expected: expected_swift_source },
+    { path: CHANGELOG_FILE, current: current_changelog, expected: expected_changelog },
+  ]
+  changed = artifacts.any? { |artifact| artifact[:current] != artifact[:expected] }
 
   if changed
-    File.binwrite(VERSION_FILE, expected_version_source)
-    File.binwrite(SWIFT_FILE, expected_swift_source)
-    File.binwrite(CHANGELOG_FILE, expected_changelog)
+    replace_artifacts(artifacts)
   end
 
   puts "release=true"
   puts "changed=#{changed}"
   puts "ready=#{!changed}"
   puts "version=#{target_version}"
-rescue PreparationError, Errno::EACCES, Errno::ENOENT, Errno::EISDIR => error
+rescue PreparationError, SystemCallError => error
   warn "prepare PR version rejected: #{error.message}"
   exit 65
 end
