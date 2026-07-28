@@ -15,6 +15,7 @@ fail() {
 [[ -f "$GENERATOR_SOURCE" ]] || fail "version source generator is missing: $GENERATOR_SOURCE"
 
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/updatebar-prepare-pr-version.XXXXXX")"
+TEMP_ROOT="$(cd -- "$TEMP_ROOT" && pwd -P)"
 trap 'rm -rf "$TEMP_ROOT"' EXIT
 mkdir -p "$TEMP_ROOT/home"
 export HOME="$TEMP_ROOT/home"
@@ -221,6 +222,17 @@ assert_output_equals $'release=false\nchanged=false\nready=true'
 [[ "$(owned_fingerprint)" == "$DOCS_BEFORE" ]] || fail 'docs-only preparation mutated an owned file'
 assert_worktree_clean
 
+# Existing output content is preserved while the new result is appended.
+EXISTING_OUTPUT="$TEMP_ROOT/docs-existing-output.env"
+printf 'existing=value\n' > "$EXISTING_OUTPUT"
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" major "$EXISTING_OUTPUT"
+assert_status 0
+assert_output_equals $'release=false\nchanged=false\nready=true'
+[[ "$(<"$EXISTING_OUTPUT")" == $'existing=value\nrelease=false\nchanged=false\nready=true' ]] ||
+  fail 'existing output content was not preserved before the docs-only result'
+[[ "$(owned_fingerprint)" == "$DOCS_BEFORE" ]] ||
+  fail 'appending docs-only output mutated an owned file'
+
 # Docs-only output must reject a symlink alias to any owned artifact.
 create_fixture
 printf '\nDocumentation alias test.\n' >> "$REPOSITORY/README.md"
@@ -244,6 +256,98 @@ run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$REPOSITORY/./version.env"
   fail 'docs-only direct output alias corrupted an owned artifact'
 assert_status 65
 assert_output_contains 'output file overlaps owned artifact'
+
+# A missing output parent is rejected before release artifacts are mutated.
+create_fixture
+make_relevant_head 'missing output parent'
+MISSING_OUTPUT_PARENT="$TEMP_ROOT/missing-output-parent-$FIXTURE_INDEX"
+MISSING_OUTPUT="$MISSING_OUTPUT_PARENT/github-output.env"
+MISSING_OUTPUT_BEFORE="$(owned_fingerprint)"
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$MISSING_OUTPUT"
+[[ "$(owned_fingerprint)" == "$MISSING_OUTPUT_BEFORE" ]] ||
+  fail 'missing output parent rejection partially mutated an owned file'
+assert_status 65
+assert_output_contains 'output parent component does not exist'
+[[ ! -e "$MISSING_OUTPUT_PARENT" ]] || fail 'output preflight created a missing parent'
+
+# Docs-only preparation applies the same missing-parent preflight.
+create_fixture
+printf '\nDocumentation missing output parent.\n' >> "$REPOSITORY/README.md"
+HEAD_COMMIT="$(commit_all 'docs missing output parent')"
+DOCS_MISSING_PARENT="$TEMP_ROOT/docs-missing-output-parent-$FIXTURE_INDEX"
+DOCS_MISSING_BEFORE="$(owned_fingerprint)"
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$DOCS_MISSING_PARENT/github-output.env"
+assert_status 65
+assert_output_contains 'output parent component does not exist'
+[[ "$(owned_fingerprint)" == "$DOCS_MISSING_BEFORE" ]] ||
+  fail 'docs-only missing output parent rejection mutated an owned file'
+[[ ! -e "$DOCS_MISSING_PARENT" ]] || fail 'docs-only output preflight created a missing parent'
+
+# Every output parent component must be a real directory, not a symlink.
+create_fixture
+make_relevant_head 'symlinked output parent'
+REAL_OUTPUT_PARENT="$TEMP_ROOT/real-output-parent-$FIXTURE_INDEX"
+SYMLINKED_OUTPUT_PARENT="$TEMP_ROOT/symlinked-output-parent-$FIXTURE_INDEX"
+mkdir -p "$REAL_OUTPUT_PARENT/nested"
+ln -s "$REAL_OUTPUT_PARENT" "$SYMLINKED_OUTPUT_PARENT"
+SYMLINKED_OUTPUT_BEFORE="$(owned_fingerprint)"
+run_prepare \
+  "$BASE_COMMIT" \
+  "$HEAD_COMMIT" \
+  patch \
+  "$SYMLINKED_OUTPUT_PARENT/nested/github-output.env"
+assert_status 65
+assert_output_contains 'output parent component is not a directory or is a symlink'
+[[ "$(owned_fingerprint)" == "$SYMLINKED_OUTPUT_BEFORE" ]] ||
+  fail 'symlinked output parent rejection partially mutated an owned file'
+[[ ! -e "$REAL_OUTPUT_PARENT/nested/github-output.env" ]] ||
+  fail 'output preflight followed a symlinked parent'
+
+# A missing output requires a writable immediate parent before release mutation.
+create_fixture
+make_relevant_head 'non-writable output parent'
+NON_WRITABLE_OUTPUT_PARENT="$TEMP_ROOT/non-writable-output-parent-$FIXTURE_INDEX"
+mkdir "$NON_WRITABLE_OUTPUT_PARENT"
+chmod a-w "$NON_WRITABLE_OUTPUT_PARENT"
+NON_WRITABLE_PARENT_BEFORE="$(owned_fingerprint)"
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$NON_WRITABLE_OUTPUT_PARENT/github-output.env"
+chmod u+w "$NON_WRITABLE_OUTPUT_PARENT"
+assert_status 65
+assert_output_contains 'output parent directory is not writable'
+[[ "$(owned_fingerprint)" == "$NON_WRITABLE_PARENT_BEFORE" ]] ||
+  fail 'non-writable output parent rejection partially mutated an owned file'
+[[ ! -e "$NON_WRITABLE_OUTPUT_PARENT/github-output.env" ]] ||
+  fail 'output preflight created a file in a non-writable parent'
+
+# Existing output paths must be writable regular files and never symlinks.
+create_fixture
+make_relevant_head 'symlinked output file'
+OUTPUT_TARGET="$TEMP_ROOT/output-target-$FIXTURE_INDEX"
+OUTPUT_SYMLINK="$TEMP_ROOT/output-symlink-$FIXTURE_INDEX"
+printf 'target sentinel\n' > "$OUTPUT_TARGET"
+ln -s "$OUTPUT_TARGET" "$OUTPUT_SYMLINK"
+OUTPUT_SYMLINK_BEFORE="$(owned_fingerprint)"
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$OUTPUT_SYMLINK"
+assert_status 65
+assert_output_contains 'output file is not a regular non-symlink file'
+[[ "$(owned_fingerprint)" == "$OUTPUT_SYMLINK_BEFORE" ]] ||
+  fail 'output symlink rejection partially mutated an owned file'
+[[ "$(<"$OUTPUT_TARGET")" == 'target sentinel' ]] || fail 'output preflight followed an output symlink'
+
+create_fixture
+make_relevant_head 'non-writable output file'
+NON_WRITABLE_OUTPUT="$TEMP_ROOT/non-writable-output-$FIXTURE_INDEX"
+printf 'output sentinel\n' > "$NON_WRITABLE_OUTPUT"
+chmod a-w "$NON_WRITABLE_OUTPUT"
+NON_WRITABLE_OUTPUT_BEFORE="$(owned_fingerprint)"
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$NON_WRITABLE_OUTPUT"
+chmod u+w "$NON_WRITABLE_OUTPUT"
+assert_status 65
+assert_output_contains 'output file is not writable'
+[[ "$(owned_fingerprint)" == "$NON_WRITABLE_OUTPUT_BEFORE" ]] ||
+  fail 'non-writable output rejection partially mutated an owned file'
+[[ "$(<"$NON_WRITABLE_OUTPUT")" == 'output sentinel' ]] ||
+  fail 'output preflight changed a non-writable output file'
 
 # Markdown below a non-docs directory is release-relevant, not a root Markdown path.
 create_fixture

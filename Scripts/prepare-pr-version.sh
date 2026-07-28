@@ -52,7 +52,7 @@ emit() {
   local result="$1"
 
   if [[ -n "$OUTPUT_FILE" ]]; then
-    printf '%s\n' "$result" > "$OUTPUT_FILE"
+    printf '%s\n' "$result" >> "$OUTPUT_FILE"
   fi
   printf '%s\n' "$result"
 }
@@ -89,6 +89,8 @@ validate_output_file() {
   [[ -n "$OUTPUT_FILE" ]] || return 0
   if ! validation_result="$(
     /usr/bin/ruby - "$REPOSITORY_ROOT" "$OUTPUT_FILE" "${OWNED_PATHS[@]}" <<'RUBY'
+require "tempfile"
+
 root, output_file, *owned_paths = ARGV
 root = File.realpath(root)
 
@@ -108,12 +110,23 @@ def canonical_destination(root, path)
   File.join(File.realpath(ancestor), *unresolved)
 end
 
-begin
-  expanded_output = File.expand_path(output_file, root)
-  if File.exist?(expanded_output) && !File.file?(expanded_output)
-    raise "output file is not a regular file"
+def parent_components(path)
+  components = []
+  current = File.dirname(path)
+
+  loop do
+    parent = File.dirname(current)
+    break if parent == current
+
+    components.unshift(current)
+    current = parent
   end
 
+  components
+end
+
+begin
+  expanded_output = File.expand_path(output_file, root)
   resolved_output = canonical_destination(root, output_file)
   conflict = owned_paths.find do |owned_path|
     absolute_owned = File.join(root, owned_path)
@@ -124,6 +137,37 @@ begin
   if conflict
     puts "output file overlaps owned artifact: #{conflict}"
     exit 65
+  end
+
+  parent_components(expanded_output).each do |component|
+    begin
+      stat = File.lstat(component)
+    rescue Errno::ENOENT
+      raise "output parent component does not exist: #{component}"
+    end
+    unless stat.directory? && !stat.symlink?
+      raise "output parent component is not a directory or is a symlink: #{component}"
+    end
+  end
+
+  output_parent = File.dirname(expanded_output)
+  unless File.writable?(output_parent)
+    raise "output parent directory is not writable: #{output_parent}"
+  end
+
+  if File.exist?(expanded_output) || File.symlink?(expanded_output)
+    stat = File.lstat(expanded_output)
+    unless stat.file? && !stat.symlink?
+      raise "output file is not a regular non-symlink file"
+    end
+    unless File.writable?(expanded_output)
+      raise "output file is not writable"
+    end
+
+    File.open(expanded_output, File::WRONLY | File::APPEND) {}
+  else
+    probe = Tempfile.new([".prepare-pr-version-output-", ".probe"], output_parent)
+    probe.close!
   end
 rescue StandardError => error
   puts "could not validate output file: #{error.message}"
