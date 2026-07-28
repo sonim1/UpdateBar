@@ -8,7 +8,8 @@ WORKFLOW="$ROOT/.github/workflows/ci.yml"
 ruby -rpsych - "$WORKFLOW" <<'RUBY'
 CHECKOUT_ACTION = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
 TOKEN_ACTION = "actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42"
-CI_IF = "${{ always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.version.result == 'success' && needs.version.outputs.ready == 'true')) }}"
+LANE_IF = "${{ always() }}"
+GUARD_IF = "${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || needs.version.result != 'success' || needs.version.outputs.ready != 'true') }}"
 CI_REF = "${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}"
 
 def assert(value, message)
@@ -23,6 +24,18 @@ def step_map(job)
   grouped = job.fetch("steps").group_by { |step| step["name"] }
   assert(grouped.none? { |name, entries| name.nil? || entries.length != 1 }, "step names must be present and unique")
   grouped.transform_values(&:first)
+end
+
+def named_step(job, name)
+  matches = job.fetch("steps").select { |step| step["name"] == name }
+  assert(matches.length == 1, "#{name} step must be present exactly once")
+  matches.first
+end
+
+def action_step(job, action)
+  matches = job.fetch("steps").select { |step| step["uses"] == action }
+  assert(matches.length == 1, "#{action} step must be present exactly once")
+  matches.first
 end
 
 def validate(workflow)
@@ -190,9 +203,28 @@ def validate(workflow)
   assert(commit_run.index('git check-ref-format --branch "$HEAD_REF"') < commit_run.index('git push origin'), "head ref must be validated before push")
 
   { "macos" => macos, "linux" => linux }.each do |name, job|
-    assert(job["needs"] == "version", "#{name} must wait for version")
-    assert(job["if"] == CI_IF, "#{name} must preserve pushes and gate PRs on ready version output")
-    ci_checkout = job.fetch("steps").first
+    assert(job["needs"].is_a?(Array) && job["needs"].sort == %w[policy version], "#{name} must directly wait for policy and version")
+    assert(job["if"] == LANE_IF, "#{name} must always materialize as a required check")
+    assert(!job.key?("continue-on-error"), "#{name} must not tolerate a failing version guard")
+    guard = job.fetch("steps").first
+    assert(guard["name"] == "Enforce pull request version gate", "#{name} must start with the explicit version guard")
+    assert(guard.keys.sort == %w[env if name run shell], "#{name} guard must contain only reviewed fields")
+    assert(guard["if"] == GUARD_IF && guard["shell"] == "bash", "#{name} guard must run for every unready PR state")
+    assert(guard["env"] == {
+      "POLICY_RESULT" => "${{ needs.policy.result }}",
+      "VERSION_RESULT" => "${{ needs.version.result }}",
+      "VERSION_READY" => "${{ needs.version.outputs.ready }}",
+    }, "#{name} guard diagnostics must receive dependency state through the environment")
+    assert(guard["run"] == <<~SHELL, "#{name} guard must diagnose and fail the required check")
+      set -euo pipefail
+      echo "pull request version gate is not ready: policy=$POLICY_RESULT version=$VERSION_RESULT ready=$VERSION_READY" >&2
+      exit 1
+    SHELL
+    job.fetch("steps").drop(1).each do |step|
+      assert(!step.key?("if"), "#{name} normal steps must retain implicit success gating after the guard")
+    end
+    ci_checkout = action_step(job, CHECKOUT_ACTION)
+    assert(job.fetch("steps").index(ci_checkout) == 1, "#{name} checkout must follow the guard")
     assert(ci_checkout["uses"] == CHECKOUT_ACTION && ci_checkout["with"] == {
       "ref" => CI_REF,
       "persist-credentials" => false,
@@ -200,13 +232,11 @@ def validate(workflow)
   end
 
   assert(macos["runs-on"] == "macos-15" && !macos.key?("container"), "macos runner must remain macos-15")
-  assert(macos.fetch("steps").map { |step| step["name"] } == [nil, nil, nil, "Install shellcheck", "Quality gate"], "macos tooling steps must remain unchanged")
-  macos_steps = macos.fetch("steps")
-  assert(macos_steps.fetch(1) == {
+  assert(action_step(macos, "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020") == {
     "uses" => "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
     "with" => { "node-version" => 20, "cache" => "npm", "cache-dependency-path" => "tui/package-lock.json" },
   }, "macos Node tooling must remain unchanged")
-  assert(macos_steps.fetch(2) == {
+  assert(action_step(macos, "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9") == {
     "uses" => "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
     "with" => {
       "path" => ".build",
@@ -214,13 +244,11 @@ def validate(workflow)
       "restore-keys" => "macos-spm-${{ runner.os }}-",
     },
   }, "macos Swift cache must remain unchanged")
-  assert(macos_steps.fetch(3)["run"] == "brew install shellcheck", "macos shellcheck installation must remain unchanged")
-  assert(macos_steps.fetch(4)["run"] == "SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh", "macos quality gate command must remain unchanged")
+  assert(named_step(macos, "Install shellcheck")["run"] == "brew install shellcheck", "macos shellcheck installation must remain unchanged")
+  assert(named_step(macos, "Quality gate")["run"] == "SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh", "macos quality gate command must remain unchanged")
 
   assert(linux["runs-on"] == "ubuntu-latest" && linux["container"] == "swift:6.0", "linux runner and Swift container must remain unchanged")
-  assert(linux.fetch("steps").map { |step| step["name"] } == [nil, nil, "Install quality gate dependencies", "Trust the checked-out workspace", "Quality gate"], "linux tooling steps must remain unchanged")
-  linux_steps = linux.fetch("steps")
-  assert(linux_steps.fetch(1) == {
+  assert(action_step(linux, "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9") == {
     "uses" => "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
     "with" => {
       "path" => ".build",
@@ -228,9 +256,9 @@ def validate(workflow)
       "restore-keys" => "linux-spm-${{ runner.os }}-",
     },
   }, "linux Swift cache must remain unchanged")
-  assert(linux_steps.fetch(2)["run"] == "apt-get update\napt-get install -y nodejs ruby shellcheck\n", "linux quality dependencies must remain unchanged")
-  assert(linux_steps.fetch(3)["run"] == 'git config --global --add safe.directory "$GITHUB_WORKSPACE"', "linux safe-directory command must remain unchanged")
-  assert(linux_steps.fetch(4)["run"] == "SKIP_MENUBAR_SMOKE=1 SKIP_TUI_SMOKE=1 SKIP_TUI_INPUT=1 SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh", "linux quality gate command must remain unchanged")
+  assert(named_step(linux, "Install quality gate dependencies")["run"] == "apt-get update\napt-get install -y nodejs ruby shellcheck\n", "linux quality dependencies must remain unchanged")
+  assert(named_step(linux, "Trust the checked-out workspace")["run"] == 'git config --global --add safe.directory "$GITHUB_WORKSPACE"', "linux safe-directory command must remain unchanged")
+  assert(named_step(linux, "Quality gate")["run"] == "SKIP_MENUBAR_SMOKE=1 SKIP_TUI_SMOKE=1 SKIP_TUI_INPUT=1 SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh", "linux quality gate command must remain unchanged")
 end
 
 workflow = Psych.safe_load(File.binread(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false)
@@ -275,7 +303,7 @@ mutations = {
     step_map(value.fetch("jobs").fetch("version")).fetch("Checkout pull request head").fetch("with")["fetch-depth"] = 1
   },
   "merge-ref macOS test" => ->(value) {
-    value.fetch("jobs").fetch("macos").fetch("steps").first.fetch("with")["ref"] = "${{ github.ref }}"
+    action_step(value.fetch("jobs").fetch("macos"), CHECKOUT_ACTION).fetch("with")["ref"] = "${{ github.ref }}"
   },
   "swapped version commits" => ->(value) {
     step_map(value.fetch("jobs").fetch("version")).fetch("Prepare pull request version")["run"] = 'bash Scripts/prepare-pr-version.sh "$HEAD_SHA" "$BASE_SHA" "$RELEASE_KIND" "$GITHUB_OUTPUT"'
@@ -288,7 +316,29 @@ mutations = {
     step = step_map(value.fetch("jobs").fetch("version")).fetch("Commit prepared version")
     step["run"] = step.fetch("run").sub('git push origin', 'git push --force origin')
   },
-  "ungated macOS CI" => ->(value) { value.fetch("jobs").fetch("macos")["if"] = "${{ always() }}" },
+  "job-level skip bypass" => ->(value) {
+    value.fetch("jobs").fetch("macos")["if"] = "${{ github.event_name == 'push' || needs.version.outputs.ready == 'true' }}"
+  },
+  "job tolerates guard failure" => ->(value) {
+    value.fetch("jobs").fetch("linux")["continue-on-error"] = true
+  },
+  "missing direct policy dependency" => ->(value) {
+    value.fetch("jobs").fetch("linux")["needs"] = ["version"]
+  },
+  "missing required-check guard" => ->(value) {
+    value.fetch("jobs").fetch("macos").fetch("steps").shift
+  },
+  "non-failing required-check guard" => ->(value) {
+    guard = value.fetch("jobs").fetch("linux").fetch("steps").first
+    guard["run"] = guard.fetch("run").sub("exit 1", "exit 0")
+  },
+  "guard ignores policy failure" => ->(value) {
+    guard = value.fetch("jobs").fetch("macos").fetch("steps").first
+    guard["if"] = guard.fetch("if").sub("needs.policy.result != 'success' || ", "")
+  },
+  "normal checkout bypasses failed guard" => ->(value) {
+    action_step(value.fetch("jobs").fetch("linux"), CHECKOUT_ACTION)["if"] = "${{ always() }}"
+  },
   "changed macOS quality command" => ->(value) {
     value.fetch("jobs").fetch("macos").fetch("steps").find { |step| step["name"] == "Quality gate" }["run"] = "bash Scripts/quality-gate.sh"
   },

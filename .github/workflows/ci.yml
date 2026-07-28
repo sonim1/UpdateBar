@@ -218,10 +218,21 @@ jobs:
           git push origin "HEAD:refs/heads/$HEAD_REF"
 
   macos:
-    needs: version
-    if: ${{ always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.version.result == 'success' && needs.version.outputs.ready == 'true')) }}
+    needs: [policy, version]
+    if: ${{ always() }}
     runs-on: macos-15
     steps:
+      - name: Enforce pull request version gate
+        if: ${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || needs.version.result != 'success' || needs.version.outputs.ready != 'true') }}
+        shell: bash
+        env:
+          POLICY_RESULT: ${{ needs.policy.result }}
+          VERSION_RESULT: ${{ needs.version.result }}
+          VERSION_READY: ${{ needs.version.outputs.ready }}
+        run: |
+          set -euo pipefail
+          echo "pull request version gate is not ready: policy=$POLICY_RESULT version=$VERSION_RESULT ready=$VERSION_READY" >&2
+          exit 1
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
@@ -242,11 +253,22 @@ jobs:
         run: SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh
 
   linux:
-    needs: version
-    if: ${{ always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.version.result == 'success' && needs.version.outputs.ready == 'true')) }}
+    needs: [policy, version]
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     container: swift:6.0
     steps:
+      - name: Enforce pull request version gate
+        if: ${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || needs.version.result != 'success' || needs.version.outputs.ready != 'true') }}
+        shell: bash
+        env:
+          POLICY_RESULT: ${{ needs.policy.result }}
+          VERSION_RESULT: ${{ needs.version.result }}
+          VERSION_READY: ${{ needs.version.outputs.ready }}
+        run: |
+          set -euo pipefail
+          echo "pull request version gate is not ready: policy=$POLICY_RESULT version=$VERSION_RESULT ready=$VERSION_READY" >&2
+          exit 1
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
