@@ -148,8 +148,8 @@ def validate(workflow)
       "GH_TOKEN" => "${{ github.token }}",
       "RELEASE_TAG" => "${{ steps.plan.outputs.tag }}",
     },
-    "run" => 'gh workflow run release.yml --ref main -f tag="$RELEASE_TAG"',
-  }, "release.yml must be explicitly dispatched with the repository token and exact planned tag")
+    "run" => 'gh workflow run release.yml --ref "$RELEASE_TAG" -f tag="$RELEASE_TAG"',
+  }, "release.yml must be explicitly dispatched from the immutable planned tag")
 
   serialized = workflow.to_s
   assert(!serialized.include?("secrets."), "automatic release must not receive repository secrets")
@@ -219,6 +219,10 @@ mutations = {
     step["run"] = step.fetch("run").sub('git push origin "$tag_ref:$tag_ref"', 'git push --force origin "$tag_ref:$tag_ref"')
   },
   "missing dispatch GH_TOKEN" => ->(value) { step_map(value.fetch("jobs").fetch("automatic-release")).fetch("Dispatch release workflow").fetch("env").delete("GH_TOKEN") },
+  "movable dispatch ref" => ->(value) {
+    step_map(value.fetch("jobs").fetch("automatic-release")).fetch("Dispatch release workflow")["run"] =
+      'gh workflow run release.yml --ref main -f tag="$RELEASE_TAG"'
+  },
   "tag-push-only recursion reliance" => ->(value) {
     value.fetch("on").fetch("push")["tags"] = ["v*"]
     value.fetch("jobs").fetch("automatic-release").fetch("steps").reject! do |step|
