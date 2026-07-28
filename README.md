@@ -54,7 +54,7 @@ can find `XCTest`. If direct `swift test` fails, set `DEVELOPER_DIR` or see
 curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash
 
 # Or install a specific version:
-curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.5.0
+curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.6.1
 
 # Optional: change install directory
 curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | UPDATEBAR_INSTALL_PREFIX="$HOME/.local/bin" bash
@@ -68,9 +68,9 @@ before installing `updatebar`.
 
 ### Menu bar app
 
-`updatebar-menubar` ships as an optional macOS wrapper. The current `v0.5.0`
+`updatebar-menubar` ships as an optional macOS wrapper. The public `v0.6.1`
 release provides the signed and notarized Apple Silicon asset
-`UpdateBar-0.5.0-macos-arm64.app.tar.gz`. Starting with the next published app
+`UpdateBar-0.6.1-macos-arm64.app.tar.gz`. Starting with the next published app
 release, tags publish the canonical `UpdateBar-<version>-macos-arm64.dmg` and
 its checksum. `Scripts/package-app.sh` builds the local app bundle used by the
 DMG release builder.
@@ -164,7 +164,8 @@ by the current setup.
 
 The checked-in Homebrew formula/cask metadata is a coherent packaging snapshot;
 it may differ from both the candidate version and the public tap. Public latest
-is currently `v0.6.1`, while the checked-in packaging snapshot is `0.6.3`.
+is currently `v0.6.1`; this repository's candidate and `version.env` are
+`0.6.3`, matching the checked-in packaging snapshot.
 Authoritative public tap metadata is updated after the corresponding GitHub
 Release is public.
 

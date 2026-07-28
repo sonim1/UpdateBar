@@ -183,8 +183,8 @@ open dist/UpdateBar.app
 
 The app packaging script creates `dist/UpdateBar.app` with the menu bar executable
 in `Contents/MacOS/UpdateBar` and the CLI in `Contents/Resources/updatebar`.
-The current `v0.5.0` app release remains the published legacy asset
-`UpdateBar-0.5.0-macos-arm64.app.tar.gz`. Starting with the next published app
+The public `v0.6.1` app release remains the published legacy asset
+`UpdateBar-0.6.1-macos-arm64.app.tar.gz`. Starting with the next published app
 release, tagged macOS releases upload the canonical Apple Silicon asset
 `UpdateBar-<version>-macos-arm64.dmg` and its `.sha256` checksum.
 `Scripts/build-app-dmg.sh` verifies the selected Developer ID identity and
@@ -200,10 +200,11 @@ the release workflow's temporary pre-release metadata check uses
 structure without comparing their SHAs to the fresh build. After the assets are
 public, release manifest/tap automation performs the authoritative
 post-publication SHA and DMG cask update from those published assets.
-The in-repository `v0.5.0` Homebrew cask must keep targeting the published
-legacy app archive until a canonical DMG and manifest for a later release are
-public. Tap automation then updates the authoritative cask from those published
-assets.
+The public `v0.6.1` Homebrew cask still targets the legacy app archive. The
+checked-in snapshot is not authoritative and may carry the repository
+candidate's coherent `0.6.3` metadata until a canonical DMG and manifest for a
+later release are public. Tap automation then updates the authoritative cask
+from those published assets.
 Signing/notarization are not part of the CLI release.
 
 The DMG builder requires these environment values on Apple Silicon macOS:
@@ -270,10 +271,13 @@ Scripts/tui-smoke-test.sh
 Release identity:
 
 - GitHub repo slug: `sonim1/UpdateBar`.
-- Current release metadata in this repo targets `v0.5.0`.
+- Public latest release: `v0.6.1`.
+- Repository candidate and `version.env`: `0.6.3`.
+- Coherent checked-in Homebrew packaging snapshot: `0.6.3` (it may differ from
+  both the public tap and an in-flight candidate).
 - Published prebuilt CLI archives cover Apple Silicon macOS and Linux x86_64.
-  The current app asset is `UpdateBar-0.5.0-macos-arm64.app.tar.gz`; starting
-  with the next published app release, tags also publish
+  The current public app asset is `UpdateBar-0.6.1-macos-arm64.app.tar.gz`;
+  starting with the next published app release, tags also publish
   `UpdateBar-<version>-macos-arm64.dmg`. The workflow fails if signing,
   notarization, or Sparkle public-key inputs are unavailable.
 - Homebrew tap target: `sonim1/homebrew-tap`.
@@ -295,22 +299,20 @@ npm --prefix tui run build
 Before automatic release:
 
 - `CHANGELOG.md` has an entry matching `version.env`.
-- `Scripts/extract-changelog-section.sh v<version>` prints non-empty release
-  notes; release.yml publishes this section as the GitHub Release body.
+- The exact candidate section for `version.env` is present and nonempty;
+  `Scripts/extract-changelog-section.sh v<version>` can print it for inspection.
+  `plan-release.sh` validates the section, while `publish-release.sh` creates
+  the GitHub Release with GitHub-generated notes (`--generate-notes`).
 - Git remote and formula URLs match `sonim1/UpdateBar`.
 - Smoke test passes from a clean `UPDATEBAR_HOME`.
 - TUI smoke test passes and verifies the npm package contents.
 - Archive-install smoke passes: unpack the archive, run `updatebar --version`,
   `updatebar guide agent`, and `updatebar template recipe --kind npm`.
-- Clean source-copy release rehearsal passes without changing the tagged
-  checkout.
-- Formula URL/version match the tag and formula SHA matches the uploaded release
-  asset's `.sha256`.
-- For `v0.5.0`, the Cask URL and SHA still match the published legacy app
-  archive. For the next app release, the Cask URL/version match the tag and its
-  SHA matches the uploaded app DMG's `.sha256`.
-- `UPDATEBAR_VERIFY_STRICT=1 Scripts/verify-homebrew-metadata.sh` verifies release
-  metadata checksums for a prepared dist directory.
+- `UPDATEBAR_VERIFY_STATIC_ONLY=1 Scripts/verify-homebrew-metadata.sh` passes for
+  the coherent checked-in formula/cask snapshot; it does not require the files
+  to equal the repository candidate/tag or fresh local hashes.
+- After publication, tap automation updates the authoritative formula/cask/TUI
+  versions and hashes from the public release assets.
 - `bash Scripts/homebrew-packaging-test.sh` passes.
 - `updatebar status --json` remains compatible with the documented menu bar contract.
 - Recipe command errors and child environments do not expose common provider or GitHub tokens.
