@@ -317,7 +317,7 @@ git fetch --prune --no-tags origin \
 git show-ref --verify --quiet "refs/tags/$release_tag"
 test "$(git cat-file -t "refs/tags/$release_tag")" = tag
 git merge-base --is-ancestor "refs/tags/$release_tag^{commit}" "refs/remotes/origin/main^{commit}"
-gh workflow run release.yml --ref main -f tag=vX.Y.Z
+gh workflow run release.yml --ref main -f tag="$release_tag"
 ```
 
 Use the exact tag value in both places. The release workflow rechecks the

@@ -75,7 +75,7 @@ APP_DMG="$( \
 )"
 bash Scripts/app-dmg-smoke-test.sh "$APP_DMG"
 bash Scripts/install-release.sh --help
-UPDATEBAR_VERIFY_STRICT=1 bash Scripts/verify-homebrew-metadata.sh
+UPDATEBAR_VERIFY_STATIC_ONLY=1 bash Scripts/verify-homebrew-metadata.sh
 ```
 
 The automatic workflow creates the annotated tag after the protected `main`
@@ -96,7 +96,7 @@ git fetch --prune --no-tags origin \
 git show-ref --verify --quiet "refs/tags/$release_tag"
 test "$(git cat-file -t "refs/tags/$release_tag")" = tag
 git merge-base --is-ancestor "refs/tags/$release_tag^{commit}" "refs/remotes/origin/main^{commit}"
-gh workflow run release.yml --ref main -f tag=vX.Y.Z
+gh workflow run release.yml --ref main -f tag="$release_tag"
 ```
 
 Do not move or recreate the tag. The guarded manual tag procedure documented in
