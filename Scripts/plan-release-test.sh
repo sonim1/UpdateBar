@@ -536,6 +536,15 @@ assert_output_contains 'output file must be outside the repository'
 [[ "$(<"$REPOSITORY/README.md")" == "$README_BEFORE" ]] || fail 'repository output changed README.md'
 assert_clean
 
+# An external hard link to a repository file cannot disguise the destination inode.
+README_HARDLINK_ALIAS="$TEMP_ROOT/readme-hardlink-$FIXTURE_INDEX"
+ln "$REPOSITORY/README.md" "$README_HARDLINK_ALIAS"
+run_plan "$BASE_COMMIT" "$HEAD_COMMIT" "$README_HARDLINK_ALIAS"
+assert_status 65
+assert_output_contains 'exactly one hard link'
+[[ "$(<"$REPOSITORY/README.md")" == "$README_BEFORE" ]] || fail 'hard-link output alias changed README.md'
+assert_clean
+
 # Direct, hard-link, and symlink aliases to repository metadata are rejected.
 VERSION_BEFORE="$(<"$REPOSITORY/version.env")"
 run_plan "$BASE_COMMIT" "$HEAD_COMMIT" "$REPOSITORY/./version.env"

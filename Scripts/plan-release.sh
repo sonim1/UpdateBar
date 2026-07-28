@@ -97,6 +97,12 @@ def same_file?(left_stat, right_stat)
   left_stat.dev == right_stat.dev && left_stat.ino == right_stat.ino
 end
 
+def require_single_link(stat)
+  return if stat.nlink == 1
+
+  raise PlanningError, "output file must have exactly one hard link"
+end
+
 def inside_directory?(path, directory)
   path == directory || path.start_with?("#{directory}#{File::SEPARATOR}")
 end
@@ -151,6 +157,7 @@ def open_output_file(repository_root, output_file)
     unless endpoint_stat.file? && !endpoint_stat.symlink?
       raise PlanningError, "output file is not a regular non-symlink file"
     end
+    require_single_link(endpoint_stat)
     unless File.writable?(expanded_output)
       raise PlanningError, "output file is not writable"
     end
@@ -168,9 +175,12 @@ def open_output_file(repository_root, output_file)
     end
   end
 
+  opened_stat = output.stat
+  require_single_link(opened_stat)
   current_endpoint_stat = File.lstat(expanded_output)
+  require_single_link(current_endpoint_stat)
   unless current_endpoint_stat.file? && !current_endpoint_stat.symlink? &&
-      same_file?(output.stat, current_endpoint_stat)
+      same_file?(opened_stat, current_endpoint_stat)
     raise PlanningError, "output file changed while opening"
   end
   if endpoint_stat && !same_file?(current_endpoint_stat, endpoint_stat)
@@ -386,8 +396,8 @@ begin
   end
 
   if output
-    output.write(result)
-    output.write("\n")
+    require_single_link(output.stat)
+    output.write("#{result}\n")
     output.flush
   end
   puts result
