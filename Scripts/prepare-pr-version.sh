@@ -48,11 +48,26 @@ CURRENT_HEAD="$(git rev-parse --verify HEAD 2>/dev/null)" || reject 'could not r
 [[ "$CURRENT_HEAD" == "$HEAD_COMMIT" ]] ||
   reject "checked-out HEAD does not match requested head commit: $CURRENT_HEAD"
 
+OUTPUT_FD_OPEN=0
+
+close_output_file() {
+  if [[ "$OUTPUT_FD_OPEN" -eq 1 ]]; then
+    exec 9>&-
+    OUTPUT_FD_OPEN=0
+  fi
+}
+
+trap close_output_file EXIT
+
 emit() {
   local result="$1"
 
-  if [[ -n "$OUTPUT_FILE" ]]; then
-    printf '%s\n' "$result" >> "$OUTPUT_FILE"
+  if [[ "$OUTPUT_FD_OPEN" -eq 1 ]]; then
+    if ! printf '%s\n' "$result" >&9; then
+      close_output_file
+      reject "could not append to output file: $OUTPUT_FILE"
+    fi
+    close_output_file
   fi
   printf '%s\n' "$result"
 }
@@ -163,8 +178,6 @@ begin
     unless File.writable?(expanded_output)
       raise "output file is not writable"
     end
-
-    File.open(expanded_output, File::WRONLY | File::APPEND) {}
   else
     probe = Tempfile.new([".prepare-pr-version-output-", ".probe"], output_parent)
     probe.close!
@@ -179,7 +192,17 @@ RUBY
   fi
 }
 
+open_output_file() {
+  [[ -n "$OUTPUT_FILE" ]] || return 0
+
+  if ! exec 9>> "$OUTPUT_FILE"; then
+    reject "could not open output file for append: $OUTPUT_FILE"
+  fi
+  OUTPUT_FD_OPEN=1
+}
+
 validate_output_file
+open_output_file
 
 DOCS_ONLY=1
 while IFS= read -r -d '' changed_path; do

@@ -93,10 +93,12 @@ make_relevant_head() {
 }
 
 run_prepare() {
+  local executable_path="${PREPARE_PATH_OVERRIDE:-$PATH}"
+
   set +e
   PREPARE_OUTPUT="$({
     cd -- "$REPOSITORY"
-    Scripts/prepare-pr-version.sh "$@"
+    PATH="$executable_path" Scripts/prepare-pr-version.sh "$@"
   } 2>&1)"
   PREPARE_STATUS=$?
   set -e
@@ -348,6 +350,64 @@ assert_output_contains 'output file is not writable'
   fail 'non-writable output rejection partially mutated an owned file'
 [[ "$(<"$NON_WRITABLE_OUTPUT")" == 'output sentinel' ]] ||
   fail 'output preflight changed a non-writable output file'
+
+# Swapping the validated output pathname during git diff must not redirect emit.
+SWAP_GIT_DIRECTORY="$TEMP_ROOT/swap-git"
+mkdir "$SWAP_GIT_DIRECTORY"
+cat > "$SWAP_GIT_DIRECTORY/git" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${1:-}" == 'diff' ]]; then
+  mv -- "$SWAP_OUTPUT_PATH" "$SWAP_PRESERVED_OUTPUT"
+  ln -s -- "$SWAP_TARGET_PATH" "$SWAP_OUTPUT_PATH"
+fi
+
+exec "$REAL_GIT_BINARY" "$@"
+EOF
+chmod +x "$SWAP_GIT_DIRECTORY/git"
+REAL_GIT_BINARY="$(command -v git)"
+export REAL_GIT_BINARY
+TOCTOU_FAILURES=''
+
+for swap_target_kind in owned external; do
+  create_fixture
+  make_relevant_head "output path swap to $swap_target_kind"
+  SWAP_OUTPUT_PATH="$TEMP_ROOT/swap-output-$FIXTURE_INDEX.env"
+  SWAP_PRESERVED_OUTPUT="$TEMP_ROOT/swap-output-preserved-$FIXTURE_INDEX.env"
+  printf 'existing=value\n' > "$SWAP_OUTPUT_PATH"
+
+  if [[ "$swap_target_kind" == 'owned' ]]; then
+    SWAP_TARGET_PATH="$REPOSITORY/version.env"
+  else
+    SWAP_TARGET_PATH="$TEMP_ROOT/swap-external-target-$FIXTURE_INDEX"
+    printf 'external sentinel\n' > "$SWAP_TARGET_PATH"
+  fi
+
+  export SWAP_OUTPUT_PATH SWAP_PRESERVED_OUTPUT SWAP_TARGET_PATH
+  PREPARE_PATH_OVERRIDE="$SWAP_GIT_DIRECTORY:$PATH"
+  run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$SWAP_OUTPUT_PATH"
+  unset PREPARE_PATH_OVERRIDE
+  assert_status 0
+  assert_output_equals $'release=true\nchanged=true\nready=false\nversion=1.2.4'
+
+  if [[ "$swap_target_kind" == 'owned' ]]; then
+    printf 'UPDATEBAR_VERSION=1.2.4\n' > "$TEMP_ROOT/expected-swap-target"
+  else
+    printf 'external sentinel\n' > "$TEMP_ROOT/expected-swap-target"
+  fi
+  if ! cmp -s "$TEMP_ROOT/expected-swap-target" "$SWAP_TARGET_PATH"; then
+    TOCTOU_FAILURES="$TOCTOU_FAILURES$swap_target_kind swap target was modified; "
+  fi
+
+  printf 'existing=value\n%s\n' "$PREPARE_OUTPUT" > "$TEMP_ROOT/expected-preserved-output"
+  if ! cmp -s "$TEMP_ROOT/expected-preserved-output" "$SWAP_PRESERVED_OUTPUT"; then
+    TOCTOU_FAILURES="$TOCTOU_FAILURES$swap_target_kind held output missed the appended result; "
+  fi
+done
+
+unset REAL_GIT_BINARY SWAP_OUTPUT_PATH SWAP_PRESERVED_OUTPUT SWAP_TARGET_PATH
+[[ -z "$TOCTOU_FAILURES" ]] || fail "output pathname TOCTOU: $TOCTOU_FAILURES"
 
 # Markdown below a non-docs directory is release-relevant, not a root Markdown path.
 create_fixture
