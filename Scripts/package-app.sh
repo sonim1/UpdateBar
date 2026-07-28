@@ -15,7 +15,7 @@ FIND_BIN="${FIND_BIN:-find}"
 REALPATH_BIN="${REALPATH_BIN:-realpath}"
 RUBY_BIN="${RUBY_BIN:-ruby}"
 VERSION="${UPDATEBAR_VERSION:?UPDATEBAR_VERSION is required}"
-UPDATE_FEED_URL="${UPDATEBAR_UPDATE_FEED_URL-https://updates.updatebar.sonim1.com/appcast.xml}"
+UPDATE_FEED_URL="${UPDATEBAR_UPDATE_FEED_URL-https://updates.updatebar.royjen.com/appcast.xml}"
 SPARKLE_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
 
 case "$(uname -m)" in

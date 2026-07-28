@@ -366,7 +366,7 @@ UNSIGNED_PLIST="$UNSIGNED_APP/Contents/Info.plist"
 unsigned_feed="$(plist_extract SUFeedURL "$UNSIGNED_PLIST")"
 unsigned_key="$(plist_extract SUPublicEDKey "$UNSIGNED_PLIST")"
 unsigned_automatic="$(plist_extract SUEnableAutomaticChecks "$UNSIGNED_PLIST")"
-[[ "$unsigned_feed" == "https://updates.updatebar.sonim1.com/appcast.xml" ]] || \
+[[ "$unsigned_feed" == "https://updates.updatebar.royjen.com/appcast.xml" ]] || \
   fail "unsigned package has unexpected SUFeedURL"
 [[ "$unsigned_key" == "$VALID_SPARKLE_KEY" ]] || fail "unsigned package has unexpected SUPublicEDKey"
 [[ "$unsigned_automatic" == "false" ]] || fail "unsigned package must disable automatic checks"
@@ -388,7 +388,7 @@ FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
 feed="$(plist_extract SUFeedURL "$PLIST")"
 key="$(plist_extract SUPublicEDKey "$PLIST")"
 automatic="$(plist_extract SUEnableAutomaticChecks "$PLIST")"
-[[ "$feed" == "https://updates.updatebar.sonim1.com/appcast.xml" ]] || fail "unexpected SUFeedURL: $feed"
+[[ "$feed" == "https://updates.updatebar.royjen.com/appcast.xml" ]] || fail "unexpected SUFeedURL: $feed"
 [[ "$key" == "$VALID_SPARKLE_KEY" ]] || fail "unexpected SUPublicEDKey"
 [[ "$automatic" == "false" ]] || fail "SUEnableAutomaticChecks must be boolean false"
 

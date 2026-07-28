@@ -207,7 +207,7 @@ if [[ "$1" == "-extract" ]]; then
     CFBundlePackageType) printf '%s\n' "${FAKE_CF_BUNDLE_PACKAGE_TYPE:-APPL}" ;;
     LSUIElement) printf '%s\n' "${FAKE_LSUI_ELEMENT:-true}" ;;
     CFBundleShortVersionString|CFBundleVersion) printf '%s\n' "${FAKE_VERSION:?}" ;;
-    SUFeedURL) printf 'https://updates.updatebar.sonim1.com/appcast.xml\n' ;;
+    SUFeedURL) printf 'https://updates.updatebar.royjen.com/appcast.xml\n' ;;
     SUPublicEDKey) printf '%s\n' "${FAKE_PUBLIC_KEY:?}" ;;
     *) exit 1 ;;
   esac

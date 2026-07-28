@@ -31,7 +31,7 @@ case "$*" in
   "r2 bucket create updatebar-updates")
     case "${SCENARIO:-}" in bucket-race-*) exit 45;; esac
     echo created ;;
-  "r2 bucket domain get updatebar-updates --domain updates.updatebar.sonim1.com")
+  "r2 bucket domain get updatebar-updates --domain updates.updatebar.royjen.com")
     count_file="${CALL_LOG}.domain"; count=0; [[ ! -f "$count_file" ]] || count="$(cat "$count_file")"; count=$((count+1)); echo "$count" >"$count_file"
     case "${SCENARIO:-}" in
       absent) [[ "$count" == 1 ]] && { echo 'Domain not found' >&2; exit 44; };;
@@ -39,12 +39,12 @@ case "$*" in
       domain-race-mismatch) [[ "$count" == 1 ]] && { echo 'Domain not found' >&2; exit 44; }; echo 'domain: wrong.example'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; exit 0;;
       domain-race-missing) echo 'Domain not found' >&2; exit 44;;
       final-mismatch) [[ "$count" == 1 ]] && { echo 'Domain not found' >&2; exit 44; }; echo 'domain: wrong.example'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; exit 0;;
-      conflict) echo 'domain: updates.updatebar.sonim1.com'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; echo 'bucket: another'; exit 0;;
+      conflict) echo 'domain: updates.updatebar.royjen.com'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; echo 'bucket: another'; exit 0;;
       mismatch) echo 'domain: wrong.example'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; exit 0;;
       malformed) echo nonsense; exit 0;;
     esac
-    echo 'domain: updates.updatebar.sonim1.com'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; echo 'bucket: updatebar-updates' ;;
-  "r2 bucket domain add updatebar-updates --domain updates.updatebar.sonim1.com --zone-id bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --min-tls 1.2 --force")
+    echo 'domain: updates.updatebar.royjen.com'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; echo 'bucket: updatebar-updates' ;;
+  "r2 bucket domain add updatebar-updates --domain updates.updatebar.royjen.com --zone-id bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --min-tls 1.2 --force")
     case "${SCENARIO:-}" in domain-race-*) exit 46;; esac
     echo added ;;
   *) echo "unexpected: $*" >&2; exit 91;;
@@ -67,7 +67,7 @@ run_case() {
 
 # RED: implementation does not exist yet.
 run_case absent 0
-grep -Fq 'https://updates.updatebar.sonim1.com/appcast.xml' "$TEST_ROOT/absent.out"
+grep -Fq 'https://updates.updatebar.royjen.com/appcast.xml' "$TEST_ROOT/absent.out"
 run_case existing 0
 run_case unauthorized 23
 run_case account-mismatch 1
@@ -93,9 +93,9 @@ expected = %w[
   r2 bucket info updatebar-updates --json
   r2 bucket create updatebar-updates
   r2 bucket info updatebar-updates --json
-  r2 bucket domain get updatebar-updates --domain updates.updatebar.sonim1.com
-  r2 bucket domain add updatebar-updates --domain updates.updatebar.sonim1.com --zone-id bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --min-tls 1.2 --force
-  r2 bucket domain get updatebar-updates --domain updates.updatebar.sonim1.com
+  r2 bucket domain get updatebar-updates --domain updates.updatebar.royjen.com
+  r2 bucket domain add updatebar-updates --domain updates.updatebar.royjen.com --zone-id bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --min-tls 1.2 --force
+  r2 bucket domain get updatebar-updates --domain updates.updatebar.royjen.com
 ]
 abort "unexpected Wrangler argv/order:\n#{actual.inspect}" unless actual == expected
 RUBY

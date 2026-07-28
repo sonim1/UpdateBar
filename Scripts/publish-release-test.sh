@@ -37,7 +37,7 @@ mount=''; while [[ $# -gt 0 ]]; do case "$1" in -mountpoint) mount="$2"; shift 2
 [[ -n "$mount" ]] || exit 91
 mkdir -p "$mount/UpdateBar.app/Contents"
 cat >"$mount/UpdateBar.app/Contents/Info.plist" <<PLIST
-<?xml version="1.0"?><plist version="1.0"><dict><key>SUFeedURL</key><string>https://updates.updatebar.sonim1.com/appcast.xml</string><key>SUPublicEDKey</key><string>${DMG_PUBLIC_KEY_FIXTURE}</string></dict></plist>
+<?xml version="1.0"?><plist version="1.0"><dict><key>SUFeedURL</key><string>https://updates.updatebar.royjen.com/appcast.xml</string><key>SUPublicEDKey</key><string>${DMG_PUBLIC_KEY_FIXTURE}</string></dict></plist>
 PLIST
 printf '<plist><dict><key>system-entities</key><array><dict><key>mount-point</key><string>%s</string></dict></array></dict></plist>\n' "$mount"
 EOF
@@ -126,7 +126,7 @@ write_files(){
   cp "$P/dist/$DMG" "$P/dist/updates/$DMG"; cp "$P/dist/$DMG.sha256" "$P/dist/updates/$DMG.sha256"
   length="$(/usr/bin/ruby -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; print s.size' "$P/dist/$DMG")"
   cat >"$P/dist/updates/appcast.xml" <<EOF
-<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="https://updates.updatebar.sonim1.com/$DMG" length="$length" sparkle:version="12" sparkle:shortVersionString="1.2.3" sparkle:edSignature="$VALID_SIGNATURE"/></item></channel></rss>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="https://updates.updatebar.royjen.com/$DMG" length="$length" sparkle:version="12" sparkle:shortVersionString="1.2.3" sparkle:edSignature="$VALID_SIGNATURE"/></item></channel></rss>
 EOF
   msh="$(/usr/bin/shasum -a 256 "$P/dist/$MAC"|awk '{print $1}')"; dsh="$(/usr/bin/shasum -a 256 "$P/dist/$DMG"|awk '{print $1}')"
   cat >"$P/dist/release-manifest.json" <<EOF

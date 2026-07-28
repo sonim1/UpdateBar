@@ -7,11 +7,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 [[ $# == 0 ]] || { echo "Usage: Scripts/setup-update-hosting.sh" >&2; exit 64; }
 
 R2_BUCKET_NAME="${R2_BUCKET_NAME:-updatebar-updates}"
-UPDATE_DOMAIN="${UPDATE_DOMAIN:-updates.updatebar.sonim1.com}"
+UPDATE_DOMAIN="${UPDATE_DOMAIN:-updates.updatebar.royjen.com}"
 WRANGLER_BIN="${WRANGLER_BIN:-$ROOT/node_modules/.bin/wrangler}"
 ZONE_ID="${CLOUDFLARE_ZONE_ID:-}"
 ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-}"
-[[ "$R2_BUCKET_NAME" == updatebar-updates && "$UPDATE_DOMAIN" == updates.updatebar.sonim1.com ]] || {
+[[ "$R2_BUCKET_NAME" == updatebar-updates && "$UPDATE_DOMAIN" == updates.updatebar.royjen.com ]] || {
   echo "Update hosting bucket and domain are fixed release contracts" >&2; exit 64;
 }
 [[ "$ZONE_ID" =~ ^[A-Fa-f0-9]{32}$ ]] || { echo "CLOUDFLARE_ZONE_ID must be a 32-character hexadecimal ID" >&2; exit 64; }

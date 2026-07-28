@@ -11,7 +11,7 @@ version_line=''; version_lines=0
 while IFS= read -r line || [[ -n "$line" ]]; do version_lines=$((version_lines+1)); version_line="$line"; done <"$VERSION_FILE"
 [[ "$version_lines" == 1 && "$version_line" =~ ^UPDATEBAR_VERSION=([0-9]+([.][0-9]+){1,2})$ ]] || { echo "version.env must contain exactly one canonical UPDATEBAR_VERSION assignment" >&2; exit 64; }
 VERSION="${BASH_REMATCH[1]}"
-DOMAIN="${UPDATE_DOMAIN:-updates.updatebar.sonim1.com}"
+DOMAIN="${UPDATE_DOMAIN:-updates.updatebar.royjen.com}"
 PUBLIC_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
 PRIVATE_KEY="${SPARKLE_PRIVATE_ED_KEY:-}"
 unset SPARKLE_PRIVATE_ED_KEY
@@ -39,7 +39,7 @@ file_size() {
 }
 
 [[ "$VERSION" =~ ^[0-9]+([.][0-9]+){1,2}$ ]] || fail "Invalid UpdateBar version" 64
-[[ "$DOMAIN" == updates.updatebar.sonim1.com ]] || fail "Update domain is fixed to updates.updatebar.sonim1.com" 64
+[[ "$DOMAIN" == updates.updatebar.royjen.com ]] || fail "Update domain is fixed to updates.updatebar.royjen.com" 64
 ruby -rbase64 -e 'v=ARGV[0]; begin; b=Base64.strict_decode64(v); exit(b.bytesize==32 && Base64.strict_encode64(b)==v ? 0 : 1); rescue ArgumentError; exit 1; end' "$PUBLIC_KEY" || fail "SPARKLE_PUBLIC_ED_KEY must be canonical Base64 for 32 bytes" 64
 regular "$DMG" DMG; regular "$CHECKSUM" checksum
 [[ "$(cd "$(dirname "$DMG")" && pwd -P)/$(basename "$DMG")" == "$DMG" ]] || fail "DMG path is not canonical" 64
@@ -149,7 +149,31 @@ lock_owned=1
 if [[ -L "$OUTPUT" || ( -e "$OUTPUT" && ! -d "$OUTPUT" ) ]]; then fail "Unsafe update output destination"; fi
 if [[ -d "$OUTPUT" ]]; then rename_mode=swap; else rename_mode=exclusive; fi
 if "$RENAME_BIN" -rfiddle/import -e '
+  require "rbconfig"
   source, destination, mode = ARGV
+  host_os = RbConfig::CONFIG.fetch("host_os")
+  case host_os
+  when /darwin/
+    backend = :darwin
+    exclusive_flag = 0x00000004 # RENAME_EXCL
+    swap_flag = 0x00000002 # RENAME_SWAP
+    module DarwinRename
+      extend Fiddle::Importer
+      dlload Fiddle.dlopen(nil)
+      extern "int renameatx_np(int, const char *, int, const char *, unsigned int)"
+    end
+  when /linux/
+    backend = :linux
+    exclusive_flag = 0x00000001 # RENAME_NOREPLACE
+    swap_flag = 0x00000002 # RENAME_EXCHANGE
+    module LinuxRename
+      extend Fiddle::Importer
+      dlload Fiddle.dlopen(nil)
+      extern "int renameat2(int, const char *, int, const char *, unsigned int)"
+    end
+  else
+    abort "Unsupported appcast atomic rename platform: #{host_os}"
+  end
   source_stat = File.lstat(source)
   abort "Appcast source is not a real directory" unless source_stat.directory? && !source_stat.symlink?
   source_identity = "#{source_stat.dev}:#{source_stat.ino}"
@@ -160,23 +184,25 @@ if "$RENAME_BIN" -rfiddle/import -e '
       abort "Appcast destination appeared during finalization"
     rescue Errno::ENOENT
     end
-    flags = 0x00000004 # RENAME_EXCL
+    flags = exclusive_flag
   elsif mode == "swap"
     destination_stat = File.lstat(destination)
     abort "Appcast destination changed during finalization" unless destination_stat.directory? && !destination_stat.symlink?
     destination_identity = "#{destination_stat.dev}:#{destination_stat.ino}"
-    flags = 0x00000002 # RENAME_SWAP
+    flags = swap_flag
   else
     abort "Unknown appcast rename mode"
   end
-  module DarwinRename
-    extend Fiddle::Importer
-    dlload Fiddle.dlopen(nil)
-    extern "int renameatx_np(int, const char *, int, const char *, unsigned int)"
+  if backend == :darwin
+    operation = "renameatx_np"
+    result = DarwinRename.renameatx_np(-2, source, -2, destination, flags)
+  else
+    operation = "renameat2"
+    result = LinuxRename.renameat2(-100, source, -100, destination, flags)
   end
-  result = DarwinRename.renameatx_np(-2, source, -2, destination, flags)
+  rename_errno = Fiddle.last_error
   if result != 0
-    warn "renameatx_np failed with errno #{Fiddle.last_error}"
+    warn "#{operation} failed with errno #{rename_errno}"
     exit 73
   end
   begin

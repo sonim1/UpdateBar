@@ -458,7 +458,7 @@ jobs:
         env:
           SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
           SPARKLE_PRIVATE_ED_KEY: "${{ secrets.SPARKLE_PRIVATE_ED_KEY }}"
-          UPDATE_DOMAIN: updates.updatebar.sonim1.com
+          UPDATE_DOMAIN: updates.updatebar.royjen.com
         run: Scripts/generate-appcast.sh
 
       - name: Generate release manifest
@@ -690,7 +690,7 @@ jobs:
           R2_ACCESS_KEY_ID: "${{ secrets.R2_ACCESS_KEY_ID }}"
           R2_SECRET_ACCESS_KEY: "${{ secrets.R2_SECRET_ACCESS_KEY }}"
           R2_BUCKET_NAME: updatebar-updates
-          UPDATE_DOMAIN: updates.updatebar.sonim1.com
+          UPDATE_DOMAIN: updates.updatebar.royjen.com
         run: Scripts/publish-release.sh "$RELEASE_TAG"
 
   notify:

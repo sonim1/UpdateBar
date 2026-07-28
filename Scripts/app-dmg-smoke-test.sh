@@ -11,7 +11,7 @@ REALPATH_BIN="${REALPATH_BIN:-realpath}"
 RUBY_BIN="${RUBY_BIN:-ruby}"
 SHASUM_BIN="${SHASUM_BIN:-shasum}"
 EXPECTED_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
-EXPECTED_FEED="${UPDATEBAR_UPDATE_FEED_URL:-https://updates.updatebar.sonim1.com/appcast.xml}"
+EXPECTED_FEED="${UPDATEBAR_UPDATE_FEED_URL:-https://updates.updatebar.royjen.com/appcast.xml}"
 EXPECTED_NAME="UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.dmg"
 
 TMP_DIR=""
