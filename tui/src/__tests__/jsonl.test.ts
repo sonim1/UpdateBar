@@ -36,9 +36,9 @@ describe('jsonl parser', () => {
 
   it('preserves UTF-8 text split across chunk boundaries', async () => {
     const line =
-      '{"event":"log","operation":"update","timestamp":"2026-06-30T00:00:00Z","message":"한글"}\n';
+      '{"event":"log","operation":"update","timestamp":"2026-06-30T00:00:00Z","message":"café"}\n';
     const bytes = Buffer.from(line, 'utf8');
-    const split = Buffer.from(line.slice(0, line.indexOf('한'))).length + 1;
+    const split = Buffer.from(line.slice(0, line.indexOf('é'))).length + 1;
 
     async function* chunks() {
       yield bytes.subarray(0, split);
@@ -50,7 +50,7 @@ describe('jsonl parser', () => {
       events.push(event);
     }
 
-    expect(events[0]?.message).toBe('한글');
+    expect(events[0]?.message).toBe('café');
   });
 
   it('reports invalid lines with line numbers', () => {

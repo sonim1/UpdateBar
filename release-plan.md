@@ -1,150 +1,161 @@
-# UpdateBar — 실서비스 배포 전 남은 작업
+# UpdateBar — Remaining Work Before Production Release
 
-> Historical note (2026-07-12): 이 문서는 v0.3.0 이전 배포 점검 기록으로
-> 보관한다. 현재 운영 기준은 `version.env`, `README.md`, `docs/release.md`,
-> `.github/workflows/release.yml`, `Packaging/homebrew/`를 우선한다.
+> Historical note (2026-07-12): This document is retained as the pre-v0.3.0 release audit record. For current operational guidance, prioritize `version.env`, `README.md`, `docs/release.md`, `.github/workflows/release.yml`, and `Packaging/homebrew/`.
 
-작성일: 2026-07-08. 기준 커밋: `4642649` (main).
-7개 영역 병렬 감사(릴리스 엔지니어링 / 서명·배포 / 제품 완성도 / 테스트·품질 / 보안 / 문서·UX / 앱·TUI 폴리시) 결과를 종합한 문서.
+Written: 2026-07-08. Baseline commit: `4642649` (main).
+This document consolidates parallel audits across seven areas: release engineering, signing and distribution, product completeness, testing and quality, security, documentation and UX, and app/TUI polish.
 
-## 현재 상태 요약
+## Current Status Summary
 
-v0.2.0은 이미 공개 배포됨 (GitHub Release + Homebrew formula `sonim1/tap/updatebar` + unsigned app cask). 제품 자체는 next-plan.md 기준 M0–M4 전부 구현·검증 완료. 코드 품질, 테스트 커버리지, 보안 문서의 정직성은 모두 양호.
+v0.2.0 has already been released publicly through a GitHub Release, the Homebrew formula `sonim1/tap/updatebar`, and an unsigned app cask. According to next-plan.md, all product milestones M0–M4 have been implemented and verified. Code quality, test coverage, and the honesty of the security documentation are all solid.
 
-**그러나 지금 상태로는 다음 릴리스(v0.3.0)를 태그해도 릴리스 파이프라인이 통과할 수 없고**, 배포된 Linux 바이너리는 Swift 툴체인 없는 머신에서 실행이 안 되며, unsigned 앱의 첫 실행 안내(Control-click Open)는 macOS 15+에서 더 이상 동작하지 않음. 실서비스 관점의 남은 일은 기능 개발이 아니라 **배포 파이프라인 수리 → 서명/공증 → 배포 운영 자동화 → 신뢰 체계** 순서의 작업임.
+**However, in the current state the release pipeline cannot pass for the next tag (v0.3.0).** The distributed Linux binary does not run on machines without the Swift toolchain, and the first-launch instructions for the unsigned app (`Control-click → Open`) no longer work on macOS 15+. From a production-readiness perspective, the remaining work is not feature development but **repairing the release pipeline → signing/notarization → automating release operations → establishing a trust framework**.
 
-| 영역 | 상태 | 핵심 이슈 |
+| Area | Status | Key issue |
 |---|---|---|
-| 제품 기능 (CLI/코어) | ✅ 완료 | 문서-코드 일치, 팬텀 커맨드 없음 |
-| 테스트/CI | ✅ 강함 | 릴리스 워크플로만 테스트 미연동 |
-| 보안 모델 | ✅ 정직함 | 공급망 증명(provenance)·제보 채널만 부재 |
-| 릴리스 파이프라인 | 🔴 막힘 | 다음 태그가 통과 불가능한 구조 (P0 ×2) |
-| 앱 배포 (서명) | 🔴 미해결 | unsigned + macOS 15+ 실행 불가 안내 |
-| 문서/UX 마무리 | 🟡 보통 | 업그레이드/언인스톨 문서, 스크린샷, 루트 정리 |
+| Product features (CLI/core) | ✅ Complete | Documentation matches code; no phantom commands |
+| Tests/CI | ✅ Strong | Only the release workflow is not connected to tests |
+| Security model | ✅ Honest | Only supply-chain provenance and a reporting channel are missing |
+| Release pipeline | 🔴 Blocked | The next tag cannot pass by design (two P0 issues) |
+| App distribution (signing) | 🔴 Unresolved | Unsigned app plus invalid macOS 15+ launch instructions |
+| Documentation/UX finish | 🟡 Moderate | Upgrade/uninstall docs, screenshots, and root cleanup |
 
 ---
 
-## 0. 먼저 결정할 것 (작업 아님, 의사결정)
+## 0. Decisions Required First (Decisions, Not Tasks)
 
-| ID | 결정 | 영향 |
+| ID | Decision | Impact |
 |---|---|---|
-| **Q-APPLE-1** | Apple Developer Program ($99/yr) 결제 여부 | 서명/공증 앱 배포 전체가 이 결정에 걸려 있음. **실서비스 앱을 표방하면 사실상 필수** — macOS 15+에서 unsigned 앱은 Control-click 우회가 제거되어 System Settings 딥다이브 없이는 실행 불가 |
-| **Q-ARCH-1** | Intel Mac(x86_64) 지원 여부 | 현재 formula/cask 모두 arm64 하드게이트, 문서에 명시 없음. universal binary를 빌드하거나 "Apple Silicon 전용"을 공식 결정으로 기록하고 문서화 |
+| **Q-APPLE-1** | Whether to pay for the Apple Developer Program ($99/year) | All signed/notarized app distribution depends on this. **It is effectively mandatory for a production app** because macOS 15+ removed the Control-click bypass for unsigned apps, leaving only a deep System Settings workaround. |
+| **Q-ARCH-1** | Whether to support Intel Macs (x86_64) | Both the current formula and cask hard-gate on arm64, but this is undocumented. Either build a universal binary or formally decide on Apple Silicon-only support and document it. |
 
 ---
 
-## 1. P0 — 릴리스 블로커 (이거 안 하면 다음 배포 자체가 불가능)
+## 1. P0 — Release Blockers (The Next Release Is Impossible Without These)
 
-### 1.1 릴리스 파이프라인 교착 해제 — 노력 M
-`release.yml:53-55`의 strict Homebrew 메타데이터 검증이 태그 시점에 cask SHA 일치를 요구하는데, 앱 아카이브는 빌드할 때마다 SHA가 달라짐(`build-app-archive.sh:27`이 mtime/owner 정규화 없는 plain tar — 동일 번들로 2회 빌드 시 SHA 상이함을 실증 확인). 태그 전에 커밋해야 하는 SHA를 알 방법이 없어 **어떤 SHA를 넣어도 v0.3.0 태그가 실패하는 구조**. 이 검증은 v0.2.0 이후(커밋 `4642649`)에 추가되어 실제 릴리스를 한 번도 통과해 본 적 없음.
+### 1.1 Break the Release-Pipeline Deadlock — Effort M
 
-해결 방향(택1):
-- `build-app-archive.sh`/`package-app.sh`에 `build-release.sh:48-56`과 동일한 mtime/owner 정규화 적용해 바이트 재현 가능하게 만들기
-- 또는 SHA 동등성 검사를 태그 시점 strict 검증에서 빼고 배포 후(post-publish) 단계로 이동, 태그 시점엔 version/URL 검사만 유지
+The strict Homebrew metadata validation at `release.yml:53-55` requires the cask SHA to match at tag time, but the app archive gets a different SHA on every build. `build-app-archive.sh:27` uses plain tar without normalizing mtime/owner; building the same bundle twice was verified to produce different SHAs. There is no way to know before tagging which SHA must be committed, so **the v0.3.0 tag fails regardless of the SHA entered**. This validation was added after v0.2.0 in commit `4642649` and has never passed a real release.
 
-### 1.2 Linux 바이너리 정적 링크 — 노력 S
-공개된 `updatebar-0.2.0-linux-x86_64.tar.gz`의 ELF를 확인한 결과 `libswiftCore.so`, `libFoundation.so` 등을 동적 링크 — **Swift 툴체인 없는 일반 Linux에서 실행 불가**. 스모크 테스트는 툴체인 있는 빌드 머신에서 돌아서 통과했을 뿐. `Scripts/build-release.sh:26-28` Linux 레인에 `--static-swift-stdlib` 추가.
+Choose one resolution:
 
-### 1.3 macOS 15+ 첫 실행 안내 수정 — 노력 S
-README.md:20-21, docs/install.md, cask caveats 모두 "Control-click → Open" 안내인데 macOS Sequoia(15)부터 이 우회가 제거됨. 서명 전까지의 임시 조치로 System Settings → Privacy & Security → Open Anyway 절차로 교체하고, 필요시 `--no-quarantine` 옵션 언급. (근본 해결은 1.4)
+- Apply the same mtime/owner normalization used at `build-release.sh:48-56` to `build-app-archive.sh`/`package-app.sh`, making the archive byte-reproducible.
+- Move SHA equality out of strict tag-time validation and into a post-publish step, retaining only version/URL validation at tag time.
 
-### 1.4 서명/공증 파이프라인 완성 (Q-APPLE-1 = go 시) — 노력 L
-`Scripts/package-app.sh`의 서명 경로는 구현되어 있으나 **mock codesign/xcrun 스텁으로만 테스트됨** — 실제 Developer ID 인증서로 end-to-end 실행 이력 없음. release.yml에는 서명 배선이 전무(secrets 참조 0건). 남은 일:
-- 인증서 발급 → .p12를 CI secrets로, temp keychain import 단계 추가
-- `xcrun notarytool store-credentials`용 App Store Connect API key secrets 구성
-- macOS 릴리스 잡에 `UPDATEBAR_SIGN_APP=1` / `UPDATEBAR_NOTARIZE_APP=1` + identity/profile env 배선
-- 서명 후 실검증 추가: `codesign --verify --strict`, `spctl --assess`, `xcrun stapler validate` (현재 grep 결과 0건 — 첫 실전 실행이 릴리스 당일이 되는 구조)
-- cask를 서명 아티팩트로 갱신, Gatekeeper 안내문 제거
-- docs/release.md에 secrets 이름/인증서 갱신 등 운영 절차 문서화
+### 1.2 Statically Link the Linux Binary — Effort S
 
----
+Inspection of the published `updatebar-0.2.0-linux-x86_64.tar.gz` ELF showed dynamic links to `libswiftCore.so`, `libFoundation.so`, and others, so **it cannot run on a typical Linux machine without the Swift toolchain**. The smoke test passed only because it ran on a build machine with the toolchain. Add `--static-swift-stdlib` to the Linux path at `Scripts/build-release.sh:26-28`.
 
-## 2. P1 — 실서비스 배포 전 강력 권장
+### 1.3 Fix First-Launch Instructions for macOS 15+ — Effort S
 
-### 릴리스 운영
-| 작업 | 노력 | 근거 |
-|---|---|---|
-| v0.3.0 릴리스 컷: version.env 범프, CHANGELOG Unreleased → 0.3.0 롤오버, 태그, tap SHA 갱신 | M | main에 배포 안 된 수정들 + 동작 변경(hidden add 위저드 제거)이 쌓여 있음. P0 1.1/1.2 해결 후 진행 |
-| Homebrew tap 동기화 자동화 (release.yml에서 tap repo로 PR/push, 업로드된 `.sha256` 기반) | M | 현재 두 파일 수동 복사 + SHA 손타이핑. 오타 하나로 모든 사용자의 `brew install` 파손 |
-| GitHub 릴리스 노트 자동 첨부 (CHANGELOG 섹션 → `body_path` 또는 `generate_release_notes`) | S | `gh release view v0.2.0` body가 빈 문자열. 공개 서비스에서 릴리스 설명 공란은 방치된 프로젝트로 보임 |
-| CHANGELOG 롤오버 강제: 태그 빌드 시 `## <버전>` 섹션 없으면 실패 | S | 지금 상태 그대로 태그하면 "변경사항 없음" 릴리스가 나감 |
-| 릴리스 전 테스트 게이트: release.yml에서 `swift test`(또는 CI 성공 요구) 후 publish | S | 현재 태그 push는 테스트 실패 커밋도 그대로 공개 배포함 |
-| 배포 후 검증: 라이브 릴리스 대상 `install-release.sh` + `brew install` 실행 잡 | M | 현재 모든 검사가 업로드 전 로컬 아티팩트 대상. 사용자가 실제 받는 자산은 아무도 검증 안 함 |
-| 롤백/yank 절차 문서화 (릴리스 삭제, tap 되돌리기, fix-forward 기준) | S | `install-release.sh`가 latest 기본값이라 불량 릴리스가 즉시 전체 사용자에게 노출. rollback/yank 문서 0건 |
-| release.yml에 `workflow_dispatch` 드라이런 모드 (publish 없이 전체 빌드/검증 + SHA 출력) | S | 최근 릴리스 런 5회 중 4회 실패 — 태그 삭제/재푸시 반복 중. 리허설 수단 필요 |
+README.md:20-21, docs/install.md, and the cask caveats all instruct users to use `Control-click → Open`, but macOS Sequoia (15) removed this bypass. Until signing is available, replace it with `System Settings → Privacy & Security → Open Anyway` and mention `--no-quarantine` if appropriate. The permanent solution is 1.4.
 
-### 신뢰/보안 체계
-| 작업 | 노력 | 근거 |
-|---|---|---|
-| 빌드 증명 추가 (`actions/attest-build-provenance` 또는 cosign) | M | 현재 `.sha256`이 아티팩트와 같은 릴리스에서 서빙됨 — 전송 무결성만 보장, 출처 진위는 보장 못 함. 명령 실행 도구라 공급망 신뢰가 특히 중요 |
-| `.github/SECURITY.md` 취약점 제보 채널 개설 (GitHub private reporting 활성화) | S | 위협 모델 문서는 있는데 제보 경로가 없음 → 취약점이 공개 이슈로 올라오는 구조 |
-| 의존성 취약점 상시 감시: `.github/dependabot.yml` (npm/tui, github-actions, swift) | S | CI가 `npm ci --no-audit`. 오늘은 0건이지만 이후 ink/react 어드바이저리를 아무도 못 봄 |
+### 1.4 Complete the Signing/Notarization Pipeline (If Q-APPLE-1 = Go) — Effort L
 
-### 사용자 대면 마무리
-| 작업 | 노력 | 근거 |
-|---|---|---|
-| 업그레이드 문서: `brew upgrade`, cask 업그레이드, curl 재실행 + "앱 자체 업데이트 없음(cask 경유가 설계)" 명시 | S | 업데이트 추적 도구인데 자기 자신의 업데이트 방법이 문서에 없음 |
-| Apple Silicon 전용 범위 명시 (install.md의 `ARCH=arm64` 하드코딩 구간 포함) | S | Intel 사용자가 404로 한계를 발견하는 구조 |
-| 제품 언인스톨 문서 (formula/cask 제거 + `UPDATEBAR_HOME` 데이터 위치/정리) | S | `background uninstall`만 있고 제품 제거 문서 없음 |
-| README에 스크린샷/데모 GIF (메뉴바 앱 + TUI) | S | 시각 자료 0개. 메뉴바 앱 제품의 얼굴이 텍스트뿐 |
-| 앱 아이콘 제작·번들 포함 | M | `.icns` 없음, `package-app.sh`에 아이콘 배선 없음 — 기본 아이콘으로 실서비스 불가 |
-| `.github` 커뮤니티 파일: 이슈 템플릿, CONTRIBUTING.md | S | `.github/`에 workflows만 존재 |
+The signing path in `Scripts/package-app.sh` is implemented but has been tested **only with mock codesign/xcrun stubs**; it has no end-to-end run with a real Developer ID certificate. release.yml contains no signing wiring and references zero secrets. Remaining work:
+
+- Issue a certificate, store the .p12 in CI secrets, and add a temporary-keychain import step.
+- Configure App Store Connect API key secrets for `xcrun notarytool store-credentials`.
+- Wire `UPDATEBAR_SIGN_APP=1`, `UPDATEBAR_NOTARIZE_APP=1`, and identity/profile environment variables into the macOS release job.
+- Add real post-signing verification: `codesign --verify --strict`, `spctl --assess`, and `xcrun stapler validate`. Current grep results show zero instances, so otherwise the first real run would happen on release day.
+- Update the cask to use the signed artifact and remove the Gatekeeper instructions.
+- Document secret names, certificate renewal, and other operational procedures in docs/release.md.
 
 ---
 
-## 3. P2 — 배포 후 진행해도 되는 것
+## 2. P1 — Strongly Recommended Before Production Release
 
-**릴리스 파이프라인 개선**
-- macOS x86_64/universal + Linux arm64 아티팩트 추가 여부 결정 (Q-ARCH-1 후속)
-- Linux 릴리스 빌드를 CI와 동일한 `swift:6.0` 컨테이너에서 (현재 테스트 환경과 배포 빌드 환경 불일치, glibc 하한도 불필요하게 높음)
-- `action-gh-release`에 `fail_on_unmatched_files: true` (+ draft 후 수동 promote 검토)
-- CI에서 `brew style`/`brew audit` 실행 (현재 grep 기반 자체 검사뿐)
-- shellcheck CI 필수화 (현재 없으면 조용히 스킵 — Linux 컨테이너에 미설치)
+### Release Operations
 
-**품질**
-- TUI↔CLI JSONL 계약 E2E (실제 바이너리 spawn 검증 — 현재 양쪽 다 픽스처만)
-- 메뉴바 인터랙션 레벨 테스트 (현재 launch 스모크까지만)
-- 커버리지 측정 (`--enable-code-coverage`, vitest coverage)
-- DocumentationSnapshotTests의 XCTSkip 폴백 → 지원 셸에 대해 XCTFail
+| Task | Effort | Rationale |
+|---|---|---|
+| Cut v0.3.0: bump version.env, roll CHANGELOG Unreleased to 0.3.0, tag, and update tap SHAs | M | Unreleased fixes and behavior changes, including removal of the hidden add wizard, have accumulated on main. Proceed after P0 1.1/1.2. |
+| Automate Homebrew tap synchronization from release.yml to the tap repository using PR/push and uploaded `.sha256` files | M | Two files are currently copied manually and SHAs typed by hand. One typo breaks `brew install` for every user. |
+| Automatically attach GitHub release notes from the CHANGELOG section through `body_path` or `generate_release_notes` | S | `gh release view v0.2.0` reports an empty body. A blank public release description makes the project look abandoned. |
+| Enforce CHANGELOG rollover: fail tagged builds without a `## <version>` section | S | Tagging the current state would produce a “no changes” release. |
+| Add a pre-release test gate in release.yml using `swift test` or a required successful CI run | S | A tag push currently publishes even a commit with failing tests. |
+| Add post-deployment verification against the live release with `install-release.sh` and `brew install` jobs | M | All current checks target local pre-upload artifacts; no one verifies the assets users actually receive. |
+| Document rollback/yank procedures: deleting a release, reverting the tap, and fix-forward criteria | S | `install-release.sh` defaults to latest, immediately exposing all users to a bad release. There is no rollback/yank documentation. |
+| Add a `workflow_dispatch` dry-run mode to release.yml that builds and verifies everything and prints SHAs without publishing | S | Four of the last five release runs failed, causing repeated tag deletion and repushing. A rehearsal path is needed. |
 
-**제품 폴리시**
-- TUI 배포 채널 결정: npm 퍼블리시/formula 리소스/번들 중 택1, 아니면 "소스 체크아웃 전용"으로 문구 다운그레이드 (현재 `private: true` 미발행인데 README·메뉴바가 광고 중)
-- 메뉴바 launch-at-login (SMAppService — 현재 없음. 업데이트 추적기가 재부팅 후 안 뜸)
-- 백그라운드 체크가 outdated 발견 시 사용자 알림 (현재 UNUserNotification 사용 0건 — 메뉴바 안 보면 모름)
-- `StoreError.corruptFile` 에러 메시지에 `updatebar doctor`/troubleshooting 포인터 추가
-- `status --refresh`, `--exit-zero-on-outdated` docs/cli.md 문서화 (hidden인데 계약상 표면)
-- 에이전트 JSON 계약에 버전 명시 (next-plan M1이 "frozen and versioned" 약속했으나 버전 표기 없음)
-- llms.txt를 릴리스 아카이브/자산에 실제 포함 (next-plan은 Done 표기지만 실제로는 미포함)
-- schema_version 호환성 계약 1문단 문서화 (구 바이너리가 신 스키마 만났을 때 동작; state.json은 현재 schemaVersion 미검증)
+### Trust and Security Framework
 
-**저장소 위생**
-- PRD.md에 supersede 표기 (add --ai, sync, Sparkle 필수 등 제거된 설계가 그대로 남아 신규 기여자/에이전트 오도)
-- 루트 플래닝 문서 정리 (PRD.md, plan.md, current-plan.md, next-plan.md, plan-required.md, current-architecture.md → docs/ 이동 또는 아카이브)
-- 스테일 브랜치 삭제 (codex/* 3개는 main과 patch-equivalent, work/updatebar-cli는 224파일 뒤처짐) + 빈 `Sources/UpdateBarCore/Auth`, `Providers` 디렉터리 제거
+| Task | Effort | Rationale |
+|---|---|---|
+| Add build attestations with `actions/attest-build-provenance` or cosign | M | The `.sha256` is served from the same release as the artifact, proving transport integrity but not provenance. Supply-chain trust is especially important for a command-execution tool. |
+| Add a vulnerability-reporting channel in `.github/SECURITY.md` and enable GitHub private reporting | S | A threat-model document exists, but there is no reporting path, so vulnerabilities would arrive as public issues. |
+| Add continuous dependency vulnerability monitoring in `.github/dependabot.yml` for npm/tui, GitHub Actions, and Swift | S | CI runs `npm ci --no-audit`. There are no findings today, but future Ink/React advisories would be invisible. |
+
+### User-Facing Finish
+
+| Task | Effort | Rationale |
+|---|---|---|
+| Document upgrades: `brew upgrade`, cask upgrades, rerunning curl, and the fact that there is no in-app updater because cask-based updates are intentional | S | An update-tracking tool does not document how to update itself. |
+| Clearly state Apple Silicon-only scope, including the hard-coded `ARCH=arm64` section in install.md | S | Intel users currently discover the limitation through a 404. |
+| Document product uninstall: formula/cask removal and the `UPDATEBAR_HOME` data location/cleanup | S | Only `background uninstall` is documented; product removal is not. |
+| Add screenshots/demo GIFs for the menu bar app and TUI to README | S | There are no visuals; a menu bar product is represented only by text. |
+| Create and bundle an app icon | M | There is no `.icns` and no icon wiring in `package-app.sh`; a production app cannot ship with the default icon. |
+| Add `.github` community files: issue templates and CONTRIBUTING.md | S | `.github/` currently contains only workflows. |
 
 ---
 
-## 4. 권장 실행 순서
+## 3. P2 — May Be Done After Release
+
+**Release-pipeline improvements**
+
+- Decide whether to add macOS x86_64/universal and Linux arm64 artifacts as a follow-up to Q-ARCH-1.
+- Build Linux releases in the same `swift:6.0` container used by CI. The test and release environments currently differ, and the glibc floor is unnecessarily high.
+- Add `fail_on_unmatched_files: true` to `action-gh-release` and consider manual promotion after creating a draft.
+- Run `brew style`/`brew audit` in CI; only custom grep-based checks currently exist.
+- Make shellcheck mandatory in CI. It is not installed in the Linux container, so the current step silently skips it.
+
+**Quality**
+
+- Add a TUI↔CLI JSONL contract end-to-end test that spawns the real binaries; both sides currently use fixtures only.
+- Add menu bar interaction-level tests; only a launch smoke test exists.
+- Measure coverage with `--enable-code-coverage` and Vitest coverage.
+- Replace the XCTSkip fallback in DocumentationSnapshotTests with XCTFail for supported shells.
+
+**Product policy**
+
+- Decide on a TUI distribution channel: npm publication, formula resources, or bundling. Otherwise, downgrade the wording to “source checkout only.” It is currently unpublished with `private: true`, but README and the menu bar advertise it.
+- Add menu bar launch-at-login through SMAppService. The update tracker currently does not return after a reboot.
+- Notify users when background checks find outdated items. There are currently zero uses of UNUserNotification, so users who do not open the menu bar see nothing.
+- Add an `updatebar doctor`/troubleshooting pointer to `StoreError.corruptFile` messages.
+- Document `status --refresh` and `--exit-zero-on-outdated` in docs/cli.md. They are hidden but part of the contract.
+- Version the agent JSON contract. next-plan M1 promised it would be “frozen and versioned,” but it has no version marker.
+- Actually include llms.txt in release archives/assets. next-plan marks this done, but it is not included.
+- Document the `schema_version` compatibility contract in one paragraph, including how old binaries handle new schemas. state.json currently does not validate schemaVersion.
+
+**Repository hygiene**
+
+- Mark superseded material in PRD.md. Removed designs such as `add --ai`, sync, and mandatory Sparkle still mislead new contributors and agents.
+- Move or archive root planning documents: PRD.md, plan.md, current-plan.md, next-plan.md, plan-required.md, and current-architecture.md.
+- Delete stale branches: three codex/* branches are patch-equivalent to main, while work/updatebar-cli is 224 files behind. Remove the empty `Sources/UpdateBarCore/Auth` and `Providers` directories.
+
+---
+
+## 4. Recommended Execution Order
 
 ```text
-R1  파이프라인 수리 (P0 1.1 + 1.2 + 1.3)                     ~수일
-     └─ release.yml 드라이런으로 리허설
-R2  v0.3.0 릴리스 컷 (쌓인 Unreleased 배포)
-     └─ 릴리스 노트/CHANGELOG 게이트/테스트 게이트 이때 같이
-R3  Q-APPLE-1 결정 → go면 서명/공증 파이프라인 (P0 1.4)        ~1-2주
-     └─ v0.4.0 = 서명·공증·스테이플 앱 릴리스 (실서비스 선언 시점)
-R4  운영 자동화 + 신뢰 체계 (tap 자동화, 배포 후 검증, 롤백 문서,
-     provenance, SECURITY.md, dependabot)
-R5  사용자 대면 마무리 (아이콘, 스크린샷, 업그레이드/언인스톨 문서)
-이후 P2 백로그 소화
+R1  Repair the pipeline (P0 1.1 + 1.2 + 1.3)                ~several days
+     └─ Rehearse with a release.yml dry run
+R2  Cut v0.3.0 and publish the accumulated Unreleased work
+     └─ Add release notes, CHANGELOG gate, and test gate at the same time
+R3  Decide Q-APPLE-1 → if go, build signing/notarization pipeline (P0 1.4) ~1–2 weeks
+     └─ v0.4.0 = signed, notarized, stapled app release and production declaration
+R4  Operational automation + trust framework (tap automation, post-release
+     verification, rollback docs, provenance, SECURITY.md, Dependabot)
+R5  User-facing finish (icon, screenshots, upgrade/uninstall docs)
+Then work through the P2 backlog
 ```
 
-실서비스 배포의 정의를 "일반 사용자가 brew로 설치하고, 앱이 경고 없이 실행되고, 문제 생기면 제보 경로가 있고, 불량 릴리스를 되돌릴 수 있는 상태"로 잡으면 **R1–R4 완료가 그 라인**임.
+If a production release means “a typical user can install with brew, the app launches without warnings, problems have a reporting path, and a bad release can be rolled back,” then **completion of R1–R4 is the line**.
 
 ---
 
-## 부록: 감사 방법과 한계
+## Appendix: Audit Methods and Limitations
 
-- 감사 5개 영역(릴리스 엔지니어링, 서명·배포, 제품 완성도, 테스트, 보안)은 에이전트가 코드/워크플로/라이브 릴리스 자산까지 직접 확인 (Linux 바이너리 ELF 파싱, 앱 아카이브 2회 빌드 SHA 비교, `gh release view` 실측 포함).
-- 문서·UX / 앱·TUI 영역은 세션 한도로 에이전트 감사가 중단되어 메인 스레드에서 직접 점검한 결과로 대체 (아이콘/알림/launch-at-login/커뮤니티 파일/스크린샷/언인스톨 문서 부재는 grep·find로 확인).
-- 교차 검증(adversarial verify) 단계도 같은 이유로 대부분 미실행 — 각 항목은 감사자가 제시한 file:line 증거 기반이며, 착수 전 해당 증거 위치를 한 번 확인하고 진행할 것.
+- Agents directly inspected code, workflows, and live release assets across five audit areas: release engineering, signing/distribution, product completeness, testing, and security. This included parsing the Linux binary ELF, comparing SHAs from two app archive builds, and checking `gh release view` results.
+- The documentation/UX and app/TUI audits were interrupted by session limits, so the main task performed those checks directly. The absence of icons, notifications, launch-at-login, community files, screenshots, and uninstall documentation was confirmed with grep/find.
+- Most adversarial cross-verification was not run for the same reason. Each item is based on file-and-line evidence supplied by an auditor; verify that evidence once before starting the corresponding work.
