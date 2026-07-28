@@ -1,0 +1,109 @@
+name: Automatic Release
+
+"on":
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: updatebar-automatic-release
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  automatic-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout pushed commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: "${{ github.sha }}"
+          fetch-depth: 0
+          token: "${{ github.token }}"
+          persist-credentials: true
+
+      - name: Verify pushed commit
+        shell: bash
+        env:
+          EXPECTED_SHA: "${{ github.sha }}"
+        run: |
+          set -euo pipefail
+          if [[ ! "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Expected push SHA must be lowercase 40-hex" >&2
+            exit 64
+          fi
+          actual_sha="$(git rev-parse HEAD)"
+          if [[ "$actual_sha" != "$EXPECTED_SHA" ]]; then
+            echo "Checked-out HEAD does not match the exact pushed SHA" >&2
+            exit 64
+          fi
+
+      - name: Plan release
+        id: plan
+        shell: bash
+        env:
+          BASE_SHA: "${{ github.event.before }}"
+          HEAD_SHA: "${{ github.sha }}"
+        run: bash Scripts/plan-release.sh "$BASE_SHA" "$HEAD_SHA" "$GITHUB_OUTPUT"
+
+      - name: Create or verify release tag
+        if: "${{ steps.plan.outputs.release == 'true' }}"
+        shell: bash
+        env:
+          EXPECTED_SHA: "${{ github.sha }}"
+          RELEASE_TAG: "${{ steps.plan.outputs.tag }}"
+          RELEASE_VERSION: "${{ steps.plan.outputs.version }}"
+        run: |
+          set -euo pipefail
+          if [[ ! "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Expected release SHA must be lowercase 40-hex" >&2
+            exit 64
+          fi
+          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$ ]]; then
+            echo "Release version must be canonical X.Y.Z" >&2
+            exit 64
+          fi
+          if [[ "$RELEASE_TAG" != "v$RELEASE_VERSION" ]]; then
+            echo "Release tag does not match the planned version" >&2
+            exit 64
+          fi
+
+          tag_ref="refs/tags/$RELEASE_TAG"
+          git fetch --tags origin
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git show-ref --verify --quiet "$tag_ref"; then
+            git tag -a "$RELEASE_TAG" "$EXPECTED_SHA" -m "UpdateBar $RELEASE_VERSION"
+          fi
+
+          tag_type="$(git cat-file -t "$tag_ref")"
+          if [[ "$tag_type" != "tag" ]]; then
+            echo "Existing release tag must be annotated: $tag_ref" >&2
+            exit 65
+          fi
+          tag_commit="$(git rev-parse "$tag_ref^{commit}")"
+          if [[ ! "$tag_commit" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Release tag commit must be lowercase 40-hex" >&2
+            exit 65
+          fi
+          if [[ "$tag_commit" != "$EXPECTED_SHA" ]]; then
+            echo "Release tag does not point to the exact pushed SHA" >&2
+            exit 65
+          fi
+          git push origin "$tag_ref:$tag_ref"
+
+      - name: Dispatch release workflow
+        if: "${{ steps.plan.outputs.release == 'true' }}"
+        shell: bash
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          RELEASE_TAG: "${{ steps.plan.outputs.tag }}"
+        run: gh workflow run release.yml --ref main -f tag="$RELEASE_TAG"
