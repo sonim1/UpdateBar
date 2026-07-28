@@ -4,6 +4,7 @@ set +x
 
 TARGET_ENV="release"
 ENV_FILE="${UPDATEBAR_RELEASE_ENV_FILE:-.env.release.local}"
+EXPECTED_REPO="sonim1/UpdateBar"
 
 REQUIRED_VARS=(
   "DEVELOPER_ID_APPLICATION"
@@ -56,7 +57,10 @@ Release environment secrets (masked):
 
 Release environment credentials are written under the same names, overwriting
 anything already stored there. Version App credentials are written at repository
-scope. Nothing is uploaded unless every value is present and well-formed.
+scope. The `.env` file must use literal escaped newlines (`\n`) for multiline
+PEM values, or the actual multiline value must be exported; raw multiline `.env`
+entries are rejected. Nothing is uploaded unless every value is present and
+well-formed.
 USAGE
 }
 
@@ -136,6 +140,31 @@ validate_version_github_app_id() {
   fi
 }
 
+validate_version_github_app_private_key() {
+  local value="$1"
+  local content="${value//\\n/}"
+  if [[ -z "$content" || "$content" =~ ^[[:space:]]*$ ]]; then
+    fail "VERSION_GITHUB_APP_PRIVATE_KEY must be nonempty"
+  fi
+
+  local begin_line="$value"
+  if [[ "$value" == *$'\n'* ]]; then
+    begin_line="${value%%$'\n'*}"
+  elif [[ "$value" == *\\n* ]]; then
+    begin_line="${value%%\\n*}"
+  fi
+  if [[ "$begin_line" == \"-----BEGIN* ]]; then
+    begin_line="${begin_line#\"}"
+  fi
+
+  if [[ "$begin_line" =~ ^-----BEGIN[[:space:]](.+PRIVATE[[:space:]]KEY)----- ]]; then
+    local end_marker="-----END ${BASH_REMATCH[1]}-----"
+    if [[ "$value" != *"$end_marker"* ]]; then
+      fail "VERSION_GITHUB_APP_PRIVATE_KEY must contain matching PEM end marker"
+    fi
+  fi
+}
+
 set_repo_variable() {
   local name="$1" value="$2"
   if ! printf '%s' "$value" | gh variable set "$name" \
@@ -183,7 +212,7 @@ main() {
   command -v gh >/dev/null 2>&1 || fail "required command missing: gh"
 
   REPO="$(detect_repo)"
-  [[ -n "$REPO" ]] || fail "unable to detect repository (set GITHUB_REPOSITORY or run in a checked-out repo)"
+  [[ "$REPO" == "$EXPECTED_REPO" ]] || fail "repository must be exactly $EXPECTED_REPO"
 
   load_env_file "$ENV_FILE"
 
@@ -208,6 +237,7 @@ main() {
   fi
 
   validate_version_github_app_id "$VERSION_GITHUB_APP_ID"
+  validate_version_github_app_private_key "$VERSION_GITHUB_APP_PRIVATE_KEY"
   validate_sparkle_public_key "$SPARKLE_PUBLIC_ED_KEY"
 
   for name in "${REQUIRED_VARS[@]}"; do

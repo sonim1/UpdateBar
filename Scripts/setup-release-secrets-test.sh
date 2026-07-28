@@ -28,13 +28,18 @@ if [[ "$action" != "set" ]]; then
   exit 1
 fi
 shift 3
+call_number="$(wc -l < "$GH_ARG_LOG")"
+call_number=$((call_number + 1))
 printf '%s %s %s %s\n' "$kind" "$action" "$name" "$*" >> "$GH_ARG_LOG"
-value="$(cat)"
+cat > "$GH_VALUE_DIR/$call_number.stdin"
+value="$(< "$GH_VALUE_DIR/$call_number.stdin")"
 printf '%s %s %s\n' "$kind" "$name" "$value" >> "$GH_CALL_LOG"
 MOCK
 chmod +x "$BIN_DIR/gh"
 
 VALID_PUBLIC_KEY="cFzhEWKU7GTdZpF26CrZky5f678f6nYw4FqnQH68Nsg="
+VERSION_PRIVATE_PEM_ESCAPED='-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAv3n8p0y7x5w4v3u2t1s0r9q8p7o6n5m4l3k2j1i0h9g8f7e6d5c4b3a2z1y0x9w8v7u6t5s4r3q2p1o0n9m8l7k6j5i4h3g2f1e0d9c8b7a6z5y4x3w2v1u0t9s8r7q6p5o4n3m2l1k0j9i8h7g6f5e4d3c2b1a0==\n-----END RSA PRIVATE KEY-----'
+VERSION_PRIVATE_PEM_EXPORTED=$'-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAv3n8p0y7x5w4v3u2t1s0r9q8p7o6n5m4l3k2j1i0h9g8f7e6d5c4b3a2z1y0x9w8v7u6t5s4r3q2p1o0n9m8l7k6j5i4h3g2f1e0d9c8b7a6z5y4x3w2v1u0t9s8r7q6p5o4n3m2l1k0j9i8h7g6f5e4d3c2b1a0==\n-----END RSA PRIVATE KEY-----'
 
 write_env_file() {
   local path="$1"
@@ -55,7 +60,7 @@ R2_ACCESS_KEY_ID=r2-access
 R2_SECRET_ACCESS_KEY=r2-secret
 SPARKLE_PRIVATE_ED_KEY=sparkle-private
 TAP_GITHUB_APP_PRIVATE_KEY=tap-private
-VERSION_GITHUB_APP_PRIVATE_KEY=version-private
+VERSION_GITHUB_APP_PRIVATE_KEY=$VERSION_PRIVATE_PEM_ESCAPED
 EOF
 }
 
@@ -68,12 +73,15 @@ run_script() {
 
   : > "$TMP_DIR/gh-calls.log"
   : > "$TMP_DIR/gh-args.log"
+  rm -rf "$TMP_DIR/gh-values"
+  mkdir -p "$TMP_DIR/gh-values"
   set +e
   env -i \
     PATH="$BIN_DIR:/usr/bin:/bin" \
     HOME="$TMP_DIR/home" \
     GH_CALL_LOG="$TMP_DIR/gh-calls.log" \
     GH_ARG_LOG="$TMP_DIR/gh-args.log" \
+    GH_VALUE_DIR="$TMP_DIR/gh-values" \
     GITHUB_REPOSITORY="sonim1/UpdateBar" \
     UPDATEBAR_RELEASE_ENV_FILE="$env_file" \
     "$@" \
@@ -112,16 +120,21 @@ for expected in \
   "secret R2_SECRET_ACCESS_KEY r2-secret" \
   "secret SPARKLE_PRIVATE_ED_KEY sparkle-private" \
   "secret TAP_GITHUB_APP_PRIVATE_KEY tap-private" \
-  "variable VERSION_GITHUB_APP_ID 67890" \
-  "secret VERSION_GITHUB_APP_PRIVATE_KEY version-private"; do
+  "variable VERSION_GITHUB_APP_ID 67890"; do
   if ! grep -Fxq "$expected" "$TMP_DIR/gh-calls.log"; then
     echo "missing expected gh write: $expected" >&2
     exit 1
   fi
 done
 
-if [[ "$(grep -c . "$TMP_DIR/gh-calls.log")" -ne 15 ]]; then
+if [[ "$(grep -c . "$TMP_DIR/gh-args.log")" -ne 15 ]]; then
   echo "expected exactly 15 credential writes" >&2
+  exit 1
+fi
+
+printf '%s' "$VERSION_PRIVATE_PEM_ESCAPED" > "$TMP_DIR/expected-version-private.stdin"
+if ! cmp -s "$TMP_DIR/expected-version-private.stdin" "$TMP_DIR/gh-values/15.stdin"; then
+  echo "escaped-newline version App private key must reach gh byte-for-byte" >&2
   exit 1
 fi
 
@@ -148,10 +161,59 @@ if ! cmp -s "$TMP_DIR/expected-gh-args.log" "$TMP_DIR/gh-args.log"; then
   exit 1
 fi
 
-if grep -q "sparkle-private\|cert-password\|r2-secret\|version-private" "$OUTPUT"; then
+if grep -q "sparkle-private\|cert-password\|r2-secret\|MIIEpAIBAAKCAQE" "$OUTPUT"; then
   echo "script must never print credential values" >&2
   exit 1
 fi
+
+# --- only the canonical repository may receive credentials ------------------
+
+for invalid_repo in evil/repo sonim1/UpdateBar-fork; do
+  OUTPUT="$TMP_DIR/invalid-repo.out"
+  status="$(run_script "$ENV_FILE" "$OUTPUT" GITHUB_REPOSITORY="$invalid_repo")"
+  if [[ "$status" -eq 0 ]]; then
+    echo "an arbitrary GITHUB_REPOSITORY must be rejected: $invalid_repo" >&2
+    exit 1
+  fi
+  if ! grep -Fq "repository must be exactly sonim1/UpdateBar" "$OUTPUT"; then
+    echo "invalid repository failure must name the canonical repository" >&2
+    exit 1
+  fi
+  assert_no_gh_calls "a run with an arbitrary GITHUB_REPOSITORY"
+done
+
+ORIGIN_DIR="$TMP_DIR/origin-repo"
+mkdir -p "$ORIGIN_DIR"
+git -C "$ORIGIN_DIR" init -q
+git -C "$ORIGIN_DIR" remote add origin https://github.com/evil/repo.git
+OUTPUT="$TMP_DIR/invalid-origin.out"
+: > "$TMP_DIR/gh-calls.log"
+: > "$TMP_DIR/gh-args.log"
+rm -rf "$TMP_DIR/gh-values"
+mkdir -p "$TMP_DIR/gh-values"
+set +e
+(
+  cd "$ORIGIN_DIR"
+  env -i \
+    PATH="$BIN_DIR:/usr/bin:/bin" \
+    HOME="$TMP_DIR/home" \
+    GH_CALL_LOG="$TMP_DIR/gh-calls.log" \
+    GH_ARG_LOG="$TMP_DIR/gh-args.log" \
+    GH_VALUE_DIR="$TMP_DIR/gh-values" \
+    UPDATEBAR_RELEASE_ENV_FILE="$ENV_FILE" \
+    bash "$SCRIPT"
+) > "$OUTPUT" 2>&1
+status=$?
+set -e
+if [[ "$status" -eq 0 ]]; then
+  echo "an arbitrary git origin must be rejected" >&2
+  exit 1
+fi
+if ! grep -Fq "repository must be exactly sonim1/UpdateBar" "$OUTPUT"; then
+  echo "invalid origin failure must name the canonical repository" >&2
+  exit 1
+fi
+assert_no_gh_calls "a run with an arbitrary git origin"
 
 # --- exported values win over the file --------------------------------------
 
@@ -175,6 +237,22 @@ if ! grep -Fxq "variable VERSION_GITHUB_APP_ID 24680" "$TMP_DIR/gh-calls.log" ||
 fi
 if grep -q "version-exported" "$OUTPUT"; then
   echo "script must never print exported secret values" >&2
+  exit 1
+fi
+
+OUTPUT="$TMP_DIR/exported-pem.out"
+status="$(run_script "$ENV_FILE" "$OUTPUT" VERSION_GITHUB_APP_PRIVATE_KEY="$VERSION_PRIVATE_PEM_EXPORTED")"
+if [[ "$status" -ne 0 ]]; then
+  echo "an exported multiline PEM should upload cleanly" >&2
+  exit 1
+fi
+printf '%s' "$VERSION_PRIVATE_PEM_EXPORTED" > "$TMP_DIR/expected-exported-private.stdin"
+if ! cmp -s "$TMP_DIR/expected-exported-private.stdin" "$TMP_DIR/gh-values/15.stdin"; then
+  echo "exported multiline PEM must reach gh byte-for-byte" >&2
+  exit 1
+fi
+if grep -q "MIIEpAIBAAKCAQE" "$OUTPUT"; then
+  echo "script must never print exported PEM content" >&2
   exit 1
 fi
 
@@ -232,6 +310,42 @@ if ! grep -Fq "missing values: VERSION_GITHUB_APP_PRIVATE_KEY" "$OUTPUT"; then
   exit 1
 fi
 assert_no_gh_calls "a run with an empty version App private key"
+
+EMPTY_ESCAPED_PRIVATE_ENV="$TMP_DIR/.env.empty-escaped-private"
+sed 's|^VERSION_GITHUB_APP_PRIVATE_KEY=.*|VERSION_GITHUB_APP_PRIVATE_KEY=\\n|' "$ENV_FILE" > "$EMPTY_ESCAPED_PRIVATE_ENV"
+
+OUTPUT="$TMP_DIR/empty-escaped-private.out"
+status="$(run_script "$EMPTY_ESCAPED_PRIVATE_ENV" "$OUTPUT")"
+if [[ "$status" -eq 0 ]]; then
+  echo "an escaped-newline-only version App private key must fail" >&2
+  exit 1
+fi
+if ! grep -Fq "VERSION_GITHUB_APP_PRIVATE_KEY must be nonempty" "$OUTPUT"; then
+  echo "escaped-newline-only version App private key must be rejected" >&2
+  exit 1
+fi
+assert_no_gh_calls "an escaped-newline-only version App private key"
+
+# --- raw multiline dotenv PEMs are rejected before any upload ---------------
+
+RAW_PEM_ENV="$TMP_DIR/.env.raw-multiline"
+sed '/^VERSION_GITHUB_APP_PRIVATE_KEY=/d' "$ENV_FILE" > "$RAW_PEM_ENV"
+printf '%s\n' \
+  'VERSION_GITHUB_APP_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----' \
+  'MIIEpAIBAAKCAQEAv3n8p0y7x5w4v3u2t1s0r9q8p7o6n5m4l3k2j1i0h9g8f7e6d5c4b3a2z1y0x9w8v7u6t5s4r3q2p1o0n9m8l7k6j5i4h3g2f1e0d9c8b7a6z5y4x3w2v1u0t9s8r7q6p5o4n3m2l1k0j9i8h7g6f5e4d3c2b1a0==' \
+  '-----END RSA PRIVATE KEY-----' >> "$RAW_PEM_ENV"
+
+OUTPUT="$TMP_DIR/raw-multiline.out"
+status="$(run_script "$RAW_PEM_ENV" "$OUTPUT")"
+if [[ "$status" -eq 0 ]]; then
+  echo "a raw multiline dotenv PEM must fail instead of uploading its header" >&2
+  exit 1
+fi
+if ! grep -Fq "VERSION_GITHUB_APP_PRIVATE_KEY must contain matching PEM end marker" "$OUTPUT"; then
+  echo "raw multiline dotenv PEM failure must name the missing end marker" >&2
+  exit 1
+fi
+assert_no_gh_calls "a raw multiline dotenv PEM"
 
 # --- malformed Sparkle public keys are rejected before signing costs --------
 
@@ -308,6 +422,9 @@ for help_phrase in \
   "Repository-scope version App credentials" \
   "Release environment credentials" \
   "contents-write App is installed only on sonim1/UpdateBar" \
+  "literal escaped newlines" \
+  "actual multiline value must be exported" \
+  "raw multiline" \
   "VERSION_GITHUB_APP_ID" \
   "VERSION_GITHUB_APP_PRIVATE_KEY"; do
   if ! grep -Fq "$help_phrase" "$OUTPUT"; then
@@ -336,5 +453,12 @@ if ! grep -Fxq ".env.release.local" "$ROOT/.gitignore"; then
   echo ".env.release.local must stay untracked" >&2
   exit 1
 fi
+
+for example_phrase in "literal escaped newlines" "actual multiline value" "raw multiline dotenv entries are rejected"; do
+  if ! grep -Fq "$example_phrase" "$EXAMPLE_FILE"; then
+    echo "example must document: $example_phrase" >&2
+    exit 1
+  fi
+done
 
 echo "setup-release-secrets checks passed"
