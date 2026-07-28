@@ -40,6 +40,10 @@ fi
 ruby -e '
   quality_gate = File.binread(ARGV.fetch(0))
   expected_contracts = %w[
+    Scripts/prepare-pr-version-test.sh
+    Scripts/plan-release-test.sh
+    Scripts/ci-workflow-test.sh
+    Scripts/automatic-release-workflow-test.sh
     Scripts/release-tooling-test.sh
     Scripts/setup-update-hosting-test.sh
     Scripts/setup-release-secrets-test.sh
@@ -62,6 +66,27 @@ ruby -e '
     exit 1
   end
 
+  expected_new_order = %w[
+    Scripts/prepare-pr-version-test.sh
+    Scripts/plan-release-test.sh
+    Scripts/ci-workflow-test.sh
+    Scripts/automatic-release-workflow-test.sh
+  ]
+  new_order = invocations.select { |path| expected_new_order.include?(path) }
+  unless new_order == expected_new_order
+    warn "quality-gate.sh automatic release contract checks must run in order"
+    exit 1
+  end
+
+  quality_gate_contract_index = invocations.index("Scripts/quality-gate-contract-test.sh")
+  release_tooling_index = invocations.index("Scripts/release-tooling-test.sh")
+  unless quality_gate_contract_index && release_tooling_index &&
+      quality_gate_contract_index < invocations.index(expected_new_order.fetch(0)) &&
+      invocations.index(expected_new_order.fetch(-1)) < release_tooling_index
+    warn "quality-gate.sh automatic release contract checks must run after the gate contract and before release tooling"
+    exit 1
+  end
+
   expected_syntax = %w[
     Scripts/setup-update-hosting.sh
     Scripts/generate-appcast.sh
@@ -74,6 +99,8 @@ ruby -e '
     Scripts/build-app-icon.sh
     Scripts/build-app-dmg.sh
     Scripts/app-dmg-smoke-test.sh
+    Scripts/prepare-pr-version.sh
+    Scripts/plan-release.sh
   ].sort
   array_match = quality_gate.match(/\nRELEASE_SYNTAX_SCRIPTS=\(\n(?<body>.*?)\n\)\n/m)
   abort "quality-gate.sh must declare release syntax coverage" unless array_match

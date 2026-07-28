@@ -21,6 +21,8 @@ RELEASE_SYNTAX_SCRIPTS=(
   "Scripts/build-app-icon.sh"
   "Scripts/build-app-dmg.sh"
   "Scripts/app-dmg-smoke-test.sh"
+  "Scripts/prepare-pr-version.sh"
+  "Scripts/plan-release.sh"
 )
 
 if [[ "$(uname -s)" == "Darwin" && -z "${DEVELOPER_DIR:-}" ]]; then
@@ -60,6 +62,18 @@ bash -n "${RELEASE_SYNTAX_SCRIPTS[@]}"
 
 echo "running quality gate contract checks"
 bash Scripts/quality-gate-contract-test.sh
+
+echo "running PR version preparation checks"
+bash Scripts/prepare-pr-version-test.sh
+
+echo "running release planning checks"
+bash Scripts/plan-release-test.sh
+
+echo "running CI workflow checks"
+bash Scripts/ci-workflow-test.sh
+
+echo "running automatic release workflow checks"
+bash Scripts/automatic-release-workflow-test.sh
 
 echo "running locked release tooling checks"
 bash Scripts/release-tooling-test.sh
