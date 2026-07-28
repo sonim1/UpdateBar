@@ -477,7 +477,33 @@ mv "$TEMP_ROOT/changelog-bare-target" "$REPOSITORY/CHANGELOG.md"
 HEAD_COMMIT="$(commit_all 'bare current target')"
 run_plan "$BASE_COMMIT" "$HEAD_COMMIT"
 assert_status 65
-assert_output_contains 'exactly one dated section for 1.2.4'
+assert_output_contains 'bare release heading is not historical'
+assert_clean
+
+# A bare version is historical only when it is no newer than the base version.
+create_fixture
+make_release_head '1.2.4' 'canonical head before future bare heading'
+cat > "$REPOSITORY/CHANGELOG.md" <<EOF
+# Changelog
+
+## Unreleased
+
+## 9.9.9
+
+- Competing future release.
+
+## 1.2.4 - 2026-07-21
+
+- Release notes for 1.2.4.
+
+## $BASE_VERSION - 2026-07-20
+
+- Existing release notes.
+EOF
+HEAD_COMMIT="$(commit_all 'future bare release heading')"
+run_plan "$BASE_COMMIT" "$HEAD_COMMIT"
+assert_status 65
+assert_output_contains 'bare release heading is not historical'
 assert_clean
 
 # Exact legacy bare historical headings remain accepted.
@@ -491,13 +517,23 @@ assert_clean
 # Optional output appends without replacing existing data and still mirrors stdout.
 create_fixture
 make_release_head '1.2.4' 'output append fixture'
-OUTPUT_FILE="$TEMP_ROOT/github-output-$FIXTURE_INDEX.env"
+EXTERNAL_OUTPUT_DIRECTORY="$TEMP_ROOT/external-output-$FIXTURE_INDEX"
+mkdir "$EXTERNAL_OUTPUT_DIRECTORY"
+OUTPUT_FILE="$EXTERNAL_OUTPUT_DIRECTORY/github-output.env"
 printf 'existing=value\n' > "$OUTPUT_FILE"
 run_plan "$BASE_COMMIT" "$HEAD_COMMIT" "$OUTPUT_FILE"
 assert_status 0
 assert_output_equals $'release=true\ntag=v1.2.4\nversion=1.2.4'
 printf 'existing=value\nrelease=true\ntag=v1.2.4\nversion=1.2.4\n' > "$TEMP_ROOT/expected-output"
 cmp -s "$TEMP_ROOT/expected-output" "$OUTPUT_FILE" || fail 'output file was not appended exactly'
+assert_clean
+
+# An output destination anywhere inside the repository is rejected before opening.
+README_BEFORE="$(<"$REPOSITORY/README.md")"
+run_plan "$BASE_COMMIT" "$HEAD_COMMIT" "$REPOSITORY/README.md"
+assert_status 65
+assert_output_contains 'output file must be outside the repository'
+[[ "$(<"$REPOSITORY/README.md")" == "$README_BEFORE" ]] || fail 'repository output changed README.md'
 assert_clean
 
 # Direct, hard-link, and symlink aliases to repository metadata are rejected.

@@ -97,6 +97,10 @@ def same_file?(left_stat, right_stat)
   left_stat.dev == right_stat.dev && left_stat.ino == right_stat.ino
 end
 
+def inside_directory?(path, directory)
+  path == directory || path.start_with?("#{directory}#{File::SEPARATOR}")
+end
+
 def open_output_file(repository_root, output_file)
   return nil if output_file.empty?
 
@@ -117,6 +121,10 @@ def open_output_file(repository_root, output_file)
   if conflict
     artifact = REPOSITORY_ARTIFACTS.fetch(artifact_paths.index(conflict))
     raise PlanningError, "output file overlaps repository artifact: #{artifact}"
+  end
+  if inside_directory?(expanded_output, repository_root) ||
+      inside_directory?(resolved_output, repository_root)
+    raise PlanningError, "output file must be outside the repository"
   end
 
   parent_states = parent_components(expanded_output).map do |component|
@@ -278,7 +286,7 @@ def validate_release_date(version, date)
   end
 end
 
-def validate_changelog(changelog, target_version)
+def validate_changelog(changelog, target_version, base_components)
   headings = level_two_headings(changelog)
   parsed_headings = []
   versions = Hash.new(0)
@@ -296,13 +304,26 @@ def validate_changelog(changelog, target_version)
     date = match[2]
     validate_release_date(version, date)
     versions[version] += 1
-    parsed_headings << { heading: heading, version: version, date: date }
+    parsed_headings << {
+      heading: heading,
+      version: version,
+      components: version.split(".").map { |component| Integer(component, 10) },
+      date: date,
+    }
   end
 
   duplicate = versions.find { |_version, count| count > 1 }
   if duplicate
     raise PlanningError,
       "#{CHANGELOG_FILE} has a duplicate release version heading: #{duplicate[0]}"
+  end
+
+  future_bare = parsed_headings.find do |parsed|
+    parsed[:date].nil? && (parsed[:components] <=> base_components) == 1
+  end
+  if future_bare
+    raise PlanningError,
+      "#{CHANGELOG_FILE} bare release heading is not historical: #{future_bare[:version]}"
   end
 
   targets = parsed_headings.select do |parsed|
@@ -352,7 +373,7 @@ begin
   base_version = validated_revision_version(base_commit, "base commit")
   head_version = validated_revision_version(head_commit, "head commit")
   changelog = read_revision_file(head_commit, CHANGELOG_FILE, "head commit")
-  validate_changelog(changelog, head_version[:value])
+  validate_changelog(changelog, head_version[:value], base_version[:components])
 
   if documentation_only?(base_commit, head_commit)
     result = "release=false"
