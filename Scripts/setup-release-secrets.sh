@@ -57,10 +57,10 @@ Release environment secrets (masked):
 
 Release environment credentials are written under the same names, overwriting
 anything already stored there. Version App credentials are written at repository
-scope. The `.env` file must use literal escaped newlines (`\n`) for multiline
-PEM values, or the actual multiline value must be exported; raw multiline `.env`
-entries are rejected. Nothing is uploaded unless every value is present and
-well-formed.
+scope. `.env` PEM values must use literal escaped newlines (`\n`) or a complete
+single- or double-quoted multiline block; an actual multiline value may also be
+exported. Unterminated, truncated, and invalid RSA keys are rejected. Nothing
+is uploaded unless every value is present and well-formed.
 USAGE
 }
 
@@ -87,12 +87,14 @@ detect_repo() {
 }
 
 # Populates unset variables from a KEY=VALUE file. Existing exports win so the
-# file never silently overrides a deliberate one-off override.
+# file never silently overrides a deliberate one-off override. Single- and
+# double-quoted values may span physical lines; quote delimiters are removed
+# without evaluating the content.
 load_env_file() {
   local file="$1"
   [[ -f "$file" ]] || return 0
 
-  local line key value
+  local line key value quote continuation closed
   while IFS= read -r line || [[ -n "$line" ]]; do
     line="${line%$'\r'}"
     [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
@@ -103,13 +105,30 @@ load_env_file() {
     key="${key#"${key%%[![:space:]]*}"}"
     key="${key%"${key##*[![:space:]]}"}"
     [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
-    [[ "${!key+x}" == x ]] && continue
 
-    if [[ "$value" == \"*\" && "${#value}" -ge 2 ]]; then
-      value="${value:1:${#value}-2}"
-    elif [[ "$value" == \'*\' && "${#value}" -ge 2 ]]; then
-      value="${value:1:${#value}-2}"
+    if [[ "$value" == \"* || "$value" == \'* ]]; then
+      quote="${value:0:1}"
+      if [[ "${#value}" -ge 2 && "${value: -1}" == "$quote" ]]; then
+        value="${value:1:${#value}-2}"
+      else
+        value="${value:1}"
+        closed=0
+        while IFS= read -r continuation; do
+          continuation="${continuation%$'\r'}"
+          if [[ "$continuation" == *"$quote" ]]; then
+            value+=$'\n'
+            value+="${continuation%"$quote"}"
+            closed=1
+            break
+          fi
+          value+=$'\n'
+          value+="$continuation"
+        done
+        [[ "$closed" -eq 1 ]] || fail "unterminated quoted value: $key"
+      fi
     fi
+
+    [[ "${!key+x}" == x ]] && continue
 
     printf -v "$key" '%s' "$value"
     export "${key?}"
@@ -142,8 +161,8 @@ validate_version_github_app_id() {
 
 validate_version_github_app_private_key() {
   local value="$1"
-  local content="${value//\\n/}"
-  if [[ -z "$content" || "$content" =~ ^[[:space:]]*$ ]]; then
+  local validation_value="${value//\\n/$'\n'}"
+  if [[ -z "$validation_value" || "$validation_value" =~ ^[[:space:]]*$ ]]; then
     fail "VERSION_GITHUB_APP_PRIVATE_KEY must be nonempty"
   fi
 
@@ -162,6 +181,10 @@ validate_version_github_app_private_key() {
     if [[ "$value" != *"$end_marker"* ]]; then
       fail "VERSION_GITHUB_APP_PRIVATE_KEY must contain matching PEM end marker"
     fi
+  fi
+
+  if ! printf '%s' "$validation_value" | openssl rsa -check -noout >/dev/null 2>&1; then
+    fail "VERSION_GITHUB_APP_PRIVATE_KEY failed RSA validation"
   fi
 }
 
@@ -210,6 +233,7 @@ main() {
   fi
 
   command -v gh >/dev/null 2>&1 || fail "required command missing: gh"
+  command -v openssl >/dev/null 2>&1 || fail "required command missing: openssl"
 
   REPO="$(detect_repo)"
   [[ "$REPO" == "$EXPECTED_REPO" ]] || fail "repository must be exactly $EXPECTED_REPO"

@@ -38,8 +38,19 @@ MOCK
 chmod +x "$BIN_DIR/gh"
 
 VALID_PUBLIC_KEY="cFzhEWKU7GTdZpF26CrZky5f678f6nYw4FqnQH68Nsg="
-VERSION_PRIVATE_PEM_ESCAPED='-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAv3n8p0y7x5w4v3u2t1s0r9q8p7o6n5m4l3k2j1i0h9g8f7e6d5c4b3a2z1y0x9w8v7u6t5s4r3q2p1o0n9m8l7k6j5i4h3g2f1e0d9c8b7a6z5y4x3w2v1u0t9s8r7q6p5o4n3m2l1k0j9i8h7g6f5e4d3c2b1a0==\n-----END RSA PRIVATE KEY-----'
-VERSION_PRIVATE_PEM_EXPORTED=$'-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAv3n8p0y7x5w4v3u2t1s0r9q8p7o6n5m4l3k2j1i0h9g8f7e6d5c4b3a2z1y0x9w8v7u6t5s4r3q2p1o0n9m8l7k6j5i4h3g2f1e0d9c8b7a6z5y4x3w2v1u0t9s8r7q6p5o4n3m2l1k0j9i8h7g6f5e4d3c2b1a0==\n-----END RSA PRIVATE KEY-----'
+VALID_PRIVATE_KEY_FILE="$TMP_DIR/valid-rsa-key.pem"
+if ! command -v openssl >/dev/null 2>&1; then
+  echo "openssl is required to generate the runtime RSA fixture" >&2
+  exit 1
+fi
+if ! openssl genrsa 1024 > "$VALID_PRIVATE_KEY_FILE" 2>/dev/null; then
+  echo "openssl failed to generate the runtime RSA fixture" >&2
+  exit 1
+fi
+VERSION_PRIVATE_PEM_EXPORTED="$(< "$VALID_PRIVATE_KEY_FILE")"
+VERSION_PRIVATE_PEM_ESCAPED="${VERSION_PRIVATE_PEM_EXPORTED//$'\n'/\\n}"
+VALID_PRIVATE_END_MARKER="$(sed -n '$p' "$VALID_PRIVATE_KEY_FILE")"
+SYNTHETIC_INVALID_PEM_ESCAPED='-----BEGIN RSA PRIVATE KEY-----\nnot-a-real-rsa-key\n-----END RSA PRIVATE KEY-----'
 
 write_env_file() {
   local path="$1"
@@ -64,6 +75,12 @@ VERSION_GITHUB_APP_PRIVATE_KEY=$VERSION_PRIVATE_PEM_ESCAPED
 EOF
 }
 
+write_private_value_env() {
+  local path="$1" value="$2"
+  sed '/^VERSION_GITHUB_APP_PRIVATE_KEY=/d' "$ENV_FILE" > "$path"
+  printf 'VERSION_GITHUB_APP_PRIVATE_KEY=%s\n' "$value" >> "$path"
+}
+
 # Runs the script with only the mock gh on PATH and a scrubbed credential
 # environment, so a real developer shell can never leak values into the test.
 run_script() {
@@ -85,7 +102,7 @@ run_script() {
     GITHUB_REPOSITORY="sonim1/UpdateBar" \
     UPDATEBAR_RELEASE_ENV_FILE="$env_file" \
     "$@" \
-    bash "$SCRIPT" > "$out_file" 2>&1
+    /bin/bash "$SCRIPT" > "$out_file" 2>&1
   local status=$?
   set -e
   printf '%s' "$status"
@@ -161,10 +178,51 @@ if ! cmp -s "$TMP_DIR/expected-gh-args.log" "$TMP_DIR/gh-args.log"; then
   exit 1
 fi
 
-if grep -q "sparkle-private\|cert-password\|r2-secret\|MIIEpAIBAAKCAQE" "$OUTPUT"; then
+if grep -q "sparkle-private\|cert-password\|r2-secret\|BEGIN RSA PRIVATE KEY" "$OUTPUT"; then
   echo "script must never print credential values" >&2
   exit 1
 fi
+
+# --- quoted multiline dotenv PEMs are parsed without shell evaluation --------
+
+for quote in '"' "'"; do
+  QUOTED_ENV="$TMP_DIR/.env.quoted-$quote"
+  sed '/^VERSION_GITHUB_APP_PRIVATE_KEY=/d' "$ENV_FILE" > "$QUOTED_ENV"
+  printf 'VERSION_GITHUB_APP_PRIVATE_KEY=%s%s%s\n' \
+    "$quote" "$VERSION_PRIVATE_PEM_EXPORTED" "$quote" >> "$QUOTED_ENV"
+
+  OUTPUT="$TMP_DIR/quoted-$quote.out"
+  status="$(run_script "$QUOTED_ENV" "$OUTPUT")"
+  if [[ "$status" -ne 0 ]]; then
+    echo "a complete $quote-quoted multiline PEM should upload cleanly" >&2
+    exit 1
+  fi
+  printf '%s' "$VERSION_PRIVATE_PEM_EXPORTED" > "$TMP_DIR/expected-quoted-private.stdin"
+  if ! cmp -s "$TMP_DIR/expected-quoted-private.stdin" "$TMP_DIR/gh-values/15.stdin"; then
+    echo "a quoted multiline PEM must reach gh without quote delimiters" >&2
+    exit 1
+  fi
+  if grep -q "BEGIN RSA PRIVATE KEY" "$OUTPUT"; then
+    echo "script must never print quoted PEM content" >&2
+    exit 1
+  fi
+done
+
+UNTERMINATED_ENV="$TMP_DIR/.env.unterminated-quoted"
+sed '/^VERSION_GITHUB_APP_PRIVATE_KEY=/d' "$ENV_FILE" > "$UNTERMINATED_ENV"
+printf 'VERSION_GITHUB_APP_PRIVATE_KEY="%s\n' "$VERSION_PRIVATE_PEM_EXPORTED" >> "$UNTERMINATED_ENV"
+
+OUTPUT="$TMP_DIR/unterminated-quoted.out"
+status="$(run_script "$UNTERMINATED_ENV" "$OUTPUT")"
+if [[ "$status" -eq 0 ]]; then
+  echo "an unterminated quoted multiline PEM must fail" >&2
+  exit 1
+fi
+if ! grep -Fq "unterminated quoted value: VERSION_GITHUB_APP_PRIVATE_KEY" "$OUTPUT"; then
+  echo "unterminated quoted PEM failure must name the variable" >&2
+  exit 1
+fi
+assert_no_gh_calls "an unterminated quoted multiline PEM"
 
 # --- only the canonical repository may receive credentials ------------------
 
@@ -201,7 +259,7 @@ set +e
     GH_ARG_LOG="$TMP_DIR/gh-args.log" \
     GH_VALUE_DIR="$TMP_DIR/gh-values" \
     UPDATEBAR_RELEASE_ENV_FILE="$ENV_FILE" \
-    bash "$SCRIPT"
+    /bin/bash "$SCRIPT"
 ) > "$OUTPUT" 2>&1
 status=$?
 set -e
@@ -221,7 +279,7 @@ OUTPUT="$TMP_DIR/override.out"
 status="$(run_script "$ENV_FILE" "$OUTPUT" \
   CLOUDFLARE_ACCOUNT_ID=exported-account \
   VERSION_GITHUB_APP_ID=24680 \
-  VERSION_GITHUB_APP_PRIVATE_KEY=version-exported)"
+  VERSION_GITHUB_APP_PRIVATE_KEY="$VERSION_PRIVATE_PEM_EXPORTED")"
 if [[ "$status" -ne 0 ]]; then
   echo "exported override should still upload cleanly" >&2
   exit 1
@@ -231,11 +289,11 @@ if ! grep -Fxq "variable CLOUDFLARE_ACCOUNT_ID exported-account" "$TMP_DIR/gh-ca
   exit 1
 fi
 if ! grep -Fxq "variable VERSION_GITHUB_APP_ID 24680" "$TMP_DIR/gh-calls.log" ||
-  ! grep -Fxq "secret VERSION_GITHUB_APP_PRIVATE_KEY version-exported" "$TMP_DIR/gh-calls.log"; then
+  ! cmp -s <(printf '%s' "$VERSION_PRIVATE_PEM_EXPORTED") "$TMP_DIR/gh-values/15.stdin"; then
   echo "exported version App values must win over $ENV_FILE" >&2
   exit 1
 fi
-if grep -q "version-exported" "$OUTPUT"; then
+if grep -q "BEGIN RSA PRIVATE KEY" "$OUTPUT"; then
   echo "script must never print exported secret values" >&2
   exit 1
 fi
@@ -347,6 +405,45 @@ if ! grep -Fq "VERSION_GITHUB_APP_PRIVATE_KEY must contain matching PEM end mark
 fi
 assert_no_gh_calls "a raw multiline dotenv PEM"
 
+TRUNCATED_PEM_ESCAPED="${VERSION_PRIVATE_PEM_ESCAPED%\\n"$VALID_PRIVATE_END_MARKER"}"
+TRUNCATED_ENV="$TMP_DIR/.env.truncated-pem"
+write_private_value_env "$TRUNCATED_ENV" "$TRUNCATED_PEM_ESCAPED"
+
+OUTPUT="$TMP_DIR/truncated-pem.out"
+status="$(run_script "$TRUNCATED_ENV" "$OUTPUT")"
+if [[ "$status" -eq 0 ]]; then
+  echo "a truncated escaped PEM must fail before upload" >&2
+  exit 1
+fi
+assert_no_gh_calls "a truncated escaped PEM"
+
+SYNTHETIC_ENV="$TMP_DIR/.env.synthetic-invalid-pem"
+write_private_value_env "$SYNTHETIC_ENV" "$SYNTHETIC_INVALID_PEM_ESCAPED"
+
+OUTPUT="$TMP_DIR/synthetic-invalid-pem.out"
+status="$(run_script "$SYNTHETIC_ENV" "$OUTPUT")"
+if [[ "$status" -eq 0 ]]; then
+  echo "a synthetic invalid RSA PEM must fail before upload" >&2
+  exit 1
+fi
+if ! grep -Fq "VERSION_GITHUB_APP_PRIVATE_KEY failed RSA validation" "$OUTPUT"; then
+  echo "synthetic invalid RSA PEM failure must be explicit" >&2
+  exit 1
+fi
+assert_no_gh_calls "a synthetic invalid RSA PEM"
+
+OUTPUT="$TMP_DIR/missing-openssl.out"
+status="$(run_script "$ENV_FILE" "$OUTPUT" PATH="$BIN_DIR")"
+if [[ "$status" -eq 0 ]]; then
+  echo "missing openssl must fail before upload" >&2
+  exit 1
+fi
+if ! grep -Fq "required command missing: openssl" "$OUTPUT"; then
+  echo "missing openssl failure must be explicit" >&2
+  exit 1
+fi
+assert_no_gh_calls "a run without openssl"
+
 # --- malformed Sparkle public keys are rejected before signing costs --------
 
 for bad_key in "" "not-base64" "$VALID_PUBLIC_KEY=" "cFzhEWKU7GTdZpF26CrZky5f678f6nYw4FqnQH68Ns"; do
@@ -423,8 +520,10 @@ for help_phrase in \
   "Release environment credentials" \
   "contents-write App is installed only on sonim1/UpdateBar" \
   "literal escaped newlines" \
-  "actual multiline value must be exported" \
-  "raw multiline" \
+  "actual multiline value may also be" \
+  "complete" \
+  "double-quoted multiline block" \
+  "invalid RSA keys" \
   "VERSION_GITHUB_APP_ID" \
   "VERSION_GITHUB_APP_PRIVATE_KEY"; do
   if ! grep -Fq "$help_phrase" "$OUTPUT"; then
@@ -454,7 +553,7 @@ if ! grep -Fxq ".env.release.local" "$ROOT/.gitignore"; then
   exit 1
 fi
 
-for example_phrase in "literal escaped newlines" "actual multiline value" "raw multiline dotenv entries are rejected"; do
+for example_phrase in "literal escaped newlines" "single-/double-quoted" "actual multiline value"; do
   if ! grep -Fq "$example_phrase" "$EXAMPLE_FILE"; then
     echo "example must document: $example_phrase" >&2
     exit 1
