@@ -536,6 +536,18 @@ assert_output_contains 'output file must be outside the repository'
 [[ "$(<"$REPOSITORY/README.md")" == "$README_BEFORE" ]] || fail 'repository output changed README.md'
 assert_clean
 
+# On case-insensitive macOS filesystems, alternate spelling cannot hide repository ancestry.
+CASE_VARIANT_REPOSITORY="$TEMP_ROOT/REPOSITORY-$FIXTURE_INDEX"
+CASE_VARIANT_README="$CASE_VARIANT_REPOSITORY/readme.MD"
+if [[ "$(uname -s)" == 'Darwin' && -f "$CASE_VARIANT_README" ]]; then
+  run_plan "$BASE_COMMIT" "$HEAD_COMMIT" "$CASE_VARIANT_README"
+  assert_status 65
+  assert_output_contains 'output file must be outside the repository'
+  [[ "$(<"$REPOSITORY/README.md")" == "$README_BEFORE" ]] ||
+    fail 'case-variant repository output changed README.md'
+  assert_clean
+fi
+
 # An external hard link to a repository file cannot disguise the destination inode.
 README_HARDLINK_ALIAS="$TEMP_ROOT/readme-hardlink-$FIXTURE_INDEX"
 ln "$REPOSITORY/README.md" "$README_HARDLINK_ALIAS"

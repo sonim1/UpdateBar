@@ -83,10 +83,10 @@ def parent_components(path)
   current = File.dirname(path)
 
   loop do
+    components.unshift(current)
     parent = File.dirname(current)
     break if parent == current
 
-    components.unshift(current)
     current = parent
   end
 
@@ -133,6 +133,7 @@ def open_output_file(repository_root, output_file)
     raise PlanningError, "output file must be outside the repository"
   end
 
+  repository_stat = File.stat(repository_root)
   parent_states = parent_components(expanded_output).map do |component|
     begin
       stat = File.lstat(component)
@@ -142,6 +143,9 @@ def open_output_file(repository_root, output_file)
     unless stat.directory? && !stat.symlink?
       raise PlanningError,
         "output parent component is not a directory or is a symlink: #{component}"
+    end
+    if same_file?(stat, repository_stat)
+      raise PlanningError, "output file must be outside the repository"
     end
     [component, stat]
   end
