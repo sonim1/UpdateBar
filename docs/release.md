@@ -96,12 +96,13 @@ git fetch --prune --no-tags origin \
 git show-ref --verify --quiet "refs/tags/$release_tag"
 test "$(git cat-file -t "refs/tags/$release_tag")" = tag
 git merge-base --is-ancestor "refs/tags/$release_tag^{commit}" "refs/remotes/origin/main^{commit}"
-gh workflow run release.yml --ref main -f tag="$release_tag"
+gh workflow run release.yml --ref "$release_tag" -f tag="$release_tag"
 ```
 
-Do not move or recreate the tag. The guarded manual tag procedure documented in
-the README is an emergency fallback only when automatic release is cancelled
-or disabled and no active run owns the candidate.
+Do not move or recreate the tag. Recovery executes the workflow definition from
+that exact tag, not from movable `main`. The guarded manual tag procedure
+documented in the README is an emergency fallback only when automatic release
+is cancelled or disabled and no active run owns the candidate.
 
 `Scripts/install-release.sh` installs published CLI archives with `curl`,
 `tar`, and `install`. It verifies each archive against the uploaded `.sha256`

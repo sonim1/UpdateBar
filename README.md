@@ -317,11 +317,13 @@ git fetch --prune --no-tags origin \
 git show-ref --verify --quiet "refs/tags/$release_tag"
 test "$(git cat-file -t "refs/tags/$release_tag")" = tag
 git merge-base --is-ancestor "refs/tags/$release_tag^{commit}" "refs/remotes/origin/main^{commit}"
-gh workflow run release.yml --ref main -f tag="$release_tag"
+gh workflow run release.yml --ref "$release_tag" -f tag="$release_tag"
 ```
 
-Use the exact tag value in both places. The release workflow rechecks the
-remote tag, version, and `main` ancestry before it packages or publishes.
+Use the exact tag value in both places. Recovery executes the workflow
+definition from that exact tag, not from movable `main`; the release workflow
+rechecks the remote tag, version, and `main` ancestry before it packages or
+publishes.
 
 ### Emergency manual tag procedure
 
