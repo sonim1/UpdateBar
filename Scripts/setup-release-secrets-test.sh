@@ -15,8 +15,8 @@ trap cleanup EXIT
 BIN_DIR="$TMP_DIR/bin"
 mkdir -p "$BIN_DIR"
 
-# Records every gh write as "<kind> <name> <value>" so tests can assert both the
-# call surface and the exact bytes that would reach GitHub.
+# Records every gh write's arguments separately from its stdin so tests can
+# assert exact scopes/commands without ever printing credential values.
 cat > "$BIN_DIR/gh" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -27,6 +27,8 @@ if [[ "$action" != "set" ]]; then
   echo "unexpected gh action: $action" >&2
   exit 1
 fi
+shift 3
+printf '%s %s %s %s\n' "$kind" "$action" "$name" "$*" >> "$GH_ARG_LOG"
 value="$(cat)"
 printf '%s %s %s\n' "$kind" "$name" "$value" >> "$GH_CALL_LOG"
 MOCK
@@ -42,6 +44,7 @@ DEVELOPER_ID_APPLICATION=Developer ID Application: Example (ABCDE12345)
 SPARKLE_PUBLIC_ED_KEY=$VALID_PUBLIC_KEY
 CLOUDFLARE_ACCOUNT_ID=cf-account
 TAP_GITHUB_APP_ID=12345
+VERSION_GITHUB_APP_ID=67890
 
 APPLE_CERTIFICATE_P12_BASE64=cert-base64
 APPLE_CERTIFICATE_PASSWORD=cert-password
@@ -52,6 +55,7 @@ R2_ACCESS_KEY_ID=r2-access
 R2_SECRET_ACCESS_KEY=r2-secret
 SPARKLE_PRIVATE_ED_KEY=sparkle-private
 TAP_GITHUB_APP_PRIVATE_KEY=tap-private
+VERSION_GITHUB_APP_PRIVATE_KEY=version-private
 EOF
 }
 
@@ -63,11 +67,13 @@ run_script() {
   shift 2
 
   : > "$TMP_DIR/gh-calls.log"
+  : > "$TMP_DIR/gh-args.log"
   set +e
   env -i \
     PATH="$BIN_DIR:/usr/bin:/bin" \
     HOME="$TMP_DIR/home" \
     GH_CALL_LOG="$TMP_DIR/gh-calls.log" \
+    GH_ARG_LOG="$TMP_DIR/gh-args.log" \
     GITHUB_REPOSITORY="sonim1/UpdateBar" \
     UPDATEBAR_RELEASE_ENV_FILE="$env_file" \
     "$@" \
@@ -81,7 +87,6 @@ assert_no_gh_calls() {
   local context="$1"
   if [[ -s "$TMP_DIR/gh-calls.log" ]]; then
     echo "$context must not reach GitHub before every value validates" >&2
-    cat "$TMP_DIR/gh-calls.log" >&2
     exit 1
   fi
 }
@@ -95,7 +100,6 @@ OUTPUT="$TMP_DIR/happy.out"
 status="$(run_script "$ENV_FILE" "$OUTPUT")"
 if [[ "$status" -ne 0 ]]; then
   echo "complete credentials should upload cleanly" >&2
-  cat "$OUTPUT" >&2
   exit 1
 fi
 
@@ -107,21 +111,44 @@ for expected in \
   "secret APPLE_CERTIFICATE_P12_BASE64 cert-base64" \
   "secret R2_SECRET_ACCESS_KEY r2-secret" \
   "secret SPARKLE_PRIVATE_ED_KEY sparkle-private" \
-  "secret TAP_GITHUB_APP_PRIVATE_KEY tap-private"; do
+  "secret TAP_GITHUB_APP_PRIVATE_KEY tap-private" \
+  "variable VERSION_GITHUB_APP_ID 67890" \
+  "secret VERSION_GITHUB_APP_PRIVATE_KEY version-private"; do
   if ! grep -Fxq "$expected" "$TMP_DIR/gh-calls.log"; then
     echo "missing expected gh write: $expected" >&2
-    cat "$TMP_DIR/gh-calls.log" >&2
     exit 1
   fi
 done
 
-if [[ "$(grep -c . "$TMP_DIR/gh-calls.log")" -ne 13 ]]; then
-  echo "expected exactly 13 credential writes" >&2
-  cat "$TMP_DIR/gh-calls.log" >&2
+if [[ "$(grep -c . "$TMP_DIR/gh-calls.log")" -ne 15 ]]; then
+  echo "expected exactly 15 credential writes" >&2
   exit 1
 fi
 
-if grep -q "sparkle-private\|cert-password\|r2-secret" "$OUTPUT"; then
+cat > "$TMP_DIR/expected-gh-args.log" <<'EOF'
+variable set DEVELOPER_ID_APPLICATION --env release --repo sonim1/UpdateBar
+variable set SPARKLE_PUBLIC_ED_KEY --env release --repo sonim1/UpdateBar
+variable set CLOUDFLARE_ACCOUNT_ID --env release --repo sonim1/UpdateBar
+variable set TAP_GITHUB_APP_ID --env release --repo sonim1/UpdateBar
+secret set APPLE_CERTIFICATE_P12_BASE64 --env release --repo sonim1/UpdateBar
+secret set APPLE_CERTIFICATE_PASSWORD --env release --repo sonim1/UpdateBar
+secret set APPLE_NOTARY_KEY_P8_BASE64 --env release --repo sonim1/UpdateBar
+secret set APPLE_NOTARY_KEY_ID --env release --repo sonim1/UpdateBar
+secret set APPLE_NOTARY_ISSUER_ID --env release --repo sonim1/UpdateBar
+secret set R2_ACCESS_KEY_ID --env release --repo sonim1/UpdateBar
+secret set R2_SECRET_ACCESS_KEY --env release --repo sonim1/UpdateBar
+secret set SPARKLE_PRIVATE_ED_KEY --env release --repo sonim1/UpdateBar
+secret set TAP_GITHUB_APP_PRIVATE_KEY --env release --repo sonim1/UpdateBar
+variable set VERSION_GITHUB_APP_ID --repo sonim1/UpdateBar
+secret set VERSION_GITHUB_APP_PRIVATE_KEY --repo sonim1/UpdateBar
+EOF
+if ! cmp -s "$TMP_DIR/expected-gh-args.log" "$TMP_DIR/gh-args.log"; then
+  echo "gh command scopes or order changed" >&2
+  diff -u "$TMP_DIR/expected-gh-args.log" "$TMP_DIR/gh-args.log" >&2 || true
+  exit 1
+fi
+
+if grep -q "sparkle-private\|cert-password\|r2-secret\|version-private" "$OUTPUT"; then
   echo "script must never print credential values" >&2
   exit 1
 fi
@@ -129,36 +156,54 @@ fi
 # --- exported values win over the file --------------------------------------
 
 OUTPUT="$TMP_DIR/override.out"
-status="$(run_script "$ENV_FILE" "$OUTPUT" CLOUDFLARE_ACCOUNT_ID=exported-account)"
+status="$(run_script "$ENV_FILE" "$OUTPUT" \
+  CLOUDFLARE_ACCOUNT_ID=exported-account \
+  VERSION_GITHUB_APP_ID=24680 \
+  VERSION_GITHUB_APP_PRIVATE_KEY=version-exported)"
 if [[ "$status" -ne 0 ]]; then
   echo "exported override should still upload cleanly" >&2
-  cat "$OUTPUT" >&2
   exit 1
 fi
 if ! grep -Fxq "variable CLOUDFLARE_ACCOUNT_ID exported-account" "$TMP_DIR/gh-calls.log"; then
   echo "exported value must win over $ENV_FILE" >&2
-  cat "$TMP_DIR/gh-calls.log" >&2
   exit 1
 fi
+if ! grep -Fxq "variable VERSION_GITHUB_APP_ID 24680" "$TMP_DIR/gh-calls.log" ||
+  ! grep -Fxq "secret VERSION_GITHUB_APP_PRIVATE_KEY version-exported" "$TMP_DIR/gh-calls.log"; then
+  echo "exported version App values must win over $ENV_FILE" >&2
+  exit 1
+fi
+if grep -q "version-exported" "$OUTPUT"; then
+  echo "script must never print exported secret values" >&2
+  exit 1
+fi
+
+OUTPUT="$TMP_DIR/empty-export.out"
+status="$(run_script "$ENV_FILE" "$OUTPUT" VERSION_GITHUB_APP_ID=)"
+if [[ "$status" -eq 0 ]] || ! grep -Fq "missing values: VERSION_GITHUB_APP_ID" "$OUTPUT"; then
+  echo "an explicitly empty exported value must override the file and fail" >&2
+  exit 1
+fi
+assert_no_gh_calls "a run with an explicitly empty exported value"
 
 # --- a missing value must abort before any upload ---------------------------
 
-PARTIAL_ENV="$TMP_DIR/.env.partial"
-grep -v '^R2_SECRET_ACCESS_KEY=' "$ENV_FILE" > "$PARTIAL_ENV"
+for missing_name in R2_SECRET_ACCESS_KEY VERSION_GITHUB_APP_PRIVATE_KEY; do
+  PARTIAL_ENV="$TMP_DIR/.env.partial-$missing_name"
+  grep -v "^${missing_name}=" "$ENV_FILE" > "$PARTIAL_ENV"
 
-OUTPUT="$TMP_DIR/missing.out"
-status="$(run_script "$PARTIAL_ENV" "$OUTPUT")"
-if [[ "$status" -eq 0 ]]; then
-  echo "a missing credential must fail the run" >&2
-  cat "$OUTPUT" >&2
-  exit 1
-fi
-if ! grep -Fq "missing values: R2_SECRET_ACCESS_KEY" "$OUTPUT"; then
-  echo "missing credential must be named in the failure" >&2
-  cat "$OUTPUT" >&2
-  exit 1
-fi
-assert_no_gh_calls "a run with a missing credential"
+  OUTPUT="$TMP_DIR/missing-$missing_name.out"
+  status="$(run_script "$PARTIAL_ENV" "$OUTPUT")"
+  if [[ "$status" -eq 0 ]]; then
+    echo "a missing credential must fail the run: $missing_name" >&2
+    exit 1
+  fi
+  if ! grep -Fq "missing values: $missing_name" "$OUTPUT"; then
+    echo "missing credential must be named in the failure: $missing_name" >&2
+    exit 1
+  fi
+  assert_no_gh_calls "a run with a missing credential"
+done
 
 # --- an empty value must never overwrite stored credentials -----------------
 
@@ -169,10 +214,24 @@ OUTPUT="$TMP_DIR/empty.out"
 status="$(run_script "$EMPTY_ENV" "$OUTPUT")"
 if [[ "$status" -eq 0 ]]; then
   echo "an empty credential must fail instead of blanking the stored value" >&2
-  cat "$OUTPUT" >&2
   exit 1
 fi
 assert_no_gh_calls "a run with an empty credential"
+
+EMPTY_PRIVATE_ENV="$TMP_DIR/.env.empty-private"
+sed 's/^VERSION_GITHUB_APP_PRIVATE_KEY=.*/VERSION_GITHUB_APP_PRIVATE_KEY=/' "$ENV_FILE" > "$EMPTY_PRIVATE_ENV"
+
+OUTPUT="$TMP_DIR/empty-private.out"
+status="$(run_script "$EMPTY_PRIVATE_ENV" "$OUTPUT")"
+if [[ "$status" -eq 0 ]]; then
+  echo "an empty version App private key must fail instead of blanking the stored value" >&2
+  exit 1
+fi
+if ! grep -Fq "missing values: VERSION_GITHUB_APP_PRIVATE_KEY" "$OUTPUT"; then
+  echo "empty version App private key must be named in the failure" >&2
+  exit 1
+fi
+assert_no_gh_calls "a run with an empty version App private key"
 
 # --- malformed Sparkle public keys are rejected before signing costs --------
 
@@ -184,10 +243,33 @@ for bad_key in "" "not-base64" "$VALID_PUBLIC_KEY=" "cFzhEWKU7GTdZpF26CrZky5f678
   status="$(run_script "$BAD_ENV" "$OUTPUT")"
   if [[ "$status" -eq 0 ]]; then
     echo "malformed SPARKLE_PUBLIC_ED_KEY '$bad_key' was accepted" >&2
-    cat "$OUTPUT" >&2
     exit 1
   fi
   assert_no_gh_calls "a run with a malformed Sparkle public key"
+done
+
+# --- version App IDs must be canonical positive decimals -------------------
+
+for bad_id in "" "0" "00" "01" "+1" "-1" "1.0" "1e3"; do
+  BAD_ID_ENV="$TMP_DIR/.env.bad-app-id"
+  sed "s|^VERSION_GITHUB_APP_ID=.*|VERSION_GITHUB_APP_ID=$bad_id|" "$ENV_FILE" > "$BAD_ID_ENV"
+
+  OUTPUT="$TMP_DIR/bad-app-id.out"
+  status="$(run_script "$BAD_ID_ENV" "$OUTPUT")"
+  if [[ "$status" -eq 0 ]]; then
+    echo "malformed VERSION_GITHUB_APP_ID '$bad_id' was accepted" >&2
+    exit 1
+  fi
+  if [[ -z "$bad_id" ]]; then
+    if ! grep -Fq "missing values: VERSION_GITHUB_APP_ID" "$OUTPUT"; then
+      echo "an empty VERSION_GITHUB_APP_ID must be named as missing" >&2
+      exit 1
+    fi
+  elif ! grep -Fq "VERSION_GITHUB_APP_ID must be canonical positive decimal" "$OUTPUT"; then
+    echo "invalid VERSION_GITHUB_APP_ID must be rejected explicitly" >&2
+    exit 1
+  fi
+  assert_no_gh_calls "a run with an invalid version App ID"
 done
 
 # --- surrounding whitespace on a variable is trimmed, not uploaded ----------
@@ -199,12 +281,10 @@ OUTPUT="$TMP_DIR/padded.out"
 status="$(run_script "$PADDED_ENV" "$OUTPUT")"
 if [[ "$status" -ne 0 ]]; then
   echo "a padded public key should be trimmed and accepted" >&2
-  cat "$OUTPUT" >&2
   exit 1
 fi
 if ! grep -Fxq "variable SPARKLE_PUBLIC_ED_KEY $VALID_PUBLIC_KEY" "$TMP_DIR/gh-calls.log"; then
   echo "padded public key must be uploaded trimmed" >&2
-  cat "$TMP_DIR/gh-calls.log" >&2
   exit 1
 fi
 
@@ -215,15 +295,26 @@ OUTPUT="$TMP_DIR/help.out"
 set +e
 env -i PATH="$BIN_DIR:/usr/bin:/bin" HOME="$TMP_DIR/home" \
   GH_CALL_LOG="$TMP_DIR/gh-calls.log" GITHUB_REPOSITORY="sonim1/UpdateBar" \
+  GH_ARG_LOG="$TMP_DIR/gh-args.log" \
   bash "$SCRIPT" --help > "$OUTPUT" 2>&1
 help_status=$?
 set -e
 if [[ "$help_status" -ne 0 ]]; then
   echo "--help must exit 0" >&2
-  cat "$OUTPUT" >&2
   exit 1
 fi
 assert_no_gh_calls "--help"
+for help_phrase in \
+  "Repository-scope version App credentials" \
+  "Release environment credentials" \
+  "contents-write App is installed only on sonim1/UpdateBar" \
+  "VERSION_GITHUB_APP_ID" \
+  "VERSION_GITHUB_APP_PRIVATE_KEY"; do
+  if ! grep -Fq "$help_phrase" "$OUTPUT"; then
+    echo "help must document: $help_phrase" >&2
+    exit 1
+  fi
+done
 
 # --- the example file documents exactly the required names ------------------
 

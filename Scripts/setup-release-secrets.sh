@@ -11,6 +11,9 @@ REQUIRED_VARS=(
   "CLOUDFLARE_ACCOUNT_ID"
   "TAP_GITHUB_APP_ID"
 )
+REQUIRED_REPOSITORY_VARS=(
+  "VERSION_GITHUB_APP_ID"
+)
 REQUIRED_SECRETS=(
   "APPLE_CERTIFICATE_P12_BASE64"
   "APPLE_CERTIFICATE_PASSWORD"
@@ -22,6 +25,9 @@ REQUIRED_SECRETS=(
   "SPARKLE_PRIVATE_ED_KEY"
   "TAP_GITHUB_APP_PRIVATE_KEY"
 )
+REQUIRED_REPOSITORY_SECRETS=(
+  "VERSION_GITHUB_APP_PRIVATE_KEY"
+)
 
 usage() {
   cat <<'USAGE'
@@ -32,19 +38,25 @@ Reads every required release credential from the environment, falling back to
 .env.release.local (override with UPDATEBAR_RELEASE_ENV_FILE). Exported values
 always win over the file, and the file is never committed.
 
-Repository variables (public, readable in logs):
+Repository-scope version App credentials:
+  VERSION_GITHUB_APP_ID (public variable)
+  VERSION_GITHUB_APP_PRIVATE_KEY (masked secret)
+  The contents-write App is installed only on sonim1/UpdateBar.
+
+Release environment credentials (protected `release` environment):
+Release environment variables (public, readable in logs):
   DEVELOPER_ID_APPLICATION SPARKLE_PUBLIC_ED_KEY CLOUDFLARE_ACCOUNT_ID
   TAP_GITHUB_APP_ID
 
-Repository secrets (masked):
+Release environment secrets (masked):
   APPLE_CERTIFICATE_P12_BASE64 APPLE_CERTIFICATE_PASSWORD
   APPLE_NOTARY_KEY_P8_BASE64 APPLE_NOTARY_KEY_ID APPLE_NOTARY_ISSUER_ID
   R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY SPARKLE_PRIVATE_ED_KEY
   TAP_GITHUB_APP_PRIVATE_KEY
 
-All values are written to the repository's `release` environment under the same
-names, overwriting anything already stored there. Nothing is uploaded unless
-every value is present and well-formed.
+Release environment credentials are written under the same names, overwriting
+anything already stored there. Version App credentials are written at repository
+scope. Nothing is uploaded unless every value is present and well-formed.
 USAGE
 }
 
@@ -87,7 +99,7 @@ load_env_file() {
     key="${key#"${key%%[![:space:]]*}"}"
     key="${key%"${key##*[![:space:]]}"}"
     [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
-    [[ -n "${!key:-}" ]] && continue
+    [[ "${!key+x}" == x ]] && continue
 
     if [[ "$value" == \"*\" && "${#value}" -ge 2 ]]; then
       value="${value:1:${#value}-2}"
@@ -117,6 +129,13 @@ validate_sparkle_public_key() {
   fi
 }
 
+validate_version_github_app_id() {
+  local value="$1"
+  if [[ ! "$value" =~ ^[1-9][0-9]*$ ]]; then
+    fail "VERSION_GITHUB_APP_ID must be canonical positive decimal"
+  fi
+}
+
 set_repo_variable() {
   local name="$1" value="$2"
   if ! printf '%s' "$value" | gh variable set "$name" \
@@ -137,6 +156,24 @@ set_repo_secret() {
   fi
 }
 
+set_repository_variable() {
+  local name="$1" value="$2"
+  if ! printf '%s' "$value" | gh variable set "$name" \
+    --repo "$REPO" \
+    >/dev/null; then
+    fail "failed to set repository variable: $name"
+  fi
+}
+
+set_repository_secret() {
+  local name="$1" value="$2"
+  if ! printf '%s' "$value" | gh secret set "$name" \
+    --repo "$REPO" \
+    >/dev/null; then
+    fail "failed to set repository secret: $name"
+  fi
+}
+
 main() {
   if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     usage
@@ -153,19 +190,24 @@ main() {
   # Trim only the single-line variables; secrets such as PEM keys are
   # whitespace-significant and must be uploaded byte for byte.
   local name value
-  for name in "${REQUIRED_VARS[@]}"; do
+  for name in "${REQUIRED_VARS[@]}" "${REQUIRED_REPOSITORY_VARS[@]}"; do
     value="$(trim_whitespace "${!name:-}")"
     printf -v "$name" '%s' "$value"
   done
 
   local missing=()
-  for name in "${REQUIRED_VARS[@]}" "${REQUIRED_SECRETS[@]}"; do
+  for name in \
+    "${REQUIRED_VARS[@]}" \
+    "${REQUIRED_REPOSITORY_VARS[@]}" \
+    "${REQUIRED_SECRETS[@]}" \
+    "${REQUIRED_REPOSITORY_SECRETS[@]}"; do
     [[ -n "${!name:-}" ]] || missing+=("$name")
   done
   if [[ "${#missing[@]}" -gt 0 ]]; then
     fail "missing values: ${missing[*]} (export them or fill in $ENV_FILE)"
   fi
 
+  validate_version_github_app_id "$VERSION_GITHUB_APP_ID"
   validate_sparkle_public_key "$SPARKLE_PUBLIC_ED_KEY"
 
   for name in "${REQUIRED_VARS[@]}"; do
@@ -178,7 +220,17 @@ main() {
     echo "set secret: $name"
   done
 
-  echo "release credentials for env '$TARGET_ENV' updated in $REPO"
+  for name in "${REQUIRED_REPOSITORY_VARS[@]}"; do
+    set_repository_variable "$name" "${!name}"
+    echo "set repository variable: $name"
+  done
+
+  for name in "${REQUIRED_REPOSITORY_SECRETS[@]}"; do
+    set_repository_secret "$name" "${!name}"
+    echo "set repository secret: $name"
+  done
+
+  echo "release credentials for env '$TARGET_ENV' and repository-scope version App credentials updated in $REPO"
 }
 
 main "$@"
