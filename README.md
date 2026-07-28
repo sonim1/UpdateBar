@@ -190,11 +190,11 @@ Scripts/setup-update-hosting.sh
 ```
 
 The script accepts only the `updatebar-updates` bucket and
-`updates.updatebar.sonim1.com` custom domain. It creates missing resources,
+`updates.updatebar.royjen.com` custom domain. It creates missing resources,
 accepts an exact existing configuration, and stops on conflicting state; it
-never deletes a bucket or domain. `updatebar.sonim1.com` is an optional future
+never deletes a bucket or domain. `updatebar.royjen.com` is an optional future
 product website and is separate from the update host. A later move to
-`updatebar.app` must keep `https://updates.updatebar.sonim1.com/appcast.xml`
+`updatebar.app` must keep `https://updates.updatebar.royjen.com/appcast.xml`
 reachable for installed builds. Introduce a new feed domain only with a tested
 compatibility or redirect strategy.
 
