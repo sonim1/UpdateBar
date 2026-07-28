@@ -33,6 +33,8 @@ jobs:
         shell: bash
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_STATE: ${{ github.event.pull_request.state }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           REPOSITORY: ${{ github.repository }}
           AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
@@ -51,6 +53,12 @@ jobs:
 
           if [[ "$BASE_REF" != "main" ]]; then
             reject "base branch must be main"
+          fi
+          if [[ "$PR_STATE" != "open" ]]; then
+            reject "pull request state must be open"
+          fi
+          if [[ "$PR_MERGED" != "false" ]]; then
+            reject "pull request must not be merged"
           fi
           if [[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]; then
             reject "head repository must match the base repository"
@@ -139,6 +147,7 @@ jobs:
         shell: bash
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
           set -euo pipefail
@@ -180,8 +189,42 @@ jobs:
           if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$ ]]; then
             reject "prepared version is not canonical"
           fi
+          if [[ ! "$EXPECTED_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            reject "pull request head SHA is not canonical"
+          fi
+          current_head="$(git rev-parse HEAD)"
+          if [[ "$current_head" != "$EXPECTED_HEAD_SHA" ]]; then
+            reject "local HEAD changed after version preparation"
+          fi
           if ! git check-ref-format --branch "$HEAD_REF" >/dev/null; then
             reject "pull request head branch is invalid"
+          fi
+          remote_result=''
+          if ! remote_result="$(git ls-remote --exit-code --refs origin "refs/heads/$HEAD_REF")"; then
+            reject "pull request head branch does not exist on origin"
+          fi
+          remote_lines=0
+          remote_sha=''
+          remote_ref=''
+          while IFS=$'\t' read -r candidate_sha candidate_ref; do
+            if [[ -z "$candidate_sha" && -z "$candidate_ref" ]]; then
+              continue
+            fi
+            remote_lines=$((remote_lines + 1))
+            remote_sha="$candidate_sha"
+            remote_ref="$candidate_ref"
+          done <<< "$remote_result"
+          if [[ "$remote_lines" -ne 1 ]]; then
+            reject "origin returned an ambiguous pull request head"
+          fi
+          if [[ "$remote_ref" != "refs/heads/$HEAD_REF" ]]; then
+            reject "origin returned the wrong pull request head ref"
+          fi
+          if [[ ! "$remote_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            reject "origin returned a non-canonical pull request head SHA"
+          fi
+          if [[ "$remote_sha" != "$EXPECTED_HEAD_SHA" ]]; then
+            reject "origin pull request head changed after the event"
           fi
           if ! git diff --cached --quiet --; then
             reject "index must be clean before staging version artifacts"
@@ -215,7 +258,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Prepare UpdateBar $VERSION release"
-          git push origin "HEAD:refs/heads/$HEAD_REF"
+          git push --force-with-lease="refs/heads/$HEAD_REF:$EXPECTED_HEAD_SHA" origin "HEAD:refs/heads/$HEAD_REF"
 
   macos:
     needs: [policy, version]

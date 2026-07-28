@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$ROOT/.github/workflows/ci.yml"
 [[ -f "$WORKFLOW" ]] || { echo "CI workflow is missing" >&2; exit 1; }
 
-ruby -rpsych - "$WORKFLOW" <<'RUBY'
+ruby -rpsych -ropen3 -rtmpdir -rfileutils -rshellwords - "$WORKFLOW" <<'RUBY'
 CHECKOUT_ACTION = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
 TOKEN_ACTION = "actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42"
 LANE_IF = "${{ always() }}"
@@ -36,6 +36,151 @@ def action_step(job, action)
   matches = job.fetch("steps").select { |step| step["uses"] == action }
   assert(matches.length == 1, "#{action} step must be present exactly once")
   matches.first
+end
+
+def run_policy_probe(policy_run, state:, merged:)
+  Dir.mktmpdir("updatebar-ci-policy-probe") do |directory|
+    output = File.join(directory, "github-output")
+    environment = {
+      "GITHUB_OUTPUT" => output,
+      "BASE_REF" => "main",
+      "PR_STATE" => state,
+      "PR_MERGED" => merged,
+      "HEAD_REPOSITORY" => "sonim1/UpdateBar",
+      "REPOSITORY" => "sonim1/UpdateBar",
+      "AUTHOR_ASSOCIATION" => "OWNER",
+      "ACTOR" => "sonim1",
+      "AUTHOR_LOGIN" => "sonim1",
+      "LABELS_JSON" => "[]",
+    }
+    stdout, stderr, status = Open3.capture3(environment, "bash", "-c", policy_run)
+    emitted = File.exist?(output) ? File.binread(output) : ""
+    return { stdout: stdout, stderr: stderr, status: status, emitted: emitted }
+  end
+end
+
+def git!(directory, *arguments)
+  stdout, stderr, status = Open3.capture3("git", *arguments, chdir: directory)
+  raise "fixture git #{arguments.join(' ')} failed: #{stderr}" unless status.success?
+
+  stdout.strip
+end
+
+def build_version_fixture(root)
+  remote = File.join(root, "origin.git")
+  checkout = File.join(root, "checkout")
+  FileUtils.mkdir_p(checkout)
+  git!(root, "init", "--bare", remote)
+  git!(checkout, "init")
+  git!(checkout, "config", "user.name", "Fixture")
+  git!(checkout, "config", "user.email", "fixture@example.invalid")
+  git!(checkout, "checkout", "-b", "feature")
+  FileUtils.mkdir_p(File.join(checkout, "Sources/UpdateBarCLI"))
+  File.binwrite(File.join(checkout, "version.env"), "UPDATEBAR_VERSION=1.2.3\n")
+  File.binwrite(File.join(checkout, "Sources/UpdateBarCLI/UpdateBarVersion.swift"), "version 1.2.3\n")
+  File.binwrite(File.join(checkout, "CHANGELOG.md"), "## Unreleased\n\n- Existing entry\n")
+  git!(checkout, "add", "--", "version.env", "Sources/UpdateBarCLI/UpdateBarVersion.swift", "CHANGELOG.md")
+  git!(checkout, "commit", "-m", "Fixture head")
+  git!(checkout, "remote", "add", "origin", remote)
+  git!(checkout, "push", "-u", "origin", "feature")
+  expected_head = git!(checkout, "rev-parse", "HEAD")
+
+  File.binwrite(File.join(checkout, "version.env"), "UPDATEBAR_VERSION=1.2.4\n")
+  File.binwrite(File.join(checkout, "Sources/UpdateBarCLI/UpdateBarVersion.swift"), "version 1.2.4\n")
+  File.binwrite(File.join(checkout, "CHANGELOG.md"), "## Unreleased\n\n## 1.2.4\n\n- Existing entry\n")
+
+  { root: root, remote: remote, checkout: checkout, expected_head: expected_head }
+end
+
+def remote_head(fixture)
+  stdout, _stderr, status = Open3.capture3(
+    "git", "--git-dir=#{fixture.fetch(:remote)}", "rev-parse", "--verify", "refs/heads/feature",
+    chdir: fixture.fetch(:root),
+  )
+  status.success? ? stdout.strip : nil
+end
+
+def move_remote_head(fixture)
+  mover = File.join(fixture.fetch(:root), "mover")
+  git!(fixture.fetch(:root), "clone", "--branch", "feature", fixture.fetch(:remote), mover)
+  git!(mover, "config", "user.name", "Fixture mover")
+  git!(mover, "config", "user.email", "mover@example.invalid")
+  File.binwrite(File.join(mover, "moved.txt"), "remote moved\n")
+  git!(mover, "add", "--", "moved.txt")
+  git!(mover, "commit", "-m", "Move remote head")
+  git!(mover, "push", "origin", "feature")
+  git!(mover, "rev-parse", "HEAD")
+end
+
+def run_version_commit_probe(commit_run, fixture)
+  environment = {
+    "HEAD_REF" => "feature",
+    "EXPECTED_HEAD_SHA" => fixture.fetch(:expected_head),
+    "VERSION" => "1.2.4",
+  }
+  stdout, stderr, status = Open3.capture3(
+    environment, "bash", "-c", commit_run, chdir: fixture.fetch(:checkout),
+  )
+  { stdout: stdout, stderr: stderr, status: status }
+end
+
+def run_runtime_probes(workflow)
+  jobs = workflow.fetch("jobs")
+  policy_run = jobs.fetch("policy").fetch("steps").first.fetch("run")
+
+  open_result = run_policy_probe(policy_run, state: "open", merged: "false")
+  assert(open_result.fetch(:status).success?, "open unmerged trusted PR policy probe must pass")
+  assert(open_result.fetch(:emitted) == "trusted=false\nrelease_kind=patch\ntrusted=true\n", "open unmerged policy probe must emit trusted patch outputs")
+
+  closed_result = run_policy_probe(policy_run, state: "closed", merged: "false")
+  assert(!closed_result.fetch(:status).success? && closed_result.fetch(:status).exitstatus == 65, "closed PR policy probe must fail closed")
+  assert(closed_result.fetch(:emitted) == "trusted=false\n", "closed PR policy probe must never emit trust")
+
+  merged_result = run_policy_probe(policy_run, state: "open", merged: "true")
+  assert(!merged_result.fetch(:status).success? && merged_result.fetch(:status).exitstatus == 65, "merged PR policy probe must fail closed")
+  assert(merged_result.fetch(:emitted) == "trusted=false\n", "merged PR policy probe must never emit trust")
+
+  commit_run = step_map(jobs.fetch("version")).fetch("Commit prepared version").fetch("run")
+  Dir.mktmpdir("updatebar-ci-version-success") do |root|
+    fixture = build_version_fixture(root)
+    result = run_version_commit_probe(commit_run, fixture)
+    assert(result.fetch(:status).success?, "exact-lease version update probe must pass: #{result.fetch(:stderr)}")
+    local_head = git!(fixture.fetch(:checkout), "rev-parse", "HEAD")
+    assert(local_head != fixture.fetch(:expected_head) && remote_head(fixture) == local_head, "exact lease must atomically advance the expected branch")
+    assert(git!(fixture.fetch(:checkout), "rev-parse", "HEAD^") == fixture.fetch(:expected_head), "prepared version commit must directly descend from the event head")
+  end
+
+  Dir.mktmpdir("updatebar-ci-version-deleted") do |root|
+    fixture = build_version_fixture(root)
+    git!(fixture.fetch(:root), "--git-dir=#{fixture.fetch(:remote)}", "update-ref", "-d", "refs/heads/feature")
+    result = run_version_commit_probe(commit_run, fixture)
+    assert(!result.fetch(:status).success?, "deleted remote branch probe must fail")
+    assert(remote_head(fixture).nil?, "deleted remote branch probe must never recreate the branch")
+    assert(git!(fixture.fetch(:checkout), "rev-parse", "HEAD") == fixture.fetch(:expected_head), "deleted remote branch must be rejected before committing")
+  end
+
+  Dir.mktmpdir("updatebar-ci-version-moved") do |root|
+    fixture = build_version_fixture(root)
+    moved_head = move_remote_head(fixture)
+    result = run_version_commit_probe(commit_run, fixture)
+    assert(!result.fetch(:status).success?, "moved remote branch probe must fail")
+    assert(remote_head(fixture) == moved_head, "moved remote branch probe must not overwrite the new head")
+    assert(git!(fixture.fetch(:checkout), "rev-parse", "HEAD") == fixture.fetch(:expected_head), "moved remote branch must be rejected before committing")
+  end
+
+  Dir.mktmpdir("updatebar-ci-version-race") do |root|
+    fixture = build_version_fixture(root)
+    hook = File.join(fixture.fetch(:checkout), ".git/hooks/pre-push")
+    File.binwrite(hook, <<~SHELL)
+      #!/usr/bin/env bash
+      set -euo pipefail
+      git --git-dir=#{Shellwords.escape(fixture.fetch(:remote))} update-ref -d refs/heads/feature
+    SHELL
+    File.chmod(0o755, hook)
+    result = run_version_commit_probe(commit_run, fixture)
+    assert(!result.fetch(:status).success?, "deleted-after-validation branch probe must fail the exact lease")
+    assert(remote_head(fixture).nil?, "exact lease must not recreate a branch deleted during push")
+  end
 end
 
 def validate(workflow)
@@ -85,6 +230,8 @@ def validate(workflow)
     "policy must not check out code or receive a token")
   assert(policy_step["env"] == {
     "BASE_REF" => "${{ github.event.pull_request.base.ref }}",
+    "PR_STATE" => "${{ github.event.pull_request.state }}",
+    "PR_MERGED" => "${{ github.event.pull_request.merged }}",
     "HEAD_REPOSITORY" => "${{ github.event.pull_request.head.repo.full_name }}",
     "REPOSITORY" => "${{ github.repository }}",
     "AUTHOR_ASSOCIATION" => "${{ github.event.pull_request.author_association }}",
@@ -96,6 +243,8 @@ def validate(workflow)
   [
     "printf 'trusted=false\\n' >> \"$GITHUB_OUTPUT\"",
     "[[ \"$BASE_REF\" != \"main\" ]]",
+    "[[ \"$PR_STATE\" != \"open\" ]]",
+    "[[ \"$PR_MERGED\" != \"false\" ]]",
     "[[ \"$HEAD_REPOSITORY\" != \"$REPOSITORY\" ]]",
     "[[ \"$ACTOR\" == \"dependabot[bot]\" || \"$AUTHOR_LOGIN\" == \"dependabot[bot]\" ]]",
     "OWNER | MEMBER | COLLABORATOR)",
@@ -110,7 +259,7 @@ def validate(workflow)
   end
   assert(!policy_run.include?("CONTRIBUTOR") && !policy_run.include?("FIRST_TIME_CONTRIBUTOR"), "untrusted author associations must fail closed")
   assert(policy_run.index("printf 'trusted=false") < policy_run.index("[[ \"$BASE_REF\""), "policy must default to untrusted before validation")
-  assert(policy_run.index("printf 'trusted=true") > policy_run.index("release_labels.length > 1"), "policy may trust only after label validation")
+  assert(policy_run.index("printf 'trusted=true") > policy_run.index("release_labels.length > 1"), "policy may trust only after state and label validation")
 
   assert(version["needs"] == "policy", "version must wait for policy")
   assert(version["if"] == "${{ always() && github.event_name == 'pull_request' && needs.policy.result == 'success' && needs.policy.outputs.trusted == 'true' }}", "version must run only for a successful trusted PR policy")
@@ -172,6 +321,7 @@ def validate(workflow)
   assert(commit["if"] == "${{ steps.prepare.outputs.changed == 'true' }}", "commit must run only when preparation changed artifacts")
   assert(commit["env"] == {
     "HEAD_REF" => "${{ github.event.pull_request.head.ref }}",
+    "EXPECTED_HEAD_SHA" => "${{ github.event.pull_request.head.sha }}",
     "VERSION" => "${{ steps.prepare.outputs.version }}",
   }, "commit must bind the event branch and prepared version")
   commit_run = commit.fetch("run")
@@ -192,15 +342,23 @@ def validate(workflow)
     'git config user.email "41898282+github-actions[bot]@users.noreply.github.com"',
     'git commit -m "Prepare UpdateBar $VERSION release"',
     'git check-ref-format --branch "$HEAD_REF"',
-    'git push origin "HEAD:refs/heads/$HEAD_REF"',
+    'current_head="$(git rev-parse HEAD)"',
+    '[[ "$current_head" != "$EXPECTED_HEAD_SHA" ]]',
+    'git ls-remote --exit-code --refs origin "refs/heads/$HEAD_REF"',
+    '[[ "$remote_lines" -ne 1',
+    '"$remote_ref" != "refs/heads/$HEAD_REF"',
+    '[[ "$remote_sha" != "$EXPECTED_HEAD_SHA" ]]',
   ].each do |fragment|
     assert(commit_run.include?(fragment), "version commit is missing safety fragment: #{fragment}")
   end
+  expected_push = 'git push --force-with-lease="refs/heads/$HEAD_REF:$EXPECTED_HEAD_SHA" origin "HEAD:refs/heads/$HEAD_REF"'
   assert(commit_run.scan(/git add --/).length == 1, "version commit must stage exactly once")
-  assert(commit_run.scan(/git push /).length == 1 && !commit_run.match?(/git push[^\n]*(?:--force(?:-with-lease)?|-f(?:\s|$))/), "version push must be singular and non-force")
+  assert(commit_run.lines.map(&:strip).grep(/\Agit push /) == [expected_push], "version push must use the singular exact compare-and-swap lease")
   assert(commit_run.index('git diff --name-only -z') < commit_run.index('git add --'), "worktree allowlist must be checked before staging")
   assert(commit_run.index('git diff --cached --name-only -z') > commit_run.index('git add --'), "staged allowlist must be rechecked")
-  assert(commit_run.index('git check-ref-format --branch "$HEAD_REF"') < commit_run.index('git push origin'), "head ref must be validated before push")
+  assert(commit_run.index('git check-ref-format --branch "$HEAD_REF"') < commit_run.index('git ls-remote'), "head ref must be validated before remote lookup")
+  assert(commit_run.index('git ls-remote') < commit_run.index('git add --'), "the exact remote head must be validated before staging")
+  assert(commit_run.index('git ls-remote') < commit_run.index(expected_push), "the exact remote head must be validated before compare-and-swap push")
 
   { "macos" => macos, "linux" => linux }.each do |name, job|
     assert(job["needs"].is_a?(Array) && job["needs"].sort == %w[policy version], "#{name} must directly wait for policy and version")
@@ -263,6 +421,7 @@ end
 
 workflow = Psych.safe_load(File.binread(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false)
 validate(workflow)
+run_runtime_probes(workflow)
 
 mutations = {
   "PR target branch" => ->(value) { value.fetch("on").fetch("pull_request")["branches"] = ["develop"] },
@@ -273,6 +432,14 @@ mutations = {
   "fork acceptance" => ->(value) {
     step = value.fetch("jobs").fetch("policy").fetch("steps").first
     step["run"] = step.fetch("run").sub('[[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]', '[[ -z "$HEAD_REPOSITORY" ]]')
+  },
+  "closed PR acceptance" => ->(value) {
+    step = value.fetch("jobs").fetch("policy").fetch("steps").first
+    step["run"] = step.fetch("run").sub('[[ "$PR_STATE" != "open" ]]', '[[ -z "$PR_STATE" ]]')
+  },
+  "merged PR acceptance" => ->(value) {
+    step = value.fetch("jobs").fetch("policy").fetch("steps").first
+    step["run"] = step.fetch("run").sub('[[ "$PR_MERGED" != "false" ]]', '[[ -z "$PR_MERGED" ]]')
   },
   "untrusted association" => ->(value) {
     step = value.fetch("jobs").fetch("policy").fetch("steps").first
@@ -312,9 +479,38 @@ mutations = {
     step = step_map(value.fetch("jobs").fetch("version")).fetch("Commit prepared version")
     step["run"] = step.fetch("run").sub("  \"CHANGELOG.md\"", "  \"CHANGELOG.md\"\n  \"README.md\"")
   },
-  "force push" => ->(value) {
+  "plain push" => ->(value) {
     step = step_map(value.fetch("jobs").fetch("version")).fetch("Commit prepared version")
-    step["run"] = step.fetch("run").sub('git push origin', 'git push --force origin')
+    step["run"] = step.fetch("run").sub(
+      'git push --force-with-lease="refs/heads/$HEAD_REF:$EXPECTED_HEAD_SHA" origin "HEAD:refs/heads/$HEAD_REF"',
+      'git push origin "HEAD:refs/heads/$HEAD_REF"',
+    )
+  },
+  "broad force-with-lease" => ->(value) {
+    step = step_map(value.fetch("jobs").fetch("version")).fetch("Commit prepared version")
+    step["run"] = step.fetch("run").sub(
+      'git push --force-with-lease="refs/heads/$HEAD_REF:$EXPECTED_HEAD_SHA" origin "HEAD:refs/heads/$HEAD_REF"',
+      'git push --force-with-lease origin "HEAD:refs/heads/$HEAD_REF"',
+    )
+  },
+  "lease without event SHA" => ->(value) {
+    step = step_map(value.fetch("jobs").fetch("version")).fetch("Commit prepared version")
+    step["run"] = step.fetch("run").sub(
+      '--force-with-lease="refs/heads/$HEAD_REF:$EXPECTED_HEAD_SHA"',
+      '--force-with-lease="refs/heads/$HEAD_REF"',
+    )
+  },
+  "missing remote head lookup" => ->(value) {
+    step = step_map(value.fetch("jobs").fetch("version")).fetch("Commit prepared version")
+    step["run"] = step.fetch("run").sub('git ls-remote --exit-code --refs origin "refs/heads/$HEAD_REF"', 'printf "missing remote lookup\\n"')
+  },
+  "remote head mismatch accepted" => ->(value) {
+    step = step_map(value.fetch("jobs").fetch("version")).fetch("Commit prepared version")
+    step["run"] = step.fetch("run").sub('[[ "$remote_sha" != "$EXPECTED_HEAD_SHA" ]]', '[[ -z "$remote_sha" ]]')
+  },
+  "invalid head ref accepted" => ->(value) {
+    step = step_map(value.fetch("jobs").fetch("version")).fetch("Commit prepared version")
+    step["run"] = step.fetch("run").sub('git check-ref-format --branch "$HEAD_REF"', 'git check-ref-format "refs/heads/main"')
   },
   "job-level skip bypass" => ->(value) {
     value.fetch("jobs").fetch("macos")["if"] = "${{ github.event_name == 'push' || needs.version.outputs.ready == 'true' }}"
@@ -359,7 +555,7 @@ mutations.each do |name, mutate|
   raise "FAIL: validator accepted mutation: #{name}"
 end
 
-puts "CI workflow tests passed (#{mutations.length} security mutations rejected)"
+puts "CI workflow tests passed (#{mutations.length} security mutations rejected; 7 runtime probes passed)"
 RUBY
 
 exit 0
