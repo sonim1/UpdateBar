@@ -107,11 +107,61 @@ UPDATEBAR_BIN=$PWD/.build/debug/updatebar UPDATEBAR_TUI=$PWD/tui/dist/index.js .
 
 ## Release Operations
 
-The normal release path is the protected GitHub Actions workflow in
-`.github/workflows/release.yml`. A version tag selects one immutable commit;
+The normal publication path is `.github/workflows/automatic-release.yml`, which
+hands one exact tag to the protected `.github/workflows/release.yml`. A version
+tag selects one immutable commit;
 GitHub Actions builds the two CLI archives, signs and notarizes the macOS app,
 publishes the Sparkle feed and GitHub Release, and then asks
 `sonim1/homebrew-tap` to update its packages.
+
+### Automatic release flow
+
+Normal releases start with a trusted same-repo pull request targeting
+`main`. CI prepares the default patch version, or the version selected by the
+`release:minor` or `release:major` label. Root Markdown files, `docs/`, and
+`openspec/`-only pull requests are documentation-only and never release. Fork,
+untrusted-author, and Dependabot pull requests fail closed before the
+write-token version job; a maintainer must move an approved change to a
+maintainer-owned branch in this repository.
+
+A code or release pull request must contain nonempty notes under the canonical
+`## Unreleased` heading. The bot updates and commits only `version.env`, the
+exact generated `Sources/UpdateBarCLI/UpdateBarVersion.swift`, and the
+`CHANGELOG.md` release entry. Do not manually bump a future version in a normal
+pull request.
+
+After a strict, up-to-date `main` merge, the automatic workflow plans the
+range, creates or verifies one exact annotated tag, and explicitly dispatches
+`release.yml` with that tag. The existing release workflow then runs
+`verify` (macOS/Linux), `package`, `publish`, and `notify`, producing the
+GitHub Release, R2/Sparkle update artifacts, and Homebrew tap update.
+
+The bootstrap rollout PR needs one explicit/manual candidate version and
+changelog preparation to establish this contract. Do not bump a version in this
+documentation change; subsequent normal pull requests are prepared by the bot.
+
+Automatic versioning requires a separate contents-write-only GitHub App with
+only `Contents: write`, installed only on `sonim1/UpdateBar`. Store its
+repository variable `VERSION_GITHUB_APP_ID` and repository secret
+`VERSION_GITHUB_APP_PRIVATE_KEY`.
+Create the `release:minor` and `release:major` labels, and protect `main` with
+strict up-to-date required checks named exactly `macos` and `linux`.
+
+Run `Scripts/setup-release-secrets.sh` to configure those repository-scoped
+version-App credentials together with the protected `release` Environment
+values. The local `.env.release.local` file is ignored; PEM values in it must
+use literal escaped newlines (`\n`) or a complete single-/double-quoted
+multiline block. Exported multiline values are also accepted. Never print,
+commit, or paste private keys into logs or documentation.
+
+The release Environment currently has no protection rules, so the workflow is
+hands-off after merge. If a required reviewer is added later, it would
+intentionally pause `package`, `publish`, and `notify`; approval is not required
+by the current setup.
+
+The committed Homebrew formula/cask metadata is the last-published snapshot and
+may lag a candidate version while a pull request is in flight. The tap updates
+that metadata after the corresponding GitHub Release is public.
 
 ### One-time update hosting setup
 
@@ -134,11 +184,11 @@ Scripts/setup-update-hosting.sh
 ```
 
 The script accepts only the `updatebar-updates` bucket and
-`updates.updatebar.sonim1.com` custom domain. It creates missing resources,
+`updates.updatebar.royjen.com` custom domain. It creates missing resources,
 accepts an exact existing configuration, and stops on conflicting state; it
-never deletes a bucket or domain. `updatebar.sonim1.com` is an optional future
+never deletes a bucket or domain. `updatebar.royjen.com` is an optional future
 product website and is separate from the update host. A later move to
-`updatebar.app` must keep `https://updates.updatebar.sonim1.com/appcast.xml`
+`updatebar.app` must keep `https://updates.updatebar.royjen.com/appcast.xml`
 reachable for installed builds. Introduce a new feed domain only with a tested
 compatibility or redirect strategy.
 
@@ -197,9 +247,8 @@ match cryptographically, and deletes the temporary file on exit.
 
 ### GitHub release environment
 
-Create a GitHub Environment named `release` and require reviewer approval.
-Configure these Environment variables, grouped by the job that references
-them:
+Create a GitHub Environment named `release` and configure these Environment
+variables, grouped by the job that references them:
 
 - `package`: `DEVELOPER_ID_APPLICATION`, `SPARKLE_PUBLIC_ED_KEY`
 - `publish`: `CLOUDFLARE_ACCOUNT_ID`
@@ -217,10 +266,13 @@ Configure these Environment secrets:
 
 The `publish` job also receives GitHub's built-in `github.token`; it is not a
 configured secret. Each of `package`, `publish`, and `notify` enters the same
-protected Environment in sequence, so one release can present multiple
-approval prompts. The workflow injects only the listed values into each job,
-but all secrets in one Environment become available after that job's approval.
-Use separate Environments if availability isolation is required.
+`release` Environment in sequence. That Environment currently has no
+protection rules, so the pipeline is hands-off after merge and presents no
+approval prompt. Adding a required reviewer would intentionally pause each of
+those jobs; approval is not currently required. The workflow injects only the
+listed values into each job, but all secrets in one Environment become
+available to that job once any configured protection rule is satisfied. Use
+separate Environments if availability isolation is required.
 
 The Apple certificate and notarization secrets may be the same values used by
 SwitchTab because the apps share the Apple team and certificate. The Sparkle
@@ -237,7 +289,7 @@ minimum permission union is:
 - `Pull requests: Read and write` for pull-request creation and auto-merge
 
 Set `TAP_GITHUB_APP_ID` and `TAP_GITHUB_APP_PRIVATE_KEY` in UpdateBar's
-protected `release` Environment. Set the same variable and secret at repository
+`release` Environment. Set the same variable and secret at repository
 scope in `sonim1/homebrew-tap`, because the receiving workflow needs them to
 create its guarded branch and pull request. Scope the installation owner to
 `sonim1` and the repository selection to `homebrew-tap` only. Enable auto-merge
@@ -245,12 +297,34 @@ and strict default-branch protection in the tap repository with the exact
 required checks `contracts` and `homebrew`; the release scripts do not change
 these administrative settings.
 
-### Create and push a release tag
+### Recovery for an existing tag
 
-Start from a clean `main` checkout after updating `version.env` and the
-changelog. Use one guarded flow that compares the local commit with freshly
-fetched `origin/main`, creates one exact annotated tag, verifies it, and pushes
-only its fully qualified ref:
+If automatic tag creation succeeded but its dispatch step failed, do not create
+or move another tag. Verify that the existing tag is annotated and peels to the
+intended commit on `main`, then dispatch the existing release explicitly:
+
+```bash
+release_tag=vX.Y.Z
+git fetch --prune --no-tags origin \
+  '+refs/heads/main:refs/remotes/origin/main' \
+  "+refs/tags/$release_tag:refs/tags/$release_tag"
+git show-ref --verify --quiet "refs/tags/$release_tag"
+test "$(git cat-file -t "refs/tags/$release_tag")" = tag
+git merge-base --is-ancestor "refs/tags/$release_tag^{commit}" "refs/remotes/origin/main^{commit}"
+gh workflow run release.yml --ref main -f tag=vX.Y.Z
+```
+
+Use the exact tag value in both places. The release workflow rechecks the
+remote tag, version, and `main` ancestry before it packages or publishes.
+
+### Emergency manual tag procedure
+
+The automatic workflow owns normal version preparation and tag creation. Keep
+the guarded procedure below only as an emergency fallback when that workflow is
+cancelled or disabled and no active run owns the candidate. Start from a clean
+`main` checkout after an explicitly approved version/changelog preparation. It
+compares the local commit with freshly fetched `origin/main`, creates one exact
+annotated tag, verifies it, and pushes only its fully qualified ref:
 
 ```bash
 (
@@ -277,7 +351,7 @@ git push origin "refs/tags/$release_tag:refs/tags/$release_tag"
 ```
 
 Do not use a shorter tag command, move or recreate a release tag, or publish
-from an unverified local branch. The tag push is the end of the normal local
+from an unverified local branch. The tag push is the end of this emergency
 procedure; GitHub Actions owns publication.
 
 ### Automated release graph
@@ -295,13 +369,15 @@ retried execution does not require current `origin/main` to equal the tagged
 commit; `main` may contain newer descendants. The secret-free `verify` matrix
 runs Swift tests and builds and smoke-checks the Apple Silicon macOS and x86-64
 Linux CLI archives.
-Those intermediate artifacts are retained for 7 days. After approval,
+Those intermediate artifacts are retained for 7 days.
 `package` signs and notarizes the arm64 DMG, signs the Sparkle appcast, creates
 the release manifest, and uploads one checksum-bound immutable bundle retained
-for 30 days. After another approval, `publish` downloads that same bundle,
-validates its commit and checksums, publishes R2 and the GitHub Release, and
-makes the complete draft public. `notify` then enters the Environment and
-dispatches the exact repository and tag to the tap.
+for 30 days. `publish` then downloads that same bundle, validates its commit
+and checksums, publishes R2 and the GitHub Release, and makes the complete
+draft public. `notify` then enters the Environment and dispatches the exact
+repository and tag to the tap. The current `release` Environment has no
+protection rules, so these jobs proceed hands-off; a required reviewer would
+intentionally pause them and is not currently configured.
 
 All external Actions are pinned to reviewed 40-character commit SHAs:
 `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1`,
@@ -349,8 +425,9 @@ not permission to replace conflicting state. Investigate any conflict instead
 of deleting or rolling back remote objects.
 
 If `notify` fails after publication, rerun only `notify`. It can request the
-`release` Environment approval again, but it does not rebuild or republish the
-release.
+`release` Environment gate again if a reviewer rule is configured, but the
+current Environment has no protection rules. It does not rebuild or republish
+the release.
 
 ### Local publication fallback
 

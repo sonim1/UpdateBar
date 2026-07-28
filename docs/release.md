@@ -1,5 +1,61 @@
 # Release
 
+## Automatic release contract
+
+The normal graph is:
+
+```text
+trusted same-repo PR
+  -> automatic default patch / release:minor / release:major version prep
+  -> strict, up-to-date merge to current main
+  -> exact annotated tag
+  -> explicit release.yml dispatch
+  -> verify (macOS/Linux) -> package -> publish -> notify
+  -> GitHub Release + R2/Sparkle + Homebrew tap
+```
+
+CI accepts only trusted pull requests from this repository for write-token
+version preparation. Fork, untrusted-author, and Dependabot pull requests fail
+closed; a maintainer must move an approved change to a maintainer-owned branch
+in `sonim1/UpdateBar`. Root Markdown files, `docs/`, and `openspec/`-only pull
+requests are documentation-only and never release.
+
+For a code or release pull request, keep nonempty notes under the canonical
+`## Unreleased` heading. The default is a patch release; `release:minor` and
+`release:major` select the other bumps. The bot updates and commits only
+`version.env`, the exact generated `Sources/UpdateBarCLI/UpdateBarVersion.swift`,
+and the changelog release entry. Do not manually bump a future version in a
+normal pull request.
+
+The bootstrap rollout PR needs one explicit/manual candidate version and
+changelog preparation. Do not bump a version in this documentation change;
+subsequent normal pull requests are bot-owned.
+
+### Required repository setup
+
+- Install a separate contents-write-only GitHub App with only `Contents: write`,
+  installed only on `sonim1/UpdateBar`. Store its repository variable
+  `VERSION_GITHUB_APP_ID` and repository secret `VERSION_GITHUB_APP_PRIVATE_KEY`.
+- Create the `release:minor` and `release:major` labels.
+- Protect `main` strictly, requiring branches to be up to date and the exact
+  `macos` and `linux` checks.
+
+Run `Scripts/setup-release-secrets.sh` to configure the repository-scoped
+version-App credentials together with the protected `release` Environment
+values. It reads exported values or `.env.release.local`; the file is ignored
+by Git. In that file, PEM values must use literal escaped newlines (`\n`) or a
+complete single-/double-quoted multiline block. Exported multiline values are
+also accepted. Never print, commit, or expose private keys.
+
+The release Environment currently has no protection rules, so package,
+publish, and notify proceed hands-off after merge. Adding a required reviewer
+would intentionally pause those jobs; approval is not required by the current
+setup.
+
+The committed Homebrew formula/cask metadata is the last-published snapshot and
+may lag a candidate version. The tap updates it after the corresponding GitHub
+Release is public.
+
 Release checklist:
 
 ```bash
@@ -17,9 +73,30 @@ bash Scripts/install-release.sh --help
 UPDATEBAR_VERIFY_STRICT=1 bash Scripts/verify-homebrew-metadata.sh
 ```
 
-Before pushing a tag, run the GitHub Actions `Release` workflow manually from
-the Actions tab. Manual dispatch is a dry run: it builds and verifies release
-artifacts, but does not publish a GitHub Release.
+The automatic workflow creates the annotated tag after the protected `main`
+merge and explicitly dispatches `release.yml` with that exact tag. Manual
+dispatch is publication-capable, not a dry run; use it only for recovery after
+verifying an existing tag.
+
+### Recover a tag when dispatch fails
+
+If the automatic workflow created the tag but failed before dispatch, verify the
+remote tag is annotated and on current `main`, then dispatch that exact tag:
+
+```bash
+release_tag=vX.Y.Z
+git fetch --prune --no-tags origin \
+  '+refs/heads/main:refs/remotes/origin/main' \
+  "+refs/tags/$release_tag:refs/tags/$release_tag"
+git show-ref --verify --quiet "refs/tags/$release_tag"
+test "$(git cat-file -t "refs/tags/$release_tag")" = tag
+git merge-base --is-ancestor "refs/tags/$release_tag^{commit}" "refs/remotes/origin/main^{commit}"
+gh workflow run release.yml --ref main -f tag=vX.Y.Z
+```
+
+Do not move or recreate the tag. The guarded manual tag procedure documented in
+the README is an emergency fallback only when automatic release is cancelled
+or disabled and no active run owns the candidate.
 
 `Scripts/install-release.sh` installs published CLI archives with `curl`,
 `tar`, and `install`. It verifies each archive against the uploaded `.sha256`
@@ -139,23 +216,27 @@ notary profile cannot be verified.
 
 ### Signed releases in CI
 
-The release workflow fails closed unless the Sparkle public key GitHub variable
-and every signing/notary secret below are configured. It never publishes an
-unsigned or unnotarized app fallback.
+The release workflow fails closed unless the `release` Environment contains the
+current signing/notary inputs. It never publishes an unsigned or unnotarized app
+fallback.
 
-- repository variable `SPARKLE_PUBLIC_ED_KEY`: canonical Sparkle public key
+Environment variables:
 
-- `MACOS_SIGNING_CERT_P12`: base64-encoded PKCS#12 export of the
-  "Developer ID Application" certificate (with private key)
-- `MACOS_SIGNING_CERT_PASSWORD`: password protecting the `.p12`
-- `NOTARY_APPLE_ID`: Apple ID email for notarization
-- `NOTARY_TEAM_ID`: Apple Developer team ID
-- `NOTARY_PASSWORD`: app-specific password for the Apple ID
-  (create at <https://account.apple.com>, Sign-In and Security >
-  App-Specific Passwords)
+- `DEVELOPER_ID_APPLICATION`: exact Developer ID Application identity string
+- `SPARKLE_PUBLIC_ED_KEY`: canonical Sparkle public key
 
-Configure those values through protected GitHub repository settings; never put
-private certificate material or notary credentials in the repository.
+Environment secrets:
+
+- `APPLE_CERTIFICATE_P12_BASE64`: base64-encoded PKCS#12 export of the
+  Developer ID Application certificate (with private key)
+- `APPLE_CERTIFICATE_PASSWORD`: password protecting the `.p12`
+- `APPLE_NOTARY_KEY_P8_BASE64`: base64-encoded App Store Connect API key
+- `APPLE_NOTARY_KEY_ID`: App Store Connect API key ID
+- `APPLE_NOTARY_ISSUER_ID`: App Store Connect issuer ID
+- `SPARKLE_PRIVATE_ED_KEY`: UpdateBar's Sparkle Ed25519 private key
+
+Configure these values through protected GitHub settings; never put private
+certificate material, API keys, or notary credentials in the repository.
 
 Local signed + notarized DMG, after its notary profile already exists in the
 selected keychain:
@@ -206,7 +287,7 @@ Release identity:
 npm --prefix tui run build
 ```
 
-Before tagging:
+Before automatic release:
 
 - `CHANGELOG.md` has an entry matching `version.env`.
 - `Scripts/extract-changelog-section.sh v<version>` prints non-empty release
