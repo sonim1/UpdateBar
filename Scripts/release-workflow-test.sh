@@ -157,6 +157,9 @@ def validate(workflow)
     "DEVELOPER_ID_APPLICATION" => "${{ vars.DEVELOPER_ID_APPLICATION }}",
     "SPARKLE_PUBLIC_ED_KEY" => "${{ vars.SPARKLE_PUBLIC_ED_KEY }}"
   }, "DMG build must receive only public signing settings")
+  assert(package_steps.fetch("Smoke-test app DMG")["env"] == {
+    "SPARKLE_PUBLIC_ED_KEY" => "${{ vars.SPARKLE_PUBLIC_ED_KEY }}"
+  }, "DMG smoke test must receive the Sparkle public key it verifies against")
   appcast = package_steps.fetch("Generate signed appcast")
   assert(appcast.dig("env", "SPARKLE_PRIVATE_ED_KEY") == "${{ secrets.SPARKLE_PRIVATE_ED_KEY }}", "only package may receive the UpdateBar Sparkle private key")
   assert(appcast.dig("env", "UPDATE_DOMAIN") == "updates.updatebar.sonim1.com", "appcast domain must be fixed")

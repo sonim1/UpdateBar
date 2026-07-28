@@ -67,6 +67,9 @@ bash Scripts/release-tooling-test.sh
 echo "running update hosting setup checks"
 bash Scripts/setup-update-hosting-test.sh
 
+echo "running release credential setup checks"
+bash Scripts/setup-release-secrets-test.sh
+
 echo "running signed appcast checks"
 if [[ "$SKIP_SIGNED_APPCAST" == "1" ]]; then
   echo "skipping signed appcast checks (SKIP_SIGNED_APPCAST)"

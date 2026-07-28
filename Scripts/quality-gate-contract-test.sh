@@ -42,6 +42,7 @@ ruby -e '
   expected_contracts = %w[
     Scripts/release-tooling-test.sh
     Scripts/setup-update-hosting-test.sh
+    Scripts/setup-release-secrets-test.sh
     Scripts/generate-appcast-test.sh
     Scripts/publish-update-test.sh
     Scripts/generate-release-manifest-test.sh
