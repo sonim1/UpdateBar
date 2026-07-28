@@ -221,6 +221,30 @@ assert_output_equals $'release=false\nchanged=false\nready=true'
 [[ "$(owned_fingerprint)" == "$DOCS_BEFORE" ]] || fail 'docs-only preparation mutated an owned file'
 assert_worktree_clean
 
+# Docs-only output must reject a symlink alias to any owned artifact.
+create_fixture
+printf '\nDocumentation alias test.\n' >> "$REPOSITORY/README.md"
+HEAD_COMMIT="$(commit_all 'docs output symlink alias')"
+OUTPUT_ALIAS="$TEMP_ROOT/owned-output-alias-$FIXTURE_INDEX"
+ln -s "$REPOSITORY/CHANGELOG.md" "$OUTPUT_ALIAS"
+OUTPUT_ALIAS_BEFORE="$(owned_fingerprint)"
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$OUTPUT_ALIAS"
+[[ "$(owned_fingerprint)" == "$OUTPUT_ALIAS_BEFORE" ]] ||
+  fail 'docs-only output symlink alias corrupted an owned artifact'
+assert_status 65
+assert_output_contains 'output file overlaps owned artifact'
+
+# Lexical aliases to owned files are rejected before docs-only output as well.
+create_fixture
+printf '\nDocumentation direct output test.\n' >> "$REPOSITORY/README.md"
+HEAD_COMMIT="$(commit_all 'docs output direct alias')"
+DIRECT_ALIAS_BEFORE="$(owned_fingerprint)"
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$REPOSITORY/./version.env"
+[[ "$(owned_fingerprint)" == "$DIRECT_ALIAS_BEFORE" ]] ||
+  fail 'docs-only direct output alias corrupted an owned artifact'
+assert_status 65
+assert_output_contains 'output file overlaps owned artifact'
+
 # Markdown below a non-docs directory is release-relevant, not a root Markdown path.
 create_fixture
 printf '# Implementation note\n' > "$REPOSITORY/Sources/Feature/note.md"
@@ -408,6 +432,49 @@ assert_status 65
 assert_output_contains 'exactly one'
 assert_worktree_clean
 
+# Numeric-looking release headings must use an exact bare or dated canonical form.
+create_fixture
+cat >> "$REPOSITORY/CHANGELOG.md" <<'EOF'
+
+## 1.2.4- 2026-07-21
+
+- Malformed competing release.
+EOF
+make_relevant_head 'malformed numeric release heading'
+MALFORMED_NUMERIC_BEFORE="$(owned_fingerprint)"
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch
+assert_status 65
+assert_output_contains 'malformed numeric release heading'
+[[ "$(owned_fingerprint)" == "$MALFORMED_NUMERIC_BEFORE" ]] ||
+  fail 'malformed numeric heading rejection partially mutated an owned file'
+
+create_fixture
+cat >> "$REPOSITORY/CHANGELOG.md" <<'EOF'
+
+## 01.2.4 - 2026-07-21
+
+- Noncanonical numeric release.
+EOF
+make_relevant_head 'noncanonical numeric release heading'
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch
+assert_status 65
+assert_output_contains 'malformed numeric release heading'
+assert_worktree_clean
+
+# The repository's exact legacy bare release form remains valid.
+create_fixture
+cat >> "$REPOSITORY/CHANGELOG.md" <<'EOF'
+
+## 0.1.0
+
+- Legacy release.
+EOF
+make_relevant_head 'legacy bare release heading'
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch
+assert_status 0
+assert_output_contains 'version=1.2.4'
+assert_canonical_version_files '1.2.4'
+
 # Historical release versions must also be unique across level-two headings.
 create_fixture
 cat >> "$REPOSITORY/CHANGELOG.md" <<'EOF'
@@ -448,7 +515,7 @@ EOF
 make_relevant_head 'malformed first candidate'
 run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch
 assert_status 65
-assert_output_contains 'ambiguous release version heading'
+assert_output_contains 'malformed numeric release heading'
 assert_worktree_clean
 
 create_fixture
@@ -502,6 +569,45 @@ for owned_path in version.env Sources/UpdateBarCLI/UpdateBarVersion.swift CHANGE
   assert_output_contains 'regular file'
   [[ "$(<"$OUTSIDE_FILE")" == 'outside sentinel' ]] || fail "followed unsafe symlink for $owned_path"
 done
+
+# A symlinked parent component must not redirect owned writes outside the repository.
+create_fixture
+make_relevant_head 'symlinked owned parent'
+OUTSIDE_PARENT="$TEMP_ROOT/outside-parent-$FIXTURE_INDEX"
+mkdir "$OUTSIDE_PARENT"
+cp "$REPOSITORY/Sources/UpdateBarCLI/UpdateBarVersion.swift" "$OUTSIDE_PARENT/UpdateBarVersion.swift"
+rm "$REPOSITORY/Sources/UpdateBarCLI/UpdateBarVersion.swift"
+rmdir "$REPOSITORY/Sources/UpdateBarCLI"
+ln -s "$OUTSIDE_PARENT" "$REPOSITORY/Sources/UpdateBarCLI"
+PARENT_SYMLINK_BEFORE="$(owned_fingerprint)"
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch
+[[ "$(owned_fingerprint)" == "$PARENT_SYMLINK_BEFORE" ]] ||
+  fail 'symlinked parent allowed an owned mutation to escape the repository'
+assert_status 65
+assert_output_contains 'parent component'
+
+# A non-directory parent component is rejected without touching other owned files.
+create_fixture
+make_relevant_head 'non-directory owned parent'
+rm "$REPOSITORY/Sources/UpdateBarCLI/UpdateBarVersion.swift"
+rmdir "$REPOSITORY/Sources/UpdateBarCLI"
+printf 'not a directory\n' > "$REPOSITORY/Sources/UpdateBarCLI"
+NON_DIRECTORY_PARENT_BEFORE="$(
+  shasum -a 256 \
+    "$REPOSITORY/version.env" \
+    "$REPOSITORY/Sources/UpdateBarCLI" \
+    "$REPOSITORY/CHANGELOG.md"
+)"
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch
+assert_status 65
+assert_output_contains 'parent component'
+[[ "$(
+  shasum -a 256 \
+    "$REPOSITORY/version.env" \
+    "$REPOSITORY/Sources/UpdateBarCLI" \
+    "$REPOSITORY/CHANGELOG.md"
+)" == "$NON_DIRECTORY_PARENT_BEFORE" ]] ||
+  fail 'non-directory parent rejection mutated an owned path'
 
 create_fixture
 make_relevant_head 'directory owned path'

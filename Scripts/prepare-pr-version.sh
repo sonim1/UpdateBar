@@ -57,6 +57,86 @@ emit() {
   printf '%s\n' "$result"
 }
 
+OWNED_PATHS=(
+  'version.env'
+  'Sources/UpdateBarCLI/UpdateBarVersion.swift'
+  'CHANGELOG.md'
+)
+
+validate_parent_components() {
+  local path="$1"
+  local parent
+  local next_parent
+
+  parent="$(dirname -- "$path")"
+  while [[ "$parent" != '.' ]]; do
+    [[ -d "$parent" && ! -L "$parent" ]] ||
+      reject "$path parent component is not a directory: $parent"
+    next_parent="$(dirname -- "$parent")"
+    [[ "$next_parent" != "$parent" ]] || reject "$path has an invalid parent path"
+    parent="$next_parent"
+  done
+}
+
+for owned_path in "${OWNED_PATHS[@]}"; do
+  validate_parent_components "$owned_path"
+  [[ -f "$owned_path" && ! -L "$owned_path" ]] || reject "$owned_path is not a regular file"
+done
+
+validate_output_file() {
+  local validation_result
+
+  [[ -n "$OUTPUT_FILE" ]] || return 0
+  if ! validation_result="$(
+    /usr/bin/ruby - "$REPOSITORY_ROOT" "$OUTPUT_FILE" "${OWNED_PATHS[@]}" <<'RUBY'
+root, output_file, *owned_paths = ARGV
+root = File.realpath(root)
+
+def canonical_destination(root, path)
+  expanded = File.expand_path(path, root)
+  unresolved = []
+  ancestor = expanded
+
+  until File.exist?(ancestor) || File.symlink?(ancestor)
+    parent = File.dirname(ancestor)
+    raise "output path has no resolvable parent" if parent == ancestor
+
+    unresolved.unshift(File.basename(ancestor))
+    ancestor = parent
+  end
+
+  File.join(File.realpath(ancestor), *unresolved)
+end
+
+begin
+  expanded_output = File.expand_path(output_file, root)
+  if File.exist?(expanded_output) && !File.file?(expanded_output)
+    raise "output file is not a regular file"
+  end
+
+  resolved_output = canonical_destination(root, output_file)
+  conflict = owned_paths.find do |owned_path|
+    absolute_owned = File.join(root, owned_path)
+    resolved_output == File.realpath(absolute_owned) ||
+      (File.exist?(expanded_output) && File.identical?(expanded_output, absolute_owned))
+  end
+
+  if conflict
+    puts "output file overlaps owned artifact: #{conflict}"
+    exit 65
+  end
+rescue StandardError => error
+  puts "could not validate output file: #{error.message}"
+  exit 65
+end
+RUBY
+  )"; then
+    reject "${validation_result:-could not validate output file}"
+  fi
+}
+
+validate_output_file
+
 DOCS_ONLY=1
 while IFS= read -r -d '' changed_path; do
   case "$changed_path" in
@@ -72,13 +152,7 @@ if [[ "$DOCS_ONLY" -eq 1 ]]; then
   exit 0
 fi
 
-OWNED_PATHS=(
-  'version.env'
-  'Sources/UpdateBarCLI/UpdateBarVersion.swift'
-  'CHANGELOG.md'
-)
 for owned_path in "${OWNED_PATHS[@]}"; do
-  [[ -f "$owned_path" && ! -L "$owned_path" ]] || reject "$owned_path is not a regular file"
   [[ -w "$owned_path" ]] || reject "$owned_path is not writable"
   owned_directory="$(dirname -- "$owned_path")"
   [[ -d "$owned_directory" && -w "$owned_directory" ]] ||
@@ -101,6 +175,7 @@ SWIFT_FILE = "Sources/UpdateBarCLI/UpdateBarVersion.swift"
 CHANGELOG_FILE = "CHANGELOG.md"
 VERSION_COMPONENT = "(?:0|[1-9][0-9]*)"
 VERSION_PATTERN = /\AUPDATEBAR_VERSION=(#{VERSION_COMPONENT})\.(#{VERSION_COMPONENT})\.(#{VERSION_COMPONENT})\n\z/
+NUMERIC_RELEASE_HEADING_PATTERN = /\A##[ \t]+[0-9]/
 RELEASE_VERSION_PREFIX_PATTERN = /\A## (#{VERSION_COMPONENT}\.#{VERSION_COMPONENT}\.#{VERSION_COMPONENT})(?:\z|[ \t])/
 CANDIDATE_PATTERN = /\A## (#{VERSION_COMPONENT}\.#{VERSION_COMPONENT}\.#{VERSION_COMPONENT}) - ([0-9]{4}-[0-9]{2}-[0-9]{2})\z/
 RELEASE_HEADING_PATTERN = /\A## (#{VERSION_COMPONENT}\.#{VERSION_COMPONENT}\.#{VERSION_COMPONENT})(?: - ([0-9]{4}-[0-9]{2}-[0-9]{2}))?\z/
@@ -151,13 +226,12 @@ def validate_release_headings(headings)
   versions = Hash.new(0)
 
   headings.each do |heading|
-    version_match = RELEASE_VERSION_PREFIX_PATTERN.match(heading[:text])
-    next unless version_match
+    next unless NUMERIC_RELEASE_HEADING_PATTERN.match?(heading[:text])
 
     match = RELEASE_HEADING_PATTERN.match(heading[:text])
     unless match
       raise PreparationError,
-        "#{CHANGELOG_FILE} has an ambiguous release version heading for #{version_match[1]}"
+        "#{CHANGELOG_FILE} has a malformed numeric release heading: #{heading[:text]}"
     end
 
     if match[2]
@@ -201,6 +275,18 @@ def parsed_candidate(heading, allowed_versions)
 end
 
 def writable_regular_stat(path)
+  parent = File.dirname(path)
+  until parent == "."
+    parent_stat = File.lstat(parent)
+    unless parent_stat.directory? && !parent_stat.symlink?
+      raise PreparationError, "#{path} parent component is not a directory: #{parent}"
+    end
+    next_parent = File.dirname(parent)
+    raise PreparationError, "#{path} has an invalid parent path" if next_parent == parent
+
+    parent = next_parent
+  end
+
   stat = File.lstat(path)
   unless stat.file? && !stat.symlink?
     raise PreparationError, "#{path} is not a regular file"
@@ -347,6 +433,7 @@ end
 
 begin
   base_commit, release_kind, utc_date = ARGV
+  [VERSION_FILE, SWIFT_FILE, CHANGELOG_FILE].each { |path| writable_regular_stat(path) }
   base_source, status = Open3.capture2e("git", "show", "#{base_commit}:#{VERSION_FILE}")
   unless status.success?
     raise PreparationError, "#{VERSION_FILE} is missing from the base commit"
