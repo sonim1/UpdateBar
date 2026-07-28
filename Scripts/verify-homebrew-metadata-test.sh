@@ -35,6 +35,162 @@ if ! grep -Fq "release metadata verification passed for version $UPDATEBAR_VERSI
   exit 1
 fi
 
+snapshot_version="0.6.2"
+if [[ "$snapshot_version" == "$UPDATEBAR_VERSION" ]]; then
+  echo "snapshot regression must use a version older than version.env" >&2
+  exit 1
+fi
+snapshot_formula_asset="updatebar-${snapshot_version}-macos-arm64.tar.gz"
+snapshot_cask_asset="UpdateBar-${snapshot_version}-macos-arm64.app.tar.gz"
+snapshot_sha="0000000000000000000000000000000000000000000000000000000000000000"
+
+SNAPSHOT_FORMULA="$TMP_DIR/snapshot-formula.rb"
+SNAPSHOT_CASK="$TMP_DIR/snapshot-cask.rb"
+cat > "$SNAPSHOT_FORMULA" <<EOF
+class Updatebar < Formula
+  version "$snapshot_version"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v$snapshot_version/$snapshot_formula_asset"
+  sha256 "$snapshot_sha"
+end
+EOF
+
+cat > "$SNAPSHOT_CASK" <<EOF
+cask "updatebar-app" do
+  version "$snapshot_version"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v#{version}/$snapshot_cask_asset"
+  sha256 "$snapshot_sha"
+end
+EOF
+
+SNAPSHOT_OUTPUT="$TMP_DIR/snapshot.out"
+if UPDATEBAR_VERIFY_STATIC_ONLY=1 \
+  UPDATEBAR_HOMEBREW_FORMULA_PATH="$SNAPSHOT_FORMULA" \
+  UPDATEBAR_HOMEBREW_CASK_PATH="$SNAPSHOT_CASK" \
+  bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" > "$SNAPSHOT_OUTPUT" 2>&1; then
+  snapshot_status=0
+else
+  snapshot_status=$?
+fi
+
+if [[ "$snapshot_status" -ne 0 ]]; then
+  echo "static-only metadata verification rejected the older published snapshot" >&2
+  cat "$SNAPSHOT_OUTPUT" >&2
+  exit 1
+fi
+
+if ! grep -Fq "release metadata verification passed for version $snapshot_version" "$SNAPSHOT_OUTPUT"; then
+  echo "static-only metadata verification did not accept the older published snapshot" >&2
+  cat "$SNAPSHOT_OUTPUT" >&2
+  exit 1
+fi
+
+run_snapshot_rejection() {
+  local label="$1"
+  local formula_path="$2"
+  local cask_path="$3"
+  local expected_error="$4"
+  local output="$TMP_DIR/$label.out"
+  local status
+
+  if UPDATEBAR_VERIFY_STATIC_ONLY=1 \
+    UPDATEBAR_HOMEBREW_FORMULA_PATH="$formula_path" \
+    UPDATEBAR_HOMEBREW_CASK_PATH="$cask_path" \
+    bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" > "$output" 2>&1; then
+    status=0
+  else
+    status=$?
+  fi
+
+  if [[ "$status" -eq 0 ]]; then
+    echo "snapshot metadata accepted invalid $label" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+
+  if ! grep -Fq "$expected_error" "$output"; then
+    echo "invalid snapshot metadata $label did not report the expected error" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
+MISMATCHED_CASK="$TMP_DIR/mismatched-cask.rb"
+cat > "$MISMATCHED_CASK" <<EOF
+cask "updatebar-app" do
+  version "0.6.1"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v#{version}/UpdateBar-#{version}-macos-arm64.app.tar.gz"
+  sha256 "$snapshot_sha"
+end
+EOF
+run_snapshot_rejection "mismatched-versions" "$SNAPSHOT_FORMULA" "$MISMATCHED_CASK" \
+  "cask version (0.6.1) does not match formula version ($snapshot_version)"
+
+MALFORMED_FORMULA="$TMP_DIR/malformed-formula.rb"
+cat > "$MALFORMED_FORMULA" <<EOF
+class Updatebar < Formula
+  version "$snapshot_version"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v$snapshot_version/$snapshot_formula_asset"
+  sha256 "not-a-sha"
+end
+EOF
+run_snapshot_rejection "malformed-formula-sha" "$MALFORMED_FORMULA" "$SNAPSHOT_CASK" \
+  "formula sha256 is not a 64-character lowercase hex value"
+
+MALFORMED_CASK="$TMP_DIR/malformed-cask.rb"
+cat > "$MALFORMED_CASK" <<EOF
+cask "updatebar-app" do
+  version "$snapshot_version"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v#{version}/$snapshot_cask_asset"
+  sha256 "not-a-sha"
+end
+EOF
+run_snapshot_rejection "malformed-cask-sha" "$SNAPSHOT_FORMULA" "$MALFORMED_CASK" \
+  "cask sha256 is not a 64-character lowercase hex value"
+
+WRONG_FORMULA_REPOSITORY="$TMP_DIR/wrong-formula-repository.rb"
+cat > "$WRONG_FORMULA_REPOSITORY" <<EOF
+class Updatebar < Formula
+  version "$snapshot_version"
+  url "https://example.test/releases/download/v$snapshot_version/$snapshot_formula_asset"
+  sha256 "$snapshot_sha"
+end
+EOF
+run_snapshot_rejection "wrong-formula-repository" "$WRONG_FORMULA_REPOSITORY" "$SNAPSHOT_CASK" \
+  "formula URL must use https://github.com/sonim1/UpdateBar/releases/download/v$snapshot_version/"
+
+WRONG_CASK_REPOSITORY="$TMP_DIR/wrong-cask-repository.rb"
+cat > "$WRONG_CASK_REPOSITORY" <<EOF
+cask "updatebar-app" do
+  version "$snapshot_version"
+  url "https://example.test/releases/download/v#{version}/$snapshot_cask_asset"
+  sha256 "$snapshot_sha"
+end
+EOF
+run_snapshot_rejection "wrong-cask-repository" "$SNAPSHOT_FORMULA" "$WRONG_CASK_REPOSITORY" \
+  "cask URL must use https://github.com/sonim1/UpdateBar/releases/download/v$snapshot_version/"
+
+WRONG_FORMULA_ASSET="$TMP_DIR/wrong-formula-asset.rb"
+cat > "$WRONG_FORMULA_ASSET" <<EOF
+class Updatebar < Formula
+  version "$snapshot_version"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v$snapshot_version/$snapshot_cask_asset"
+  sha256 "$snapshot_sha"
+end
+EOF
+run_snapshot_rejection "wrong-formula-asset" "$WRONG_FORMULA_ASSET" "$SNAPSHOT_CASK" \
+  "formula URL must end with $snapshot_formula_asset"
+
+WRONG_CASK_ASSET="$TMP_DIR/wrong-cask-asset.rb"
+cat > "$WRONG_CASK_ASSET" <<EOF
+cask "updatebar-app" do
+  version "$snapshot_version"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v#{version}/$snapshot_formula_asset"
+  sha256 "$snapshot_sha"
+end
+EOF
+run_snapshot_rejection "wrong-cask-asset" "$SNAPSHOT_FORMULA" "$WRONG_CASK_ASSET" \
+  "cask URL must end with $snapshot_cask_asset"
+
 cat > "$TMP_DIR/bad-formula.rb" <<EOF
 class Updatebar < Formula
   version "$UPDATEBAR_VERSION"

@@ -41,7 +41,8 @@ validate_sha256() {
 validate_release_url() {
   local label="$1"
   local value="$2"
-  local expected_prefix="https://github.com/sonim1/UpdateBar/releases/download/v${UPDATEBAR_VERSION}/"
+  local version="$3"
+  local expected_prefix="https://github.com/sonim1/UpdateBar/releases/download/v${version}/"
   if [[ "$value" != "$expected_prefix"* ]]; then
     echo "$label URL must use $expected_prefix" >&2
     exit 1
@@ -77,12 +78,18 @@ FORMULA_URL="$(awk '$1 == "url" { gsub(/"/, "", $2); print $2; exit }' "$FORMULA
 FORMULA_SHA="$(awk '$1 == "sha256" { gsub(/"/, "", $2); print $2; exit }' "$FORMULA_PATH")"
 validate_sha256 "formula" "$FORMULA_SHA"
 
-if [[ "$FORMULA_VERSION" != "$UPDATEBAR_VERSION" ]]; then
+if [[ "$STATIC_ONLY" == "1" ]]; then
+  METADATA_VERSION="$FORMULA_VERSION"
+else
+  METADATA_VERSION="$UPDATEBAR_VERSION"
+fi
+
+if [[ "$STATIC_ONLY" != "1" && "$FORMULA_VERSION" != "$UPDATEBAR_VERSION" ]]; then
   echo "formula version ($FORMULA_VERSION) does not match version.env ($UPDATEBAR_VERSION)" >&2
   exit 1
 fi
-validate_release_url "formula" "$FORMULA_URL"
-validate_release_asset "formula" "$FORMULA_URL" "updatebar-${UPDATEBAR_VERSION}-macos-arm64.tar.gz"
+validate_release_url "formula" "$FORMULA_URL" "$METADATA_VERSION"
+validate_release_asset "formula" "$FORMULA_URL" "updatebar-${METADATA_VERSION}-macos-arm64.tar.gz"
 
 FORMULA_ASSET="$(basename "$FORMULA_URL")"
 FORMULA_SHA_FILE="$DIST_DIR/$FORMULA_ASSET.sha256"
@@ -138,13 +145,18 @@ CASK_URL="$(awk '$1 == "url" { gsub(/"/, "", $2); print $2; exit }' "$CASK_PATH"
 CASK_SHA="$(awk '$1 == "sha256" { gsub(/"/, "", $2); print $2; exit }' "$CASK_PATH")"
 validate_sha256 "cask" "$CASK_SHA"
 
-if [[ "$CASK_VERSION" != "$UPDATEBAR_VERSION" ]]; then
+if [[ "$STATIC_ONLY" == "1" ]]; then
+  if [[ "$CASK_VERSION" != "$METADATA_VERSION" ]]; then
+    echo "cask version ($CASK_VERSION) does not match formula version ($METADATA_VERSION)" >&2
+    exit 1
+  fi
+elif [[ "$CASK_VERSION" != "$UPDATEBAR_VERSION" ]]; then
   echo "cask version ($CASK_VERSION) does not match version.env ($UPDATEBAR_VERSION)" >&2
   exit 1
 fi
 CASK_RESOLVED_URL="${CASK_URL//\#\{version\}/$CASK_VERSION}"
-validate_release_url "cask" "$CASK_RESOLVED_URL"
-validate_release_asset "cask" "$CASK_RESOLVED_URL" "UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.app.tar.gz"
+validate_release_url "cask" "$CASK_RESOLVED_URL" "$METADATA_VERSION"
+validate_release_asset "cask" "$CASK_RESOLVED_URL" "UpdateBar-${METADATA_VERSION}-macos-arm64.app.tar.gz"
 
 CASK_ASSET="$(basename "$CASK_RESOLVED_URL")"
 CASK_ARCHIVE="$DIST_DIR/$CASK_ASSET"
@@ -188,4 +200,4 @@ else
   echo "skip cask verification; asset not found: $CASK_ASSET" >&2
 fi
 
-echo "release metadata verification passed for version $UPDATEBAR_VERSION"
+echo "release metadata verification passed for version $METADATA_VERSION"
