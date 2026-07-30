@@ -287,8 +287,9 @@ Release identity:
   come from the final uploaded release asset's `.sha256`, not from a later local
   rebuild.
 - App cask source lives in `Packaging/homebrew/Casks/updatebar-app.rb`; copy it to
-  the tap as `Casks/updatebar-app.rb`. The cask installs `UpdateBar.app` only and
-  must not link the bundled CLI. The CLI remains owned by the `updatebar` formula.
+  the tap as `Casks/updatebar-app.rb`. The cask installs `UpdateBar.app` and links
+  its bundled CLI as `updatebar`. The `updatebar` formula remains available for
+  CLI-only installations.
 - Ink TUI formula source lives in `Packaging/homebrew/updatebar-tui.rb`; copy it
   to the tap as `Formula/updatebar-tui.rb` when publishing a TUI formula update.
   For source checkouts, build the Ink TUI with npm:

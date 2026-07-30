@@ -13,6 +13,7 @@ cask "updatebar-app" do
   depends_on macos: :ventura
 
   app "UpdateBar.app"
+  binary "#{appdir}/UpdateBar.app/Contents/Resources/updatebar"
 
   zap trash: [
     "~/.updatebar",
@@ -21,8 +22,8 @@ cask "updatebar-app" do
   ]
 
   caveats <<~EOS
-    For the updatebar CLI, install the formula:
-      brew install sonim1/tap/updatebar
+    The updatebar CLI is included with this app. For a CLI-only installation, use:
+      brew install --formula sonim1/tap/updatebar
 
     For the Open TUI menu item, install the terminal UI:
       brew install sonim1/tap/updatebar-tui

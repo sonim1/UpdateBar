@@ -8,18 +8,18 @@ UpdateBar can scan local package managers for untrusted recipe candidates and re
 
 ```bash
 brew tap sonim1/tap
-brew install sonim1/tap/updatebar
+brew install --cask sonim1/tap/updatebar-app
 ```
 
-Install the optional macOS menu bar app:
+The cask installs both the macOS menu bar app and the `updatebar` CLI. For a
+CLI-only installation, use the standalone formula:
 
 ```bash
-brew install --cask sonim1/tap/updatebar-app
+brew install --formula sonim1/tap/updatebar
 ```
 
 Releases from v0.3.0 are signed with a Developer ID certificate and notarized
 by Apple, so the app opens without Gatekeeper warnings.
-The `updatebar-app` cask installs the app only; install the formula for the `updatebar` CLI.
 All supported install paths are summarized in [docs/install.md](docs/install.md).
 
 ## Install From Source

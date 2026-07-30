@@ -66,8 +66,9 @@ brew tap sonim1/tap
 brew install --cask sonim1/tap/updatebar-app
 ```
 
-The `updatebar-app` cask installs only `UpdateBar.app`. Install the CLI separately
-with `brew install sonim1/tap/updatebar`.
+The `updatebar-app` cask installs `UpdateBar.app` and links the bundled
+`updatebar` CLI onto your Homebrew `PATH`. Use
+`brew install --formula sonim1/tap/updatebar` only for a CLI-only installation.
 
 For development without packaging:
 

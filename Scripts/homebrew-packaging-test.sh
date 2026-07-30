@@ -6,6 +6,7 @@ FORMULA="$ROOT/Packaging/homebrew/updatebar.rb"
 TUI_FORMULA="$ROOT/Packaging/homebrew/updatebar-tui.rb"
 CASK_DIR="$ROOT/Packaging/homebrew/Casks"
 FORMULA_TOKEN="$(basename "$FORMULA" .rb)"
+EXPECTED_CASK_BINARY='  binary "#{appdir}/UpdateBar.app/Contents/Resources/updatebar"'
 
 if [[ ! -f "$FORMULA" ]]; then
   echo "missing Homebrew formula: $FORMULA" >&2
@@ -42,8 +43,8 @@ for cask in "${casks[@]}"; do
     exit 1
   fi
 
-  if grep -Eq '^[[:space:]]*binary[[:space:]]' "$cask"; then
-    echo "app cask must not link the CLI binary: $cask" >&2
+  if ! grep -Fqx "$EXPECTED_CASK_BINARY" "$cask"; then
+    echo "app cask must link the bundled updatebar CLI: $cask" >&2
     exit 1
   fi
 

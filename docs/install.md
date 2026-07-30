@@ -1,9 +1,9 @@
 # Install
 
-UpdateBar supports three install paths: Homebrew CLI, GitHub release CLI binary,
-and optional macOS app bundle. Use Homebrew for normal macOS CLI installs, the
-GitHub release installer for one-command CLI installs without Homebrew, and the
-app bundle when you want the menu bar UI.
+UpdateBar supports three install paths: a Homebrew app cask with the bundled
+CLI, a standalone CLI, and a manual macOS app bundle. Use the cask for normal
+macOS installs, the formula or GitHub release installer for CLI-only installs,
+and the manual app bundle when installing without Homebrew.
 
 Published Homebrew formula and cask assets currently target Apple Silicon
 macOS (`arm64`). Intel Mac users should build from source until x86_64 or
@@ -41,7 +41,7 @@ To verify a specific binary instead of `updatebar` on `PATH`:
 UPDATEBAR_BIN=/full/path/to/updatebar Scripts/cli-smoke-test.sh
 ```
 
-## Homebrew CLI
+## Homebrew CLI Only
 
 ```bash
 brew tap sonim1/tap
@@ -49,7 +49,7 @@ brew install sonim1/tap/updatebar
 updatebar doctor
 ```
 
-Use this path for normal CLI usage.
+Use this path when you want the CLI without the menu bar app.
 
 Upgrade:
 
@@ -92,10 +92,21 @@ brew tap sonim1/tap
 brew install --cask sonim1/tap/updatebar-app
 ```
 
-The cask installs only `UpdateBar.app`. Install the CLI separately with:
+The cask installs `UpdateBar.app` and links its bundled CLI as `updatebar` on
+your Homebrew `PATH`:
 
 ```bash
-brew install sonim1/tap/updatebar
+updatebar --version
+```
+
+If both the standalone formula and app cask were installed before this combined
+package was available, switch the CLI link to the cask once:
+
+```bash
+brew uninstall --formula sonim1/tap/updatebar
+brew reinstall --cask sonim1/tap/updatebar-app
+hash -r
+updatebar --version
 ```
 
 The optional terminal UI used by the app's `Open TUI` menu item is a separate
@@ -136,13 +147,13 @@ Runtime logs are written to:
 
 ## Uninstall
 
-Remove the CLI:
+Remove the standalone formula CLI:
 
 ```bash
 brew uninstall sonim1/tap/updatebar
 ```
 
-Remove the app:
+Remove the app and its bundled CLI link:
 
 ```bash
 brew uninstall --cask sonim1/tap/updatebar-app
