@@ -294,17 +294,41 @@ final class CoreMenuBarServiceTests: XCTestCase {
     }
 }
 
-private final class RecordingCommandRunner: CommandRunning {
-    var results: [String: CommandResult]
-    private(set) var commands: [ShellCommand] = []
+private final class RecordingCommandRunner: CommandRunning, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedResults: [String: CommandResult]
+    private var recorded: [ShellCommand] = []
 
     init(results: [String: CommandResult]) {
-        self.results = results
+        self.storedResults = results
+    }
+
+    var results: [String: CommandResult] {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedResults
+        }
+        set {
+            lock.lock()
+            storedResults = newValue
+            lock.unlock()
+        }
+    }
+
+    var commands: [ShellCommand] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recorded
     }
 
     func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult {
-        commands.append(command)
-        guard let result = results[command.command] else {
+        lock.lock()
+        recorded.append(command)
+        let result = storedResults[command.command]
+        lock.unlock()
+
+        guard let result else {
             throw MissingCommandError(command.command)
         }
         return result
