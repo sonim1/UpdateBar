@@ -99,9 +99,15 @@ public func update(
     all: Bool,
     assumeYes: Bool,
     onEvent: ((UpdateProgressEvent) throws -> Void)? = nil,
-    shouldContinue: (() -> Bool)? = nil
+    stopSignal: UpdateStopSignal? = nil
 ) throws -> [UpdateResult]
 ```
+
+`UpdateStopSignal` is a lock-guarded `@unchecked Sendable` final class mirroring `CancellationToken`
+(`Sources/UpdateBarCore/Execution/ExecutionPolicy.swift:25`). A bare `() -> Bool` closure cannot
+cross to worker threads under the package's Swift 6 language mode, and neither `CommandRunning` nor
+`HTTPClient` is `Sendable`, so the stop signal has to be a shared reference type rather than a
+closure.
 
 Both new parameters default to `nil`, so every existing call site compiles unchanged.
 
@@ -120,7 +126,7 @@ Two distinct signals, deliberately not the same thing:
 | Stop (drain) | Menu bar "Stop After Current" | runs to completion | never started | `.updated` / `.failed` |
 | Hard cancel | CLI Ctrl-C (SIGINT) | process killed | never started | `.cancelled` |
 
-Stop is `shouldContinue`. Hard cancel is the existing `CancellationToken` threaded into
+Stop is `stopSignal`. Hard cancel is the existing `CancellationToken` threaded into
 `CommandExecutor`, handled by `SignalCancellationHandler`
 (`Sources/UpdateBarCLI/CLIExecutionSupport.swift:16`).
 
