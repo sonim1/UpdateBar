@@ -62,7 +62,7 @@ public struct MenuBarMenuItem: Equatable, Sendable {
 
 public enum MenuBarMenuItemAction: Equatable, Sendable {
     case menu(MenuBarMenuAction)
-    case cancelCurrentAction
+    case stopCurrentAction
     case update(id: String)
     case approve(id: String, field: String)
     case revoke(id: String, field: String)
@@ -99,7 +99,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
             appendDisabled("\(SecretRedactor.redact(activeActionTitle))...", to: &entries)
             appendAction(
                 "Cancel Current Action",
-                action: .cancelCurrentAction,
+                action: .stopCurrentAction,
                 to: &entries
             )
             appendSeparator(to: &entries)

@@ -239,7 +239,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertEqual(
             model.entries.actions,
             [
-                .cancelCurrentAction,
+                .stopCurrentAction,
                 .menu(.openTUI),
                 .menu(.overview),
                 .menu(.manageItems),

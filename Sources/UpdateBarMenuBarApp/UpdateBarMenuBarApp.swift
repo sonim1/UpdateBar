@@ -169,7 +169,7 @@
         }
 
         @objc private func cancelCurrentAction() {
-            guard actionCoordinator.cancelActive() != nil else { return }
+            guard actionCoordinator.stopActive() != nil else { return }
             rebuildMenu()
         }
 
@@ -531,7 +531,7 @@
                 to: menuItem
             )
             switch action {
-            case .menu, .cancelCurrentAction:
+            case .menu, .stopCurrentAction:
                 break
             case .update(let id):
                 menuItem.representedObject = ItemAction(id: id)
@@ -669,7 +669,7 @@
             switch action {
             case .menu(let menuAction):
                 return selector(for: menuAction)
-            case .cancelCurrentAction:
+            case .stopCurrentAction:
                 return #selector(cancelCurrentAction)
             case .update:
                 return #selector(updateSelected(_:))
