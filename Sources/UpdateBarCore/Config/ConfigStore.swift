@@ -95,6 +95,9 @@ public struct ConfigStore {
         [security]
         require_https_source = \(config.security.requireHTTPSSource)
 
+        [update]
+        max_concurrent = \(config.update.maxConcurrent)
+
         """
     }
 

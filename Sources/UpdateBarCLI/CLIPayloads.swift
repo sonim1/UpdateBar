@@ -98,10 +98,12 @@ struct ConfigValuePayload: Encodable {
 struct ConfigDumpPayload: Encodable {
     var refresh: Refresh
     var security: Security
+    var update: Update
 
     init(config: Config) {
         refresh = Refresh(interval: config.refresh.interval.description)
         security = Security(requireHTTPSSource: config.security.requireHTTPSSource)
+        update = Update(maxConcurrent: config.update.maxConcurrent)
     }
 
     struct Refresh: Encodable {
@@ -113,6 +115,14 @@ struct ConfigDumpPayload: Encodable {
 
         enum CodingKeys: String, CodingKey {
             case requireHTTPSSource = "require_https_source"
+        }
+    }
+
+    struct Update: Encodable {
+        var maxConcurrent: Int
+
+        enum CodingKeys: String, CodingKey {
+            case maxConcurrent = "max_concurrent"
         }
     }
 }

@@ -3,15 +3,18 @@ import Foundation
 public struct Config: Equatable, Sendable {
     public var refresh: RefreshConfig
     public var security: SecurityConfig
+    public var update: UpdateConfig
 
     public static let knownKeys = [
         "refresh.interval",
         "security.require_https_source",
+        "update.max_concurrent",
     ]
 
     public static let `default` = Config(
         refresh: RefreshConfig(interval: Duration(hours: 6)),
-        security: SecurityConfig(requireHTTPSSource: true)
+        security: SecurityConfig(requireHTTPSSource: true),
+        update: UpdateConfig(maxConcurrent: 3)
     )
 
     public mutating func set(_ key: String, value: String) throws {
@@ -24,6 +27,8 @@ public struct Config: Equatable, Sendable {
             }
         case "security.require_https_source":
             security.requireHTTPSSource = try parseBool(key: key, value: value)
+        case "update.max_concurrent":
+            update.maxConcurrent = try parseConcurrency(key: key, value: value)
         default:
             throw ConfigError.unknownKey(key)
         }
@@ -33,6 +38,7 @@ public struct Config: Equatable, Sendable {
         switch key {
         case "refresh.interval": refresh.interval.description
         case "security.require_https_source": String(security.requireHTTPSSource)
+        case "update.max_concurrent": String(update.maxConcurrent)
         default: nil
         }
     }
@@ -44,6 +50,13 @@ public struct Config: Equatable, Sendable {
         default: throw ConfigError.invalidValue(key: key, value: value)
         }
     }
+
+    private func parseConcurrency(key: String, value: String) throws -> Int {
+        guard let parsed = Int(value), UpdateConfig.validRange.contains(parsed) else {
+            throw ConfigError.invalidValue(key: key, value: value)
+        }
+        return parsed
+    }
 }
 
 public struct RefreshConfig: Equatable, Sendable {
@@ -52,6 +65,14 @@ public struct RefreshConfig: Equatable, Sendable {
 
 public struct SecurityConfig: Equatable, Sendable {
     public var requireHTTPSSource: Bool
+}
+
+public struct UpdateConfig: Equatable, Sendable {
+    /// How many recipes may update at once. Upper bound is deliberately small:
+    /// each slot is a real package-manager subprocess.
+    public static let validRange = 1...8
+
+    public var maxConcurrent: Int
 }
 
 public enum ConfigError: Error, CustomStringConvertible, Equatable, Sendable {
