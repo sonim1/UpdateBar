@@ -258,6 +258,23 @@ final class UpdateLaneTests: XCTestCase {
         XCTAssertEqual(UpdateLane.key(forCommand: "nohup nice cargo install-update -a"), "cargo")
     }
 
+    func testBooleanWrapperFlagsDoNotSwallowTheToolName() {
+        XCTAssertEqual(UpdateLane.key(forCommand: "sudo -n brew upgrade x"), "brew")
+        XCTAssertEqual(UpdateLane.key(forCommand: "sudo -E brew upgrade x"), "brew")
+        XCTAssertEqual(UpdateLane.key(forCommand: "sudo -S brew upgrade x"), "brew")
+        XCTAssertEqual(UpdateLane.key(forCommand: "env -i brew upgrade x"), "brew")
+        XCTAssertEqual(
+            UpdateLane.key(forCommand: "sudo --non-interactive brew upgrade x"), "brew")
+        XCTAssertEqual(UpdateLane.key(forCommand: "nice -n 10 brew upgrade x"), "brew")
+        XCTAssertEqual(UpdateLane.key(forCommand: "exec -a foo brew upgrade x"), "brew")
+    }
+
+    func testValueTakingWrapperFlagsSkipTheirArgument() {
+        XCTAssertEqual(UpdateLane.key(forCommand: "sudo -u kendrick -n brew upgrade x"), "brew")
+        // `env -S` genuinely takes a string, unlike `sudo -S`.
+        XCTAssertEqual(UpdateLane.key(forCommand: "env -S brew upgrade x"), "upgrade")
+    }
+
     func testSkipsLeadingEnvironmentAssignments() {
         XCTAssertEqual(UpdateLane.key(forCommand: "FOO=1 npm install -g y"), "npm")
         XCTAssertEqual(UpdateLane.key(forCommand: "A=1 B=2 env brew upgrade x"), "brew")
@@ -301,16 +318,54 @@ enum UpdateLane {
         "sudo", "env", "command", "nice", "nohup", "time", "exec",
     ]
 
-    /// Returns `nil` when no tool name can be read, in which case the caller
-    /// should give the recipe a private lane so it runs unconstrained.
+    /// Flags that consume the following token, scoped to the wrapper that owns
+    /// them. A flat set cannot work: `sudo -S` is boolean while `env -S` takes
+    /// a string, and guessing from token shape swallows the tool name whenever
+    /// a boolean flag precedes it (`sudo -n brew upgrade x` -> "upgrade").
+    private static let wrapperValueFlags: [String: Set<String>] = [
+        "sudo": ["-u", "-g", "-h", "-p", "-r", "-t", "-C", "-D", "-R", "-T", "-U"],
+        "env": ["-u", "-S"],
+        "nice": ["-n"],
+        "time": ["-o", "-f"],
+        "exec": ["-a"],
+    ]
+
+    /// Returns `nil` when no tool name can be read.
     static func key(forCommand command: String) -> String? {
-        for token in command.split(whereSeparator: { $0.isWhitespace }) {
-            let text = String(token)
-            if isEnvironmentAssignment(text) { continue }
-            if text.hasPrefix("-") { continue }
+        let tokens = command.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        var index = 0
+        var currentWrapper: String?
+
+        while index < tokens.count {
+            let text = tokens[index]
+
+            if isEnvironmentAssignment(text) {
+                index += 1
+                continue
+            }
+
+            if text.hasPrefix("-") {
+                if let currentWrapper,
+                    wrapperValueFlags[currentWrapper]?.contains(text) == true,
+                    index + 1 < tokens.count
+                {
+                    index += 2
+                } else {
+                    index += 1
+                }
+                continue
+            }
+
             let name = URL(fileURLWithPath: text).lastPathComponent.lowercased()
-            if name.isEmpty || name == "/" { continue }
-            if wrappers.contains(name) { continue }
+            if name.isEmpty || name == "/" {
+                index += 1
+                continue
+            }
+            if wrappers.contains(name) {
+                currentWrapper = name
+                index += 1
+                continue
+            }
             return name
         }
         return nil
