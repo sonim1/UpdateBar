@@ -850,7 +850,11 @@ final class MenuBarMenuModelTests: XCTestCase {
         progress.inFlightIDs = ["alpha"]
 
         let model = MenuBarMenuModelBuilder().makeMenu(
-            state: stateWithOutdated(ids: ["alpha", "bravo"]),
+            state: stateWithOutdated(
+                ids: ["alpha", "bravo"],
+                errorIDs: ["broken"],
+                installedIDs: ["ready"]
+            ),
             approvalStatuses: [:],
             activeActionTitle: "Updating approved items",
             activeItemProgress: progress
@@ -865,6 +869,12 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertTrue(titles.contains { $0.contains("alpha") && $0.hasSuffix("— updating…") })
         XCTAssertTrue(titles.contains { $0.contains("bravo") && $0.hasSuffix("— queued") })
         XCTAssertTrue(titles.contains("Quit"), "footer actions must stay visible")
+        XCTAssertTrue(
+            model.entries.labels.contains("Errors (1)"),
+            "the Errors section must still render during an active action")
+        XCTAssertTrue(
+            model.entries.labels.contains("Installed (1)"),
+            "the Installed section must still render during an active action")
     }
 
     func testActiveActionDisablesItemAndRefreshRowsButNotFooter() {
@@ -930,6 +940,47 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertTrue(titles.contains { $0.contains("alpha") && $0.hasSuffix("— done") })
     }
 
+    func testActiveActionDisablesApprovalSubmenuRows() {
+        let approvals = [
+            CommandApprovalStatus(
+                field: "update.cmd", approved: false, fingerprint: "abc",
+                command: "brew upgrade alpha", cwd: nil
+            )
+        ]
+        let state = MenuBarState(
+            title: "Needs attention",
+            badgeValue: "!",
+            outdatedItems: [],
+            approvalItems: [
+                statusItem(id: "alpha", name: "alpha", status: .untrusted)
+            ],
+            errorItems: [],
+            okItems: []
+        )
+
+        var progress = MenuBarItemProgress()
+        progress.plannedIDs = ["alpha"]
+        progress.inFlightIDs = ["alpha"]
+
+        let busy = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: ["alpha": approvals],
+            activeActionTitle: "Updating approved items",
+            activeItemProgress: progress
+        )
+        let idle = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: ["alpha": approvals]
+        )
+
+        // Idle: the row is actionable. Busy: same row, no action. Checking
+        // both directions guards against a regression that unconditionally
+        // disables the row (which would make the busy-only assertion pass
+        // for the wrong reason).
+        XCTAssertNotNil(idle.entries.submenu(titled: "alpha")?.items.first?.action)
+        XCTAssertNil(busy.entries.submenu(titled: "alpha")?.items.first?.action)
+    }
+
     private func statusItem(
         id: String,
         name: String,
@@ -951,7 +1002,11 @@ final class MenuBarMenuModelTests: XCTestCase {
         )
     }
 
-    private func stateWithOutdated(ids: [String]) -> MenuBarState {
+    private func stateWithOutdated(
+        ids: [String],
+        errorIDs: [String] = [],
+        installedIDs: [String] = []
+    ) -> MenuBarState {
         MenuBarState(
             title: "\(ids.count) update(s) available",
             badgeValue: String(ids.count),
@@ -959,8 +1014,12 @@ final class MenuBarMenuModelTests: XCTestCase {
                 statusItem(id: $0, name: $0, current: "1.0.0", latest: "1.1.0", status: .outdated)
             },
             approvalItems: [],
-            errorItems: [],
-            okItems: []
+            errorItems: errorIDs.map {
+                statusItem(id: $0, name: $0, status: .error, error: "boom")
+            },
+            okItems: installedIDs.map {
+                statusItem(id: $0, name: $0, current: "1.0.0", status: .ok)
+            }
         )
     }
 }
