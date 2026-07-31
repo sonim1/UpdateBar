@@ -172,8 +172,26 @@ public struct UpdateConfig: Equatable, Sendable {
   fall back to the default; the parser is already tolerant
   (`Sources/UpdateBarCore/Config/ConfigStore.swift:50`).
 
-**Approved stdout change:** `updatebar config get --json` gains an `update` object. Additive, not
-breaking, but approved explicitly per the stable-stdout rule on 2026-07-30.
+**Approved stdout changes.** Both approved explicitly per the stable-stdout rule, the first on
+2026-07-30 and the second on 2026-07-31:
+
+1. `updatebar config get --json` gains an `update` object.
+2. The plain-text `updatebar config get` gains an `[update]` section. `ConfigStore.render` backs
+   both the on-disk file and the display path, so writing the new key to disk necessarily shows it
+   on screen. Keeping the two in step is the intended behavior; decoupling them was considered and
+   rejected as needless machinery that would hide `max_concurrent` from the most obvious way to
+   look at config.
+
+Both are additive: no existing key, value format, or ordering changes.
+
+**Known forward-compatibility risk (accepted).** A config file containing `[update]` throws
+`ConfigError.corruptConfig` on a pre-0.5 binary, because `ConfigStore.parse`
+(`Sources/UpdateBarCore/Config/ConfigStore.swift:50`) routes unknown keys through `Config.set`,
+which throws `unknownKey`. Its skip-list only covers keys deprecated in the other direction, and
+cannot list a key that did not exist when the older binary was built. So upgrade → any `config set`
+(which rewrites the file) → downgrade produces a hard config error. This is inherent to the
+parser's fail-closed design and predates this change; recorded here rather than fixed, since the
+fix belongs in the parser and is a separate decision.
 
 ### 8. CLI
 
