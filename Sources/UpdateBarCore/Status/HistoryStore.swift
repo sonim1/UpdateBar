@@ -51,10 +51,12 @@ public struct HistoryEvent: Codable, Equatable {
 /// Reads skip malformed lines so a torn write never poisons the file.
 public struct HistoryStore {
     private let fileURL: URL
+    private let lockFileURL: URL
     private let maxBytes: Int
 
     public init(paths: AppPaths = AppPaths(), maxBytes: Int = 512 * 1024) {
         self.fileURL = paths.historyFile
+        self.lockFileURL = paths.homeDirectory.appendingPathComponent("history.lock")
         self.maxBytes = maxBytes
     }
 
@@ -69,12 +71,17 @@ public struct HistoryStore {
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        let existing = (try? Data(contentsOf: fileURL)) ?? Data()
-        var combined = existing + line
-        if combined.count > maxBytes {
-            combined = Self.trimmedToWholeLines(combined.suffix(maxBytes))
+        // The lock must span the whole read-modify-write: parallel updates
+        // append concurrently, and an unlocked rewrite drops the other
+        // writer's event.
+        try FileLock(url: lockFileURL).withExclusiveLock {
+            let existing = (try? Data(contentsOf: fileURL)) ?? Data()
+            var combined = existing + line
+            if combined.count > maxBytes {
+                combined = Self.trimmedToWholeLines(combined.suffix(maxBytes))
+            }
+            try combined.write(to: fileURL, options: .atomic)
         }
-        try combined.write(to: fileURL, options: .atomic)
     }
 
     public func events(since: Date? = nil) throws -> [HistoryEvent] {
