@@ -169,7 +169,7 @@ final class MenuBarMenuModelTests: XCTestCase {
             lastActionNotice: "Finished: Update sk-or-v1-secret-value"
         )
 
-        XCTAssertTrue(activeModel.entries.labels.contains("Update [REDACTED]..."))
+        XCTAssertTrue(activeModel.entries.labels.contains("Update [REDACTED]… (0/0)"))
         XCTAssertTrue(finishedModel.entries.labels.contains("Finished: Update [REDACTED]"))
         XCTAssertFalse(activeModel.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
         XCTAssertFalse(
@@ -221,11 +221,27 @@ final class MenuBarMenuModelTests: XCTestCase {
             activeActionTitle: "Updating Old Tool"
         )
 
+        // The menu no longer collapses: the outdated-items and approvals
+        // sections stay in the menu (previously wiped out entirely by the
+        // early-return this task removes), and the footer remains enabled.
         XCTAssertEqual(
             model.entries.labels,
             [
-                "Updating Old Tool...",
-                "Cancel Current Action",
+                "Updating Old Tool… (0/0)",
+                "Stop After Current",
+                "---",
+                "Needs attention",
+                "1 needs attention",
+                "---",
+                "Check Now",
+                "Refresh Status",
+                "Update All",
+                "---",
+                "Updates (1)",
+                "Old Tool 1.0.0 -> 1.1.0",
+                "---",
+                "Command Approval Required (1)",
+                "Fresh Tool",
                 "---",
                 "Open TUI",
                 "Dashboard",
@@ -249,6 +265,14 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.checkForUpdates),
                 .menu(.quit),
             ])
+
+        // The rows that would start a second concurrent action are disabled
+        // (action: nil) while busy, not hidden.
+        XCTAssertNil(model.entries.item(titled: "Check Now")?.action)
+        XCTAssertNil(model.entries.item(titled: "Refresh Status")?.action)
+        XCTAssertNil(model.entries.item(titled: "Update All")?.action)
+        XCTAssertNil(model.entries.item(titled: "Old Tool 1.0.0 -> 1.1.0")?.action)
+        XCTAssertNil(model.entries.item(titled: "Fresh Tool")?.action)
     }
 
     func testBuildsActionableSectionsForUpdatesApprovalsErrorsAndInstalledItems() {
@@ -820,6 +844,92 @@ final class MenuBarMenuModelTests: XCTestCase {
         )
     }
 
+    func testActiveActionKeepsItemRowsAndFooterVisible() {
+        var progress = MenuBarItemProgress()
+        progress.plannedIDs = ["alpha", "bravo"]
+        progress.inFlightIDs = ["alpha"]
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: stateWithOutdated(ids: ["alpha", "bravo"]),
+            approvalStatuses: [:],
+            activeActionTitle: "Updating approved items",
+            activeItemProgress: progress
+        )
+
+        let titles = model.entries.compactMap { entry -> String? in
+            if case .item(let item) = entry { return item.title }
+            return nil
+        }
+        XCTAssertTrue(titles.contains { $0.contains("Updating approved items… (0/2)") })
+        XCTAssertTrue(titles.contains("Stop After Current"))
+        XCTAssertTrue(titles.contains { $0.contains("alpha") && $0.hasSuffix("— updating…") })
+        XCTAssertTrue(titles.contains { $0.contains("bravo") && $0.hasSuffix("— queued") })
+        XCTAssertTrue(titles.contains("Quit"), "footer actions must stay visible")
+    }
+
+    func testActiveActionDisablesItemAndRefreshRowsButNotFooter() {
+        var progress = MenuBarItemProgress()
+        progress.plannedIDs = ["alpha"]
+        progress.inFlightIDs = ["alpha"]
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: stateWithOutdated(ids: ["alpha"]),
+            approvalStatuses: [:],
+            activeActionTitle: "Updating approved items",
+            activeItemProgress: progress
+        )
+
+        var actionsByTitle: [String: MenuBarMenuItemAction?] = [:]
+        for entry in model.entries {
+            if case .item(let item) = entry { actionsByTitle[item.title] = item.action }
+        }
+        XCTAssertNil(actionsByTitle["Check Now"] ?? nil)
+        XCTAssertNil(actionsByTitle["Refresh Status"] ?? nil)
+        XCTAssertNotNil(actionsByTitle["Quit"] ?? nil)
+        XCTAssertEqual(
+            actionsByTitle["Stop After Current"] ?? nil, .stopCurrentAction)
+    }
+
+    func testStopRequestedShowsStoppingAndDisablesTheStopRow() {
+        var progress = MenuBarItemProgress()
+        progress.plannedIDs = ["alpha"]
+        progress.inFlightIDs = ["alpha"]
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: stateWithOutdated(ids: ["alpha"]),
+            approvalStatuses: [:],
+            activeActionTitle: "Updating approved items",
+            activeItemProgress: progress,
+            isStopRequested: true
+        )
+
+        var stopRow: MenuBarMenuItem?
+        for entry in model.entries {
+            if case .item(let item) = entry, item.title.hasPrefix("Stopping") { stopRow = item }
+        }
+        XCTAssertEqual(stopRow?.title, "Stopping after current…")
+        XCTAssertNil(stopRow?.action)
+    }
+
+    func testFinishedItemsAreMarkedDone() {
+        var progress = MenuBarItemProgress()
+        progress.plannedIDs = ["alpha"]
+        progress.finishedIDs = ["alpha"]
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: stateWithOutdated(ids: ["alpha"]),
+            approvalStatuses: [:],
+            activeActionTitle: "Updating approved items",
+            activeItemProgress: progress
+        )
+
+        let titles = model.entries.compactMap { entry -> String? in
+            if case .item(let item) = entry { return item.title }
+            return nil
+        }
+        XCTAssertTrue(titles.contains { $0.contains("alpha") && $0.hasSuffix("— done") })
+    }
+
     private func statusItem(
         id: String,
         name: String,
@@ -838,6 +948,19 @@ final class MenuBarMenuModelTests: XCTestCase {
             pinned: false,
             lastChecked: nil,
             error: error
+        )
+    }
+
+    private func stateWithOutdated(ids: [String]) -> MenuBarState {
+        MenuBarState(
+            title: "\(ids.count) update(s) available",
+            badgeValue: String(ids.count),
+            outdatedItems: ids.map {
+                statusItem(id: $0, name: $0, current: "1.0.0", latest: "1.1.0", status: .outdated)
+            },
+            approvalItems: [],
+            errorItems: [],
+            okItems: []
         )
     }
 }

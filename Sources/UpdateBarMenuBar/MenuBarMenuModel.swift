@@ -89,26 +89,33 @@ public struct MenuBarMenuModelBuilder: Sendable {
         state: MenuBarState,
         approvalStatuses: [String: [CommandApprovalStatus]],
         activeActionTitle: String? = nil,
+        activeItemProgress: MenuBarItemProgress? = nil,
+        isStopRequested: Bool = false,
         lastActionNotice: String? = nil,
         installedTerminals: [TUITerminal] = [],
         selectedTerminalID: String? = nil
     ) -> MenuBarMenuModel {
         var entries: [MenuBarMenuEntry] = []
+        let progress =
+            activeActionTitle == nil ? nil : (activeItemProgress ?? MenuBarItemProgress())
 
         if let activeActionTitle {
-            appendDisabled("\(SecretRedactor.redact(activeActionTitle))...", to: &entries)
-            appendAction(
-                "Cancel Current Action",
-                action: .stopCurrentAction,
+            let counted = progress.map { " (\($0.completedCount)/\($0.totalCount))" } ?? ""
+            appendDisabled(
+                "\(SecretRedactor.redact(activeActionTitle))…\(counted)",
                 to: &entries
             )
+            if isStopRequested {
+                appendDisabled("Stopping after current…", to: &entries)
+            } else {
+                appendAction(
+                    "Stop After Current",
+                    action: .stopCurrentAction,
+                    toolTip: "Lets the running command finish and starts nothing new.",
+                    to: &entries
+                )
+            }
             appendSeparator(to: &entries)
-            appendFooterActions(
-                installedTerminals: installedTerminals,
-                selectedTerminalID: selectedTerminalID,
-                to: &entries
-            )
-            return MenuBarMenuModel(entries: entries)
         }
 
         if let lastActionNotice {
@@ -121,11 +128,23 @@ public struct MenuBarMenuModelBuilder: Sendable {
             appendDisabled(needsAttentionSummary, to: &entries)
         }
         appendSeparator(to: &entries)
-        appendAction(MenuBarMenuAction.checkNow.title, action: .menu(.checkNow), to: &entries)
-        appendAction(
-            MenuBarMenuAction.refreshStatus.title, action: .menu(.refreshStatus), to: &entries)
+
+        let busyToolTip = "Another action is running."
+        if progress == nil {
+            appendAction(MenuBarMenuAction.checkNow.title, action: .menu(.checkNow), to: &entries)
+            appendAction(
+                MenuBarMenuAction.refreshStatus.title, action: .menu(.refreshStatus), to: &entries)
+        } else {
+            appendDisabled(
+                MenuBarMenuAction.checkNow.title, toolTip: busyToolTip, to: &entries)
+            appendDisabled(
+                MenuBarMenuAction.refreshStatus.title, toolTip: busyToolTip, to: &entries)
+        }
+
         let updateAllAction = MenuBarMenuAction.updateAllApprovedOutdated
-        if state.outdatedItems.isEmpty {
+        if progress != nil {
+            appendDisabled(updateAllAction.title, toolTip: busyToolTip, to: &entries)
+        } else if state.outdatedItems.isEmpty {
             appendDisabled(updateAllAction.title, toolTip: "No updates available.", to: &entries)
         } else {
             appendAction(
@@ -137,10 +156,11 @@ public struct MenuBarMenuModelBuilder: Sendable {
         }
         appendSeparator(to: &entries)
 
-        appendUpdates(state.outdatedItems, to: &entries)
+        appendUpdates(state.outdatedItems, progress: progress, to: &entries)
         appendApprovals(
             state.approvalItems,
             approvalStatuses: approvalStatuses,
+            isBusy: progress != nil,
             to: &entries
         )
         appendErrors(state.errorItems, to: &entries)
@@ -206,22 +226,44 @@ public struct MenuBarMenuModelBuilder: Sendable {
         return MenuBarMenuModel(entries: entries)
     }
 
-    private func appendUpdates(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
+    private func appendUpdates(
+        _ items: [StatusItem],
+        progress: MenuBarItemProgress?,
+        to entries: inout [MenuBarMenuEntry]
+    ) {
         appendSection("Updates (\(items.count))", items: items, to: &entries) { item in
             let name = SecretRedactor.redact(item.name)
             let current = item.current.map(SecretRedactor.redact) ?? "?"
             let latest = item.latest.map(SecretRedactor.redact) ?? "?"
-            return MenuBarMenuItem(
-                title: "\(name) \(current) -> \(latest)",
-                action: .update(id: item.id),
-                toolTip: "Updates \(SecretRedactor.redact(item.id)) immediately."
-            )
+            let base = "\(name) \(current) -> \(latest)"
+
+            guard let progress else {
+                return MenuBarMenuItem(
+                    title: base,
+                    action: .update(id: item.id),
+                    toolTip: "Updates \(SecretRedactor.redact(item.id)) immediately."
+                )
+            }
+            if progress.inFlightIDs.contains(item.id) {
+                return MenuBarMenuItem(
+                    title: "\(base) — updating…",
+                    systemSymbolName: "arrow.triangle.2.circlepath"
+                )
+            }
+            if progress.finishedIDs.contains(item.id) {
+                return MenuBarMenuItem(title: "\(base) — done")
+            }
+            if progress.plannedIDs.contains(item.id) {
+                return MenuBarMenuItem(title: "\(base) — queued")
+            }
+            return MenuBarMenuItem(title: base, toolTip: "Another action is running.")
         }
     }
 
     private func appendApprovals(
         _ items: [StatusItem],
         approvalStatuses: [String: [CommandApprovalStatus]],
+        isBusy: Bool,
         to entries: inout [MenuBarMenuEntry]
     ) {
         guard !items.isEmpty else { return }
@@ -245,7 +287,9 @@ public struct MenuBarMenuModelBuilder: Sendable {
                 .submenu(
                     MenuBarSubmenu(
                         title: SecretRedactor.redact(item.name),
-                        items: approvals.map { approvalMenuItem(for: item, approval: $0) },
+                        items: approvals.map {
+                            approvalMenuItem(for: item, approval: $0, isBusy: isBusy)
+                        },
                         systemSymbolName: systemSymbolName
                     )
                 )
@@ -260,7 +304,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
 
     private func approvalMenuItem(
         for item: StatusItem,
-        approval: CommandApprovalStatus
+        approval: CommandApprovalStatus,
+        isBusy: Bool
     ) -> MenuBarMenuItem {
         let verb = approval.approved ? "Revoke" : "Approve"
         let action: MenuBarMenuItemAction =
@@ -273,7 +318,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
         )
         return MenuBarMenuItem(
             title: "\(verb) \(approvalFieldTitle(approval.field))",
-            action: action,
+            action: isBusy ? nil : action,
             toolTip: confirmation.toolTip,
             confirmation: confirmation,
             systemSymbolName: approval.approved ? "checkmark.circle" : "circle"
