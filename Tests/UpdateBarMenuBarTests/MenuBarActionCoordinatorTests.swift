@@ -59,6 +59,26 @@ final class MenuBarActionCoordinatorTests: XCTestCase {
         XCTAssertEqual(action.progress.completedCount, 1)
     }
 
+    func testProgressSkipsInFlightForItemsThatStartAndFinishInTheSameEvent() {
+        // UpdateRunner's Phase 1 (classification) emits itemStarted
+        // immediately followed by itemFinished for skipped/pinned/disabled
+        // items -- no dwell time in flight. The menu must never show these
+        // as "updating" even for an instant.
+        let coordinator = MenuBarActionCoordinator()
+        guard let action = coordinator.begin("Run Updates") else {
+            XCTFail("expected action to start")
+            return
+        }
+
+        action.apply(.planned([planItem(id: "skipped")]))
+        action.apply(.itemStarted(id: "skipped", name: "skipped"))
+        action.apply(.itemFinished(updateResult(id: "skipped")))
+
+        XCTAssertEqual(action.progress.finishedIDs, ["skipped"])
+        XCTAssertFalse(action.progress.inFlightIDs.contains("skipped"))
+        XCTAssertTrue(action.progress.inFlightIDs.isEmpty)
+    }
+
     private func planItem(id: String) -> UpdatePlanItem {
         UpdatePlanItem(
             id: id,

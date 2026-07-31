@@ -229,7 +229,7 @@ public struct UpdateRunner: @unchecked Sendable {
     }
 }
 
-public struct UpdateResult: Codable, Equatable {
+public struct UpdateResult: Codable, Equatable, Sendable {
     public var id: String
     public var name: String
     public var outcome: UpdateOutcome
@@ -349,7 +349,7 @@ public struct UpdateSummary: Codable, Equatable {
 
 }
 
-public enum UpdateOutcome: String, Codable, Equatable {
+public enum UpdateOutcome: String, Codable, Equatable, Sendable {
     case updated
     case failed
     case skippedPinned = "skipped_pinned"

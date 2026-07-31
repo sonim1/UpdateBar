@@ -138,7 +138,15 @@ public struct UpdateBarCLIClient: Sendable {
         try ensureSuccess(result, allowedExitCodes: [0, 10])
     }
 
-    public func update(id: String, cancellationToken: CancellationToken? = nil) throws {
+    /// The subprocess adapter has no progress channel; `onEvent` and
+    /// `stopSignal` are accepted for protocol conformance and ignored. This
+    /// adapter is opt-in via UPDATEBAR_MENUBAR_ADAPTER=cli.
+    public func update(
+        id: String,
+        cancellationToken: CancellationToken? = nil,
+        onEvent: ((UpdateProgressEvent) throws -> Void)? = nil,
+        stopSignal: UpdateStopSignal? = nil
+    ) throws {
         let result = try runner.run(
             executablePath: executablePath,
             arguments: ["update", id, "--yes", "--json"],
@@ -147,7 +155,14 @@ public struct UpdateBarCLIClient: Sendable {
         try ensureSuccess(result, allowedExitCodes: [0, 2, 3])
     }
 
-    public func updateAllApproved(cancellationToken: CancellationToken? = nil) throws {
+    /// The subprocess adapter has no progress channel; `onEvent` and
+    /// `stopSignal` are accepted for protocol conformance and ignored. This
+    /// adapter is opt-in via UPDATEBAR_MENUBAR_ADAPTER=cli.
+    public func updateAllApproved(
+        cancellationToken: CancellationToken? = nil,
+        onEvent: ((UpdateProgressEvent) throws -> Void)? = nil,
+        stopSignal: UpdateStopSignal? = nil
+    ) throws {
         let result = try runner.run(
             executablePath: executablePath,
             arguments: ["update", "--yes", "--json"],

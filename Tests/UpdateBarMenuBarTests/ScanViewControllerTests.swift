@@ -309,10 +309,19 @@
         func loadConfig() throws -> Config { fatalError("unused") }
         func saveConfig(_ config: Config) throws { fatalError("unused") }
         func checkNow(cancellationToken: CancellationToken?) throws { fatalError("unused") }
-        func update(id: String, cancellationToken: CancellationToken?) throws {
+        func update(
+            id: String,
+            cancellationToken: CancellationToken?,
+            onEvent: ((UpdateProgressEvent) throws -> Void)?,
+            stopSignal: UpdateStopSignal?
+        ) throws {
             fatalError("unused")
         }
-        func updateAllApproved(cancellationToken: CancellationToken?) throws {
+        func updateAllApproved(
+            cancellationToken: CancellationToken?,
+            onEvent: ((UpdateProgressEvent) throws -> Void)?,
+            stopSignal: UpdateStopSignal?
+        ) throws {
             fatalError("unused")
         }
         func approvals(id: String) throws -> [CommandApprovalStatus] { fatalError("unused") }

@@ -258,6 +258,51 @@ final class CoreMenuBarServiceTests: XCTestCase {
         XCTAssertEqual(enabled.items.first?.status, .outdated)
     }
 
+    func testUpdateAllApprovedForwardsProgressEvents() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(id: "tool", updateCommand: "tool update", currentCommand: "tool current")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": ItemState(
+                        current: "1.0.0",
+                        latest: "1.1.0",
+                        status: .outdated,
+                        lastChecked: now,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                ]))
+        let commands = RecordingCommandRunner(results: [
+            "tool update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
+            "tool current": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
+            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
+        ])
+        let service = CoreMenuBarService(paths: paths, commandRunner: commands, now: { self.now })
+
+        var startedIDs: [String] = []
+        var finishedIDs: [String] = []
+        try service.updateAllApproved(
+            cancellationToken: nil,
+            onEvent: { event in
+                switch event {
+                case .planned: break
+                case .itemStarted(let id, _): startedIDs.append(id)
+                case .itemFinished(let result): finishedIDs.append(result.id)
+                }
+            },
+            stopSignal: nil
+        )
+
+        XCTAssertEqual(startedIDs, ["tool"])
+        XCTAssertEqual(finishedIDs, ["tool"])
+    }
+
     private func manifest(items: [Recipe]) -> Manifest {
         Manifest(
             schemaVersion: 1,
