@@ -13,8 +13,9 @@ enum UpdateLane {
         "sudo", "env", "command", "nice", "nohup", "time", "exec",
     ]
 
-    private static let valueTakingFlags: Set<String> = [
-        "-u", "-g", "-h", "-p", "-r", "-t", "-C", "-D", "-R", "-T", "-U", "-S",
+    private static let wrapperValueFlags: [String: Set<String>] = [
+        "sudo": ["-u", "-g", "-h", "-p", "-r", "-t", "-C", "-D", "-R", "-T", "-U"],
+        "env": ["-u", "-S"],
     ]
 
     /// Returns `nil` when no tool name can be read, in which case the caller
@@ -22,6 +23,7 @@ enum UpdateLane {
     static func key(forCommand command: String) -> String? {
         let tokens = command.split(whereSeparator: { $0.isWhitespace }).map(String.init)
         var i = 0
+        var currentWrapper: String?
 
         while i < tokens.count {
             let text = tokens[i]
@@ -32,8 +34,12 @@ enum UpdateLane {
             }
 
             if text.hasPrefix("-") {
-                // Only skip the next token if this flag is known to take a value.
-                if valueTakingFlags.contains(text) && i + 1 < tokens.count {
+                // Only skip the next token if the current wrapper has this flag in its set.
+                if let wrapper = currentWrapper,
+                    let flagsForWrapper = wrapperValueFlags[wrapper],
+                    flagsForWrapper.contains(text),
+                    i + 1 < tokens.count
+                {
                     i += 2  // Skip the flag and its argument
                     continue
                 }
@@ -48,6 +54,7 @@ enum UpdateLane {
             }
 
             if wrappers.contains(name) {
+                currentWrapper = name
                 i += 1
                 continue
             }
