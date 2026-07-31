@@ -16,6 +16,9 @@ enum UpdateLane {
     private static let wrapperValueFlags: [String: Set<String>] = [
         "sudo": ["-u", "-g", "-h", "-p", "-r", "-t", "-C", "-D", "-R", "-T", "-U"],
         "env": ["-u", "-S"],
+        "nice": ["-n"],
+        "time": ["-o", "-f"],
+        "exec": ["-a"],
     ]
 
     /// Returns `nil` when no tool name can be read, in which case the caller

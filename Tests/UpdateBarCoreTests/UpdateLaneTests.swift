@@ -43,6 +43,8 @@ final class UpdateLaneTests: XCTestCase {
         XCTAssertEqual(UpdateLane.key(forCommand: "sudo --non-interactive brew upgrade x"), "brew")
         XCTAssertEqual(UpdateLane.key(forCommand: "sudo -S brew upgrade x"), "brew")
         XCTAssertEqual(UpdateLane.key(forCommand: "env -S brew upgrade x"), "upgrade")
+        XCTAssertEqual(UpdateLane.key(forCommand: "nice -n 10 brew upgrade x"), "brew")
+        XCTAssertEqual(UpdateLane.key(forCommand: "exec -a foo brew upgrade x"), "brew")
     }
 
     func testValueTakingWrapperFlagsSkipTheirArgument() {
