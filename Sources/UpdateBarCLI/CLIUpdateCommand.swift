@@ -24,10 +24,25 @@ struct UpdateCommand: ParsableCommand {
     @Flag(name: .long, help: "Print newline-delimited JSON progress events.")
     var jsonStream = false
 
+    @Option(
+        name: .long,
+        help: "How many items to update at once. Overrides update.max_concurrent for this run."
+    )
+    var jobs: Int?
+
     func run() throws {
         try ensureJSONModeCompatibility(json: json, jsonStream: jsonStream)
 
-        let config = try ConfigStore().loadExistingOrDefault()
+        var config = try ConfigStore().loadExistingOrDefault()
+        if let jobs {
+            guard UpdateConfig.validRange.contains(jobs) else {
+                throw ValidationError(
+                    "--jobs must be between \(UpdateConfig.validRange.lowerBound) and "
+                        + "\(UpdateConfig.validRange.upperBound)"
+                )
+            }
+            config.update.maxConcurrent = jobs
+        }
         let itemIDs = unique(ids)
         let updateAll = itemIDs.isEmpty
         let results: [UpdateResult] = try withCancellationToken { cancellationToken in
@@ -121,48 +136,35 @@ struct UpdateCommand: ParsableCommand {
 
         var results: [UpdateResult] = []
         do {
-            let plan = try runner.plan(ids: ids, all: all)
-            try writer.write(
-                MachineEvent(
-                    event: .log,
-                    operation: .update,
-                    timestamp: Date(),
-                    message: "planned \(plan.count) item(s)",
-                    level: .info
-                ))
-
-            for item in plan {
-                try writer.write(
-                    MachineEvent(
-                        event: .itemStarted,
-                        operation: .update,
-                        timestamp: Date(),
-                        itemId: item.id,
-                        message: item.name
-                    ))
-                let itemResults = try runner.update(ids: [item.id], all: false, assumeYes: yes)
-                let result =
-                    itemResults.first
-                    ?? UpdateResult(
-                        id: item.id,
-                        name: item.name,
-                        outcome: .missing,
-                        current: item.current,
-                        latest: item.latest,
-                        error: "missing update result",
-                        commandFingerprint: item.commandFingerprint
-                    )
-                results.append(result)
-                try writer.write(
-                    MachineEvent(
-                        event: .itemFinished,
-                        operation: .update,
-                        timestamp: Date(),
-                        itemId: result.id,
-                        result: result
-                    ))
-                if result.outcome == .cancelled {
-                    break
+            results = try runner.update(ids: ids, all: all, assumeYes: yes) { event in
+                switch event {
+                case .planned(let plan):
+                    try writer.write(
+                        MachineEvent(
+                            event: .log,
+                            operation: .update,
+                            timestamp: Date(),
+                            message: "planned \(plan.count) item(s)",
+                            level: .info
+                        ))
+                case .itemStarted(let id, let name):
+                    try writer.write(
+                        MachineEvent(
+                            event: .itemStarted,
+                            operation: .update,
+                            timestamp: Date(),
+                            itemId: id,
+                            message: name
+                        ))
+                case .itemFinished(let result):
+                    try writer.write(
+                        MachineEvent(
+                            event: .itemFinished,
+                            operation: .update,
+                            timestamp: Date(),
+                            itemId: result.id,
+                            result: result
+                        ))
                 }
             }
         } catch {
