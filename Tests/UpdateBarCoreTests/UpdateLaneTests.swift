@@ -35,4 +35,16 @@ final class UpdateLaneTests: XCTestCase {
         XCTAssertNil(UpdateLane.key(forCommand: "sudo env"))
         XCTAssertNil(UpdateLane.key(forCommand: "FOO=1"))
     }
+
+    func testBooleanWrapperFlagsDoNotSwallowTheToolName() {
+        XCTAssertEqual(UpdateLane.key(forCommand: "sudo -n brew upgrade x"), "brew")
+        XCTAssertEqual(UpdateLane.key(forCommand: "sudo -E brew upgrade x"), "brew")
+        XCTAssertEqual(UpdateLane.key(forCommand: "env -i brew upgrade x"), "brew")
+        XCTAssertEqual(UpdateLane.key(forCommand: "sudo --non-interactive brew upgrade x"), "brew")
+    }
+
+    func testValueTakingWrapperFlagsSkipTheirArgument() {
+        XCTAssertEqual(UpdateLane.key(forCommand: "sudo -u kendrick brew upgrade x"), "brew")
+        XCTAssertEqual(UpdateLane.key(forCommand: "sudo -u kendrick -n brew upgrade x"), "brew")
+    }
 }

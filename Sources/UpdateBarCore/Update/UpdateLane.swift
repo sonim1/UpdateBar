@@ -13,6 +13,10 @@ enum UpdateLane {
         "sudo", "env", "command", "nice", "nohup", "time", "exec",
     ]
 
+    private static let valueTakingFlags: Set<String> = [
+        "-u", "-g", "-h", "-p", "-r", "-t", "-C", "-D", "-R", "-T", "-U", "-S",
+    ]
+
     /// Returns `nil` when no tool name can be read, in which case the caller
     /// should give the recipe a private lane so it runs unconstrained.
     static func key(forCommand command: String) -> String? {
@@ -28,15 +32,10 @@ enum UpdateLane {
             }
 
             if text.hasPrefix("-") {
-                // Single-letter options like -u typically take an argument.
-                if text.count == 2 && text.dropFirst().first?.isLetter == true {
-                    // Check if next token could be the option's argument.
-                    if i + 1 < tokens.count && !tokens[i + 1].hasPrefix("-")
-                        && !isEnvironmentAssignment(tokens[i + 1])
-                    {
-                        i += 2  // Skip the flag and its argument
-                        continue
-                    }
+                // Only skip the next token if this flag is known to take a value.
+                if valueTakingFlags.contains(text) && i + 1 < tokens.count {
+                    i += 2  // Skip the flag and its argument
+                    continue
                 }
                 i += 1
                 continue
