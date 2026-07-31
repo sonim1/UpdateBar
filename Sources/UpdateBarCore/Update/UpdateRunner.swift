@@ -1,6 +1,10 @@
 import Foundation
 
-public struct UpdateRunner {
+/// `@unchecked Sendable` so recipes can execute on a worker pool. The stored
+/// dependencies are only read during execution; `confirm` may block on stdin
+/// and is therefore called exclusively from the sequential planning phase,
+/// never from a worker.
+public struct UpdateRunner: @unchecked Sendable {
     private let manifestStore: ManifestStore
     private let stateStore: StateStore
     private let config: Config
@@ -38,36 +42,81 @@ public struct UpdateRunner {
         self.historyStore = historyStore ?? HistoryStore(paths: AppPaths(environment: environment))
     }
 
-    public func update(ids: [String], all: Bool, assumeYes: Bool) throws -> [UpdateResult] {
+    struct WorkItem {
+        let recipe: Recipe
+        let planItem: UpdatePlanItem
+    }
+
+    public func update(
+        ids: [String],
+        all: Bool,
+        assumeYes: Bool,
+        onEvent: ((UpdateProgressEvent) throws -> Void)? = nil,
+        stopSignal: UpdateStopSignal? = nil
+    ) throws -> [UpdateResult] {
         let planDate = now()
         let manifest = try manifestStore.loadExistingOrEmpty(now: planDate)
         try validate(manifest)
         let state = try stateStore.loadExistingOrEmpty(now: planDate)
         let plan = UpdatePlanner(manifest: manifest, state: state).plan(ids: ids, all: all)
-        var results: [UpdateResult] = []
+        try onEvent?(.planned(plan))
 
-        for planItem in plan {
+        // Phase 1: pure classification, strictly sequential. `confirm` can
+        // block on stdin, so it must never run on a worker thread.
+        var settled: [Int: UpdateResult] = [:]
+        var runnable: [UpdateScheduler<WorkItem, UpdateResult>.Item] = []
+        for (index, planItem) in plan.enumerated() {
+            func settle(_ outcome: UpdateOutcome) throws {
+                let result = UpdateResult(planItem: planItem, outcome: outcome)
+                settled[index] = result
+                try onEvent?(.itemStarted(id: planItem.id, name: planItem.name))
+                try onEvent?(.itemFinished(result))
+            }
+
             guard planItem.decision == .willUpdate else {
-                results.append(UpdateResult(planItem: planItem, outcome: planItem.decision.outcome))
+                try settle(planItem.decision.outcome)
                 continue
             }
             guard let recipe = manifest.item(id: planItem.id) else {
-                results.append(UpdateResult(planItem: planItem, outcome: .missing))
+                try settle(.missing)
                 continue
             }
             guard assumeYes || confirm(planItem) else {
-                results.append(UpdateResult(planItem: planItem, outcome: .cancelled))
+                try settle(.cancelled)
                 continue
             }
-
-            let result = try runUpdate(recipe: recipe, planItem: planItem)
-            results.append(result)
-            if result.outcome == .cancelled {
-                break
-            }
+            runnable.append(
+                UpdateScheduler<WorkItem, UpdateResult>.Item(
+                    index: index,
+                    lane: UpdateLane.key(forCommand: recipe.update.cmd) ?? "recipe:\(recipe.id)",
+                    payload: WorkItem(recipe: recipe, planItem: planItem)
+                ))
         }
 
-        return results
+        // Phase 2: bounded-parallel execution, one recipe per lane at a time.
+        // Only `work` runs concurrently; the scheduler delivers onStart and
+        // onFinish serially, so `onEvent` needs no lock of its own.
+        let scheduler = UpdateScheduler<WorkItem, UpdateResult>(
+            items: runnable,
+            stopSignal: stopSignal,
+            onStart: { item in
+                try onEvent?(.itemStarted(id: item.planItem.id, name: item.planItem.name))
+            },
+            onFinish: { result in
+                try onEvent?(.itemFinished(result))
+            },
+            // A cancelled command means the whole run is being torn down, which
+            // is what the old sequential `break` expressed.
+            shouldStopAfter: { $0.outcome == .cancelled },
+            work: { item in
+                try runUpdate(recipe: item.recipe, planItem: item.planItem)
+            }
+        )
+        let executed = try scheduler.run(maxConcurrent: config.update.maxConcurrent)
+
+        // Phase 3: plan order, so machine-readable output is unchanged.
+        // Items that never started are absent, matching the old `break`.
+        return plan.indices.compactMap { settled[$0] ?? executed[$0] }
     }
 
     public func plan(ids: [String], all: Bool) throws -> [UpdatePlanItem] {

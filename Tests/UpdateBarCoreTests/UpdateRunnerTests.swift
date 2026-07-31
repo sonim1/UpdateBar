@@ -248,15 +248,165 @@ final class UpdateRunnerTests: XCTestCase {
         XCTAssertFalse(String(describing: result).contains(secret))
     }
 
+    func testRunnerReturnsResultsInPlanOrderWhenRunningInParallel() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let ids = ["alpha", "bravo", "charlie", "delta"]
+        try ManifestStore(paths: paths).save(manifest(items: ids.map { recipe(id: $0) }))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: Dictionary(
+                    uniqueKeysWithValues: ids.map { ($0, itemState(status: .outdated)) })
+            ))
+        var results: [String: CommandResult] = [:]
+        for id in ids {
+            results["\(id) update"] = CommandResult(exitCode: 0, stdout: "updated", stderr: "")
+            results["\(id) current"] = CommandResult(exitCode: 0, stdout: "\(id) 1.1.0", stderr: "")
+            results["\(id) latest"] = CommandResult(exitCode: 0, stdout: "\(id) 1.1.0", stderr: "")
+        }
+        let commands = MockCommandExecutor(results: results)
+        let runner = updateRunner(paths: paths, commands: commands)
+
+        let updates = try runner.update(ids: [], all: true, assumeYes: true)
+
+        XCTAssertEqual(updates.map(\.id), ids, "results must follow plan order, not finish order")
+        XCTAssertEqual(updates.map(\.outcome), [.updated, .updated, .updated, .updated])
+    }
+
+    func testRunnerSerializesRecipesSharingAPackageManagerLane() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let ids = ["one", "two", "three"]
+        var recipes: [Recipe] = []
+        for id in ids {
+            var item = recipe(id: id)
+            item.update = UpdateSpec(cmd: "brew upgrade \(id)", cwd: nil)
+            TestApprovals.approveAllCommands(in: &item)
+            recipes.append(item)
+        }
+        try ManifestStore(paths: paths).save(manifest(items: recipes))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: Dictionary(
+                    uniqueKeysWithValues: ids.map { ($0, itemState(status: .outdated)) })
+            ))
+        var results: [String: CommandResult] = [:]
+        for id in ids {
+            results["brew upgrade \(id)"] = CommandResult(exitCode: 0, stdout: "ok", stderr: "")
+            results["\(id) current"] = CommandResult(exitCode: 0, stdout: "\(id) 1.1.0", stderr: "")
+            results["\(id) latest"] = CommandResult(exitCode: 0, stdout: "\(id) 1.1.0", stderr: "")
+        }
+        let commands = MockCommandExecutor(results: results)
+        for id in ids {
+            commands.setDelay(0.1, forCommand: "brew upgrade \(id)")
+        }
+        let runner = updateRunner(paths: paths, commands: commands)
+
+        let started = Date()
+        let updates = try runner.update(ids: [], all: true, assumeYes: true)
+        let elapsed = Date().timeIntervalSince(started)
+
+        XCTAssertEqual(updates.map(\.outcome), [.updated, .updated, .updated])
+        XCTAssertGreaterThanOrEqual(
+            elapsed, 0.3, "three 0.1s brew commands sharing a lane must not overlap")
+    }
+
+    func testRunnerEmitsPlannedStartedAndFinishedEvents() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        var pinned = recipe(id: "pinned")
+        pinned.pin = "1.0.0"
+        try ManifestStore(paths: paths).save(manifest(items: [recipe(id: "tool"), pinned]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": itemState(status: .outdated),
+                    "pinned": itemState(status: .outdated),
+                ]))
+        let commands = MockCommandExecutor(results: [
+            "tool update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
+            "tool current": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
+            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
+        ])
+        let runner = updateRunner(paths: paths, commands: commands)
+
+        let lock = NSLock()
+        var events: [UpdateProgressEvent] = []
+        _ = try runner.update(ids: [], all: true, assumeYes: true) { event in
+            lock.lock()
+            events.append(event)
+            lock.unlock()
+        }
+
+        guard case .planned(let plan)? = events.first else {
+            return XCTFail(
+                "expected a planned event first, got \(String(describing: events.first))")
+        }
+        XCTAssertEqual(plan.map(\.id), ["tool", "pinned"])
+
+        var startedIDs: [String] = []
+        var finished: [UpdateResult] = []
+        for event in events {
+            switch event {
+            case .planned: continue
+            case .itemStarted(let id, _): startedIDs.append(id)
+            case .itemFinished(let result): finished.append(result)
+            }
+        }
+        XCTAssertEqual(Set(startedIDs), ["tool", "pinned"])
+        XCTAssertEqual(finished.count, 2)
+        XCTAssertEqual(finished.first(where: { $0.id == "tool" })?.outcome, .updated)
+        XCTAssertEqual(finished.first(where: { $0.id == "pinned" })?.outcome, .skippedPinned)
+    }
+
+    func testStopSignalPreventsUnstartedItemsFromRunning() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let ids = ["alpha", "bravo", "charlie"]
+        try ManifestStore(paths: paths).save(manifest(items: ids.map { recipe(id: $0) }))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: Dictionary(
+                    uniqueKeysWithValues: ids.map { ($0, itemState(status: .outdated)) })
+            ))
+        var results: [String: CommandResult] = [:]
+        for id in ids {
+            results["\(id) update"] = CommandResult(exitCode: 0, stdout: "updated", stderr: "")
+            results["\(id) current"] = CommandResult(exitCode: 0, stdout: "\(id) 1.1.0", stderr: "")
+            results["\(id) latest"] = CommandResult(exitCode: 0, stdout: "\(id) 1.1.0", stderr: "")
+        }
+        let commands = MockCommandExecutor(results: results)
+        var config = Config.default
+        try config.set("update.max_concurrent", value: "1")
+        let runner = updateRunner(paths: paths, commands: commands, config: config)
+        let stopSignal = UpdateStopSignal()
+
+        let updates = try runner.update(
+            ids: [], all: true, assumeYes: true,
+            onEvent: { event in
+                if case .itemStarted = event { stopSignal.requestStop() }
+            },
+            stopSignal: stopSignal
+        )
+
+        XCTAssertEqual(updates.map(\.id), ["alpha"])
+        XCTAssertEqual(updates.map(\.outcome), [.updated])
+    }
+
     private func updateRunner(
         paths: AppPaths,
         commands: MockCommandExecutor,
-        environment: [String: String] = [:]
+        environment: [String: String] = [:],
+        config: Config = .default
     ) -> UpdateRunner {
         UpdateRunner(
             manifestStore: ManifestStore(paths: paths),
             stateStore: StateStore(paths: paths),
-            config: Config.default,
+            config: config,
             httpClient: MockHTTPClient(responses: [:]),
             commandRunner: commands,
             now: { self.now },
