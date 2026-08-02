@@ -12,6 +12,7 @@ ZONE_ID=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 cat >"$FAKE" <<'FAKE'
 #!/usr/bin/env bash
 set -euo pipefail
+[[ -z "${APPLE_CERTIFICATE_PASSWORD+x}" ]] || { echo 'unrelated release secret was exported to Wrangler' >&2; exit 92; }
 printf '%s\0' "$@" >>"$CALL_LOG"
 case "$*" in
   "--version") echo "${FAKE_VERSION:-4.112.0}" ;;
@@ -59,13 +60,36 @@ run_case() {
   rm -f "${LOG}.bucket" "${LOG}.domain"
   set +e
   SCENARIO="$scenario" CALL_LOG="$LOG" WRANGLER_BIN="$FAKE" CLOUDFLARE_ZONE_ID="$ZONE_ID" CLOUDFLARE_ACCOUNT_ID="$ACCOUNT_ID" \
+    RELEASE_CONFIG_PATH="$TEST_ROOT/does-not-exist" \
     "$ROOT/Scripts/setup-update-hosting.sh" >"$output" 2>&1
   status=$?
   set -e
   [[ "$status" == "$expected" ]] || { cat "$output" >&2; echo "$scenario: expected $expected got $status" >&2; exit 1; }
 }
 
-# RED: implementation does not exist yet.
+CONFIG="$TEST_ROOT/.env.release.local"
+EVAL_SENTINEL="$TEST_ROOT/config-must-not-execute"
+printf '%s\n' \
+  "CLOUDFLARE_ACCOUNT_ID=$ACCOUNT_ID" \
+  "CLOUDFLARE_ZONE_ID=$ZONE_ID" \
+  'R2_BUCKET_NAME=updatebar-updates' \
+  'UPDATE_DOMAIN=updates.updatebar.royjen.com' \
+  "UNRELATED_COMMAND=\$(touch $EVAL_SENTINEL)" \
+  'DEVELOPER_ID_APPLICATION=Developer ID Application: Example (ABCDE12345)' \
+  'VERSION_GITHUB_APP_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nnot-a-real-key\n-----END PRIVATE KEY-----' \
+  'APPLE_CERTIFICATE_PASSWORD=must-not-reach-wrangler' >"$CONFIG"
+set +e
+SCENARIO=existing CALL_LOG="$LOG" WRANGLER_BIN="$FAKE" RELEASE_CONFIG_PATH="$CONFIG" \
+  "$ROOT/Scripts/setup-update-hosting.sh" >"$TEST_ROOT/config.out" 2>&1
+config_status=$?
+set -e
+[[ ! -e "$EVAL_SENTINEL" ]] || { echo "setup-update-hosting must not evaluate config contents" >&2; exit 1; }
+if [[ "$config_status" -ne 0 ]]; then
+  cat "$TEST_ROOT/config.out" >&2
+  echo "setup-update-hosting must load RELEASE_CONFIG_PATH" >&2
+  exit 1
+fi
+
 run_case absent 0
 grep -Fq 'https://updates.updatebar.royjen.com/appcast.xml' "$TEST_ROOT/absent.out"
 run_case existing 0
@@ -102,6 +126,7 @@ RUBY
 
 set +e
 SCENARIO=existing FAKE_VERSION=4.111.0 CALL_LOG="$LOG" WRANGLER_BIN="$FAKE" CLOUDFLARE_ZONE_ID="$ZONE_ID" CLOUDFLARE_ACCOUNT_ID="$ACCOUNT_ID" \
+  RELEASE_CONFIG_PATH="$TEST_ROOT/does-not-exist" \
   "$ROOT/Scripts/setup-update-hosting.sh" >/dev/null 2>&1
 status=$?
 set -e

@@ -10,10 +10,6 @@ REQUIRED_VARS=(
   "DEVELOPER_ID_APPLICATION"
   "SPARKLE_PUBLIC_ED_KEY"
   "CLOUDFLARE_ACCOUNT_ID"
-  "TAP_GITHUB_APP_ID"
-)
-REQUIRED_REPOSITORY_VARS=(
-  "VERSION_GITHUB_APP_ID"
 )
 REQUIRED_SECRETS=(
   "APPLE_CERTIFICATE_P12_BASE64"
@@ -24,10 +20,6 @@ REQUIRED_SECRETS=(
   "R2_ACCESS_KEY_ID"
   "R2_SECRET_ACCESS_KEY"
   "SPARKLE_PRIVATE_ED_KEY"
-  "TAP_GITHUB_APP_PRIVATE_KEY"
-)
-REQUIRED_REPOSITORY_SECRETS=(
-  "VERSION_GITHUB_APP_PRIVATE_KEY"
 )
 
 usage() {
@@ -39,28 +31,18 @@ Reads every required release credential from the environment, falling back to
 .env.release.local (override with UPDATEBAR_RELEASE_ENV_FILE). Exported values
 always win over the file, and the file is never committed.
 
-Repository-scope version App credentials:
-  VERSION_GITHUB_APP_ID (public variable)
-  VERSION_GITHUB_APP_PRIVATE_KEY (masked secret)
-  The contents-write App is installed only on sonim1/UpdateBar.
-
 Release environment credentials (protected `release` environment):
 Release environment variables (public, readable in logs):
   DEVELOPER_ID_APPLICATION SPARKLE_PUBLIC_ED_KEY CLOUDFLARE_ACCOUNT_ID
-  TAP_GITHUB_APP_ID
 
 Release environment secrets (masked):
   APPLE_CERTIFICATE_P12_BASE64 APPLE_CERTIFICATE_PASSWORD
   APPLE_NOTARY_KEY_P8_BASE64 APPLE_NOTARY_KEY_ID APPLE_NOTARY_ISSUER_ID
   R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY SPARKLE_PRIVATE_ED_KEY
-  TAP_GITHUB_APP_PRIVATE_KEY
 
 Release environment credentials are written under the same names, overwriting
-anything already stored there. Version App credentials are written at repository
-scope. `.env` PEM values must use literal escaped newlines (`\n`) or a complete
-single- or double-quoted multiline block; an actual multiline value may also be
-exported. Unterminated, truncated, and invalid RSA keys are rejected. Nothing
-is uploaded unless every value is present and well-formed.
+anything already stored there. Nothing is uploaded unless every value is
+present and well-formed.
 USAGE
 }
 
@@ -152,42 +134,6 @@ validate_sparkle_public_key() {
   fi
 }
 
-validate_version_github_app_id() {
-  local value="$1"
-  if [[ ! "$value" =~ ^[1-9][0-9]*$ ]]; then
-    fail "VERSION_GITHUB_APP_ID must be canonical positive decimal"
-  fi
-}
-
-validate_version_github_app_private_key() {
-  local value="$1"
-  local validation_value="${value//\\n/$'\n'}"
-  if [[ -z "$validation_value" || "$validation_value" =~ ^[[:space:]]*$ ]]; then
-    fail "VERSION_GITHUB_APP_PRIVATE_KEY must be nonempty"
-  fi
-
-  local begin_line="$value"
-  if [[ "$value" == *$'\n'* ]]; then
-    begin_line="${value%%$'\n'*}"
-  elif [[ "$value" == *\\n* ]]; then
-    begin_line="${value%%\\n*}"
-  fi
-  if [[ "$begin_line" == \"-----BEGIN* ]]; then
-    begin_line="${begin_line#\"}"
-  fi
-
-  if [[ "$begin_line" =~ ^-----BEGIN[[:space:]](.+PRIVATE[[:space:]]KEY)----- ]]; then
-    local end_marker="-----END ${BASH_REMATCH[1]}-----"
-    if [[ "$value" != *"$end_marker"* ]]; then
-      fail "VERSION_GITHUB_APP_PRIVATE_KEY must contain matching PEM end marker"
-    fi
-  fi
-
-  if ! printf '%s' "$validation_value" | openssl rsa -check -noout >/dev/null 2>&1; then
-    fail "VERSION_GITHUB_APP_PRIVATE_KEY failed RSA validation"
-  fi
-}
-
 set_repo_variable() {
   local name="$1" value="$2"
   if ! printf '%s' "$value" | gh variable set "$name" \
@@ -208,24 +154,6 @@ set_repo_secret() {
   fi
 }
 
-set_repository_variable() {
-  local name="$1" value="$2"
-  if ! printf '%s' "$value" | gh variable set "$name" \
-    --repo "$REPO" \
-    >/dev/null; then
-    fail "failed to set repository variable: $name"
-  fi
-}
-
-set_repository_secret() {
-  local name="$1" value="$2"
-  if ! printf '%s' "$value" | gh secret set "$name" \
-    --repo "$REPO" \
-    >/dev/null; then
-    fail "failed to set repository secret: $name"
-  fi
-}
-
 main() {
   if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     usage
@@ -233,17 +161,16 @@ main() {
   fi
 
   command -v gh >/dev/null 2>&1 || fail "required command missing: gh"
-  command -v openssl >/dev/null 2>&1 || fail "required command missing: openssl"
 
   REPO="$(detect_repo)"
   [[ "$REPO" == "$EXPECTED_REPO" ]] || fail "repository must be exactly $EXPECTED_REPO"
 
   load_env_file "$ENV_FILE"
 
-  # Trim only the single-line variables; secrets such as PEM keys are
-  # whitespace-significant and must be uploaded byte for byte.
+  # Trim only public variables; secrets are whitespace-significant and must be
+  # uploaded byte for byte.
   local name value
-  for name in "${REQUIRED_VARS[@]}" "${REQUIRED_REPOSITORY_VARS[@]}"; do
+  for name in "${REQUIRED_VARS[@]}"; do
     value="$(trim_whitespace "${!name:-}")"
     printf -v "$name" '%s' "$value"
   done
@@ -251,17 +178,13 @@ main() {
   local missing=()
   for name in \
     "${REQUIRED_VARS[@]}" \
-    "${REQUIRED_REPOSITORY_VARS[@]}" \
-    "${REQUIRED_SECRETS[@]}" \
-    "${REQUIRED_REPOSITORY_SECRETS[@]}"; do
+    "${REQUIRED_SECRETS[@]}"; do
     [[ -n "${!name:-}" ]] || missing+=("$name")
   done
   if [[ "${#missing[@]}" -gt 0 ]]; then
     fail "missing values: ${missing[*]} (export them or fill in $ENV_FILE)"
   fi
 
-  validate_version_github_app_id "$VERSION_GITHUB_APP_ID"
-  validate_version_github_app_private_key "$VERSION_GITHUB_APP_PRIVATE_KEY"
   validate_sparkle_public_key "$SPARKLE_PUBLIC_ED_KEY"
 
   for name in "${REQUIRED_VARS[@]}"; do
@@ -274,17 +197,7 @@ main() {
     echo "set secret: $name"
   done
 
-  for name in "${REQUIRED_REPOSITORY_VARS[@]}"; do
-    set_repository_variable "$name" "${!name}"
-    echo "set repository variable: $name"
-  done
-
-  for name in "${REQUIRED_REPOSITORY_SECRETS[@]}"; do
-    set_repository_secret "$name" "${!name}"
-    echo "set repository secret: $name"
-  done
-
-  echo "release credentials for env '$TARGET_ENV' and repository-scope version App credentials updated in $REPO"
+  echo "release credentials for env '$TARGET_ENV' updated in $REPO"
 }
 
 main "$@"

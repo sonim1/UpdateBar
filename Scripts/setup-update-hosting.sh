@@ -6,6 +6,45 @@ export LC_ALL=C
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 [[ $# == 0 ]] || { echo "Usage: Scripts/setup-update-hosting.sh" >&2; exit 64; }
 
+load_config_value() {
+  local file="$1" name="$2" line key value quote
+  [[ "${!name+x}" == x ]] && return 0
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
+    [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+    [[ "$line" == *=* ]] || continue
+
+    key="${line%%=*}"
+    key="${key#"${key%%[![:space:]]*}"}"
+    key="${key%"${key##*[![:space:]]}"}"
+    [[ "$key" == "$name" ]] || continue
+
+    value="${line#*=}"
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+    if [[ "$value" == \"* || "$value" == \'* ]]; then
+      quote="${value:0:1}"
+      [[ "${#value}" -ge 2 && "${value: -1}" == "$quote" ]] || {
+        echo "unterminated quoted value: $name" >&2
+        exit 64
+      }
+      value="${value:1:${#value}-2}"
+    fi
+
+    printf -v "$name" '%s' "$value"
+    return 0
+  done <"$file"
+}
+
+CONFIG="${RELEASE_CONFIG_PATH:-$ROOT/.env.release.local}"
+if [[ -f "$CONFIG" ]]; then
+  for config_name in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_ZONE_ID R2_BUCKET_NAME UPDATE_DOMAIN; do
+    load_config_value "$CONFIG" "$config_name"
+  done
+fi
+set +x
+
 R2_BUCKET_NAME="${R2_BUCKET_NAME:-updatebar-updates}"
 UPDATE_DOMAIN="${UPDATE_DOMAIN:-updates.updatebar.royjen.com}"
 WRANGLER_BIN="${WRANGLER_BIN:-$ROOT/node_modules/.bin/wrangler}"

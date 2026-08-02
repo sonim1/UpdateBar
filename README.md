@@ -143,19 +143,24 @@ The bootstrap rollout PR needs one explicit/manual candidate version and
 changelog preparation to establish this contract. Do not bump a version in this
 documentation change; subsequent normal pull requests are prepared by the bot.
 
-Automatic versioning requires a separate contents-write-only GitHub App with
-only `Contents: write`, installed only on `sonim1/UpdateBar`. Store its
-repository variable `VERSION_GITHUB_APP_ID` and repository secret
-`VERSION_GITHUB_APP_PRIVATE_KEY`.
+Automatic versioning uses the shared `sonim1-homebrew-release` GitHub App
+(App ID `4403130`). Install it on `sonim1/UpdateBar`, `sonim1/switchtab`, and
+`sonim1/homebrew-tap`; the UpdateBar version job requests a token scoped only
+to `sonim1/UpdateBar` with `Contents: write`. Register the repository variable
+and secret directly from the original private-key PEM file:
+
+```bash
+gh variable set --repo sonim1/UpdateBar VERSION_GITHUB_APP_ID --body "4403130"
+gh secret set --repo sonim1/UpdateBar VERSION_GITHUB_APP_PRIVATE_KEY < /path/to/github-app-private-key.pem
+```
+
 Create the `release:minor` and `release:major` labels, and protect `main` with
 strict up-to-date required checks named exactly `macos` and `linux`.
 
-Run `Scripts/setup-release-secrets.sh` to configure those repository-scoped
-version-App credentials together with the protected `release` Environment
-values. The local `.env.release.local` file is ignored; PEM values in it must
-use literal escaped newlines (`\n`) or a complete single-/double-quoted
-multiline block. Exported multiline values are also accepted. Never print,
-commit, or paste private keys into logs or documentation.
+Run `Scripts/setup-release-secrets.sh` to configure the protected `release`
+Environment values from the ignored `.env.release.local` file. Keep GitHub App
+private keys out of that file. Never print, commit, or paste private keys into
+logs or documentation.
 
 The release Environment currently has no protection rules, so the workflow is
 hands-off after merge. If a required reviewer is added later, it would
@@ -180,12 +185,12 @@ node_modules/.bin/wrangler --version
 ```
 
 Authenticate Wrangler with a Cloudflare identity that can inspect and create
-the R2 bucket and bind its custom domain. Then provide the 32-character account
-and zone IDs to the idempotent setup script:
+the R2 bucket and bind its custom domain. Fill the local
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_ZONE_ID` values, then run the
+idempotent setup script. It loads the ignored `.env.release.local` file by
+default:
 
 ```bash
-CLOUDFLARE_ACCOUNT_ID=your-32-character-account-id \
-CLOUDFLARE_ZONE_ID=your-32-character-zone-id \
 Scripts/setup-update-hosting.sh
 ```
 
@@ -286,9 +291,9 @@ key and bucket-scoped R2 credentials remain UpdateBar-specific.
 
 ### Homebrew GitHub App
 
-Use one shared GitHub App for the unified tap automation and install it only on
-`sonim1/homebrew-tap`, not on `sonim1/UpdateBar` or `sonim1/switchtab`. Its
-minimum permission union is:
+Use the same shared `sonim1-homebrew-release` GitHub App for the unified tap
+automation. Limit its installation to `sonim1/UpdateBar`, `sonim1/switchtab`,
+and `sonim1/homebrew-tap`. Its minimum permission union is:
 
 - `Administration: Read` for the tap workflow's branch-protection preflight
 - `Contents: Read and write` for dispatches and the generated update branch
@@ -298,10 +303,18 @@ Set `TAP_GITHUB_APP_ID` and `TAP_GITHUB_APP_PRIVATE_KEY` in UpdateBar's
 `release` Environment. Set the same variable and secret at repository
 scope in `sonim1/homebrew-tap`, because the receiving workflow needs them to
 create its guarded branch and pull request. Scope the installation owner to
-`sonim1` and the repository selection to `homebrew-tap` only. Enable auto-merge
-and strict default-branch protection in the tap repository with the exact
-required checks `contracts` and `homebrew`; the release scripts do not change
-these administrative settings.
+`sonim1`; each generated token remains scoped to the single repository named
+by its workflow. Enable auto-merge and strict default-branch protection in the
+tap repository with the exact required checks `contracts` and `homebrew`; the
+release scripts do not change these administrative settings.
+
+Keep the tap App private key out of `.env.release.local` and register it
+directly from the original PEM file:
+
+```bash
+gh variable set --env release --repo sonim1/UpdateBar TAP_GITHUB_APP_ID --body "4403130"
+gh secret set --env release --repo sonim1/UpdateBar TAP_GITHUB_APP_PRIVATE_KEY < /path/to/github-app-private-key.pem
+```
 
 ### Recovery for an existing tag
 
