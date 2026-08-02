@@ -2,9 +2,12 @@
 
 ## Unreleased
 
+## 0.6.6 - 2026-08-02
+
 ### Fixed
 
 - Removed a stale optional test-helper argument that failed ShellCheck 0.9 on Linux CI.
+- Accepted Sparkle 2.9.4 element-based version metadata during final release publication.
 
 ## 0.6.5 - 2026-08-02
 
