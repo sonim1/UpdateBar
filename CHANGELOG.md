@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.7 - 2026-08-02
+
 ### Fixed
 
 - Accepted Sparkle 2.9.4 element-based version metadata when publishing updates to R2.
