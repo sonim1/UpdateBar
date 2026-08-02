@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.6.4 - 2026-08-02
+
+### Added
+
+- Installing the UpdateBar Homebrew cask now includes the CLI, so one installation
+  provides both the menu bar app and command-line tool.
+- Added automatic release planning and publishing after changes land on `main`.
+
+### Changed
+
+- Moved appcast and release downloads to `updates.updatebar.royjen.com`.
+- Tightened version preparation, release provenance, and artifact validation.
+
 ## 0.6.3 - 2026-07-23
 
 ### Added
