@@ -46,7 +46,8 @@ appcast_metadata() {
       items=[]; REXML::XPath.each(d,"//*[local-name()=\"item\"]"){|e|items<<e}; abort unless items.length==1
       es=[]; REXML::XPath.each(d,"//*[local-name()=\"enclosure\"]"){|e|es<<e}; abort unless es.length==1 && es[0].parent==items[0]
       e=es[0]; a=->(n){x=e.attributes.get_attribute_ns(ns,n); x&&x.value}
-      v=[e.attributes["url"],e.attributes["length"],a.call("version"),a.call("shortVersionString"),a.call("edSignature")]
+      item_value=->(n){values=[];attribute=a.call(n);values<<attribute if attribute;items[0].elements.each{|child|values<<child.text if child.name==n&&child.namespace==ns};abort unless values.length==1;values[0]}
+      v=[e.attributes["url"],e.attributes["length"],item_value.call("version"),item_value.call("shortVersionString"),a.call("edSignature")]
       abort if v.any?{|x|x.nil?||x.include?("\t")||x.include?("\n")}; abort unless Base64.strict_decode64(v[4]).bytesize==64; puts v.join("\t")
     rescue; exit 1; end
   ' "$1"
