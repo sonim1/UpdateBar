@@ -2,9 +2,12 @@
 
 ## Unreleased
 
+## 0.6.5 - 2026-08-02
+
 ### Fixed
 
 - Made permission-related release preparation tests portable to privileged Linux CI runners.
+- Accepted Sparkle 2.9.4 element-based version metadata when validating generated appcasts.
 
 ## 0.6.4 - 2026-08-02
 
