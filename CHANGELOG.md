@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Removed a stale optional test-helper argument that failed ShellCheck 0.9 on Linux CI.
+
 ## 0.6.5 - 2026-08-02
 
 ### Fixed

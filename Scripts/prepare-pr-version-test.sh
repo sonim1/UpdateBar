@@ -66,7 +66,7 @@ EOF
 }
 
 create_fixture() {
-  local version="${1:-1.2.3}"
+  local version='1.2.3'
 
   FIXTURE_INDEX=$((FIXTURE_INDEX + 1))
   REPOSITORY="$TEMP_ROOT/repository-$FIXTURE_INDEX"
