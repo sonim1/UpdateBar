@@ -311,15 +311,19 @@ make_relevant_head 'non-writable output parent'
 NON_WRITABLE_OUTPUT_PARENT="$TEMP_ROOT/non-writable-output-parent-$FIXTURE_INDEX"
 mkdir "$NON_WRITABLE_OUTPUT_PARENT"
 chmod a-w "$NON_WRITABLE_OUTPUT_PARENT"
-NON_WRITABLE_PARENT_BEFORE="$(owned_fingerprint)"
-run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$NON_WRITABLE_OUTPUT_PARENT/github-output.env"
-chmod u+w "$NON_WRITABLE_OUTPUT_PARENT"
-assert_status 65
-assert_output_contains 'output parent directory is not writable'
-[[ "$(owned_fingerprint)" == "$NON_WRITABLE_PARENT_BEFORE" ]] ||
-  fail 'non-writable output parent rejection partially mutated an owned file'
-[[ ! -e "$NON_WRITABLE_OUTPUT_PARENT/github-output.env" ]] ||
-  fail 'output preflight created a file in a non-writable parent'
+if [[ ! -w "$NON_WRITABLE_OUTPUT_PARENT" ]]; then
+  NON_WRITABLE_PARENT_BEFORE="$(owned_fingerprint)"
+  run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$NON_WRITABLE_OUTPUT_PARENT/github-output.env"
+  chmod u+w "$NON_WRITABLE_OUTPUT_PARENT"
+  assert_status 65
+  assert_output_contains 'output parent directory is not writable'
+  [[ "$(owned_fingerprint)" == "$NON_WRITABLE_PARENT_BEFORE" ]] ||
+    fail 'non-writable output parent rejection partially mutated an owned file'
+  [[ ! -e "$NON_WRITABLE_OUTPUT_PARENT/github-output.env" ]] ||
+    fail 'output preflight created a file in a non-writable parent'
+else
+  chmod u+w "$NON_WRITABLE_OUTPUT_PARENT"
+fi
 
 # Existing output paths must be writable regular files and never symlinks.
 create_fixture
@@ -341,15 +345,19 @@ make_relevant_head 'non-writable output file'
 NON_WRITABLE_OUTPUT="$TEMP_ROOT/non-writable-output-$FIXTURE_INDEX"
 printf 'output sentinel\n' > "$NON_WRITABLE_OUTPUT"
 chmod a-w "$NON_WRITABLE_OUTPUT"
-NON_WRITABLE_OUTPUT_BEFORE="$(owned_fingerprint)"
-run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$NON_WRITABLE_OUTPUT"
-chmod u+w "$NON_WRITABLE_OUTPUT"
-assert_status 65
-assert_output_contains 'output file is not writable'
-[[ "$(owned_fingerprint)" == "$NON_WRITABLE_OUTPUT_BEFORE" ]] ||
-  fail 'non-writable output rejection partially mutated an owned file'
-[[ "$(<"$NON_WRITABLE_OUTPUT")" == 'output sentinel' ]] ||
-  fail 'output preflight changed a non-writable output file'
+if [[ ! -w "$NON_WRITABLE_OUTPUT" ]]; then
+  NON_WRITABLE_OUTPUT_BEFORE="$(owned_fingerprint)"
+  run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch "$NON_WRITABLE_OUTPUT"
+  chmod u+w "$NON_WRITABLE_OUTPUT"
+  assert_status 65
+  assert_output_contains 'output file is not writable'
+  [[ "$(owned_fingerprint)" == "$NON_WRITABLE_OUTPUT_BEFORE" ]] ||
+    fail 'non-writable output rejection partially mutated an owned file'
+  [[ "$(<"$NON_WRITABLE_OUTPUT")" == 'output sentinel' ]] ||
+    fail 'output preflight changed a non-writable output file'
+else
+  chmod u+w "$NON_WRITABLE_OUTPUT"
+fi
 
 # Swapping the validated output pathname during git diff must not redirect emit.
 SWAP_GIT_DIRECTORY="$TEMP_ROOT/swap-git"
@@ -786,10 +794,15 @@ create_fixture
 make_relevant_head 'non-writable generated Swift'
 NON_WRITABLE_BEFORE="$(owned_fingerprint)"
 chmod a-w "$REPOSITORY/Sources/UpdateBarCLI/UpdateBarVersion.swift"
-run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch
-assert_status 65
-[[ "$(owned_fingerprint)" == "$NON_WRITABLE_BEFORE" ]] ||
-  fail 'non-writable Swift rejection partially mutated an owned file'
-assert_output_contains 'Sources/UpdateBarCLI/UpdateBarVersion.swift'
+if [[ ! -w "$REPOSITORY/Sources/UpdateBarCLI/UpdateBarVersion.swift" ]]; then
+  run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch
+  chmod u+w "$REPOSITORY/Sources/UpdateBarCLI/UpdateBarVersion.swift"
+  assert_status 65
+  [[ "$(owned_fingerprint)" == "$NON_WRITABLE_BEFORE" ]] ||
+    fail 'non-writable Swift rejection partially mutated an owned file'
+  assert_output_contains 'Sources/UpdateBarCLI/UpdateBarVersion.swift'
+else
+  chmod u+w "$REPOSITORY/Sources/UpdateBarCLI/UpdateBarVersion.swift"
+fi
 
 echo 'prepare-pr-version-test: PASS'

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Made permission-related release preparation tests portable to privileged Linux CI runners.
+
 ## 0.6.4 - 2026-08-02
 
 ### Added
