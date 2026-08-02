@@ -76,7 +76,7 @@ printf '%s\n' \
   'UPDATE_DOMAIN=updates.updatebar.royjen.com' \
   "UNRELATED_COMMAND=\$(touch $EVAL_SENTINEL)" \
   'DEVELOPER_ID_APPLICATION=Developer ID Application: Example (ABCDE12345)' \
-  'VERSION_GITHUB_APP_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nnot-a-real-key\n-----END PRIVATE KEY-----' \
+  'VERSION_GITHUB_APP_PRIVATE_KEY=not-a-real-key' \
   'APPLE_CERTIFICATE_PASSWORD=must-not-reach-wrangler' >"$CONFIG"
 set +e
 SCENARIO=existing CALL_LOG="$LOG" WRANGLER_BIN="$FAKE" RELEASE_CONFIG_PATH="$CONFIG" \
