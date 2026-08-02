@@ -203,7 +203,7 @@ case "${BAD_XML:-}" in malformed) printf '<rss' >"$out"; exit 0;; multi) extra='
 version="${version:-0.6.1}"
 url="${url:-https://updates.updatebar.royjen.com/UpdateBar-0.6.1-macos-arm64.dmg}"
 cat >"$out" <<XML
-<?xml version="1.0"?><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="$url" length="$length" sparkle:version="$version" sparkle:shortVersionString="$version"$signature />${extra:-}</item></channel></rss>
+<?xml version="1.0"?><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><sparkle:version>$version</sparkle:version><sparkle:shortVersionString>$version</sparkle:shortVersionString><enclosure url="$url" length="$length"$signature />${extra:-}</item></channel></rss>
 XML
 [[ "${FAKE_SUBSTITUTE_SOURCE_AFTER_SIGN:-0}" == 0 ]] || printf 'bad bytes\n' >"${SOURCE_DMG:?}"
 SH
