@@ -13,8 +13,11 @@ trap cleanup EXIT
 # shellcheck source=/dev/null
 source version.env
 
+published_snapshot_version="$(awk '$1 == "version" { gsub(/"/, "", $2); print $2; exit }' Packaging/homebrew/updatebar.rb)"
 formula_asset="updatebar-${UPDATEBAR_VERSION}-macos-arm64.tar.gz"
 cask_asset="UpdateBar-${UPDATEBAR_VERSION}-macos-arm64.app.tar.gz"
+published_formula_asset="updatebar-${published_snapshot_version}-macos-arm64.tar.gz"
+published_cask_asset="UpdateBar-${published_snapshot_version}-macos-arm64.app.tar.gz"
 
 printf 'not a release archive\n' > "$TMP_DIR/$formula_asset"
 printf 'not a cask DMG\n' > "$TMP_DIR/$cask_asset"
@@ -30,7 +33,7 @@ if grep -Eq 'warning:|checksum mismatch|SHA mismatch' "$OUTPUT"; then
   exit 1
 fi
 
-if ! grep -Fq "release metadata verification passed for version $UPDATEBAR_VERSION" "$OUTPUT"; then
+if ! grep -Fq "release metadata verification passed for version $published_snapshot_version" "$OUTPUT"; then
   echo "static-only metadata verification did not report success" >&2
   cat "$OUTPUT" >&2
   exit 1
@@ -194,8 +197,8 @@ run_snapshot_rejection "wrong-cask-asset" "$SNAPSHOT_FORMULA" "$WRONG_CASK_ASSET
 
 cat > "$TMP_DIR/bad-formula.rb" <<EOF
 class Updatebar < Formula
-  version "$UPDATEBAR_VERSION"
-  url "https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/$formula_asset"
+  version "$published_snapshot_version"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v$published_snapshot_version/$published_formula_asset"
   sha256 "not-a-sha"
 end
 EOF
@@ -222,8 +225,8 @@ fi
 
 cat > "$TMP_DIR/bad-cask.rb" <<EOF
 cask "updatebar-app" do
-  version "$UPDATEBAR_VERSION"
-  url "https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/UpdateBar-#{version}-macos-arm64.app.tar.gz"
+  version "$published_snapshot_version"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v$published_snapshot_version/UpdateBar-#{version}-macos-arm64.app.tar.gz"
   sha256 "not-a-sha"
 end
 EOF
@@ -250,8 +253,8 @@ fi
 
 cat > "$TMP_DIR/bad-formula-url.rb" <<EOF
 class Updatebar < Formula
-  version "$UPDATEBAR_VERSION"
-  url "https://example.test/releases/v$UPDATEBAR_VERSION/$formula_asset"
+  version "$published_snapshot_version"
+  url "https://example.test/releases/v$published_snapshot_version/$published_formula_asset"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 end
 EOF
@@ -270,7 +273,7 @@ if [[ "$bad_url_status" -eq 0 ]]; then
   exit 1
 fi
 
-if ! grep -Fq "formula URL must use https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/" "$BAD_URL_OUTPUT"; then
+if ! grep -Fq "formula URL must use https://github.com/sonim1/UpdateBar/releases/download/v$published_snapshot_version/" "$BAD_URL_OUTPUT"; then
   echo "invalid Homebrew formula release URL did not report the expected error" >&2
   cat "$BAD_URL_OUTPUT" >&2
   exit 1
@@ -278,7 +281,7 @@ fi
 
 cat > "$TMP_DIR/bad-cask-url.rb" <<EOF
 cask "updatebar-app" do
-  version "$UPDATEBAR_VERSION"
+  version "$published_snapshot_version"
   url "https://example.test/releases/v#{version}/UpdateBar-#{version}-macos-arm64.app.tar.gz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 end
@@ -298,7 +301,7 @@ if [[ "$bad_cask_url_status" -eq 0 ]]; then
   exit 1
 fi
 
-if ! grep -Fq "cask URL must use https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/" "$BAD_CASK_URL_OUTPUT"; then
+if ! grep -Fq "cask URL must use https://github.com/sonim1/UpdateBar/releases/download/v$published_snapshot_version/" "$BAD_CASK_URL_OUTPUT"; then
   echo "invalid Homebrew cask release URL did not report the expected error" >&2
   cat "$BAD_CASK_URL_OUTPUT" >&2
   exit 1
@@ -306,8 +309,8 @@ fi
 
 cat > "$TMP_DIR/bad-formula-asset.rb" <<EOF
 class Updatebar < Formula
-  version "$UPDATEBAR_VERSION"
-  url "https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/$cask_asset"
+  version "$published_snapshot_version"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v$published_snapshot_version/$published_cask_asset"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 end
 EOF
@@ -326,7 +329,7 @@ if [[ "$bad_formula_asset_status" -eq 0 ]]; then
   exit 1
 fi
 
-if ! grep -Fq "formula URL must end with $formula_asset" "$BAD_FORMULA_ASSET_OUTPUT"; then
+if ! grep -Fq "formula URL must end with $published_formula_asset" "$BAD_FORMULA_ASSET_OUTPUT"; then
   echo "invalid Homebrew formula asset name did not report the expected error" >&2
   cat "$BAD_FORMULA_ASSET_OUTPUT" >&2
   exit 1
@@ -334,8 +337,8 @@ fi
 
 cat > "$TMP_DIR/bad-cask-asset.rb" <<EOF
 cask "updatebar-app" do
-  version "$UPDATEBAR_VERSION"
-  url "https://github.com/sonim1/UpdateBar/releases/download/v#{version}/$formula_asset"
+  version "$published_snapshot_version"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v#{version}/$published_formula_asset"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 end
 EOF
@@ -354,7 +357,7 @@ if [[ "$bad_cask_asset_status" -eq 0 ]]; then
   exit 1
 fi
 
-if ! grep -Fq "cask URL must end with $cask_asset" "$BAD_CASK_ASSET_OUTPUT"; then
+if ! grep -Fq "cask URL must end with $published_cask_asset" "$BAD_CASK_ASSET_OUTPUT"; then
   echo "invalid Homebrew cask asset name did not report the expected error" >&2
   cat "$BAD_CASK_ASSET_OUTPUT" >&2
   exit 1
@@ -367,7 +370,7 @@ for rejected_cask_asset in \
   "UpdateBar-#{version}.dmg"; do
   cat > "$TMP_DIR/rejected-cask.rb" <<EOF
 cask "updatebar-app" do
-  version "$UPDATEBAR_VERSION"
+  version "$published_snapshot_version"
   url "https://github.com/sonim1/UpdateBar/releases/download/v#{version}/$rejected_cask_asset"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 end
@@ -385,9 +388,28 @@ EOF
 done
 
 # Strict mode with real (mismatching) archives must fail on SHA equality...
+CANDIDATE_FORMULA="$TMP_DIR/candidate-formula.rb"
+CANDIDATE_CASK="$TMP_DIR/candidate-cask.rb"
+cat > "$CANDIDATE_FORMULA" <<EOF
+class Updatebar < Formula
+  version "$UPDATEBAR_VERSION"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v$UPDATEBAR_VERSION/$formula_asset"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+end
+EOF
+cat > "$CANDIDATE_CASK" <<EOF
+cask "updatebar-app" do
+  version "$UPDATEBAR_VERSION"
+  url "https://github.com/sonim1/UpdateBar/releases/download/v#{version}/$cask_asset"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+end
+EOF
+
 STRICT_OUTPUT="$TMP_DIR/strict.out"
 set +e
 UPDATEBAR_VERIFY_STRICT=1 \
+UPDATEBAR_HOMEBREW_FORMULA_PATH="$CANDIDATE_FORMULA" \
+UPDATEBAR_HOMEBREW_CASK_PATH="$CANDIDATE_CASK" \
 bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" > "$STRICT_OUTPUT" 2>&1
 strict_status=$?
 set -e
@@ -415,6 +437,8 @@ rehash "$cask_asset"
 SKIP_OUTPUT="$TMP_DIR/skip-sha-equality.out"
 UPDATEBAR_VERIFY_STRICT=1 \
 UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1 \
+UPDATEBAR_HOMEBREW_FORMULA_PATH="$CANDIDATE_FORMULA" \
+UPDATEBAR_HOMEBREW_CASK_PATH="$CANDIDATE_CASK" \
 bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" > "$SKIP_OUTPUT" 2>&1
 
 if ! grep -Fq "release metadata verification passed for version $UPDATEBAR_VERSION" "$SKIP_OUTPUT"; then
@@ -435,6 +459,8 @@ CORRUPT_OUTPUT="$TMP_DIR/corrupt-checksum.out"
 set +e
 UPDATEBAR_VERIFY_STRICT=1 \
 UPDATEBAR_VERIFY_SKIP_SHA_EQUALITY=1 \
+UPDATEBAR_HOMEBREW_FORMULA_PATH="$CANDIDATE_FORMULA" \
+UPDATEBAR_HOMEBREW_CASK_PATH="$CANDIDATE_CASK" \
 bash Scripts/verify-homebrew-metadata.sh "$TMP_DIR" > "$CORRUPT_OUTPUT" 2>&1
 corrupt_status=$?
 set -e
