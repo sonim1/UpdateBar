@@ -140,9 +140,12 @@ if APPCAST_SIGNATURE="$($RUBY_BIN -rrexml/document -rbase64 -e '
   path,url,version,length=ARGV
   begin
     raw=File.binread(path); exit 1 if raw.include?("<!DOCTYPE"); doc=REXML::Document.new(raw); ns="http://www.andymatuschak.org/xml-namespaces/sparkle"
-    es=[];REXML::XPath.each(doc,"//*[local-name()=\"enclosure\"]"){|e|es<<e};exit 1 unless es.length==1
-    e=es[0];a=->(n){x=e.attributes.get_attribute_ns(ns,n);x&&x.value}; sig=a.call("edSignature")
-    valid=e.attributes["url"]==url && e.attributes["length"]==length && a.call("shortVersionString")==version && a.call("version")&.match?(/\A[0-9]+(?:\.[0-9]+){0,2}\z/) && sig && Base64.strict_decode64(sig).bytesize==64
+    items=[];REXML::XPath.each(doc,"//*[local-name()=\"item\"]"){|e|items<<e};exit 1 unless items.length==1
+    es=[];REXML::XPath.each(doc,"//*[local-name()=\"enclosure\"]"){|e|es<<e};exit 1 unless es.length==1 && es[0].parent==items[0]
+    e=es[0];a=->(n){x=e.attributes.get_attribute_ns(ns,n);x&&x.value}
+    item_value=->(n){values=[];attribute=a.call(n);values<<attribute if attribute;items[0].elements.each{|child|values<<child.text if child.name==n&&child.namespace==ns};exit 1 unless values.length==1;values[0]}
+    sig=a.call("edSignature");build=item_value.call("version");short=item_value.call("shortVersionString")
+    valid=e.attributes["url"]==url && e.attributes["length"]==length && short==version && build&.match?(/\A[0-9]+(?:\.[0-9]+){0,2}\z/) && sig && Base64.strict_decode64(sig).bytesize==64
     exit 1 unless valid; print sig
   rescue; exit 1; end
 ' "$SNAP/$APPCAST_NAME" "https://updates.updatebar.royjen.com/$DMG_NAME" "$VERSION" "$DMG_SIZE")"; then :; else fail 'Appcast is not bound to the release DMG and version' 64; fi

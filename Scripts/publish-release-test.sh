@@ -126,7 +126,7 @@ write_files(){
   cp "$P/dist/$DMG" "$P/dist/updates/$DMG"; cp "$P/dist/$DMG.sha256" "$P/dist/updates/$DMG.sha256"
   length="$(/usr/bin/ruby -e 's=File.lstat(ARGV.fetch(0)); exit 1 unless s.file? && !s.symlink?; print s.size' "$P/dist/$DMG")"
   cat >"$P/dist/updates/appcast.xml" <<EOF
-<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><enclosure url="https://updates.updatebar.royjen.com/$DMG" length="$length" sparkle:version="12" sparkle:shortVersionString="1.2.3" sparkle:edSignature="$VALID_SIGNATURE"/></item></channel></rss>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><item><sparkle:version>12</sparkle:version><sparkle:shortVersionString>1.2.3</sparkle:shortVersionString><enclosure url="https://updates.updatebar.royjen.com/$DMG" length="$length" sparkle:edSignature="$VALID_SIGNATURE"/></item></channel></rss>
 EOF
   msh="$(/usr/bin/shasum -a 256 "$P/dist/$MAC"|awk '{print $1}')"; dsh="$(/usr/bin/shasum -a 256 "$P/dist/$DMG"|awk '{print $1}')"
   cat >"$P/dist/release-manifest.json" <<EOF
