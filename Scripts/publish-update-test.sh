@@ -47,6 +47,14 @@ if [[ " ${args[*]} " == *' --config - '* ]]; then IFS= read -r config || :; [[ "
 key="${url##*/}"; path="$REMOTE_DIR/$key"
 if [[ "$method" == GET ]]; then
   if [[ -f "$path" ]]; then
+    delay_file="$REMOTE_DIR/.public-delay-$key"
+    if [[ "${SCENARIO:-}" == public-propagation-delay && "$url" == https://updates.* && "$key" != appcast.xml && -f "$delay_file" ]]; then
+      delay="$(cat "$delay_file")"
+      if [[ "$delay" -gt 0 ]]; then
+        printf '%s\n' "$((delay-1))" >"$delay_file"
+        : >"$out"; [[ -z "$headers" ]] || : >"$headers"; printf 404; exit 0
+      fi
+    fi
     if [[ "${SCENARIO:-}" == public-mismatch && "$url" == https://updates.* && "$key" == appcast.xml ]]; then printf '<bad' >"$out"; else cp "$path" "$out"; fi
     if [[ -n "$headers" ]]; then
       if [[ "${SCENARIO:-}" == unsafe-etag && "$key" == appcast.xml ]]; then printf 'ETag: W/"weak"\r\n' >"$headers"; else printf 'ETag: "%s"\r\n' "$(shasum -a 256 "$path"|awk '{print substr($1,1,16)}')" >"$headers"; fi
@@ -61,14 +69,23 @@ if [[ "$condition" == If-Match:* ]]; then
   [[ -f "$path" ]] || { printf 412; exit 0; }; current="\"$(shasum -a 256 "$path"|awk '{print substr($1,1,16)}')\""; [[ "$condition" == "If-Match: $current" ]] || { printf 412; exit 0; }
 fi
 [[ "${SCENARIO:-}" != concurrent || "$key" != appcast.xml ]] || { printf 412; exit 0; }
-cp "$upload" "$path"; printf 200
+cp "$upload" "$path"
+if [[ "${SCENARIO:-}" == public-propagation-delay && "$key" != appcast.xml ]]; then printf '2\n' >"$REMOTE_DIR/.public-delay-$key"; fi
+printf 200
+SH
+cat >"$B/sleep" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+"$OBSERVER" sleep "$@"
+printf 'sleep:%s\n' "$*" >>"$CALL_LOG"
 SH
 chmod +x "$B/curl" "$B"/ruby "$B"/find "$B"/stat "$B"/wc "$B"/tr "$B"/shasum "$B"/cmp "$B"/mktemp
+chmod +x "$B/sleep"
 
 run_case() {
   local scenario="$1" expected="$2"; : >"$LOG"; : >"$T/children"
   set +e
-  env PATH="$B:$PATH" OBSERVER="$B/observe" CHILD_LOG="$T/children" AUTH=caller-exported-auth CALL_LOG="$LOG" REMOTE_DIR="$REMOTE" SCENARIO="$scenario" CURL_BIN="$B/curl" SHASUM_BIN="$B/shasum" CMP_BIN="$B/cmp" R2_ACCESS_KEY_ID=ACCESS123 R2_SECRET_ACCESS_KEY=TOPSECRET CLOUDFLARE_ACCOUNT_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa "$R/Scripts/publish-update.sh" >"$T/$scenario.out" 2>&1
+  env PATH="$B:$PATH" OBSERVER="$B/observe" CHILD_LOG="$T/children" AUTH=caller-exported-auth CALL_LOG="$LOG" REMOTE_DIR="$REMOTE" SCENARIO="$scenario" CURL_BIN="$B/curl" SHASUM_BIN="$B/shasum" CMP_BIN="$B/cmp" SLEEP_BIN="$B/sleep" R2_ACCESS_KEY_ID=ACCESS123 R2_SECRET_ACCESS_KEY=TOPSECRET CLOUDFLARE_ACCOUNT_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa "$R/Scripts/publish-update.sh" >"$T/$scenario.out" 2>&1
   status=$?; set -e
   [[ "$status" == "$expected" ]] || { cat "$T/$scenario.out" >&2; echo "$scenario expected $expected got $status" >&2; exit 1; }
   ! grep -Eq 'ACCESS123|TOPSECRET|user = "' "$LOG" "$T/$scenario.out"
@@ -118,6 +135,10 @@ printf 'other\n' >"$REMOTE/$name"; rm -f "$REMOTE/appcast.xml"
 run_case immutable-conflict 1
 rm -rf "$REMOTE"; mkdir "$REMOTE"
 run_case concurrent 1
+rm -rf "$REMOTE"; mkdir "$REMOTE"
+run_case public-propagation-delay 0
+[[ "$(grep -c "https://updates.updatebar.royjen.com/$name" "$LOG")" -ge 4 ]]
+[[ "$(grep -c '^sleep:5$' "$LOG")" -eq 4 ]]
 run_case auth 41
 run_case network 42
 set +e

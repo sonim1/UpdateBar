@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Retried transient R2 custom-domain propagation before failing release publication.
+
 ## 0.6.8 - 2026-08-03
 
 ### Fixed

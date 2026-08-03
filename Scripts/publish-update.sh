@@ -12,7 +12,7 @@ ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-}"
 ACCESS="${R2_ACCESS_KEY_ID:-}"; SECRET="${R2_SECRET_ACCESS_KEY:-}"
 unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY AUTH
 export -n ACCESS SECRET 2>/dev/null || :
-CURL_BIN="${CURL_BIN:-/usr/bin/curl}"; SHASUM_BIN="${SHASUM_BIN:-/usr/bin/shasum}"; CMP_BIN="${CMP_BIN:-/usr/bin/cmp}"
+CURL_BIN="${CURL_BIN:-/usr/bin/curl}"; SHASUM_BIN="${SHASUM_BIN:-/usr/bin/shasum}"; CMP_BIN="${CMP_BIN:-/usr/bin/cmp}"; SLEEP_BIN="${SLEEP_BIN:-/bin/sleep}"
 [[ "$BUCKET" == updatebar && "$DOMAIN" == updates.updatebar.royjen.com ]] || { echo "Update hosting contract is fixed" >&2; exit 64; }
 [[ "$ACCOUNT_ID" =~ ^[A-Fa-f0-9]{32}$ && "$ACCESS" =~ ^[A-Za-z0-9]+$ && -n "$SECRET" && ! "$SECRET" =~ [[:cntrl:]] ]] || { echo "Valid R2 credentials and a 32-character hexadecimal CLOUDFLARE_ACCOUNT_ID are required" >&2; exit 64; }
 
@@ -136,9 +136,6 @@ publish_immutable() {
   case "$origin_status" in
     200)
       if [[ "$kind" == dmg ]]; then [[ "$(sha "$origin_probe")" == "$LOCAL_HASH" ]] || fail "Immutable DMG conflict"; else "$CMP_BIN" -s "$file" "$origin_probe" || fail "Immutable checksum conflict"; fi
-      public_status="$(public_get "$PUBLIC$key" "$probe")" || return $?
-      [[ "$public_status" == 200 ]] || fail "Public immutable object is unavailable"
-      if [[ "$kind" == dmg ]]; then [[ "$(sha "$probe")" == "$LOCAL_HASH" ]] || fail "Public immutable DMG conflict"; else "$CMP_BIN" -s "$file" "$probe" || fail "Public immutable checksum conflict"; fi
       return
       ;;
     404) ;;
@@ -151,12 +148,33 @@ publish_immutable() {
   verify_bytes "$key" "$file" "$kind"
 }
 
+verify_public_immutable() {
+  local key="$1" file="$2" kind="$3" attempt=1 status probe
+  probe="$TMP/final-$key"
+  while [[ "$attempt" -le 12 ]]; do
+    status="$(public_get "$PUBLIC$key" "$probe")" || return $?
+    if [[ "$status" == 200 ]]; then
+      if [[ "$kind" == dmg ]]; then
+        [[ "$(sha "$probe")" == "$LOCAL_HASH" ]] || fail "Final public DMG bytes mismatch"
+      else
+        "$CMP_BIN" -s "$file" "$probe" || fail "Final public checksum bytes mismatch"
+      fi
+      return
+    fi
+    case "$status" in
+      403|404|429|500|502|503|504) ;;
+      *) fail "Public immutable verification returned HTTP $status" ;;
+    esac
+    [[ "$attempt" -lt 12 ]] || fail "Public immutable verification returned HTTP $status after $attempt attempts"
+    "$SLEEP_BIN" 5 || return $?
+    attempt=$((attempt+1))
+  done
+}
+
 publish_immutable "$NAME" "$DMG" application/x-apple-diskimage dmg
 publish_immutable "$NAME.sha256" "$CHECKSUM" text/plain checksum
-for key in "$NAME" "$NAME.sha256"; do
-  probe="$TMP/final-$key"; [[ "$(public_get "$PUBLIC$key" "$probe")" == 200 ]] || fail "Public immutable verification failed"
-  if [[ "$key" == "$NAME" ]]; then [[ "$(sha "$probe")" == "$LOCAL_HASH" ]] || fail "Final public DMG bytes mismatch"; else "$CMP_BIN" -s "$CHECKSUM" "$probe" || fail "Final public checksum bytes mismatch"; fi
-done
+verify_public_immutable "$NAME" "$DMG" dmg
+verify_public_immutable "$NAME.sha256" "$CHECKSUM" checksum
 
 if [[ "$IDENTICAL" != 1 ]]; then
   CURRENT="$TMP/current.xml"; HEADERS="$TMP/current.headers"; CURRENT_STATUS="$(signed_get appcast.xml "$CURRENT" "$HEADERS")" || exit $?
