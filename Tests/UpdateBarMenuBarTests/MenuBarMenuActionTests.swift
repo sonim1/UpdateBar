@@ -20,6 +20,13 @@ final class MenuBarMenuActionTests: XCTestCase {
         XCTAssertEqual(MenuBarMenuAction.errorRecovery.suffix(2), [.checkForUpdates, .quit])
     }
 
+    func testSettingsAndAboutUseReadableFooterTitles() {
+        XCTAssertEqual(MenuBarMenuAction.openConfig.title, "Settings...")
+        XCTAssertEqual(MenuBarMenuAction.about.title, "About UpdateBar")
+        XCTAssertTrue(MenuBarMenuAction.footer.contains(.openConfig))
+        XCTAssertTrue(MenuBarMenuAction.footer.contains(.about))
+    }
+
     func testErrorRecoveryActionsIncludeDiagnostics() {
         XCTAssertEqual(
             MenuBarMenuAction.errorRecovery.map(\.title),
@@ -30,7 +37,8 @@ final class MenuBarMenuActionTests: XCTestCase {
                 "Dashboard",
                 "Manage Items...",
                 "Scan & Add",
-                "Open Config",
+                "Settings...",
+                "About UpdateBar",
                 "View Logs",
                 "Check for Updates...",
                 "Quit",
