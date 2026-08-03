@@ -167,7 +167,7 @@
             }
 
             if updateQueue.overflowCount > 0 {
-                let more = NSTextField(labelWithString: "+\(updateQueue.overflowCount) more")
+                let more = NSTextField(labelWithString: "and \(updateQueue.overflowCount) more")
                 more.font = .systemFont(ofSize: 11)
                 more.textColor = .secondaryLabelColor
                 queueContainer.addArrangedSubview(more)
