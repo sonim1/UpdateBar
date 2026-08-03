@@ -7,10 +7,13 @@
     {
         private let sections = DashboardSection.allCases
         private let tableView = NSTableView()
+        private let queueContainer = NSStackView()
         private var selectedSection: DashboardSection
+        private var updateQueue = SidebarUpdateQueue(count: 0, items: [], overflowCount: 0)
         private var isApplyingSelection = false
 
         var onSelectionChanged: (DashboardSection) -> Void = { _ in }
+        var onUpdateSelected: (String) -> Void = { _ in }
 
         init(selectedSection: DashboardSection = .overview) {
             self.selectedSection = selectedSection
@@ -41,17 +44,28 @@
             scrollView.hasHorizontalScroller = false
             scrollView.translatesAutoresizingMaskIntoConstraints = false
 
+            queueContainer.orientation = .vertical
+            queueContainer.alignment = .leading
+            queueContainer.spacing = 6
+            queueContainer.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+            queueContainer.translatesAutoresizingMaskIntoConstraints = false
+
             let content = NSView()
             content.addSubview(scrollView)
+            content.addSubview(queueContainer)
             NSLayoutConstraint.activate([
                 scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
                 scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
                 scrollView.topAnchor.constraint(equalTo: content.topAnchor),
-                scrollView.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+                scrollView.bottomAnchor.constraint(equalTo: queueContainer.topAnchor),
                 scrollView.widthAnchor.constraint(greaterThanOrEqualToConstant: 150),
                 scrollView.widthAnchor.constraint(lessThanOrEqualToConstant: 190),
+                queueContainer.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+                queueContainer.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+                queueContainer.bottomAnchor.constraint(equalTo: content.bottomAnchor),
             ])
             view = content
+            renderUpdateQueue()
             select(selectedSection)
         }
 
@@ -114,6 +128,55 @@
                 byExtendingSelection: false
             )
             isApplyingSelection = false
+        }
+
+        func apply(updateQueue: SidebarUpdateQueue) {
+            self.updateQueue = updateQueue
+            guard isViewLoaded else { return }
+            renderUpdateQueue()
+        }
+
+        func selectUpdate(id: String) {
+            onUpdateSelected(id)
+        }
+
+        private func renderUpdateQueue() {
+            queueContainer.arrangedSubviews.forEach { queueContainer.removeArrangedSubview($0); $0.removeFromSuperview() }
+            guard updateQueue.isVisible else {
+                queueContainer.isHidden = true
+                return
+            }
+            queueContainer.isHidden = false
+
+            let header = NSTextField(labelWithString: "Updates available · \(updateQueue.count)")
+            header.font = .systemFont(ofSize: 11, weight: .semibold)
+            header.textColor = .secondaryLabelColor
+            queueContainer.addArrangedSubview(header)
+
+            for item in updateQueue.items {
+                let button = NSButton(title: "\(item.title)  \(item.versionChange)", target: self, action: #selector(updateQueueButtonSelected(_:)))
+                button.bezelStyle = .rounded
+                button.alignment = .left
+                button.font = .systemFont(ofSize: 11)
+                button.toolTip = "Open Overview for \(item.title)"
+                button.identifier = NSUserInterfaceItemIdentifier(item.id)
+                button.setAccessibilityLabel("Update \(item.title), \(item.versionChange)")
+                button.translatesAutoresizingMaskIntoConstraints = false
+                button.widthAnchor.constraint(greaterThanOrEqualToConstant: 130).isActive = true
+                queueContainer.addArrangedSubview(button)
+            }
+
+            if updateQueue.overflowCount > 0 {
+                let more = NSTextField(labelWithString: "+\(updateQueue.overflowCount) more")
+                more.font = .systemFont(ofSize: 11)
+                more.textColor = .secondaryLabelColor
+                queueContainer.addArrangedSubview(more)
+            }
+        }
+
+        @objc private func updateQueueButtonSelected(_ sender: NSButton) {
+            guard let id = sender.identifier?.rawValue else { return }
+            selectUpdate(id: id)
         }
     }
 #endif

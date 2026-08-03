@@ -69,6 +69,9 @@
             sidebarViewController.onSelectionChanged = { [weak self] section in
                 self?.select(section)
             }
+            sidebarViewController.onUpdateSelected = { [weak self] _ in
+                self?.select(.overview)
+            }
             manageItemsViewController.onRefresh = { [weak self] in
                 self?.reload()
             }
@@ -97,6 +100,10 @@
         func reloadIfShown() {
             guard window?.isVisible == true else { return }
             reload()
+        }
+
+        func applySidebarQueue(_ queue: SidebarUpdateQueue) {
+            sidebarViewController.apply(updateQueue: queue)
         }
 
         func showErrorIfShown(_ error: Error) {

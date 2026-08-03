@@ -457,6 +457,12 @@
                 return
             }
             let activeAction = actionCoordinator.activeAction
+            dashboardPanelController?.applySidebarQueue(
+                SidebarUpdateQueueModel.make(
+                    outdatedItems: latestState.outdatedItems,
+                    limit: 3
+                )
+            )
             if let activeAction {
                 setStatusIcon(
                     .checking,
