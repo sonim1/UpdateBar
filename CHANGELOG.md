@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.10 - 2026-08-03
+
 ### Fixed
 
 - Avoided priming Cloudflare's negative cache before publishing immutable update artifacts.
