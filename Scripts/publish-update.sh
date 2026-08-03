@@ -130,8 +130,8 @@ verify_bytes() {
   if [[ "$kind" == dmg ]]; then [[ "$(sha "$remote")" == "$LOCAL_HASH" ]] || fail "Immutable DMG conflict"; else "$CMP_BIN" -s "$local_file" "$remote" || fail "Immutable checksum conflict"; fi
 }
 publish_immutable() {
-  local key="$1" file="$2" type="$3" kind="$4" public_status origin_status put_status
-  local probe="$TMP/public-$key" origin_probe="$TMP/origin-pre-$key"
+  local key="$1" file="$2" type="$3" kind="$4" origin_status put_status
+  local origin_probe="$TMP/origin-pre-$key"
   origin_status="$(signed_get "$key" "$origin_probe")" || return $?
   case "$origin_status" in
     200)
@@ -141,8 +141,6 @@ publish_immutable() {
     404) ;;
     *) fail "Authoritative immutable GET returned HTTP $origin_status";;
   esac
-  public_status="$(public_get "$PUBLIC$key" "$probe")" || return $?
-  [[ "$public_status" == 404 ]] || fail "Public and authoritative immutable state disagree"
   put_status="$(signed_put "$key" "$file" "$type" 'public, max-age=31536000, immutable' 'If-None-Match: *')" || return $?
   [[ "$put_status" == 200 || "$put_status" == 201 || "$put_status" == 204 || "$put_status" == 412 ]] || fail "Immutable PUT returned HTTP $put_status"
   verify_bytes "$key" "$file" "$kind"

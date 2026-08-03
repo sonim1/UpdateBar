@@ -46,6 +46,10 @@ done
 if [[ " ${args[*]} " == *' --config - '* ]]; then IFS= read -r config || :; [[ "$config" == *'ACCESS123:TOPSECRET'* ]] || exit 40; [[ "${SCENARIO:-}" != auth ]] || exit 41; fi
 key="${url##*/}"; path="$REMOTE_DIR/$key"
 if [[ "$method" == GET ]]; then
+  negative_file="$REMOTE_DIR/.public-negative-$key"
+  if [[ "${SCENARIO:-}" == public-negative-cache && "$url" == https://updates.* && "$key" != appcast.xml && -f "$negative_file" ]]; then
+    : >"$out"; [[ -z "$headers" ]] || : >"$headers"; printf 404; exit 0
+  fi
   if [[ -f "$path" ]]; then
     delay_file="$REMOTE_DIR/.public-delay-$key"
     if [[ "${SCENARIO:-}" == public-propagation-delay && "$url" == https://updates.* && "$key" != appcast.xml && -f "$delay_file" ]]; then
@@ -60,7 +64,10 @@ if [[ "$method" == GET ]]; then
       if [[ "${SCENARIO:-}" == unsafe-etag && "$key" == appcast.xml ]]; then printf 'ETag: W/"weak"\r\n' >"$headers"; else printf 'ETag: "%s"\r\n' "$(shasum -a 256 "$path"|awk '{print substr($1,1,16)}')" >"$headers"; fi
     fi
     printf 200
-  else : >"$out"; [[ -z "$headers" ]] || : >"$headers"; printf 404; fi
+  else
+    if [[ "${SCENARIO:-}" == public-negative-cache && "$url" == https://updates.* && "$key" != appcast.xml ]]; then : >"$negative_file"; fi
+    : >"$out"; [[ -z "$headers" ]] || : >"$headers"; printf 404
+  fi
   exit 0
 fi
 [[ "$method" == PUT ]] || exit 90
@@ -139,6 +146,8 @@ rm -rf "$REMOTE"; mkdir "$REMOTE"
 run_case public-propagation-delay 0
 [[ "$(grep -c "https://updates.updatebar.royjen.com/$name" "$LOG")" -ge 4 ]]
 [[ "$(grep -c '^sleep:5$' "$LOG")" -eq 4 ]]
+rm -rf "$REMOTE"; mkdir "$REMOTE"
+run_case public-negative-cache 0
 run_case auth 41
 run_case network 42
 set +e
