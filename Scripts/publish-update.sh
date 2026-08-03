@@ -6,14 +6,14 @@ export LC_ALL=C
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 [[ $# == 0 ]] || { echo "Usage: Scripts/publish-update.sh" >&2; exit 64; }
 DIR="${UPDATE_ARTIFACT_DIR:-$ROOT/dist/updates}"
-BUCKET="${R2_BUCKET_NAME:-updatebar-updates}"
+BUCKET="${R2_BUCKET_NAME:-updatebar}"
 DOMAIN="${UPDATE_DOMAIN:-updates.updatebar.royjen.com}"
 ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-}"
 ACCESS="${R2_ACCESS_KEY_ID:-}"; SECRET="${R2_SECRET_ACCESS_KEY:-}"
 unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY AUTH
 export -n ACCESS SECRET 2>/dev/null || :
 CURL_BIN="${CURL_BIN:-/usr/bin/curl}"; SHASUM_BIN="${SHASUM_BIN:-/usr/bin/shasum}"; CMP_BIN="${CMP_BIN:-/usr/bin/cmp}"
-[[ "$BUCKET" == updatebar-updates && "$DOMAIN" == updates.updatebar.royjen.com ]] || { echo "Update hosting contract is fixed" >&2; exit 64; }
+[[ "$BUCKET" == updatebar && "$DOMAIN" == updates.updatebar.royjen.com ]] || { echo "Update hosting contract is fixed" >&2; exit 64; }
 [[ "$ACCOUNT_ID" =~ ^[A-Fa-f0-9]{32}$ && "$ACCESS" =~ ^[A-Za-z0-9]+$ && -n "$SECRET" && ! "$SECRET" =~ [[:cntrl:]] ]] || { echo "Valid R2 credentials and a 32-character hexadecimal CLOUDFLARE_ACCOUNT_ID are required" >&2; exit 64; }
 
 fail() { echo "$1" >&2; exit "${2:-1}"; }

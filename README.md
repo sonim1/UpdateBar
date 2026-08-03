@@ -194,7 +194,7 @@ default:
 Scripts/setup-update-hosting.sh
 ```
 
-The script accepts only the `updatebar-updates` bucket and
+The script accepts only the `updatebar` bucket and
 `updates.updatebar.royjen.com` custom domain. It creates missing resources,
 accepts an exact existing configuration, and stops on conflicting state; it
 never deletes a bucket or domain. `updatebar.royjen.com` is an optional future
@@ -272,7 +272,7 @@ Configure these Environment secrets:
   `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_ISSUER_ID`, and
   `SPARKLE_PRIVATE_ED_KEY`
 - `publish`: `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, using R2 Object
-  Read & Write credentials scoped only to `updatebar-updates`
+  Read & Write credentials scoped only to `updatebar`
 - `notify`: `TAP_GITHUB_APP_PRIVATE_KEY`
 
 The `publish` job also receives GitHub's built-in `github.token`; it is not a

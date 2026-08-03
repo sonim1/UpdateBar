@@ -322,7 +322,7 @@ fi
 for local_setting in \
   "NOTARYTOOL_KEYCHAIN_PROFILE=updatebar-notary" \
   "SPARKLE_KEY_ACCOUNT=updatebar" \
-  "R2_BUCKET_NAME=updatebar-updates" \
+  "R2_BUCKET_NAME=updatebar" \
   "UPDATE_DOMAIN=updates.updatebar.royjen.com" \
   "CLOUDFLARE_ZONE_ID="; do
   if ! grep -Fxq "$local_setting" "$EXAMPLE_FILE"; then

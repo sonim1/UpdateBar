@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Published UpdateBar releases to the canonical `updatebar` R2 bucket.
+
 ## 0.6.7 - 2026-08-02
 
 ### Fixed

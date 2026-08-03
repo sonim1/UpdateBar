@@ -199,7 +199,7 @@ def validate(workflow)
   assert(publication["env"] == {
     "GH_TOKEN" => "${{ github.token }}", "CLOUDFLARE_ACCOUNT_ID" => "${{ vars.CLOUDFLARE_ACCOUNT_ID }}",
     "R2_ACCESS_KEY_ID" => "${{ secrets.R2_ACCESS_KEY_ID }}", "R2_SECRET_ACCESS_KEY" => "${{ secrets.R2_SECRET_ACCESS_KEY }}",
-    "R2_BUCKET_NAME" => "updatebar-updates", "UPDATE_DOMAIN" => "updates.updatebar.royjen.com"
+    "R2_BUCKET_NAME" => "updatebar", "UPDATE_DOMAIN" => "updates.updatebar.royjen.com"
   }, "publish must use only release publication credentials and fixed destinations")
   assert(publication["run"] == 'Scripts/publish-release.sh "$RELEASE_TAG"', "publish must call the coordinator exactly once")
   assert(!publish.to_s.match?(/build-app|generate-appcast|generate-release-manifest|APPLE_CERTIFICATE|APPLE_NOTARY|SPARKLE_PRIVATE|setup-node|npm ci/), "failed publish reruns must never rebuild, sign, notarize, or regenerate")

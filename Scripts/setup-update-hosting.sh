@@ -45,12 +45,12 @@ if [[ -f "$CONFIG" ]]; then
 fi
 set +x
 
-R2_BUCKET_NAME="${R2_BUCKET_NAME:-updatebar-updates}"
+R2_BUCKET_NAME="${R2_BUCKET_NAME:-updatebar}"
 UPDATE_DOMAIN="${UPDATE_DOMAIN:-updates.updatebar.royjen.com}"
 WRANGLER_BIN="${WRANGLER_BIN:-$ROOT/node_modules/.bin/wrangler}"
 ZONE_ID="${CLOUDFLARE_ZONE_ID:-}"
 ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-}"
-[[ "$R2_BUCKET_NAME" == updatebar-updates && "$UPDATE_DOMAIN" == updates.updatebar.royjen.com ]] || {
+[[ "$R2_BUCKET_NAME" == updatebar && "$UPDATE_DOMAIN" == updates.updatebar.royjen.com ]] || {
   echo "Update hosting bucket and domain are fixed release contracts" >&2; exit 64;
 }
 [[ "$ZONE_ID" =~ ^[A-Fa-f0-9]{32}$ ]] || { echo "CLOUDFLARE_ZONE_ID must be a 32-character hexadecimal ID" >&2; exit 64; }
@@ -88,7 +88,7 @@ is_absent() {
 }
 
 validate_bucket() {
-  ruby -rjson -e 'v=JSON.parse(ARGF.read); exit(v.is_a?(Hash) && v["name"] == "updatebar-updates" ? 0 : 1)' <<<"$1"
+  ruby -rjson -e 'v=JSON.parse(ARGF.read); exit(v.is_a?(Hash) && v["name"] == "updatebar" ? 0 : 1)' <<<"$1"
 }
 
 bucket=""

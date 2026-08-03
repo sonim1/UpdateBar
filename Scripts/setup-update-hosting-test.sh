@@ -20,7 +20,7 @@ case "$*" in
     [[ "${SCENARIO:-}" != unauthorized ]] || { echo denied >&2; exit 23; }
     [[ "${SCENARIO:-}" != account-mismatch ]] || { echo '{"accounts":[{"id":"cccccccccccccccccccccccccccccccc"}]}'; exit 0; }
     echo '{"accounts":[{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}' ;;
-  "r2 bucket info updatebar-updates --json")
+  "r2 bucket info updatebar --json")
     count_file="${CALL_LOG}.bucket"; count=0; [[ ! -f "$count_file" ]] || count="$(cat "$count_file")"; count=$((count+1)); echo "$count" >"$count_file"
     case "${SCENARIO:-}" in
       absent|bucket-race-success|bucket-race-mismatch) [[ "$count" == 1 ]] && { echo 'Bucket not found' >&2; exit 44; };;
@@ -28,11 +28,11 @@ case "$*" in
       malformed) echo nope; exit 0;;
     esac
     [[ "${SCENARIO:-}" != bucket-race-mismatch || "$count" == 1 ]] || { echo '{"name":"another-bucket"}'; exit 0; }
-    echo '{"name":"updatebar-updates"}' ;;
-  "r2 bucket create updatebar-updates")
+    echo '{"name":"updatebar"}' ;;
+  "r2 bucket create updatebar")
     case "${SCENARIO:-}" in bucket-race-*) exit 45;; esac
     echo created ;;
-  "r2 bucket domain get updatebar-updates --domain updates.updatebar.royjen.com")
+  "r2 bucket domain get updatebar --domain updates.updatebar.royjen.com")
     count_file="${CALL_LOG}.domain"; count=0; [[ ! -f "$count_file" ]] || count="$(cat "$count_file")"; count=$((count+1)); echo "$count" >"$count_file"
     case "${SCENARIO:-}" in
       absent) [[ "$count" == 1 ]] && { echo 'Domain not found' >&2; exit 44; };;
@@ -44,8 +44,8 @@ case "$*" in
       mismatch) echo 'domain: wrong.example'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; exit 0;;
       malformed) echo nonsense; exit 0;;
     esac
-    echo 'domain: updates.updatebar.royjen.com'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; echo 'bucket: updatebar-updates' ;;
-  "r2 bucket domain add updatebar-updates --domain updates.updatebar.royjen.com --zone-id bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --min-tls 1.2 --force")
+    echo 'domain: updates.updatebar.royjen.com'; echo 'enabled: Yes'; echo 'min_tls_version: 1.2'; echo 'bucket: updatebar' ;;
+  "r2 bucket domain add updatebar --domain updates.updatebar.royjen.com --zone-id bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --min-tls 1.2 --force")
     case "${SCENARIO:-}" in domain-race-*) exit 46;; esac
     echo added ;;
   *) echo "unexpected: $*" >&2; exit 91;;
@@ -72,7 +72,7 @@ EVAL_SENTINEL="$TEST_ROOT/config-must-not-execute"
 printf '%s\n' \
   "CLOUDFLARE_ACCOUNT_ID=$ACCOUNT_ID" \
   "CLOUDFLARE_ZONE_ID=$ZONE_ID" \
-  'R2_BUCKET_NAME=updatebar-updates' \
+  'R2_BUCKET_NAME=updatebar' \
   'UPDATE_DOMAIN=updates.updatebar.royjen.com' \
   "UNRELATED_COMMAND=\$(touch $EVAL_SENTINEL)" \
   'DEVELOPER_ID_APPLICATION=Developer ID Application: Example (ABCDE12345)' \
@@ -114,12 +114,12 @@ actual = File.binread(ARGV[0]).split("\0")
 expected = %w[
   --version
   whoami --json
-  r2 bucket info updatebar-updates --json
-  r2 bucket create updatebar-updates
-  r2 bucket info updatebar-updates --json
-  r2 bucket domain get updatebar-updates --domain updates.updatebar.royjen.com
-  r2 bucket domain add updatebar-updates --domain updates.updatebar.royjen.com --zone-id bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --min-tls 1.2 --force
-  r2 bucket domain get updatebar-updates --domain updates.updatebar.royjen.com
+  r2 bucket info updatebar --json
+  r2 bucket create updatebar
+  r2 bucket info updatebar --json
+  r2 bucket domain get updatebar --domain updates.updatebar.royjen.com
+  r2 bucket domain add updatebar --domain updates.updatebar.royjen.com --zone-id bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --min-tls 1.2 --force
+  r2 bucket domain get updatebar --domain updates.updatebar.royjen.com
 ]
 abort "unexpected Wrangler argv/order:\n#{actual.inspect}" unless actual == expected
 RUBY
