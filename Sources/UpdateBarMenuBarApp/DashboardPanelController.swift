@@ -16,6 +16,8 @@
         private let overviewHostingView: NSHostingView<AnyView> = NSHostingView(
             rootView: AnyView(ProgressView().frame(minWidth: 620, minHeight: 420))
         )
+        private let settingsViewController: SettingsViewController
+        private let aboutViewController: AboutViewController
         private let manageItemsViewController: ManageItemsViewController
         private let scanViewController: ScanViewController
         private weak var visibleContentViewController: NSViewController?
@@ -24,9 +26,16 @@
 
         init(
             service: any MenuBarServicing,
-            onItemsChanged: @escaping () -> Void
+            onItemsChanged: @escaping () -> Void,
+            onCheckForUpdates: @escaping () -> Void
         ) {
             self.service = service
+            settingsViewController = SettingsViewController(
+                service: service,
+                onSaved: onItemsChanged,
+                onCheckForUpdates: onCheckForUpdates
+            )
+            aboutViewController = AboutViewController()
             manageItemsViewController = ManageItemsViewController(
                 service: service,
                 onChanged: onItemsChanged
@@ -67,6 +76,9 @@
             sidebarViewController.onSelectionChanged = { [weak self] section in
                 self?.select(section)
             }
+            sidebarViewController.onUpdateSelected = { [weak self] _ in
+                self?.select(.overview)
+            }
             manageItemsViewController.onRefresh = { [weak self] in
                 self?.reload()
             }
@@ -85,6 +97,7 @@
 
         func showWindowAndReload(selecting section: DashboardSection) {
             select(section)
+            if section == .settings { settingsViewController.prepare() }
             showWindow(nil)
             window?.center()
             window?.makeKeyAndOrderFront(nil)
@@ -95,6 +108,10 @@
         func reloadIfShown() {
             guard window?.isVisible == true else { return }
             reload()
+        }
+
+        func applySidebarQueue(_ queue: SidebarUpdateQueue) {
+            sidebarViewController.apply(updateQueue: queue)
         }
 
         func showErrorIfShown(_ error: Error) {
@@ -151,6 +168,10 @@
                 return manageItemsViewController
             case .scan:
                 return scanViewController
+            case .settings:
+                return settingsViewController
+            case .about:
+                return aboutViewController
             }
         }
 

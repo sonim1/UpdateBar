@@ -61,6 +61,42 @@
             XCTAssertEqual(tableView.accessibilitySelectedRows()?.count, 1)
         }
 
+        func testSidebarIncludesSettingsAndAboutSections() throws {
+            let controller = DashboardSidebarViewController(selectedSection: .about)
+
+            _ = controller.view
+            let tableView = try XCTUnwrap(findTableView(in: controller.view))
+
+            XCTAssertEqual(tableView.numberOfRows, 5)
+            XCTAssertEqual(tableView.selectedRow, 4)
+            XCTAssertEqual(
+                (controller.tableView(tableView, viewFor: nil, row: 3)?.accessibilityLabel()),
+                "Settings"
+            )
+            XCTAssertEqual(
+                (controller.tableView(tableView, viewFor: nil, row: 4)?.accessibilityLabel()),
+                "About"
+            )
+        }
+
+        func testUpdateQueueSelectionRoutesToCallbackWithoutUpdating() {
+            let controller = DashboardSidebarViewController()
+            var selectedIDs: [String] = []
+            controller.onUpdateSelected = { selectedIDs.append($0) }
+
+            controller.apply(updateQueue: SidebarUpdateQueue(
+                count: 2,
+                items: [
+                    SidebarUpdateQueueItem(id: "brew", title: "Homebrew", versionChange: "1 → 2"),
+                ],
+                overflowCount: 1
+            ))
+
+            controller.selectUpdate(id: "brew")
+
+            XCTAssertEqual(selectedIDs, ["brew"])
+        }
+
         private func findTableView(in view: NSView) -> NSTableView? {
             if let tableView = view as? NSTableView {
                 return tableView

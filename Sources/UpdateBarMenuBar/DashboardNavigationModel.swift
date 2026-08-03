@@ -2,6 +2,8 @@ public enum DashboardSection: Int, CaseIterable, Equatable, Sendable {
     case overview
     case items
     case scan
+    case settings
+    case about
 
     public var title: String {
         switch self {
@@ -11,6 +13,10 @@ public enum DashboardSection: Int, CaseIterable, Equatable, Sendable {
             return "Items"
         case .scan:
             return "Scan & Add"
+        case .settings:
+            return "Settings"
+        case .about:
+            return "About"
         }
     }
 
@@ -22,6 +28,10 @@ public enum DashboardSection: Int, CaseIterable, Equatable, Sendable {
             return "list.bullet"
         case .scan:
             return "magnifyingglass"
+        case .settings:
+            return "gearshape"
+        case .about:
+            return "info.circle"
         }
     }
 }
@@ -45,7 +55,11 @@ public struct DashboardNavigationModel: Equatable, Sendable {
             return .items
         case .scanAndAdd:
             return .scan
-        case .refreshStatus, .checkNow, .updateAllApprovedOutdated, .openTUI, .openConfig,
+        case .openConfig:
+            return .settings
+        case .about:
+            return .about
+        case .refreshStatus, .checkNow, .updateAllApprovedOutdated, .openTUI,
             .viewLogs, .checkForUpdates, .quit:
             return nil
         }
