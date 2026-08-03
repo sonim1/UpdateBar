@@ -15,7 +15,7 @@ Current scope:
   submenu exposes per-field approve/revoke actions; exact command text and cwd
   appear only in confirmation
 - provides `Check Now` and `Update All`, Refresh Status, Open TUI, Dashboard,
-  Manage Items, Scan & Add, Open Config, View Logs, and Quit through native menu
+  Manage Items, Scan & Add, Settings, About, View Logs, and Quit through native menu
   items; Update All is disabled when there are no outdated items
 - starts individual updates and Update All immediately without a modal confirmation;
   command approvals and revocations still require confirmation
@@ -28,12 +28,14 @@ Current scope:
 - replaces actionable rows with `Checking for updates...`, Dashboard, and Quit
   while a refresh is in flight, so stale update and approval actions cannot run
 - shows the active update title plus Cancel Current Action while keeping Open TUI,
-  Dashboard, item management, configuration, logs, and Quit available
+  Dashboard, item management, settings, logs, and Quit available
 
 `Dashboard` opens the Dashboard window directly. A left sidebar switches between
-Overview, Items, and Scan & Add in the same Dashboard window, with each section
+Overview, Items, Scan & Add, Settings, and About in the same Dashboard window, with each section
 using native macOS UI. The sidebar, Items, and Scan & Add use AppKit controls;
-Overview is SwiftUI-hosted. Overview shows pending-update and
+Overview, Settings, and About are SwiftUI-hosted. The sidebar footer shows a compact
+queue of available updates and routes each selection to Overview without executing it.
+Overview shows pending-update and
 awaiting-approval counts, last check/update times, and a bar chart of successful
 updates over the last four weeks (from `~/.updatebar/history.jsonl`). Items lists
 every registered item grouped by category with an enable/disable checkbox per
@@ -48,7 +50,7 @@ mode.
 
 If an operation or status refresh fails, the status badge changes to `!` and the
 app directly assigns a native error-recovery menu. Refresh Status, Check Now,
-Open TUI, Dashboard, item management, configuration, logs, and Quit remain
+Open TUI, Dashboard, item management, settings, logs, and Quit remain
 reachable.
 
 Build a local unsigned app:
@@ -86,7 +88,7 @@ UPDATEBAR_MENUBAR_ADAPTER=cli UPDATEBAR_BIN=.build/debug/updatebar .build/debug/
 
 View logs from the menu bar app at `~/Library/Logs/UpdateBar/updatebar-menubar.log`.
 If that file does not exist yet, the menu item opens the UpdateBar home directory
-instead. The same fallback is used by `Open Config`.
+instead.
 Long item lists in the menu are compacted with overflow summaries.
 Recent logs are retained automatically with a rotating local cap.
 
@@ -106,10 +108,10 @@ flag, so the app writes a launch configuration to
 `brew install sonim1/tap/updatebar-tui`, or set `UPDATEBAR_TUI` to a dev-built
 executable to override the `PATH` lookup.
 
-`Open Config` opens the active UpdateBar config file when it exists; by default
-that is `HOME/.updatebar/config.toml`, and `UPDATEBAR_HOME` can point the app at
-an alternate data directory. If the config file is not present, the app opens the
-active UpdateBar home directory instead.
+`Settings` opens the shared Dashboard window on the General and Updates sections.
+It edits the active UpdateBar configuration (by default `HOME/.updatebar/config.toml`)
+and exposes Sparkle's app-update check. `About` shows the app version, build,
+support contact, and acknowledgments without duplicating dashboard statistics.
 
 Troubleshooting a missing icon:
 
@@ -135,6 +137,7 @@ pgrep -ax UpdateBar
 
 The menu bar app intentionally runs as an accessory process (`LSUIElement=true`).
 It is normal that Dock and Command-Tab do not show an icon while only the status
-menu is visible. Opening `Dashboard...` or `Open Config...` switches the app to
+menu is visible. Opening `Dashboard...`, `Settings...`, or `About UpdateBar`
+switches the app to
 regular mode so Dock and Command-Tab visibility appears for that window, then
 returns to accessory mode when the last titled window closes.
