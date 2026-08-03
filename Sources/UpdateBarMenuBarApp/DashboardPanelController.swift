@@ -16,6 +16,8 @@
         private let overviewHostingView: NSHostingView<AnyView> = NSHostingView(
             rootView: AnyView(ProgressView().frame(minWidth: 620, minHeight: 420))
         )
+        private let settingsViewController = NSViewController()
+        private let aboutViewController = NSViewController()
         private let manageItemsViewController: ManageItemsViewController
         private let scanViewController: ScanViewController
         private weak var visibleContentViewController: NSViewController?
@@ -151,6 +153,10 @@
                 return manageItemsViewController
             case .scan:
                 return scanViewController
+            case .settings:
+                return settingsViewController
+            case .about:
+                return aboutViewController
             }
         }
 

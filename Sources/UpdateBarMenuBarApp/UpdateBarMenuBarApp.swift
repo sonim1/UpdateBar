@@ -189,6 +189,10 @@
             showDashboard(for: .manageItems)
         }
 
+        @objc private func openAbout() {
+            showDashboard(for: .about)
+        }
+
         private func showDashboard(for action: MenuBarMenuAction) {
             guard let section = dashboardNavigationModel.section(for: action) else { return }
             showDashboard(section)
@@ -700,6 +704,8 @@
                 return #selector(scanAndAdd)
             case .openConfig:
                 return #selector(openConfig)
+            case .about:
+                return #selector(openAbout)
             case .viewLogs:
                 return #selector(viewLogs)
             case .checkForUpdates:

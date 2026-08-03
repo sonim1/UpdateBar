@@ -25,7 +25,7 @@ public struct MenuBarActionConfirmation: Equatable, Sendable {
         switch action {
         case .refreshStatus, .checkNow, .updateAllApprovedOutdated, .openTUI, .overview,
             .manageItems, .scanAndAdd,
-            .openConfig, .viewLogs, .checkForUpdates, .quit:
+            .openConfig, .about, .viewLogs, .checkForUpdates, .quit:
             return nil
         }
     }

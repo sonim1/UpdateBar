@@ -42,17 +42,17 @@ final class SidebarUpdateQueueModelTests: XCTestCase {
         let queue = SidebarUpdateQueueModel.make(
             outdatedItems: [
                 item(
-                    "/Users/kendrick/private/tool",
-                    current: "file:///Users/kendrick/current",
-                    latest: "token=secret"
+                    "NPM_TOKEN=npm_secret",
+                    current: "AWS_SECRET_ACCESS_KEY=aws-old",
+                    latest: "NPM_TOKEN=npm-new"
                 )
             ],
             limit: 3
         )
 
         let row = try! XCTUnwrap(queue.items.first)
-        XCTAssertFalse(row.title.contains("/Users/kendrick"))
-        XCTAssertFalse(row.versionChange.contains("token=secret"))
+        XCTAssertFalse(row.title.contains("npm_secret"))
+        XCTAssertFalse(row.versionChange.contains("aws-old"))
     }
 
     private func item(_ name: String, current: String, latest: String) -> StatusItem {
