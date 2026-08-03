@@ -47,7 +47,8 @@
                     }
                     section("Updates") {
                         LabeledContent("Current version") {
-                            Text(model.version).foregroundStyle(.secondary)
+                            Text(model.build.isEmpty || model.build == "—" ? model.version : "\(model.version) (\(model.build))")
+                                .foregroundStyle(.secondary)
                         }
                         Button("Check for Updates", action: model.onCheckForUpdates)
                             .buttonStyle(.borderedProminent)
@@ -80,12 +81,15 @@
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text("Ready")
+                Text(model.isRunning ? model.status : "Ready")
                     .font(.caption.weight(.medium))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Color.green.opacity(0.14), in: Capsule())
-                    .foregroundStyle(.green)
+                    .background(
+                        (model.isRunning ? Color.orange : Color.green).opacity(0.14),
+                        in: Capsule()
+                    )
+                    .foregroundStyle(model.isRunning ? .orange : .green)
             }
         }
 
