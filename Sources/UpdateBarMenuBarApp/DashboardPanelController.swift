@@ -16,8 +16,8 @@
         private let overviewHostingView: NSHostingView<AnyView> = NSHostingView(
             rootView: AnyView(ProgressView().frame(minWidth: 620, minHeight: 420))
         )
-        private let settingsViewController = NSViewController()
-        private let aboutViewController = NSViewController()
+        private let settingsViewController: SettingsViewController
+        private let aboutViewController: AboutViewController
         private let manageItemsViewController: ManageItemsViewController
         private let scanViewController: ScanViewController
         private weak var visibleContentViewController: NSViewController?
@@ -26,9 +26,16 @@
 
         init(
             service: any MenuBarServicing,
-            onItemsChanged: @escaping () -> Void
+            onItemsChanged: @escaping () -> Void,
+            onCheckForUpdates: @escaping () -> Void
         ) {
             self.service = service
+            settingsViewController = SettingsViewController(
+                service: service,
+                onSaved: onItemsChanged,
+                onCheckForUpdates: onCheckForUpdates
+            )
+            aboutViewController = AboutViewController()
             manageItemsViewController = ManageItemsViewController(
                 service: service,
                 onChanged: onItemsChanged
@@ -90,6 +97,7 @@
 
         func showWindowAndReload(selecting section: DashboardSection) {
             select(section)
+            if section == .settings { settingsViewController.prepare() }
             showWindow(nil)
             window?.center()
             window?.makeKeyAndOrderFront(nil)

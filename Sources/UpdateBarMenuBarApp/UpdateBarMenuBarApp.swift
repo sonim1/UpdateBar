@@ -26,7 +26,6 @@
         private var refreshGenerationGate = MenuBarRefreshGenerationGate()
         private var stateChangeMonitor = MenuBarStateChangeMonitor()
         private var stateChangeTimer: Timer?
-        private var configPanelController: ConfigPanelController?
         private var dashboardPanelController: DashboardPanelController?
         private var latestState = MenuBarState(
             title: "Checking...",
@@ -209,6 +208,9 @@
                     service: service,
                     onItemsChanged: { [weak self] in
                         self?.refreshStatus(refresh: false)
+                    },
+                    onCheckForUpdates: { [weak self] in
+                        self?.updaterController.checkForUpdates(nil)
                     }
                 )
             }
@@ -324,20 +326,7 @@
         }
 
         @objc private func openConfig() {
-            guard let service else {
-                showError(MenuBarStartupError.serviceUnavailable)
-                return
-            }
-            activateApplicationForWindowedUI()
-            if configPanelController == nil {
-                configPanelController = ConfigPanelController(
-                    service: service,
-                    onSaved: { [weak self] in
-                        self?.refreshStatus(refresh: false)
-                    }
-                )
-            }
-            configPanelController?.showWindowAndLoad()
+            showDashboard(for: .openConfig)
         }
 
         @objc private func viewLogs() {
