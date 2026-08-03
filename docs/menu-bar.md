@@ -110,7 +110,9 @@ executable to override the `PATH` lookup.
 
 `Settings` opens the shared Dashboard window on the General and Updates sections.
 It edits the active UpdateBar configuration (by default `HOME/.updatebar/config.toml`)
-and exposes Sparkle's app-update check. `About` shows the app version, build,
+(`UPDATEBAR_HOME` can point to an alternate data directory) and exposes Sparkle's
+app-update check. The legacy `Open Config` menu action now routes to `Settings`.
+`About` shows the app version, build,
 support contact, and acknowledgments without duplicating dashboard statistics.
 
 Troubleshooting a missing icon:
