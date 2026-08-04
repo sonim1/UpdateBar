@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE="$ROOT/Assets/AppIcon/UpdateBar.svg"
+SOURCE="$ROOT/Assets/AppIcon/UpdateBar.png"
 OUTPUT="$ROOT/Assets/AppIcon/UpdateBar.icns"
 
 for tool in sips iconutil; do
