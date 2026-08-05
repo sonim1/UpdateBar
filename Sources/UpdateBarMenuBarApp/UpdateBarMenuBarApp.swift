@@ -95,14 +95,18 @@
         }
 
         @objc private func checkNow() {
-            runAction("Checking for updates") { [service] token in
-                try service?.checkNow(cancellationToken: token)
+            runAction("Checking for updates") { [service] action in
+                try service?.checkNow(cancellationToken: action.token)
             }
         }
 
         @objc private func updateAllApproved() {
-            runAction("Updating approved items") { [service] token in
-                try service?.updateAllApproved(cancellationToken: token)
+            runAction("Updating approved items") { [service] action in
+                try service?.updateAllApproved(
+                    cancellationToken: action.token,
+                    onEvent: self.progressHandler(for: action),
+                    stopSignal: action.stopSignal
+                )
             }
         }
 
@@ -116,8 +120,13 @@
         }
 
         private func update(id: String) {
-            runAction("Updating \(id)") { [service] token in
-                try service?.update(id: id, cancellationToken: token)
+            runAction("Updating \(id)") { [service] action in
+                try service?.update(
+                    id: id,
+                    cancellationToken: action.token,
+                    onEvent: self.progressHandler(for: action),
+                    stopSignal: action.stopSignal
+                )
             }
         }
 
@@ -144,11 +153,11 @@
             )
             guard confirm(confirmation ?? fallback) else { return }
             let verb = approving ? "Approve" : "Revoke"
-            runAction("\(verb) \(id) \(field)") { [service] token in
+            runAction("\(verb) \(id) \(field)") { [service] action in
                 if approving {
-                    try service?.approve(id: id, field: field, cancellationToken: token)
+                    try service?.approve(id: id, field: field, cancellationToken: action.token)
                 } else {
-                    try service?.revoke(id: id, field: field, cancellationToken: token)
+                    try service?.revoke(id: id, field: field, cancellationToken: action.token)
                 }
             }
         }
@@ -167,8 +176,8 @@
             refreshStatus(refresh: true)
         }
 
-        @objc private func cancelCurrentAction() {
-            guard actionCoordinator.cancelActive() != nil else { return }
+        @objc private func stopCurrentAction() {
+            guard actionCoordinator.stopActive() != nil else { return }
             rebuildMenu()
         }
 
@@ -402,7 +411,7 @@
 
         private func runAction(
             _ title: String,
-            _ action: @escaping @Sendable (CancellationToken) throws -> Void
+            _ action: @escaping @Sendable (MenuBarActiveAction) throws -> Void
         ) {
             guard let activeAction = actionCoordinator.begin(title) else {
                 rebuildMenu()
@@ -412,7 +421,7 @@
             rebuildMenu()
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    try action(activeAction.token)
+                    try action(activeAction)
                     DispatchQueue.main.async {
                         let wasCancelled = activeAction.token.isCancelled
                         self.actionCoordinator.finish(
@@ -437,6 +446,32 @@
                         self.showError(error)
                     }
                 }
+            }
+        }
+
+        /// Progress arrives on a worker thread; menu state is main-queue only.
+        nonisolated private func progressHandler(
+            for activeAction: MenuBarActiveAction
+        ) -> @Sendable (UpdateProgressEvent) -> Void {
+            { event in
+                DispatchQueue.main.async {
+                    activeAction.apply(event)
+                    self.scheduleThrottledMenuRebuild()
+                }
+            }
+        }
+
+        private var pendingMenuRebuild = false
+
+        /// Progress events arrive faster than a menu is worth rebuilding, and
+        /// replacing statusItem.menu while it is open flickers.
+        private func scheduleThrottledMenuRebuild() {
+            guard !pendingMenuRebuild else { return }
+            pendingMenuRebuild = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                guard let self else { return }
+                self.pendingMenuRebuild = false
+                self.rebuildMenu()
             }
         }
 
@@ -467,6 +502,8 @@
                 state: latestState,
                 approvalStatuses: approvalStatuses,
                 activeActionTitle: activeAction?.title,
+                activeItemProgress: activeAction?.progress,
+                isStopRequested: activeAction?.isStopRequested ?? false,
                 lastActionNotice: activeAction == nil ? actionCoordinator.lastActionNotice : nil,
                 installedTerminals: installedTerminals(),
                 selectedTerminalID: selectedTerminal().id
@@ -530,7 +567,7 @@
                 to: menuItem
             )
             switch action {
-            case .menu, .cancelCurrentAction:
+            case .menu, .stopCurrentAction:
                 break
             case .update(let id):
                 menuItem.representedObject = ItemAction(id: id)
@@ -668,8 +705,8 @@
             switch action {
             case .menu(let menuAction):
                 return selector(for: menuAction)
-            case .cancelCurrentAction:
-                return #selector(cancelCurrentAction)
+            case .stopCurrentAction:
+                return #selector(stopCurrentAction)
             case .update:
                 return #selector(updateSelected(_:))
             case .approve:

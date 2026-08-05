@@ -245,6 +245,65 @@ final class ConfigStoreTests: XCTestCase {
         }
     }
 
+    func testUpdateMaxConcurrentDefaultsToThree() {
+        XCTAssertEqual(Config.default.update.maxConcurrent, 3)
+        XCTAssertEqual(Config.default.get("update.max_concurrent"), "3")
+        XCTAssertTrue(Config.knownKeys.contains("update.max_concurrent"))
+    }
+
+    func testUpdateMaxConcurrentSetAcceptsValidRange() throws {
+        var config = Config.default
+        try config.set("update.max_concurrent", value: "1")
+        XCTAssertEqual(config.update.maxConcurrent, 1)
+        try config.set("update.max_concurrent", value: "8")
+        XCTAssertEqual(config.update.maxConcurrent, 8)
+    }
+
+    func testUpdateMaxConcurrentRejectsOutOfRangeAndNonInteger() {
+        var config = Config.default
+        for value in ["0", "9", "-1", "three", "", "3.5"] {
+            XCTAssertThrowsError(try config.set("update.max_concurrent", value: value)) { error in
+                XCTAssertEqual(
+                    error as? ConfigError,
+                    .invalidValue(key: "update.max_concurrent", value: value)
+                )
+            }
+        }
+        XCTAssertEqual(config.update.maxConcurrent, 3)
+    }
+
+    func testUpdateSectionRoundTripsThroughStore() throws {
+        let root = try temporaryDirectory()
+        let store = ConfigStore(paths: AppPaths(homeDirectory: root))
+        var config = Config.default
+        try config.set("update.max_concurrent", value: "5")
+
+        try store.save(config)
+        let reloaded = try store.load()
+
+        XCTAssertEqual(reloaded.update.maxConcurrent, 5)
+        XCTAssertTrue(store.renderForDisplay(config).contains("[update]"))
+        XCTAssertTrue(store.renderForDisplay(config).contains("max_concurrent = 5"))
+    }
+
+    func testConfigWithoutUpdateSectionFallsBackToDefault() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try """
+        [refresh]
+        interval = "6h"
+
+        [security]
+        require_https_source = true
+
+        """.write(to: paths.configFile, atomically: true, encoding: .utf8)
+
+        let config = try ConfigStore(paths: paths).load()
+
+        XCTAssertEqual(config.update.maxConcurrent, 3)
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("updatebar-tests-\(UUID().uuidString)")

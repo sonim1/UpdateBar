@@ -635,8 +635,14 @@ final class UpdateCommandTests: XCTestCase {
                     "next": itemState(status: .outdated),
                 ]))
 
+        // --jobs 1 pins this to one item in flight at a time, so cancelling
+        // "slow" deterministically stops the scheduler before it claims
+        // "next". Without it, "slow" and "next" resolve to different lanes
+        // ("sleep" and "printf") and the scheduler starts both immediately,
+        // which is the correct new parallel behavior but would make this
+        // SIGINT-timing assertion flaky.
         let result = try CLIProcess.runAndInterrupt(
-            ["update", "--yes", "--json-stream"],
+            ["update", "--yes", "--jobs", "1", "--json-stream"],
             home: home,
             after: 0.5
         )

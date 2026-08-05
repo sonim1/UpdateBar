@@ -27,8 +27,24 @@ Current scope:
   installed, with the selected terminal marked by a checkmark
 - replaces actionable rows with `Checking for updates...`, Dashboard, and Quit
   while a refresh is in flight, so stale update and approval actions cannot run
-- shows the active update title plus Cancel Current Action while keeping Open TUI,
-  Dashboard, item management, settings, logs, and Quit available
+- keeps every row rendered while an action is in flight. Items being updated
+  read `— updating…`, items still queued read `— queued`, and finished items
+  read `— done`. Check Now, Refresh Status, Update All, and the per-item update
+  and approval actions are disabled for the duration; Dashboard, Manage Items,
+  Scan & Add, Open TUI, Open Config, View Logs, and Quit stay available
+- shows the active title with a completed/total count plus `Stop After Current`,
+  which lets the running command finish and starts nothing new. There is no
+  hard cancel in the menu bar: killing a half-finished package manager leaves
+  state UpdateBar cannot describe. A hung update command therefore blocks the
+  action until the 30 minute execution timeout, and quitting the app is the
+  only earlier escape. `updatebar update` in a terminal still hard-cancels on
+  Ctrl-C
+- updates several items at once, capped by `update.max_concurrent` (default 3).
+  Two recipes whose `update.cmd` invokes the same tool never run at the same
+  time
+- under `UPDATEBAR_MENUBAR_ADAPTER=cli`, the opt-in subprocess adapter, there is
+  no per-item progress; the menu shows only the coarse running state, which is
+  expected rather than a regression
 
 `Dashboard` opens the Dashboard window directly. A left sidebar switches between
 Overview, Items, Scan & Add, Settings, and About in the same Dashboard window, with each section

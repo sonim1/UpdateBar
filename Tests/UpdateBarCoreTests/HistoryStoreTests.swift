@@ -98,6 +98,24 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertEqual(events.first?.id.map { $0.contains("sk-or-v1-secret-value") }, false)
     }
 
+    func testConcurrentAppendsLoseNoEvents() throws {
+        let store = try makeStore()
+        let total = 40
+
+        DispatchQueue.concurrentPerform(iterations: total) { index in
+            try? store.append(
+                HistoryEvent(
+                    event: .updateFinished,
+                    id: "tool-\(index)",
+                    outcome: "updated",
+                    at: now.addingTimeInterval(Double(index))
+                ))
+        }
+
+        let ids = Set(try store.events().compactMap(\.id))
+        XCTAssertEqual(ids.count, total)
+    }
+
     private func makeStore() throws -> HistoryStore {
         HistoryStore(paths: try temporaryPaths())
     }
