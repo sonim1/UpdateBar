@@ -334,7 +334,9 @@ final class UpdateRunnerTests: XCTestCase {
             )
         )
         let commands = MockCommandExecutor(results: [
-            "sudo --user root brew upgrade wrapped": CommandResult(exitCode: 0, stdout: "ok", stderr: ""),
+            "sudo --user root brew upgrade wrapped": CommandResult(
+                exitCode: 0, stdout: "ok", stderr: ""
+            ),
             "brew upgrade direct": CommandResult(exitCode: 0, stdout: "ok", stderr: ""),
             "wrapped current": CommandResult(exitCode: 0, stdout: "wrapped 1.1.0", stderr: ""),
             "wrapped latest": CommandResult(exitCode: 0, stdout: "wrapped 1.1.0", stderr: ""),

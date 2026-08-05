@@ -55,7 +55,10 @@
                 title.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
                 scrollView.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 16),
                 scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
-                scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
+                scrollView.trailingAnchor.constraint(
+                    equalTo: content.trailingAnchor,
+                    constant: -20
+                ),
                 scrollView.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
                 emptyLabel.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor),
                 emptyLabel.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
@@ -79,7 +82,9 @@
             viewFor tableColumn: NSTableColumn?,
             row: Int
         ) -> NSView? {
-            guard rows.indices.contains(row), let identifier = tableColumn?.identifier.rawValue else {
+            guard rows.indices.contains(row),
+                let identifier = tableColumn?.identifier.rawValue
+            else {
                 return nil
             }
             let value: String
