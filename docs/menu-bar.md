@@ -14,8 +14,8 @@ Current scope:
 - presents command approval as one native submenu row per service; its right-hand
   submenu exposes per-field approve/revoke actions; exact command text and cwd
   appear only in confirmation
-- provides `Check Now` and `Update All`, Refresh Status, Open TUI, Dashboard,
-  Manage Items, Scan & Add, Settings, About, View Logs, and Quit through native menu
+- provides `Check Now` and `Update All`, Refresh Status, Dashboard, Manage Items,
+  Scan & Add, Settings, About, app-update check, and Quit through native menu
   items; Update All is disabled when there are no outdated items
 - starts individual updates and Update All immediately without a modal confirmation;
   command approvals and revocations still require confirmation
@@ -23,15 +23,13 @@ Current scope:
   the visible menu automatically when they change
 - augments the restricted environment of a Finder-launched app with common
   Homebrew, npm version-manager, Cargo, Bun, and mise executable paths
-- expands Open TUI into a native submenu when multiple supported terminals are
-  installed, with the selected terminal marked by a checkmark
 - replaces actionable rows with `Checking for updates...`, Dashboard, and Quit
   while a refresh is in flight, so stale update and approval actions cannot run
 - keeps every row rendered while an action is in flight. Items being updated
   read `— updating…`, items still queued read `— queued`, and finished items
   read `— done`. Check Now, Refresh Status, Update All, and the per-item update
   and approval actions are disabled for the duration; Dashboard, Manage Items,
-  Scan & Add, Open TUI, Open Config, View Logs, and Quit stay available
+  Scan & Add, Settings, About, app-update check, and Quit stay available
 - shows the active title with a completed/total count plus `Stop After Current`,
   which lets the running command finish and starts nothing new. There is no
   hard cancel in the menu bar: killing a half-finished package manager leaves
@@ -47,13 +45,15 @@ Current scope:
   expected rather than a regression
 
 `Dashboard` opens the Dashboard window directly. A left sidebar switches between
-Overview, Items, Scan & Add, Settings, and About in the same Dashboard window, with each section
-using native macOS UI. The sidebar, Items, and Scan & Add use AppKit controls;
+Overview, Items, Scan & Add, Logs, Settings, and About in the same Dashboard window, with each section
+using native macOS UI. The sidebar, Items, Scan & Add, and Logs use AppKit controls;
 Overview, Settings, and About are SwiftUI-hosted. The sidebar footer shows a compact
 queue of available updates and routes each selection to Overview without executing it.
 Overview shows pending-update and
 awaiting-approval counts, last check/update times, and a bar chart of successful
-updates over the last four weeks (from `~/.updatebar/history.jsonl`). Items lists
+updates over the last four weeks (from `~/.updatebar/history.jsonl`). Logs shows
+the newest persisted update and check events first, including update result and
+version transition. Items lists
 every registered item grouped by category with an enable/disable checkbox per
 item. `Manage Items...` opens that Dashboard window with Items selected, and
 `Scan & Add` opens it with Scan & Add selected, so neither action creates another
@@ -66,7 +66,7 @@ mode.
 
 If an operation or status refresh fails, the status badge changes to `!` and the
 app directly assigns a native error-recovery menu. Refresh Status, Check Now,
-Open TUI, Dashboard, item management, settings, logs, and Quit remain
+Dashboard, item management, settings, app-update check, and Quit remain
 reachable.
 
 Build a local unsigned app:
@@ -102,9 +102,8 @@ Use the fallback adapter explicitly:
 UPDATEBAR_MENUBAR_ADAPTER=cli UPDATEBAR_BIN=.build/debug/updatebar .build/debug/updatebar-menubar
 ```
 
-View logs from the menu bar app at `~/Library/Logs/UpdateBar/updatebar-menubar.log`.
-If that file does not exist yet, the menu item opens the UpdateBar home directory
-instead.
+Open Dashboard → Logs to view update and check history. Menu-bar diagnostic output
+is still retained at `~/Library/Logs/UpdateBar/updatebar-menubar.log` for support.
 Long item lists in the menu are compacted with overflow summaries.
 Recent logs are retained automatically with a rotating local cap.
 
@@ -112,15 +111,8 @@ Releases from v0.3.0 are signed with a Developer ID certificate and notarized
 by Apple. Local `Scripts/package-app.sh` builds stay unsigned unless the
 signing environment variables are provided.
 
-Tip: `Open TUI` runs `updatebar tui` with the bundled CLI in your chosen
-terminal. When more than one supported terminal is installed (Terminal, iTerm,
-Ghostty, kitty, Alacritty, WezTerm, Warp, Rio), `Open TUI` expands into a
-submenu of those terminals with each app's icon — pick one and the TUI opens
-there; the last choice is marked.
-Most terminals launch the shared `.command` file directly; Warp has no exec
-flag, so the app writes a launch configuration to
-`~/.warp/launch_configurations/updatebar-tui.yaml` and opens it via the
-`warp://launch/` URI. Install the TUI with
+TUI is not exposed by the menu bar. Run `updatebar tui` directly in a terminal
+when you need it. Install the TUI with
 `brew install sonim1/tap/updatebar-tui`, or set `UPDATEBAR_TUI` to a dev-built
 executable to override the `PATH` lookup.
 
