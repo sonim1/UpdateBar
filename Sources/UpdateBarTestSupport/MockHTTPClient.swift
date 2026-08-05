@@ -1,13 +1,37 @@
 import Foundation
 import UpdateBarCore
 
-public final class MockHTTPClient: HTTPClient {
-    public var responses: [String: Data]
-    public var finalURLs: [String: String]
-    public var postResponses: [String: [Data]]
-    public var postErrors: [String: Error]
-    public private(set) var requestedURLs: [String] = []
-    public private(set) var postedRequests: [PostedRequest] = []
+public final class MockHTTPClient: HTTPClient, @unchecked Sendable {
+    private let lock = NSLock()
+    private var _responses: [String: Data]
+    private var _finalURLs: [String: String]
+    private var _postResponses: [String: [Data]]
+    private var _postErrors: [String: Error]
+    private var _requestedURLs: [String] = []
+    private var _postedRequests: [PostedRequest] = []
+
+    public var responses: [String: Data] {
+        get { lock.withLock { _responses } }
+        set { lock.withLock { _responses = newValue } }
+    }
+
+    public var finalURLs: [String: String] {
+        get { lock.withLock { _finalURLs } }
+        set { lock.withLock { _finalURLs = newValue } }
+    }
+
+    public var postResponses: [String: [Data]] {
+        get { lock.withLock { _postResponses } }
+        set { lock.withLock { _postResponses = newValue } }
+    }
+
+    public var postErrors: [String: Error] {
+        get { lock.withLock { _postErrors } }
+        set { lock.withLock { _postErrors = newValue } }
+    }
+
+    public var requestedURLs: [String] { lock.withLock { _requestedURLs } }
+    public var postedRequests: [PostedRequest] { lock.withLock { _postedRequests } }
 
     public init(
         responses: [String: Data] = [:],
@@ -15,10 +39,10 @@ public final class MockHTTPClient: HTTPClient {
         postResponses: [String: [Data]] = [:],
         postErrors: [String: Error] = [:]
     ) {
-        self.responses = responses
-        self.finalURLs = finalURLs
-        self.postResponses = postResponses
-        self.postErrors = postErrors
+        _responses = responses
+        _finalURLs = finalURLs
+        _postResponses = postResponses
+        _postErrors = postErrors
     }
 
     public func get(
@@ -27,32 +51,36 @@ public final class MockHTTPClient: HTTPClient {
         requireHTTPSFinalURL: Bool = false
     ) throws -> Data {
         let key = url.absoluteString
-        requestedURLs.append(key)
-        if requireHTTPSFinalURL,
-            let finalURL = finalURLs[key].flatMap({ URL(string: $0) }),
-            finalURL.scheme?.lowercased() != "https"
-        {
-            let message = "\(finalURL.absoluteString): https redirect not allowed"
-            throw LatestError.invalidSource(message)
+        return try lock.withLock {
+            _requestedURLs.append(key)
+            if requireHTTPSFinalURL,
+                let finalURL = _finalURLs[key].flatMap({ URL(string: $0) }),
+                finalURL.scheme?.lowercased() != "https"
+            {
+                let message = "\(finalURL.absoluteString): https redirect not allowed"
+                throw LatestError.invalidSource(message)
+            }
+            guard let data = _responses[key] else {
+                throw MockError.missingResponse(key)
+            }
+            return data
         }
-        guard let data = responses[key] else {
-            throw MockError.missingResponse(key)
-        }
-        return data
     }
 
     public func post(url: URL, headers: [String: String], body: Data) throws -> Data {
         let key = url.absoluteString
-        postedRequests.append(PostedRequest(url: key, headers: headers, body: body))
-        if let error = postErrors[key] {
-            throw error
+        return try lock.withLock {
+            _postedRequests.append(PostedRequest(url: key, headers: headers, body: body))
+            if let error = _postErrors[key] {
+                throw error
+            }
+            guard var responses = _postResponses[key], !responses.isEmpty else {
+                throw MockError.missingResponse(key)
+            }
+            let response = responses.removeFirst()
+            _postResponses[key] = responses
+            return response
         }
-        guard var responses = postResponses[key], !responses.isEmpty else {
-            throw MockError.missingResponse(key)
-        }
-        let response = responses.removeFirst()
-        postResponses[key] = responses
-        return response
     }
 
     public struct PostedRequest {

@@ -1,9 +1,8 @@
 import Foundation
 
-/// `@unchecked Sendable` so recipes can execute on a worker pool. The stored
-/// dependencies are only read during execution; `confirm` may block on stdin
-/// and is therefore called exclusively from the sequential planning phase,
-/// never from a worker.
+/// `@unchecked Sendable` so recipes can execute on a worker pool. Command and
+/// HTTP dependencies explicitly conform to `Sendable`; `confirm` may block on
+/// stdin and is called exclusively from the sequential planning phase.
 public struct UpdateRunner: @unchecked Sendable {
     private let manifestStore: ManifestStore
     private let stateStore: StateStore

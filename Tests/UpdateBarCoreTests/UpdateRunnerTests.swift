@@ -313,6 +313,47 @@ final class UpdateRunnerTests: XCTestCase {
             elapsed, 0.3, "three 0.1s brew commands sharing a lane must not overlap")
     }
 
+    func testRunnerSerializesEnvSplitStringAndDirectPackageManagerUpdates() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        var wrapped = recipe(id: "wrapped")
+        wrapped.update = UpdateSpec(cmd: "env -S brew upgrade wrapped", cwd: nil)
+        var direct = recipe(id: "direct")
+        direct.update = UpdateSpec(cmd: "brew upgrade direct", cwd: nil)
+        TestApprovals.approveAllCommands(in: &wrapped)
+        TestApprovals.approveAllCommands(in: &direct)
+        try ManifestStore(paths: paths).save(manifest(items: [wrapped, direct]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1,
+                generatedAt: now,
+                items: [
+                    "wrapped": itemState(status: .outdated),
+                    "direct": itemState(status: .outdated),
+                ]
+            )
+        )
+        let commands = MockCommandExecutor(results: [
+            "env -S brew upgrade wrapped": CommandResult(exitCode: 0, stdout: "ok", stderr: ""),
+            "brew upgrade direct": CommandResult(exitCode: 0, stdout: "ok", stderr: ""),
+            "wrapped current": CommandResult(exitCode: 0, stdout: "wrapped 1.1.0", stderr: ""),
+            "wrapped latest": CommandResult(exitCode: 0, stdout: "wrapped 1.1.0", stderr: ""),
+            "direct current": CommandResult(exitCode: 0, stdout: "direct 1.1.0", stderr: ""),
+            "direct latest": CommandResult(exitCode: 0, stdout: "direct 1.1.0", stderr: ""),
+        ])
+        commands.setDelay(0.1, forCommand: "env -S brew upgrade wrapped")
+        commands.setDelay(0.1, forCommand: "brew upgrade direct")
+
+        let started = Date()
+        let updates = try updateRunner(paths: paths, commands: commands).update(
+            ids: [], all: true, assumeYes: true)
+
+        XCTAssertEqual(updates.map(\.outcome), [.updated, .updated])
+        XCTAssertGreaterThanOrEqual(
+            Date().timeIntervalSince(started), 0.2,
+            "wrapped and direct Homebrew updates must share a lane")
+    }
+
     func testRunnerEmitsPlannedStartedAndFinishedEvents() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)

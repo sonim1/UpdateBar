@@ -9,6 +9,11 @@ import Foundation
 /// recipe can have `source.kind == .githubRelease` and
 /// `update.cmd == "brew upgrade foo"`.
 enum UpdateLane {
+    /// Commands whose executable cannot be determined without reproducing a
+    /// shell wrapper's argument parser share one lane rather than risking an
+    /// unsafe overlap with a package manager command.
+    static let sharedSerialKey = "updatebar:shared-serial"
+
     private static let wrappers: Set<String> = [
         "sudo", "env", "command", "nice", "nohup", "time", "exec",
     ]
@@ -19,6 +24,13 @@ enum UpdateLane {
         "nice": ["-n"],
         "time": ["-o", "-f"],
         "exec": ["-a"],
+    ]
+
+    private static let wrapperBooleanFlags: [String: Set<String>] = [
+        "sudo": [
+            "-A", "-b", "-E", "-H", "-K", "-k", "-n", "-S", "-s", "-v", "-i", "--non-interactive",
+        ],
+        "env": ["-i", "--ignore-environment"],
     ]
 
     /// Returns `nil` when no tool name can be read, in which case the caller
@@ -37,19 +49,30 @@ enum UpdateLane {
             }
 
             if text.hasPrefix("-") {
-                // Only skip the next token if the current wrapper has this flag in its set.
-                if let wrapper = currentWrapper,
-                    let flagsForWrapper = wrapperValueFlags[wrapper],
-                    flagsForWrapper.contains(text),
-                    i + 1 < tokens.count
-                {
-                    i += 2  // Skip the flag and its argument
+                guard let wrapper = currentWrapper else { return sharedSerialKey }
+                if text == "--" {
+                    i += 1
                     continue
                 }
-                i += 1
-                continue
+                if wrapper == "env", text == "-S" {
+                    guard i + 1 < tokens.count, isUnambiguousToken(tokens[i + 1])
+                    else { return sharedSerialKey }
+                    i += 1
+                    continue
+                }
+                if wrapperValueFlags[wrapper]?.contains(text) == true {
+                    guard i + 1 < tokens.count else { return sharedSerialKey }
+                    i += 2
+                    continue
+                }
+                if wrapperBooleanFlags[wrapper]?.contains(text) == true {
+                    i += 1
+                    continue
+                }
+                return sharedSerialKey
             }
 
+            guard isUnambiguousToken(text) else { return sharedSerialKey }
             let name = URL(fileURLWithPath: text).lastPathComponent.lowercased()
             if name.isEmpty || name == "/" {
                 i += 1
@@ -73,5 +96,9 @@ enum UpdateLane {
         let name = token[token.startIndex..<equals]
         guard let first = name.first, first == "_" || first.isLetter else { return false }
         return name.allSatisfy { $0 == "_" || $0.isLetter || $0.isNumber }
+    }
+
+    private static func isUnambiguousToken(_ token: String) -> Bool {
+        !token.isEmpty && !token.contains { "'\"`$;&|()<>\\".contains($0) }
     }
 }

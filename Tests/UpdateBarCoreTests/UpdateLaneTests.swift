@@ -42,7 +42,7 @@ final class UpdateLaneTests: XCTestCase {
         XCTAssertEqual(UpdateLane.key(forCommand: "env -i brew upgrade x"), "brew")
         XCTAssertEqual(UpdateLane.key(forCommand: "sudo --non-interactive brew upgrade x"), "brew")
         XCTAssertEqual(UpdateLane.key(forCommand: "sudo -S brew upgrade x"), "brew")
-        XCTAssertEqual(UpdateLane.key(forCommand: "env -S brew upgrade x"), "upgrade")
+        XCTAssertEqual(UpdateLane.key(forCommand: "env -S brew upgrade x"), "brew")
         XCTAssertEqual(UpdateLane.key(forCommand: "nice -n 10 brew upgrade x"), "brew")
         XCTAssertEqual(UpdateLane.key(forCommand: "exec -a foo brew upgrade x"), "brew")
     }
@@ -50,5 +50,16 @@ final class UpdateLaneTests: XCTestCase {
     func testValueTakingWrapperFlagsSkipTheirArgument() {
         XCTAssertEqual(UpdateLane.key(forCommand: "sudo -u kendrick brew upgrade x"), "brew")
         XCTAssertEqual(UpdateLane.key(forCommand: "sudo -u kendrick -n brew upgrade x"), "brew")
+    }
+
+    func testAmbiguousWrapperSyntaxUsesTheSharedSerialLane() {
+        XCTAssertEqual(
+            UpdateLane.key(forCommand: "sudo --user kendrick brew upgrade x"),
+            UpdateLane.sharedSerialKey
+        )
+        XCTAssertEqual(
+            UpdateLane.key(forCommand: "env --split-string 'brew upgrade x'"),
+            UpdateLane.sharedSerialKey
+        )
     }
 }

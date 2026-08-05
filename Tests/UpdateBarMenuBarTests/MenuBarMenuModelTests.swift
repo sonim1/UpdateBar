@@ -72,16 +72,9 @@ final class MenuBarMenuModelTests: XCTestCase {
             errorItems: [],
             okItems: []
         )
-        let terminals = [
-            TUITerminal.fallback,
-            TUITerminal(id: "com.googlecode.iterm2", name: "iTerm", launchStyle: .openDocument),
-        ]
-
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: [:],
-            installedTerminals: terminals,
-            selectedTerminalID: "com.googlecode.iterm2"
+            approvalStatuses: [:]
         )
 
         XCTAssertFalse(model.entries.labels.contains("Open TUI"))

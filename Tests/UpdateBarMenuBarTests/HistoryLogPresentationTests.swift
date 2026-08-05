@@ -43,4 +43,17 @@ final class HistoryLogPresentationTests: XCTestCase {
     func testEmptyHistoryProducesNoRows() {
         XCTAssertTrue(HistoryLogPresentation.rows(from: []).isEmpty)
     }
+
+    func testRowsRetainHistoryOlderThanTheOverviewWindow() {
+        let oldEvent = HistoryEvent(
+            event: .updateFinished,
+            id: "old-tool",
+            outcome: "updated",
+            at: Date(timeIntervalSince1970: 1)
+        )
+
+        let rows = HistoryLogPresentation.rows(from: [oldEvent])
+
+        XCTAssertEqual(rows.map(\.title), ["old-tool updated"])
+    }
 }

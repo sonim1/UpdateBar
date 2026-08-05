@@ -499,9 +499,7 @@
                 activeActionTitle: activeAction?.title,
                 activeItemProgress: activeAction?.progress,
                 isStopRequested: activeAction?.isStopRequested ?? false,
-                lastActionNotice: activeAction == nil ? actionCoordinator.lastActionNotice : nil,
-                installedTerminals: installedTerminals(),
-                selectedTerminalID: selectedTerminal().id
+                lastActionNotice: activeAction == nil ? actionCoordinator.lastActionNotice : nil
             )
             statusItem.menu = makeMenu(from: model)
         }

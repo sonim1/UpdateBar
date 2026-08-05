@@ -129,9 +129,8 @@
             DispatchQueue.global(qos: .userInitiated).async { [service, model] in
                 do {
                     let now = Date()
-                    let since = Calendar.current.date(byAdding: .day, value: -28, to: now)
                     let snapshot = try service.status(refresh: false)
-                    let events = try service.history(since: since)
+                    let events = try service.history(since: nil)
                     let summary = model.summary(snapshot: snapshot, events: events, now: now)
                     DispatchQueue.main.async {
                         guard generation == self.reloadGeneration else { return }

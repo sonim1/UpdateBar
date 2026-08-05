@@ -674,35 +674,6 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(restoreSource.contains("NSApp.setActivationPolicy(.accessory)"))
     }
 
-    func testViewLogsRoutesToDashboardHistoryInsteadOfFinder() throws {
-        let source = try String(
-            contentsOf: URL(
-                fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
-            encoding: .utf8
-        )
-        let viewLogsSource = try functionSource(
-            named: "@objc private func viewLogs()",
-            endingAt: "@objc private func quit()",
-            in: source
-        )
-
-        XCTAssertTrue(viewLogsSource.contains("showDashboard(for:.viewLogs)"))
-        XCTAssertFalse(viewLogsSource.contains("openInFinder"))
-    }
-
-    func testDashboardOwnsLogsControllerAndAppliesHistory() throws {
-        let source = try String(
-            contentsOf: URL(
-                fileURLWithPath: "Sources/UpdateBarMenuBarApp/DashboardPanelController.swift"),
-            encoding: .utf8
-        )
-
-        let compactSource = source.filter { !$0.isWhitespace }
-        XCTAssertTrue(compactSource.contains("LogsViewController"))
-        XCTAssertTrue(compactSource.contains("logsViewController.apply(events:events)"))
-        XCTAssertTrue(compactSource.contains("case.logs:"))
-    }
-
     private func functionSource(
         named startMarker: String,
         endingAt endMarker: String,

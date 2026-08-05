@@ -91,9 +91,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
         activeActionTitle: String? = nil,
         activeItemProgress: MenuBarItemProgress? = nil,
         isStopRequested: Bool = false,
-        lastActionNotice: String? = nil,
-        installedTerminals: [TUITerminal] = [],
-        selectedTerminalID: String? = nil
+        lastActionNotice: String? = nil
     ) -> MenuBarMenuModel {
         var entries: [MenuBarMenuEntry] = []
         let progress =
@@ -167,20 +165,12 @@ public struct MenuBarMenuModelBuilder: Sendable {
         appendInstalled(state.okItems, to: &entries)
 
         appendSeparator(to: &entries)
-        appendFooterActions(
-            installedTerminals: installedTerminals,
-            selectedTerminalID: selectedTerminalID,
-            to: &entries
-        )
+        appendFooterActions(to: &entries)
 
         return MenuBarMenuModel(entries: entries)
     }
 
-    private func appendFooterActions(
-        installedTerminals: [TUITerminal],
-        selectedTerminalID: String?,
-        to entries: inout [MenuBarMenuEntry]
-    ) {
+    private func appendFooterActions(to entries: inout [MenuBarMenuEntry]) {
         for action in MenuBarMenuAction.footer {
             appendAction(action.title, action: .menu(action), to: &entries)
         }
