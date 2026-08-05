@@ -182,37 +182,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
         to entries: inout [MenuBarMenuEntry]
     ) {
         for action in MenuBarMenuAction.footer {
-            if action == .openTUI, installedTerminals.count > 1 {
-                appendOpenTUISubmenu(
-                    installedTerminals,
-                    selectedTerminalID: selectedTerminalID,
-                    to: &entries
-                )
-            } else {
-                appendAction(action.title, action: .menu(action), to: &entries)
-            }
+            appendAction(action.title, action: .menu(action), to: &entries)
         }
-    }
-
-    private func appendOpenTUISubmenu(
-        _ terminals: [TUITerminal],
-        selectedTerminalID: String?,
-        to entries: inout [MenuBarMenuEntry]
-    ) {
-        let lastUsedID =
-            terminals.contains { $0.id == selectedTerminalID }
-            ? selectedTerminalID : TUITerminal.fallback.id
-        let items = terminals.map { terminal in
-            MenuBarMenuItem(
-                title: terminal.name,
-                action: .openTUIInTerminal(bundleID: terminal.id),
-                isChecked: terminal.id == lastUsedID,
-                iconAppBundleID: terminal.id
-            )
-        }
-        entries.append(
-            .submenu(MenuBarSubmenu(title: MenuBarMenuAction.openTUI.title, items: items))
-        )
     }
 
     public func makeErrorMenu(errorDescription: String) -> MenuBarMenuModel {

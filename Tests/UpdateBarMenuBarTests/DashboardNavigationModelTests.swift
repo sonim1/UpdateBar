@@ -29,7 +29,6 @@ final class DashboardNavigationModelTests: XCTestCase {
             .checkNow,
             .updateAllApprovedOutdated,
             .openTUI,
-            .viewLogs,
             .quit,
         ]
 
@@ -39,16 +38,19 @@ final class DashboardNavigationModelTests: XCTestCase {
     func testSectionsExposeStableOrderTitlesAndSymbols() {
         XCTAssertEqual(
             DashboardSection.allCases,
-            [.overview, .items, .scan, .settings, .about]
+            [.overview, .items, .scan, .logs, .settings, .about]
         )
-        XCTAssertEqual(DashboardSection.allCases.map(\.rawValue), [0, 1, 2, 3, 4])
+        XCTAssertEqual(DashboardSection.allCases.map(\.rawValue), [0, 1, 2, 3, 4, 5])
         XCTAssertEqual(
             DashboardSection.allCases.map(\.title),
-            ["Overview", "Items", "Scan & Add", "Settings", "About"]
+            ["Overview", "Items", "Scan & Add", "Logs", "Settings", "About"]
         )
         XCTAssertEqual(
             DashboardSection.allCases.map(\.systemImageName),
-            ["chart.bar", "list.bullet", "magnifyingglass", "gearshape", "info.circle"]
+            [
+                "chart.bar", "list.bullet", "magnifyingglass", "doc.text",
+                "gearshape", "info.circle",
+            ]
         )
     }
 
@@ -57,5 +59,6 @@ final class DashboardNavigationModelTests: XCTestCase {
 
         XCTAssertEqual(model.section(for: .openConfig), .settings)
         XCTAssertEqual(model.section(for: .about), .about)
+        XCTAssertEqual(model.section(for: .viewLogs), .logs)
     }
 }

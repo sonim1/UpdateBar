@@ -2,6 +2,7 @@ public enum DashboardSection: Int, CaseIterable, Equatable, Sendable {
     case overview
     case items
     case scan
+    case logs
     case settings
     case about
 
@@ -13,6 +14,8 @@ public enum DashboardSection: Int, CaseIterable, Equatable, Sendable {
             return "Items"
         case .scan:
             return "Scan & Add"
+        case .logs:
+            return "Logs"
         case .settings:
             return "Settings"
         case .about:
@@ -28,6 +31,8 @@ public enum DashboardSection: Int, CaseIterable, Equatable, Sendable {
             return "list.bullet"
         case .scan:
             return "magnifyingglass"
+        case .logs:
+            return "doc.text"
         case .settings:
             return "gearshape"
         case .about:
@@ -55,12 +60,14 @@ public struct DashboardNavigationModel: Equatable, Sendable {
             return .items
         case .scanAndAdd:
             return .scan
+        case .viewLogs:
+            return .logs
         case .openConfig:
             return .settings
         case .about:
             return .about
         case .refreshStatus, .checkNow, .updateAllApprovedOutdated, .openTUI,
-            .viewLogs, .checkForUpdates, .quit:
+            .checkForUpdates, .quit:
             return nil
         }
     }

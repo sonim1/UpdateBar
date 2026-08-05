@@ -18,6 +18,7 @@
         )
         private let settingsViewController: SettingsViewController
         private let aboutViewController: AboutViewController
+        private let logsViewController = LogsViewController()
         private let manageItemsViewController: ManageItemsViewController
         private let scanViewController: ScanViewController
         private weak var visibleContentViewController: NSViewController?
@@ -135,6 +136,7 @@
                     DispatchQueue.main.async {
                         guard generation == self.reloadGeneration else { return }
                         self.apply(summary)
+                        self.logsViewController.apply(events: events)
                         self.manageItemsViewController.apply(items: snapshot.items)
                         self.scanViewController.applyRegisteredItems(snapshot.items)
                     }
@@ -168,6 +170,8 @@
                 return manageItemsViewController
             case .scan:
                 return scanViewController
+            case .logs:
+                return logsViewController
             case .settings:
                 return settingsViewController
             case .about:

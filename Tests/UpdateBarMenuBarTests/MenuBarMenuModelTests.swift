@@ -27,13 +27,11 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Refresh Status",
                 "Update All",
                 "---",
-                "Open TUI",
                 "Dashboard",
                 "Manage Items...",
                 "Scan & Add",
                 "Settings...",
                 "About UpdateBar",
-                "View Logs",
                 "Check for Updates...",
                 "Quit",
             ])
@@ -65,7 +63,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.labels.contains("1 need attention"))
     }
 
-    func testOpenTUIBecomesTerminalSubmenuWithIconsAndLastUsedCheck() {
+    func testTUIIsHiddenRegardlessOfInstalledTerminals() {
         let state = MenuBarState(
             title: "Up to date",
             badgeValue: nil,
@@ -86,67 +84,8 @@ final class MenuBarMenuModelTests: XCTestCase {
             selectedTerminalID: "com.googlecode.iterm2"
         )
 
-        let labels = model.entries.labels
-        XCTAssertFalse(labels.contains("Open TUI"))
-        XCTAssertTrue(labels.contains("Open TUI >"))
-
-        let submenu = model.entries.submenu(titled: "Open TUI")
-        XCTAssertEqual(submenu?.items.map(\.title), ["Terminal", "iTerm"])
-        XCTAssertEqual(submenu?.items.map(\.isChecked), [false, true])
-        XCTAssertEqual(
-            submenu?.items.map(\.iconAppBundleID),
-            ["com.apple.Terminal", "com.googlecode.iterm2"]
-        )
-        XCTAssertEqual(
-            submenu?.items.first?.action,
-            .openTUIInTerminal(bundleID: "com.apple.Terminal")
-        )
-    }
-
-    func testOpenTUISubmenuFallsBackToTerminalForUnknownLastUsed() {
-        let state = MenuBarState(
-            title: "Up to date",
-            badgeValue: nil,
-            outdatedItems: [],
-            approvalItems: [],
-            errorItems: [],
-            okItems: []
-        )
-        let terminals = [
-            TUITerminal.fallback,
-            TUITerminal(id: "com.googlecode.iterm2", name: "iTerm", launchStyle: .openDocument),
-        ]
-
-        let model = MenuBarMenuModelBuilder().makeMenu(
-            state: state,
-            approvalStatuses: [:],
-            installedTerminals: terminals,
-            selectedTerminalID: "com.example.uninstalled"
-        )
-
-        let submenu = model.entries.submenu(titled: "Open TUI")
-        XCTAssertEqual(submenu?.items.map(\.isChecked), [true, false])
-    }
-
-    func testOpenTUIStaysPlainItemWhenOnlyOneTerminalInstalled() {
-        let state = MenuBarState(
-            title: "Up to date",
-            badgeValue: nil,
-            outdatedItems: [],
-            approvalItems: [],
-            errorItems: [],
-            okItems: []
-        )
-
-        let model = MenuBarMenuModelBuilder().makeMenu(
-            state: state,
-            approvalStatuses: [:],
-            installedTerminals: [TUITerminal.fallback],
-            selectedTerminalID: nil
-        )
-
+        XCTAssertFalse(model.entries.labels.contains("Open TUI"))
         XCTAssertNil(model.entries.submenu(titled: "Open TUI"))
-        XCTAssertTrue(model.entries.labels.contains("Open TUI"))
     }
 
     func testActionNoticesRedactSecretLikeTitles() {
@@ -244,13 +183,11 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Command Approval Required (1)",
                 "Fresh Tool",
                 "---",
-                "Open TUI",
                 "Dashboard",
                 "Manage Items...",
                 "Scan & Add",
                 "Settings...",
                 "About UpdateBar",
-                "View Logs",
                 "Check for Updates...",
                 "Quit",
             ])
@@ -258,13 +195,11 @@ final class MenuBarMenuModelTests: XCTestCase {
             model.entries.actions,
             [
                 .stopCurrentAction,
-                .menu(.openTUI),
                 .menu(.overview),
                 .menu(.manageItems),
                 .menu(.scanAndAdd),
                 .menu(.openConfig),
                 .menu(.about),
-                .menu(.viewLogs),
                 .menu(.checkForUpdates),
                 .menu(.quit),
             ])
@@ -348,13 +283,11 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Installed (1)",
                 "Ready Tool 2.0.0",
                 "---",
-                "Open TUI",
                 "Dashboard",
                 "Manage Items...",
                 "Scan & Add",
                 "Settings...",
                 "About UpdateBar",
-                "View Logs",
                 "Check for Updates...",
                 "Quit",
             ])
@@ -365,13 +298,11 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.refreshStatus),
                 .menu(.updateAllApprovedOutdated),
                 .update(id: "old"),
-                .menu(.openTUI),
                 .menu(.overview),
                 .menu(.manageItems),
                 .menu(.scanAndAdd),
                 .menu(.openConfig),
                 .menu(.about),
-                .menu(.viewLogs),
                 .menu(.checkForUpdates),
                 .menu(.quit),
             ])
@@ -668,13 +599,11 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "---",
                 "Refresh Status",
                 "Check Now",
-                "Open TUI",
                 "Dashboard",
                 "Manage Items...",
                 "Scan & Add",
                 "Settings...",
                 "About UpdateBar",
-                "View Logs",
                 "Check for Updates...",
                 "Quit",
             ])
@@ -683,13 +612,11 @@ final class MenuBarMenuModelTests: XCTestCase {
             [
                 .menu(.refreshStatus),
                 .menu(.checkNow),
-                .menu(.openTUI),
                 .menu(.overview),
                 .menu(.manageItems),
                 .menu(.scanAndAdd),
                 .menu(.openConfig),
                 .menu(.about),
-                .menu(.viewLogs),
                 .menu(.checkForUpdates),
                 .menu(.quit),
             ])

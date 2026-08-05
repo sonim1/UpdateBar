@@ -1,7 +1,7 @@
 import Foundation
 
-public struct HistoryEvent: Codable, Equatable {
-    public enum Kind: String, Codable, Equatable {
+public struct HistoryEvent: Codable, Equatable, Sendable {
+    public enum Kind: String, Codable, Equatable, Sendable {
         case updateFinished = "update_finished"
         case checkFinished = "check_finished"
     }

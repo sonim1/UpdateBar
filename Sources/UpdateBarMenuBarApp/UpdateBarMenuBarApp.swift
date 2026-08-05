@@ -339,12 +339,7 @@
         }
 
         @objc private func viewLogs() {
-            let logURL = Self.logFileURL
-            let targetURL =
-                FileManager.default.fileExists(atPath: logURL.path)
-                ? logURL : AppPaths().homeDirectory
-            openInFinder(
-                targetURL, failureMessage: MenuBarStartupError.viewLogFailed(path: targetURL.path))
+            showDashboard(for: .viewLogs)
         }
 
         @objc private func quit() {
@@ -627,17 +622,6 @@
             appendLog(redactedMessage)
         }
 
-        private func openInFinder(_ targetURL: URL, failureMessage: Error) {
-            NSWorkspace.shared.activateFileViewerSelecting([targetURL])
-            if NSWorkspace.shared.open(targetURL) {
-                return
-            }
-            if NSWorkspace.shared.open(targetURL.deletingLastPathComponent()) {
-                return
-            }
-            showError(failureMessage)
-        }
-
         private func confirm(_ confirmation: MenuBarActionConfirmation?) -> Bool {
             guard let confirmation else { return true }
             let alert = NSAlert()
@@ -810,7 +794,6 @@
 
     private enum MenuBarStartupError: Error, CustomStringConvertible {
         case missingStatusBarButton
-        case viewLogFailed(path: String)
         case cliResolverFailed
         case serviceUnavailable
 
@@ -818,8 +801,6 @@
             switch self {
             case .missingStatusBarButton:
                 return "Failed to create menu bar button"
-            case .viewLogFailed(let path):
-                return "Failed to open log target at \(path)"
             case .cliResolverFailed:
                 return "Unable to resolve updatebar executable for Open TUI"
             case .serviceUnavailable:
