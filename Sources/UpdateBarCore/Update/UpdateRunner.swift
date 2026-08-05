@@ -1,15 +1,15 @@
 import Foundation
 
-/// `@unchecked Sendable` so recipes can execute on a worker pool. Command and
-/// HTTP dependencies explicitly conform to `Sendable`; `confirm` may block on
-/// stdin and is called exclusively from the sequential planning phase.
-public struct UpdateRunner: @unchecked Sendable {
+/// A run is planned sequentially, then its command work executes on a worker
+/// pool. Worker-crossing dependencies and callbacks are explicitly sendable;
+/// the runner itself is not intended to be shared across callers.
+public struct UpdateRunner {
     private let manifestStore: ManifestStore
     private let stateStore: StateStore
     private let config: Config
     private let httpClient: HTTPClient
     private let commandRunner: CommandRunning
-    private let now: () -> Date
+    private let now: @Sendable () -> Date
     private let githubToken: String?
     private let environment: [String: String]
     private let userHomeDirectory: URL
@@ -22,7 +22,7 @@ public struct UpdateRunner: @unchecked Sendable {
         config: Config = .default,
         httpClient: HTTPClient = URLSessionHTTPClient(),
         commandRunner: CommandRunning = CommandExecutor(),
-        now: @escaping () -> Date = { Date() },
+        now: @escaping @Sendable () -> Date = { Date() },
         githubToken: String? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         confirm: @escaping (UpdatePlanItem) -> Bool = { _ in false },
@@ -50,7 +50,7 @@ public struct UpdateRunner: @unchecked Sendable {
         ids: [String],
         all: Bool,
         assumeYes: Bool,
-        onEvent: ((UpdateProgressEvent) throws -> Void)? = nil,
+        onEvent: UpdateProgressHandler? = nil,
         stopSignal: UpdateStopSignal? = nil
     ) throws -> [UpdateResult] {
         let planDate = now()

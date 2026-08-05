@@ -313,11 +313,11 @@ final class UpdateRunnerTests: XCTestCase {
             elapsed, 0.3, "three 0.1s brew commands sharing a lane must not overlap")
     }
 
-    func testRunnerSerializesEnvSplitStringAndDirectPackageManagerUpdates() throws {
+    func testRunnerSerializesAmbiguousWrapperAndDirectPackageManagerUpdates() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
         var wrapped = recipe(id: "wrapped")
-        wrapped.update = UpdateSpec(cmd: "env -S brew upgrade wrapped", cwd: nil)
+        wrapped.update = UpdateSpec(cmd: "sudo --user root brew upgrade wrapped", cwd: nil)
         var direct = recipe(id: "direct")
         direct.update = UpdateSpec(cmd: "brew upgrade direct", cwd: nil)
         TestApprovals.approveAllCommands(in: &wrapped)
@@ -334,14 +334,14 @@ final class UpdateRunnerTests: XCTestCase {
             )
         )
         let commands = MockCommandExecutor(results: [
-            "env -S brew upgrade wrapped": CommandResult(exitCode: 0, stdout: "ok", stderr: ""),
+            "sudo --user root brew upgrade wrapped": CommandResult(exitCode: 0, stdout: "ok", stderr: ""),
             "brew upgrade direct": CommandResult(exitCode: 0, stdout: "ok", stderr: ""),
             "wrapped current": CommandResult(exitCode: 0, stdout: "wrapped 1.1.0", stderr: ""),
             "wrapped latest": CommandResult(exitCode: 0, stdout: "wrapped 1.1.0", stderr: ""),
             "direct current": CommandResult(exitCode: 0, stdout: "direct 1.1.0", stderr: ""),
             "direct latest": CommandResult(exitCode: 0, stdout: "direct 1.1.0", stderr: ""),
         ])
-        commands.setDelay(0.1, forCommand: "env -S brew upgrade wrapped")
+        commands.setDelay(0.1, forCommand: "sudo --user root brew upgrade wrapped")
         commands.setDelay(0.1, forCommand: "brew upgrade direct")
 
         let started = Date()
@@ -351,7 +351,7 @@ final class UpdateRunnerTests: XCTestCase {
         XCTAssertEqual(updates.map(\.outcome), [.updated, .updated])
         XCTAssertGreaterThanOrEqual(
             Date().timeIntervalSince(started), 0.2,
-            "wrapped and direct Homebrew updates must share a lane")
+            "an ambiguous wrapper must not overlap a direct package-manager update")
     }
 
     func testRunnerEmitsPlannedStartedAndFinishedEvents() throws {
@@ -374,13 +374,11 @@ final class UpdateRunnerTests: XCTestCase {
         ])
         let runner = updateRunner(paths: paths, commands: commands)
 
-        let lock = NSLock()
-        var events: [UpdateProgressEvent] = []
+        let eventRecorder = UpdateProgressRecorder()
         _ = try runner.update(ids: [], all: true, assumeYes: true) { event in
-            lock.lock()
-            events.append(event)
-            lock.unlock()
+            eventRecorder.append(event)
         }
+        let events = eventRecorder.events
 
         guard case .planned(let plan)? = events.first else {
             return XCTFail(
@@ -444,13 +442,14 @@ final class UpdateRunnerTests: XCTestCase {
         environment: [String: String] = [:],
         config: Config = .default
     ) -> UpdateRunner {
-        UpdateRunner(
+        let testNow = now
+        return UpdateRunner(
             manifestStore: ManifestStore(paths: paths),
             stateStore: StateStore(paths: paths),
             config: config,
             httpClient: MockHTTPClient(responses: [:]),
             commandRunner: commands,
-            now: { self.now },
+            now: { testNow },
             environment: environment,
             confirm: { _ in true },
             historyStore: HistoryStore(paths: paths)
@@ -513,5 +512,16 @@ final class UpdateRunnerTests: XCTestCase {
             .appendingPathComponent("updatebar-update-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+}
+
+private final class UpdateProgressRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedEvents: [UpdateProgressEvent] = []
+
+    var events: [UpdateProgressEvent] { lock.withLock { storedEvents } }
+
+    func append(_ event: UpdateProgressEvent) {
+        lock.withLock { storedEvents.append(event) }
     }
 }

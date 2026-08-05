@@ -109,8 +109,7 @@ hash -r
 updatebar --version
 ```
 
-The optional terminal UI used by the app's `Open TUI` menu item is a separate
-formula:
+The optional terminal UI is a separate formula. Launch it with `updatebar tui`:
 
 ```bash
 brew install sonim1/tap/updatebar-tui

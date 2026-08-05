@@ -1,7 +1,8 @@
 import Foundation
 
 /// Runs work items with bounded concurrency while guaranteeing that two items
-/// sharing a lane never run at the same time.
+/// sharing a lane never run at the same time. A global barrier lane also
+/// excludes every other lane while it is executing.
 ///
 /// `@unchecked Sendable` because every mutable field is only touched inside
 /// `queue`, the same discipline `ProcessRunner` and `LockedData` use. The
@@ -82,7 +83,7 @@ final class UpdateScheduler<Payload, Output>: @unchecked Sendable {
                 return nil
             }
             guard
-                let position = pending.firstIndex(where: { !busyLanes.contains($0.lane) })
+                let position = pending.firstIndex(where: canClaim)
             else {
                 return nil
             }
@@ -90,6 +91,14 @@ final class UpdateScheduler<Payload, Output>: @unchecked Sendable {
             busyLanes.insert(item.lane)
             return item
         }
+    }
+
+    private func canClaim(_ item: Item) -> Bool {
+        if item.lane == UpdateLane.globalBarrierKey {
+            return busyLanes.isEmpty
+        }
+        return !busyLanes.contains(item.lane)
+            && !busyLanes.contains(UpdateLane.globalBarrierKey)
     }
 
     private func complete(_ item: Item, output: Output) {

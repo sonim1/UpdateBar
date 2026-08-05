@@ -15,12 +15,12 @@ public protocol MenuBarServicing: Sendable {
     func update(
         id: String,
         cancellationToken: CancellationToken?,
-        onEvent: ((UpdateProgressEvent) throws -> Void)?,
+        onEvent: UpdateProgressHandler?,
         stopSignal: UpdateStopSignal?
     ) throws
     func updateAllApproved(
         cancellationToken: CancellationToken?,
-        onEvent: ((UpdateProgressEvent) throws -> Void)?,
+        onEvent: UpdateProgressHandler?,
         stopSignal: UpdateStopSignal?
     ) throws
     func approvals(id: String) throws -> [CommandApprovalStatus]
@@ -75,7 +75,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
     private let httpClient: HTTPClient
     private let injectedCommandRunner: (any CommandRunning)?
     private let commandEnvironment: [String: String]
-    private let now: () -> Date
+    private let now: @Sendable () -> Date
     private let githubToken: String?
 
     public init(
@@ -84,7 +84,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         environment: [String: String] = ProcessInfo.processInfo.environment,
         httpClient: HTTPClient = URLSessionHTTPClient(),
         commandRunner: (any CommandRunning)? = nil,
-        now: @escaping () -> Date = Date.init,
+        now: @escaping @Sendable () -> Date = Date.init,
         githubToken: String? = nil
     ) {
         self.paths = paths
@@ -150,7 +150,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
     public func update(
         id: String,
         cancellationToken: CancellationToken? = nil,
-        onEvent: ((UpdateProgressEvent) throws -> Void)? = nil,
+        onEvent: UpdateProgressHandler? = nil,
         stopSignal: UpdateStopSignal? = nil
     ) throws {
         _ = try updateRunner(cancellationToken: cancellationToken).update(
@@ -164,7 +164,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
 
     public func updateAllApproved(
         cancellationToken: CancellationToken? = nil,
-        onEvent: ((UpdateProgressEvent) throws -> Void)? = nil,
+        onEvent: UpdateProgressHandler? = nil,
         stopSignal: UpdateStopSignal? = nil
     ) throws {
         _ = try updateRunner(cancellationToken: cancellationToken).update(

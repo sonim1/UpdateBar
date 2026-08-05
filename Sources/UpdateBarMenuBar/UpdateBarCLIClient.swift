@@ -144,7 +144,7 @@ public struct UpdateBarCLIClient: Sendable {
     public func update(
         id: String,
         cancellationToken: CancellationToken? = nil,
-        onEvent: ((UpdateProgressEvent) throws -> Void)? = nil,
+        onEvent: UpdateProgressHandler? = nil,
         stopSignal: UpdateStopSignal? = nil
     ) throws {
         let result = try runner.run(
@@ -160,7 +160,7 @@ public struct UpdateBarCLIClient: Sendable {
     /// adapter is opt-in via UPDATEBAR_MENUBAR_ADAPTER=cli.
     public func updateAllApproved(
         cancellationToken: CancellationToken? = nil,
-        onEvent: ((UpdateProgressEvent) throws -> Void)? = nil,
+        onEvent: UpdateProgressHandler? = nil,
         stopSignal: UpdateStopSignal? = nil
     ) throws {
         let result = try runner.run(

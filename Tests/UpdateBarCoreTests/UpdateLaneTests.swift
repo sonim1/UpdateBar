@@ -52,14 +52,14 @@ final class UpdateLaneTests: XCTestCase {
         XCTAssertEqual(UpdateLane.key(forCommand: "sudo -u kendrick -n brew upgrade x"), "brew")
     }
 
-    func testAmbiguousWrapperSyntaxUsesTheSharedSerialLane() {
+    func testAmbiguousWrapperSyntaxUsesTheGlobalBarrierLane() {
         XCTAssertEqual(
             UpdateLane.key(forCommand: "sudo --user kendrick brew upgrade x"),
-            UpdateLane.sharedSerialKey
+            UpdateLane.globalBarrierKey
         )
         XCTAssertEqual(
             UpdateLane.key(forCommand: "env --split-string 'brew upgrade x'"),
-            UpdateLane.sharedSerialKey
+            UpdateLane.globalBarrierKey
         )
     }
 }

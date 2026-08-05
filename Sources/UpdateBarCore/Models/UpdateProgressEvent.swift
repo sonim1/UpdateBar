@@ -9,3 +9,6 @@ public enum UpdateProgressEvent: Equatable, Sendable {
     case itemStarted(id: String, name: String)
     case itemFinished(UpdateResult)
 }
+
+/// A progress callback invoked from update worker threads.
+public typealias UpdateProgressHandler = @Sendable (UpdateProgressEvent) throws -> Void

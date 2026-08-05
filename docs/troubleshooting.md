@@ -141,17 +141,16 @@ wait "$MENUBAR_PID" 2>/dev/null || true
 tail -n 80 "$LOG_PATH"
 ```
 
-If Open TUI is not launching, check that a TUI binary is reachable. The CLI's
+If the TUI is not launching, check that a TUI binary is reachable. The CLI's
 `tui` subcommand resolves it from:
 
 - `UPDATEBAR_TUI` environment variable (explicit executable path),
 - `updatebar-tui` on `PATH`.
 
-## Open TUI Does Nothing
+## TUI Does Nothing
 
-The Menu Bar app opens Terminal and runs `updatebar tui` with the bundled CLI.
-The subcommand launches `UPDATEBAR_TUI` if set, otherwise `updatebar-tui` from
-`PATH`. Install the TUI with Homebrew:
+Run `updatebar tui`. The subcommand launches `UPDATEBAR_TUI` if set, otherwise
+`updatebar-tui` from `PATH`. Install the TUI with Homebrew:
 
 ```bash
 brew install sonim1/tap/updatebar-tui
@@ -166,4 +165,4 @@ npm --prefix tui run build
 UPDATEBAR_TUI=$PWD/tui/dist/index.js updatebar tui
 ```
 
-Then choose `Open TUI` from the Menu Bar menu.
+Then run `updatebar tui`.

@@ -12,7 +12,7 @@ enum UpdateLane {
     /// Commands whose executable cannot be determined without reproducing a
     /// shell wrapper's argument parser share one lane rather than risking an
     /// unsafe overlap with a package manager command.
-    static let sharedSerialKey = "updatebar:shared-serial"
+    static let globalBarrierKey = "updatebar:global-barrier"
 
     private static let wrappers: Set<String> = [
         "sudo", "env", "command", "nice", "nohup", "time", "exec",
@@ -49,19 +49,19 @@ enum UpdateLane {
             }
 
             if text.hasPrefix("-") {
-                guard let wrapper = currentWrapper else { return sharedSerialKey }
+                guard let wrapper = currentWrapper else { return globalBarrierKey }
                 if text == "--" {
                     i += 1
                     continue
                 }
                 if wrapper == "env", text == "-S" {
                     guard i + 1 < tokens.count, isUnambiguousToken(tokens[i + 1])
-                    else { return sharedSerialKey }
+                    else { return globalBarrierKey }
                     i += 1
                     continue
                 }
                 if wrapperValueFlags[wrapper]?.contains(text) == true {
-                    guard i + 1 < tokens.count else { return sharedSerialKey }
+                    guard i + 1 < tokens.count else { return globalBarrierKey }
                     i += 2
                     continue
                 }
@@ -69,10 +69,10 @@ enum UpdateLane {
                     i += 1
                     continue
                 }
-                return sharedSerialKey
+                return globalBarrierKey
             }
 
-            guard isUnambiguousToken(text) else { return sharedSerialKey }
+            guard isUnambiguousToken(text) else { return globalBarrierKey }
             let name = URL(fileURLWithPath: text).lastPathComponent.lowercased()
             if name.isEmpty || name == "/" {
                 i += 1

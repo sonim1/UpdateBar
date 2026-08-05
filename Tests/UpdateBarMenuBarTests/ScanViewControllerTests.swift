@@ -312,14 +312,14 @@
         func update(
             id: String,
             cancellationToken: CancellationToken?,
-            onEvent: ((UpdateProgressEvent) throws -> Void)?,
+            onEvent: UpdateProgressHandler?,
             stopSignal: UpdateStopSignal?
         ) throws {
             fatalError("unused")
         }
         func updateAllApproved(
             cancellationToken: CancellationToken?,
-            onEvent: ((UpdateProgressEvent) throws -> Void)?,
+            onEvent: UpdateProgressHandler?,
             stopSignal: UpdateStopSignal?
         ) throws {
             fatalError("unused")
