@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.6.13 - 2026-08-05
+
+### Fixed
+
+- Declared the locked history store sendable and removed a non-sendable test
+  capture so Linux Swift 6 release verification compiles successfully.
+
 ## 0.6.12 - 2026-08-04
 
 ### Added

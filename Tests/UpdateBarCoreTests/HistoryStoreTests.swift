@@ -101,6 +101,7 @@ final class HistoryStoreTests: XCTestCase {
     func testConcurrentAppendsLoseNoEvents() throws {
         let store = try makeStore()
         let total = 40
+        let eventDate = now
 
         DispatchQueue.concurrentPerform(iterations: total) { index in
             try? store.append(
@@ -108,7 +109,7 @@ final class HistoryStoreTests: XCTestCase {
                     event: .updateFinished,
                     id: "tool-\(index)",
                     outcome: "updated",
-                    at: now.addingTimeInterval(Double(index))
+                    at: eventDate.addingTimeInterval(Double(index))
                 ))
         }
 

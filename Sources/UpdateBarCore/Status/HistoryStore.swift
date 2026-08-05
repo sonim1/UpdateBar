@@ -49,7 +49,7 @@ public struct HistoryEvent: Codable, Equatable, Sendable {
 /// Append-only JSONL log of update/check events at
 /// `~/.updatebar/history.jsonl`, size-capped by dropping the oldest lines.
 /// Reads skip malformed lines so a torn write never poisons the file.
-public struct HistoryStore {
+public struct HistoryStore: Sendable {
     private let fileURL: URL
     private let lockFileURL: URL
     private let maxBytes: Int
