@@ -12,8 +12,17 @@ public protocol MenuBarServicing: Sendable {
     func loadConfig() throws -> Config
     func saveConfig(_ config: Config) throws
     func checkNow(cancellationToken: CancellationToken?) throws
-    func update(id: String, cancellationToken: CancellationToken?) throws
-    func updateAllApproved(cancellationToken: CancellationToken?) throws
+    func update(
+        id: String,
+        cancellationToken: CancellationToken?,
+        onEvent: UpdateProgressHandler?,
+        stopSignal: UpdateStopSignal?
+    ) throws
+    func updateAllApproved(
+        cancellationToken: CancellationToken?,
+        onEvent: UpdateProgressHandler?,
+        stopSignal: UpdateStopSignal?
+    ) throws
     func approvals(id: String) throws -> [CommandApprovalStatus]
     func approve(id: String, field: String, cancellationToken: CancellationToken?) throws
     func revoke(id: String, field: String, cancellationToken: CancellationToken?) throws
@@ -31,11 +40,19 @@ extension MenuBarServicing {
     }
 
     public func update(id: String) throws {
-        try update(id: id, cancellationToken: nil)
+        try update(id: id, cancellationToken: nil, onEvent: nil, stopSignal: nil)
+    }
+
+    public func update(id: String, cancellationToken: CancellationToken?) throws {
+        try update(id: id, cancellationToken: cancellationToken, onEvent: nil, stopSignal: nil)
     }
 
     public func updateAllApproved() throws {
-        try updateAllApproved(cancellationToken: nil)
+        try updateAllApproved(cancellationToken: nil, onEvent: nil, stopSignal: nil)
+    }
+
+    public func updateAllApproved(cancellationToken: CancellationToken?) throws {
+        try updateAllApproved(cancellationToken: cancellationToken, onEvent: nil, stopSignal: nil)
     }
 
     public func approve(id: String, field: String) throws {
@@ -58,7 +75,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
     private let httpClient: HTTPClient
     private let injectedCommandRunner: (any CommandRunning)?
     private let commandEnvironment: [String: String]
-    private let now: () -> Date
+    private let now: @Sendable () -> Date
     private let githubToken: String?
 
     public init(
@@ -67,7 +84,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         environment: [String: String] = ProcessInfo.processInfo.environment,
         httpClient: HTTPClient = URLSessionHTTPClient(),
         commandRunner: (any CommandRunning)? = nil,
-        now: @escaping () -> Date = Date.init,
+        now: @escaping @Sendable () -> Date = Date.init,
         githubToken: String? = nil
     ) {
         self.paths = paths
@@ -130,19 +147,32 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         _ = try registryService(cancellationToken: cancellationToken).check(force: true)
     }
 
-    public func update(id: String, cancellationToken: CancellationToken? = nil) throws {
+    public func update(
+        id: String,
+        cancellationToken: CancellationToken? = nil,
+        onEvent: UpdateProgressHandler? = nil,
+        stopSignal: UpdateStopSignal? = nil
+    ) throws {
         _ = try updateRunner(cancellationToken: cancellationToken).update(
             ids: [id],
             all: false,
-            assumeYes: true
+            assumeYes: true,
+            onEvent: onEvent,
+            stopSignal: stopSignal
         )
     }
 
-    public func updateAllApproved(cancellationToken: CancellationToken? = nil) throws {
+    public func updateAllApproved(
+        cancellationToken: CancellationToken? = nil,
+        onEvent: UpdateProgressHandler? = nil,
+        stopSignal: UpdateStopSignal? = nil
+    ) throws {
         _ = try updateRunner(cancellationToken: cancellationToken).update(
             ids: [],
             all: true,
-            assumeYes: true
+            assumeYes: true,
+            onEvent: onEvent,
+            stopSignal: stopSignal
         )
     }
 

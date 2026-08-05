@@ -436,7 +436,7 @@ final class ScanServiceTests: XCTestCase {
     }
 }
 
-private struct ThrowingCommandRunner: CommandRunning {
+private struct ThrowingCommandRunner: CommandRunning, @unchecked Sendable {
     var error: Error
 
     func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult {

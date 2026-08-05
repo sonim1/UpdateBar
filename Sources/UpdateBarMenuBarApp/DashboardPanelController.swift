@@ -18,6 +18,7 @@
         )
         private let settingsViewController: SettingsViewController
         private let aboutViewController: AboutViewController
+        private let logsViewController = LogsViewController()
         private let manageItemsViewController: ManageItemsViewController
         private let scanViewController: ScanViewController
         private weak var visibleContentViewController: NSViewController?
@@ -128,13 +129,13 @@
             DispatchQueue.global(qos: .userInitiated).async { [service, model] in
                 do {
                     let now = Date()
-                    let since = Calendar.current.date(byAdding: .day, value: -28, to: now)
                     let snapshot = try service.status(refresh: false)
-                    let events = try service.history(since: since)
+                    let events = try service.history(since: nil)
                     let summary = model.summary(snapshot: snapshot, events: events, now: now)
                     DispatchQueue.main.async {
                         guard generation == self.reloadGeneration else { return }
                         self.apply(summary)
+                        self.logsViewController.apply(events: events)
                         self.manageItemsViewController.apply(items: snapshot.items)
                         self.scanViewController.applyRegisteredItems(snapshot.items)
                     }
@@ -168,6 +169,8 @@
                 return manageItemsViewController
             case .scan:
                 return scanViewController
+            case .logs:
+                return logsViewController
             case .settings:
                 return settingsViewController
             case .about:

@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 0.6.12 - 2026-08-04
+
+### Added
+
+- Added a Dashboard Logs section that shows persisted update and check history,
+  including Update All results and version transitions.
+
+### Changed
+
+- Update All now schedules eligible services independently and shows queued,
+  updating, and completed state on each affected menu row.
+- Hid TUI from the menu bar; the `updatebar tui` CLI command remains available.
+- Rebuilt the macOS app icon with a transparent outer canvas so macOS can apply
+  its normal icon treatment without a black border.
+
 ## 0.6.11 - 2026-08-04
 
 ### Changed

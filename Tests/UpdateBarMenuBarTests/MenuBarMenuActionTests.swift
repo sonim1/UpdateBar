@@ -27,19 +27,24 @@ final class MenuBarMenuActionTests: XCTestCase {
         XCTAssertTrue(MenuBarMenuAction.footer.contains(.about))
     }
 
-    func testErrorRecoveryActionsIncludeDiagnostics() {
+    func testMenuBarHidesTUIAndViewLogsActions() {
+        XCTAssertFalse(MenuBarMenuAction.footer.contains(.openTUI))
+        XCTAssertFalse(MenuBarMenuAction.footer.contains(.viewLogs))
+        XCTAssertFalse(MenuBarMenuAction.errorRecovery.contains(.openTUI))
+        XCTAssertFalse(MenuBarMenuAction.errorRecovery.contains(.viewLogs))
+    }
+
+    func testErrorRecoveryActionsKeepDashboardNavigation() {
         XCTAssertEqual(
             MenuBarMenuAction.errorRecovery.map(\.title),
             [
                 "Refresh Status",
                 "Check Now",
-                "Open TUI",
                 "Dashboard",
                 "Manage Items...",
                 "Scan & Add",
                 "Settings...",
                 "About UpdateBar",
-                "View Logs",
                 "Check for Updates...",
                 "Quit",
             ])

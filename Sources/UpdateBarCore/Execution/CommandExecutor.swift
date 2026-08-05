@@ -6,11 +6,13 @@ import Foundation
     import Darwin
 #endif
 
-public protocol CommandRunning {
+public protocol CommandRunning: Sendable {
     func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult
 }
 
-public struct CommandExecutor: CommandRunning {
+/// The executor keeps immutable configuration and creates a fresh `Process`
+/// for every command, so instances can be shared by update workers.
+public struct CommandExecutor: CommandRunning, @unchecked Sendable {
     private let environment: [String: String]
     private let fileManager: FileManager
     private let cancellationToken: CancellationToken?

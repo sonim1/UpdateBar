@@ -21,10 +21,11 @@ final class CoreMenuBarServiceTests: XCTestCase {
         try Data("# Live Sync\n".utf8).write(
             to: skillDirectory.appendingPathComponent("SKILL.md")
         )
+        let testNow = now
         let service = CoreMenuBarService(
             paths: AppPaths(homeDirectory: dataDirectory),
             scanHomeDirectory: userHome,
-            now: { self.now }
+            now: { testNow }
         )
 
         let report = try service.scan(category: "codex-skill")
@@ -50,7 +51,8 @@ final class CoreMenuBarServiceTests: XCTestCase {
             ),
             ScanService.knownToolsCommand: CommandResult(exitCode: 0, stdout: "", stderr: ""),
         ])
-        let service = CoreMenuBarService(paths: paths, commandRunner: commands, now: { self.now })
+        let testNow = now
+        let service = CoreMenuBarService(paths: paths, commandRunner: commands, now: { testNow })
 
         let report = try service.scan(category: "shell-utility")
         let summary = try service.registerScannedCandidates(
@@ -100,7 +102,8 @@ final class CoreMenuBarServiceTests: XCTestCase {
             "tool current": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
             "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
         ])
-        let service = CoreMenuBarService(paths: paths, commandRunner: commands, now: { self.now })
+        let testNow = now
+        let service = CoreMenuBarService(paths: paths, commandRunner: commands, now: { testNow })
 
         let status = try service.status(refresh: false)
         let approvals = try service.approvals(id: "tool")
@@ -137,7 +140,8 @@ final class CoreMenuBarServiceTests: XCTestCase {
                         backoffUntil: nil
                     )
                 ]))
-        let service = CoreMenuBarService(paths: paths, now: { self.now })
+        let testNow = now
+        let service = CoreMenuBarService(paths: paths, now: { testNow })
         let token = CancellationToken()
 
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
@@ -164,10 +168,11 @@ final class CoreMenuBarServiceTests: XCTestCase {
             "tool current": CommandResult(exitCode: 0, stdout: "tool 1.0.0", stderr: ""),
             "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
         ])
+        let testNow = now
         let service = CoreMenuBarService(
             paths: paths,
             commandRunner: commands,
-            now: { self.now })
+            now: { testNow })
         let token = CancellationToken()
 
         try service.checkNow(cancellationToken: token)
@@ -195,7 +200,8 @@ final class CoreMenuBarServiceTests: XCTestCase {
             sourceRef: candidateRecipe.source.ref,
             recipe: candidateRecipe
         )
-        let service = CoreMenuBarService(paths: paths, now: { self.now })
+        let testNow = now
+        let service = CoreMenuBarService(paths: paths, now: { testNow })
 
         let summary = try service.registerScannedCandidates(
             [candidate], selectedIDs: [candidate.id], replace: false)
@@ -258,6 +264,47 @@ final class CoreMenuBarServiceTests: XCTestCase {
         XCTAssertEqual(enabled.items.first?.status, .outdated)
     }
 
+    func testUpdateAllApprovedForwardsProgressEvents() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(id: "tool", updateCommand: "tool update", currentCommand: "tool current")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": ItemState(
+                        current: "1.0.0",
+                        latest: "1.1.0",
+                        status: .outdated,
+                        lastChecked: now,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                ]))
+        let commands = RecordingCommandRunner(results: [
+            "tool update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
+            "tool current": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
+            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
+        ])
+        let testNow = now
+        let service = CoreMenuBarService(paths: paths, commandRunner: commands, now: { testNow })
+
+        let eventRecorder = ProgressIDRecorder()
+        try service.updateAllApproved(
+            cancellationToken: nil,
+            onEvent: { event in
+                eventRecorder.record(event)
+            },
+            stopSignal: nil
+        )
+
+        XCTAssertEqual(eventRecorder.startedIDs, ["tool"])
+        XCTAssertEqual(eventRecorder.finishedIDs, ["tool"])
+    }
+
     private func manifest(items: [Recipe]) -> Manifest {
         Manifest(
             schemaVersion: 1,
@@ -294,17 +341,41 @@ final class CoreMenuBarServiceTests: XCTestCase {
     }
 }
 
-private final class RecordingCommandRunner: CommandRunning {
-    var results: [String: CommandResult]
-    private(set) var commands: [ShellCommand] = []
+private final class RecordingCommandRunner: CommandRunning, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedResults: [String: CommandResult]
+    private var recorded: [ShellCommand] = []
 
     init(results: [String: CommandResult]) {
-        self.results = results
+        self.storedResults = results
+    }
+
+    var results: [String: CommandResult] {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedResults
+        }
+        set {
+            lock.lock()
+            storedResults = newValue
+            lock.unlock()
+        }
+    }
+
+    var commands: [ShellCommand] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recorded
     }
 
     func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult {
-        commands.append(command)
-        guard let result = results[command.command] else {
+        lock.lock()
+        recorded.append(command)
+        let result = storedResults[command.command]
+        lock.unlock()
+
+        guard let result else {
             throw MissingCommandError(command.command)
         }
         return result
@@ -316,5 +387,24 @@ private struct MissingCommandError: Error {
 
     init(_ command: String) {
         self.command = command
+    }
+}
+
+private final class ProgressIDRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedStartedIDs: [String] = []
+    private var storedFinishedIDs: [String] = []
+
+    var startedIDs: [String] { lock.withLock { storedStartedIDs } }
+    var finishedIDs: [String] { lock.withLock { storedFinishedIDs } }
+
+    func record(_ event: UpdateProgressEvent) {
+        lock.withLock {
+            switch event {
+            case .planned: break
+            case .itemStarted(let id, _): storedStartedIDs.append(id)
+            case .itemFinished(let result): storedFinishedIDs.append(result.id)
+            }
+        }
     }
 }

@@ -258,10 +258,10 @@ Scripts/build-app-dmg.sh
 The printed path is the notarized, stapled DMG. Verify it with
 `Scripts/app-dmg-smoke-test.sh <printed-path>` before release.
 
-The app bundle does not currently include the Ink TUI. The `Open TUI` menu item
-first honors an executable `UPDATEBAR_TUI` override, then prefers launching
-`UPDATEBAR_BIN tui` when the bundled CLI is available, and finally falls back to
-`updatebar-tui` from the user's `PATH`.
+The app bundle does not currently include the Ink TUI. Run `updatebar tui` to
+launch it: the command first honors an executable `UPDATEBAR_TUI` override,
+then prefers the bundled CLI, and finally falls back to `updatebar-tui` from
+the user's `PATH`.
 
 Ink TUI packaging:
 

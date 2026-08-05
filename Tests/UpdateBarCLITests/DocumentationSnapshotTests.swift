@@ -1413,9 +1413,10 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("`Check Now` and `Update All`"))
         XCTAssertTrue(docs.contains("opens the Dashboard window directly"))
         XCTAssertTrue(docs.contains("left sidebar"))
-        for section in ["Overview", "Items", "Scan & Add"] {
+        for section in ["Overview", "Items", "Scan & Add", "Logs"] {
             XCTAssertTrue(docs.contains(section), "Dashboard docs missing \(section)")
         }
+        XCTAssertTrue(docs.contains("TUI is not exposed by the menu bar"))
         XCTAssertTrue(docs.contains("same Dashboard window"))
         XCTAssertTrue(docs.contains("scans only when you press Scan"))
         XCTAssertTrue(

@@ -59,7 +59,7 @@ public struct UpdatePlanner {
     }
 }
 
-public struct UpdatePlanItem: Codable, Equatable {
+public struct UpdatePlanItem: Codable, Equatable, Sendable {
     public var id: String
     public var name: String
     public var decision: UpdatePlanDecision
@@ -93,7 +93,7 @@ public struct UpdatePlanItem: Codable, Equatable {
     }
 }
 
-public enum UpdatePlanDecision: String, Codable, Equatable {
+public enum UpdatePlanDecision: String, Codable, Equatable, Sendable {
     case willUpdate = "will_update"
     case skippedPinned = "skipped_pinned"
     case skippedDisabled = "skipped_disabled"

@@ -81,10 +81,12 @@ It prefers direct `UpdateBarCore` calls, keeps a CLI subprocess fallback, and ex
 - update selected
 - update all approved outdated
 - per-command approve/revoke
-- open TUI
 - open config
-- view logs
+- Dashboard Logs
 - quit
+
+The TUI stays available from the command line with `updatebar tui`; it is not a
+menu-bar action.
 
 Build a local development app (not a public release artifact):
 

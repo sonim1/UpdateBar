@@ -67,14 +67,18 @@
             _ = controller.view
             let tableView = try XCTUnwrap(findTableView(in: controller.view))
 
-            XCTAssertEqual(tableView.numberOfRows, 5)
-            XCTAssertEqual(tableView.selectedRow, 4)
+            XCTAssertEqual(tableView.numberOfRows, 6)
+            XCTAssertEqual(tableView.selectedRow, 5)
             XCTAssertEqual(
                 (controller.tableView(tableView, viewFor: nil, row: 3)?.accessibilityLabel()),
-                "Settings"
+                "Logs"
             )
             XCTAssertEqual(
                 (controller.tableView(tableView, viewFor: nil, row: 4)?.accessibilityLabel()),
+                "Settings"
+            )
+            XCTAssertEqual(
+                (controller.tableView(tableView, viewFor: nil, row: 5)?.accessibilityLabel()),
                 "About"
             )
         }

@@ -138,12 +138,20 @@ When a plist is removed, human output also prints the manual unload command:
 ### `updatebar config get [key] [--json]`
 
 Reads config. Without `key`, prints the full config.
-Known keys: `refresh.interval`, `security.require_https_source`.
+Known keys:
+
+- `refresh.interval` — how often background checks run.
+- `security.require_https_source` — require update sources to use HTTPS.
+- `update.max_concurrent` — how many items update at once (1–8, default `3`).
 
 ### `updatebar config set <key> <value> [--json]`
 
 Sets a known config key.
-Known keys: `refresh.interval`, `security.require_https_source`.
+Known keys:
+
+- `refresh.interval` — how often background checks run.
+- `security.require_https_source` — require update sources to use HTTPS.
+- `update.max_concurrent` — how many items update at once (1–8, default `3`).
 
 ### `updatebar add --from <file|-> [--dry-run] [--json] [--replace]`
 
@@ -244,7 +252,7 @@ When no items are registered, human output suggests `updatebar scan` and
 If an item id is not found in another command, run `updatebar status` to list
 registered item ids.
 
-### `updatebar update [id...] [--yes] [--json|--json-stream]`
+### `updatebar update [id...] [--yes] [--jobs <n>] [--json|--json-stream]`
 
 Runs approved update commands for outdated items. When ids are omitted, all outdated items are selected. Human output is tab-separated with `ID`, `OUTCOME`,
 `CURRENT`, `LATEST`, and `DETAIL` columns; `DETAIL` is used for item errors.
@@ -255,6 +263,16 @@ output suggests `updatebar unpin <id>` or `updatebar enable <id>`.
 Returns `2` if any selected update fails.
 In machine-readable mode (`--json` or `--json-stream`), prompts are suppressed;
 omit `--yes` to skip execution and receive a `.cancelled` outcome.
+
+Updates run in parallel, capped by `update.max_concurrent` (default `3`).
+`--jobs <n>` overrides that cap for one run and must be between 1 and 8.
+Two items whose `update.cmd` invokes the same tool — two `brew` recipes, say —
+never run at the same time, because package managers hold a process-wide lock.
+
+`--json` and human output list results in plan order regardless of the order
+items finished. In `--json-stream`, `item_started` and `item_finished` events
+interleave across items as work completes; the terminal `finished` event still
+carries results in plan order.
 
 ### `updatebar history [--json] [--since <iso8601>]`
 
