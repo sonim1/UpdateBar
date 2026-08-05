@@ -16,8 +16,12 @@
         ) {
             self.service = service
             self.onSaved = onSaved
-            let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
-            let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+            let version =
+                Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+                ?? "—"
+            let build =
+                Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+                ?? "—"
             model = SettingsViewModel(
                 version: version,
                 build: build,
@@ -73,8 +77,14 @@
         private func save() {
             do {
                 var config = Config.default
-                try config.set("refresh.interval", value: model.refreshInterval.trimmingCharacters(in: .whitespacesAndNewlines))
-                try config.set("security.require_https_source", value: model.requireHTTPS ? "true" : "false")
+                try config.set(
+                    "refresh.interval",
+                    value: model.refreshInterval.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+                try config.set(
+                    "security.require_https_source",
+                    value: model.requireHTTPS ? "true" : "false"
+                )
                 model.isRunning = true
                 model.status = "Saving..."
                 DispatchQueue.global(qos: .userInitiated).async { [service] in

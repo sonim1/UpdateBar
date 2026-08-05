@@ -4,13 +4,16 @@
 
     final class AboutViewController: NSViewController {
         override func loadView() {
-            let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+            let version =
+                Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+                ?? "—"
             let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
             let view = AboutView(
                 version: version,
                 build: build,
                 onSupport: {
-                    guard let url = URL(string: "mailto:support@updatebar.royjen.com") else { return }
+                    guard let url = URL(string: "mailto:support@updatebar.royjen.com")
+                    else { return }
                     NSWorkspace.shared.open(url)
                 },
                 onAcknowledgments: { [weak self] in self?.showAcknowledgments() }
@@ -32,7 +35,8 @@
         private func showAcknowledgments() {
             let alert = NSAlert()
             alert.messageText = "Acknowledgments"
-            alert.informativeText = "Built with Swift, AppKit, SwiftUI, Sparkle, and UpdateBar Core."
+            alert.informativeText =
+                "Built with Swift, AppKit, SwiftUI, Sparkle, and UpdateBar Core."
             if let window = view.window {
                 alert.beginSheetModal(for: window)
             } else {

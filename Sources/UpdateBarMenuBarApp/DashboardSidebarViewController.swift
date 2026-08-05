@@ -141,7 +141,10 @@
         }
 
         private func renderUpdateQueue() {
-            queueContainer.arrangedSubviews.forEach { queueContainer.removeArrangedSubview($0); $0.removeFromSuperview() }
+            for subview in queueContainer.arrangedSubviews {
+                queueContainer.removeArrangedSubview(subview)
+                subview.removeFromSuperview()
+            }
             guard updateQueue.isVisible else {
                 queueContainer.isHidden = true
                 return
@@ -154,7 +157,11 @@
             queueContainer.addArrangedSubview(header)
 
             for item in updateQueue.items {
-                let button = NSButton(title: "\(item.title)  \(item.versionChange)", target: self, action: #selector(updateQueueButtonSelected(_:)))
+                let button = NSButton(
+                    title: "\(item.title)  \(item.versionChange)",
+                    target: self,
+                    action: #selector(updateQueueButtonSelected(_:))
+                )
                 button.bezelStyle = .rounded
                 button.alignment = .left
                 button.font = .systemFont(ofSize: 11)

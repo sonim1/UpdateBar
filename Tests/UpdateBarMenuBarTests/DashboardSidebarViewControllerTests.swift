@@ -84,13 +84,19 @@
             var selectedIDs: [String] = []
             controller.onUpdateSelected = { selectedIDs.append($0) }
 
-            controller.apply(updateQueue: SidebarUpdateQueue(
-                count: 2,
-                items: [
-                    SidebarUpdateQueueItem(id: "brew", title: "Homebrew", versionChange: "1 → 2"),
-                ],
-                overflowCount: 1
-            ))
+            controller.apply(
+                updateQueue: SidebarUpdateQueue(
+                    count: 2,
+                    items: [
+                        SidebarUpdateQueueItem(
+                            id: "brew",
+                            title: "Homebrew",
+                            versionChange: "1 → 2"
+                        )
+                    ],
+                    overflowCount: 1
+                )
+            )
 
             controller.selectUpdate(id: "brew")
 

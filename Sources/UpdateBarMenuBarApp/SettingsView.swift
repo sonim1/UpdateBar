@@ -47,8 +47,11 @@
                     }
                     section("Updates") {
                         LabeledContent("Current version") {
-                            Text(model.build.isEmpty || model.build == "—" ? model.version : "\(model.version) (\(model.build))")
-                                .foregroundStyle(.secondary)
+                            Text(
+                                model.build.isEmpty || model.build == "—"
+                                    ? model.version : "\(model.version) (\(model.build))"
+                            )
+                            .foregroundStyle(.secondary)
                         }
                         Button("Check for Updates", action: model.onCheckForUpdates)
                             .buttonStyle(.borderedProminent)
@@ -101,7 +104,10 @@
                 Text(title).font(.headline)
                 VStack(alignment: .leading, spacing: 12, content: content)
                     .padding(16)
-                    .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+                    .background(
+                        Color(nsColor: .controlBackgroundColor),
+                        in: RoundedRectangle(cornerRadius: 10)
+                    )
             }
         }
     }
