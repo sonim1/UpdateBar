@@ -99,6 +99,11 @@ your Homebrew `PATH`:
 updatebar --version
 ```
 
+That link targets the installed app bundle, rather than a versioned Cask
+directory. When the app updates itself through Sparkle, `updatebar` therefore
+uses the CLI from the replacement app bundle too; no separate CLI upgrade is
+needed.
+
 If both the standalone formula and app cask were installed before this combined
 package was available, switch the CLI link to the cask once:
 

@@ -8,6 +8,35 @@ CASK_DIR="$ROOT/Packaging/homebrew/Casks"
 FORMULA_TOKEN="$(basename "$FORMULA" .rb)"
 EXPECTED_CASK_BINARY='  binary "#{appdir}/UpdateBar.app/Contents/Resources/updatebar"'
 
+test_sparkle_bundle_replacement_updates_cli() {
+  local temp_dir app_dir next_app cli_link
+  temp_dir="$(mktemp -d)"
+  trap 'rm -rf -- "$temp_dir"' RETURN
+
+  app_dir="$temp_dir/Applications/UpdateBar.app"
+  next_app="$temp_dir/UpdateBar.next.app"
+  cli_link="$temp_dir/bin/updatebar"
+
+  mkdir -p "$app_dir/Contents/Resources" "$next_app/Contents/Resources" "${cli_link%/*}"
+  printf '#!/usr/bin/env bash\necho 0.0.1\n' > "$app_dir/Contents/Resources/updatebar"
+  printf '#!/usr/bin/env bash\necho 0.0.2\n' > "$next_app/Contents/Resources/updatebar"
+  chmod +x "$app_dir/Contents/Resources/updatebar" "$next_app/Contents/Resources/updatebar"
+  ln -s "$app_dir/Contents/Resources/updatebar" "$cli_link"
+
+  [[ "$("$cli_link")" == "0.0.1" ]] || {
+    echo "bundled CLI link did not run the original app version" >&2
+    return 1
+  }
+
+  mv "$app_dir" "$temp_dir/UpdateBar.previous.app"
+  mv "$next_app" "$app_dir"
+
+  [[ "$("$cli_link")" == "0.0.2" ]] || {
+    echo "bundled CLI link did not follow the Sparkle replacement app bundle" >&2
+    return 1
+  }
+}
+
 if [[ ! -f "$FORMULA" ]]; then
   echo "missing Homebrew formula: $FORMULA" >&2
   exit 1
@@ -57,5 +86,7 @@ for cask in "${casks[@]}"; do
     exit 1
   fi
 done
+
+test_sparkle_bundle_replacement_updates_cli
 
 echo "homebrew packaging ok"
