@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.6.14 - 2026-08-11
+
+### Changed
+
+- Verified that the Homebrew cask-linked `updatebar` command follows Sparkle app
+  replacements, so an in-app update also uses the new bundled CLI.
+
 ## 0.6.13 - 2026-08-05
 
 ### Fixed
