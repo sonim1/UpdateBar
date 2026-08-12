@@ -43,22 +43,21 @@ public enum MenuBarMenuAction: Equatable, Sendable {
 
     public static let footer: [MenuBarMenuAction] = [
         .overview,
+        .checkForUpdates,
+        .quit,
+    ]
+
+    public static let more: [MenuBarMenuAction] = [
         .manageItems,
         .scanAndAdd,
         .openConfig,
         .about,
-        .checkForUpdates,
-        .quit,
     ]
 
     public static let errorRecovery: [MenuBarMenuAction] = [
         .refreshStatus,
         .checkNow,
         .overview,
-        .manageItems,
-        .scanAndAdd,
-        .openConfig,
-        .about,
         .checkForUpdates,
         .quit,
     ]

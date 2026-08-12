@@ -206,9 +206,26 @@ public struct MenuBarMenuModelBuilder: Sendable {
     }
 
     private func appendFooterActions(to entries: inout [MenuBarMenuEntry]) {
-        for action in MenuBarMenuAction.footer {
+        appendAction(
+            MenuBarMenuAction.overview.title,
+            action: .menu(.overview),
+            to: &entries
+        )
+        entries.append(moreSubmenu())
+        for action in [MenuBarMenuAction.checkForUpdates, .quit] {
             appendAction(action.title, action: .menu(action), to: &entries)
         }
+    }
+
+    private func moreSubmenu() -> MenuBarMenuEntry {
+        .submenu(
+            MenuBarSubmenu(
+                title: "More",
+                items: MenuBarMenuAction.more.map {
+                    MenuBarMenuItem(title: $0.title, action: .menu($0))
+                }
+            )
+        )
     }
 
     public func makeErrorMenu(errorDescription: String) -> MenuBarMenuModel {
@@ -216,9 +233,10 @@ public struct MenuBarMenuModelBuilder: Sendable {
         appendDisabled("UpdateBar Error", to: &entries)
         appendDisabled(SecretRedactor.redact(errorDescription), to: &entries)
         appendSeparator(to: &entries)
-        for action in MenuBarMenuAction.errorRecovery {
+        for action in [MenuBarMenuAction.refreshStatus, .checkNow] {
             appendAction(action.title, action: .menu(action), to: &entries)
         }
+        appendFooterActions(to: &entries)
         return MenuBarMenuModel(entries: entries)
     }
 

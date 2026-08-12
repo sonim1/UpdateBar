@@ -29,13 +29,19 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Update All",
                 "---",
                 "Dashboard",
-                "Manage Items...",
-                "Scan & Add",
-                "Settings...",
-                "About UpdateBar",
+                "More >",
                 "Check for Updates...",
                 "Quit",
             ])
+        XCTAssertEqual(
+            model.entries.submenu(titled: "More")?.items.map(\.action),
+            [
+                .menu(.manageItems),
+                .menu(.scanAndAdd),
+                .menu(.openConfig),
+                .menu(.about),
+            ]
+        )
         XCTAssertEqual(
             Array(model.entries.actions.suffix(2)),
             [.menu(.checkForUpdates), .menu(.quit)]
@@ -210,10 +216,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Fresh Tool",
                 "---",
                 "Dashboard",
-                "Manage Items...",
-                "Scan & Add",
-                "Settings...",
-                "About UpdateBar",
+                "More >",
                 "Check for Updates...",
                 "Quit",
             ])
@@ -222,10 +225,6 @@ final class MenuBarMenuModelTests: XCTestCase {
             [
                 .stopCurrentAction,
                 .menu(.overview),
-                .menu(.manageItems),
-                .menu(.scanAndAdd),
-                .menu(.openConfig),
-                .menu(.about),
                 .menu(.checkForUpdates),
                 .menu(.quit),
             ])
@@ -308,10 +307,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Broken Tool: command failed",
                 "---",
                 "Dashboard",
-                "Manage Items...",
-                "Scan & Add",
-                "Settings...",
-                "About UpdateBar",
+                "More >",
                 "Check for Updates...",
                 "Quit",
             ])
@@ -323,10 +319,6 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.updateAllApprovedOutdated),
                 .update(id: "old"),
                 .menu(.overview),
-                .menu(.manageItems),
-                .menu(.scanAndAdd),
-                .menu(.openConfig),
-                .menu(.about),
                 .menu(.checkForUpdates),
                 .menu(.quit),
             ])
@@ -630,10 +622,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Refresh Status",
                 "Check Now",
                 "Dashboard",
-                "Manage Items...",
-                "Scan & Add",
-                "Settings...",
-                "About UpdateBar",
+                "More >",
                 "Check for Updates...",
                 "Quit",
             ])
@@ -643,13 +632,18 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.refreshStatus),
                 .menu(.checkNow),
                 .menu(.overview),
+                .menu(.checkForUpdates),
+                .menu(.quit),
+            ])
+        XCTAssertEqual(
+            model.entries.submenu(titled: "More")?.items.map(\.action),
+            [
                 .menu(.manageItems),
                 .menu(.scanAndAdd),
                 .menu(.openConfig),
                 .menu(.about),
-                .menu(.checkForUpdates),
-                .menu(.quit),
-            ])
+            ]
+        )
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 

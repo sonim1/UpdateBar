@@ -23,8 +23,6 @@ final class MenuBarMenuActionTests: XCTestCase {
     func testSettingsAndAboutUseReadableFooterTitles() {
         XCTAssertEqual(MenuBarMenuAction.openConfig.title, "Settings...")
         XCTAssertEqual(MenuBarMenuAction.about.title, "About UpdateBar")
-        XCTAssertTrue(MenuBarMenuAction.footer.contains(.openConfig))
-        XCTAssertTrue(MenuBarMenuAction.footer.contains(.about))
     }
 
     func testMenuBarHidesTUIAndViewLogsActions() {
@@ -41,10 +39,6 @@ final class MenuBarMenuActionTests: XCTestCase {
                 "Refresh Status",
                 "Check Now",
                 "Dashboard",
-                "Manage Items...",
-                "Scan & Add",
-                "Settings...",
-                "About UpdateBar",
                 "Check for Updates...",
                 "Quit",
             ])

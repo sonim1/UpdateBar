@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.6.15 - 2026-08-12
+
+### Changed
+
+- Replaced the menu bar's Installed section with a compact 30-day update
+  history chart and added the same history view to the Dashboard overview.
+- Grouped secondary menu-bar navigation under a More submenu while keeping
+  Dashboard, Check for Updates, and Quit immediately accessible.
+
+### Fixed
+
+- Restored the app version and build labels in the About screen.
+
 ## 0.6.14 - 2026-08-11
 
 ### Changed
