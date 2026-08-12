@@ -19,8 +19,8 @@
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 360)
                 VStack(spacing: 4) {
-                    Text("Version (version)")
-                    if !build.isEmpty && build != "—" { Text("Build (build)") }
+                    Text("Version \(version)")
+                    if !build.isEmpty && build != "—" { Text("Build \(build)") }
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
