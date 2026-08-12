@@ -27,30 +27,45 @@
                     }
                 }
 
-                ZStack {
-                    Chart(summary.updatesPerDay, id: \.day) { bucket in
-                        BarMark(
-                            x: .value("Day", bucket.day, unit: .day),
-                            y: .value("Updates", bucket.count)
-                        )
-                    }
-                    .chartYAxis {
-                        AxisMarks(values: .automatic(desiredCount: 3))
-                    }
-                    .chartXScale(
-                        range: .plotDimension(startPadding: 20, endPadding: 20)
-                    )
-                    .accessibilityChartDescriptor(
-                        UpdatesChartDescriptor(buckets: summary.updatesPerDay)
-                    )
-
-                    if let chartEmptyMessage {
-                        Text(chartEmptyMessage)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Libraries updated")
+                            .font(.headline)
+                        Spacer()
+                        Text("Last 30 days · \(totalUpdates)")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
+                    ZStack {
+                        Chart(summary.updatesPerDay, id: \.day) { bucket in
+                            BarMark(
+                                x: .value("Day", bucket.day, unit: .day),
+                                y: .value("Updates", bucket.count)
+                            )
+                        }
+                        .chartYAxis {
+                            AxisMarks(values: .automatic(desiredCount: 3))
+                        }
+                        .chartXScale(
+                            range: .plotDimension(startPadding: 20, endPadding: 20)
+                        )
+                        .accessibilityChartDescriptor(
+                            UpdatesChartDescriptor(buckets: summary.updatesPerDay)
+                        )
+
+                        if let chartEmptyMessage {
+                            Text(chartEmptyMessage)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(minHeight: 120)
                 }
-                .frame(minHeight: 120, maxHeight: .infinity)
+                .padding(14)
+                .background(
+                    .quaternary.opacity(0.5),
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                )
             }
             .padding(20)
             .frame(minWidth: 620, minHeight: 420, alignment: .topLeading)
@@ -65,7 +80,7 @@
                 return "No update history available"
             }
             if totalUpdates == 0 {
-                return "No updates in the last 4 weeks"
+                return "No updates in the last 30 days"
             }
             return nil
         }
@@ -125,7 +140,7 @@
             )
 
             return AXChartDescriptor(
-                title: "Updates in the last 4 weeks",
+                title: "Updates in the last 30 days",
                 summary: descriptorSummary,
                 xAxis: xAxis,
                 yAxis: yAxis,

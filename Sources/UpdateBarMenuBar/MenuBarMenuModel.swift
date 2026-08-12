@@ -12,7 +12,38 @@ public struct MenuBarMenuModel: Equatable, Sendable {
 public enum MenuBarMenuEntry: Equatable, Sendable {
     case item(MenuBarMenuItem)
     case submenu(MenuBarSubmenu)
+    case updateHistory(MenuBarUpdateHistory)
     case separator
+}
+
+public struct MenuBarUpdateHistory: Equatable, Sendable {
+    public var buckets: [DashboardDayCount]
+
+    public init(buckets: [DashboardDayCount]) {
+        self.buckets = buckets
+    }
+
+    public var totalUpdates: Int {
+        buckets.reduce(0) { $0 + $1.count }
+    }
+
+    public static func load(
+        snapshot: StatusSnapshot,
+        loadEvents: () throws -> [HistoryEvent],
+        dashboardModel: DashboardModel,
+        now: Date
+    ) -> Self {
+        let events = (try? loadEvents()) ?? []
+        return Self(
+            buckets: dashboardModel.summary(
+                snapshot: snapshot,
+                events: events,
+                now: now
+            ).updatesPerDay
+        )
+    }
+
+    public static let empty = MenuBarUpdateHistory(buckets: [])
 }
 
 public struct MenuBarSubmenu: Equatable, Sendable {
@@ -88,6 +119,7 @@ public struct MenuBarMenuModelBuilder: Sendable {
     public func makeMenu(
         state: MenuBarState,
         approvalStatuses: [String: [CommandApprovalStatus]],
+        updateHistory: MenuBarUpdateHistory,
         activeActionTitle: String? = nil,
         activeItemProgress: MenuBarItemProgress? = nil,
         isStopRequested: Bool = false,
@@ -162,7 +194,10 @@ public struct MenuBarMenuModelBuilder: Sendable {
             to: &entries
         )
         appendErrors(state.errorItems, to: &entries)
-        appendInstalled(state.okItems, to: &entries)
+        if entries.last == .separator {
+            entries.removeLast()
+        }
+        entries.append(.updateHistory(updateHistory))
 
         appendSeparator(to: &entries)
         appendFooterActions(to: &entries)
@@ -304,14 +339,6 @@ public struct MenuBarMenuModelBuilder: Sendable {
             let name = SecretRedactor.redact(item.name)
             let error = SecretRedactor.redact(item.error ?? "error")
             return MenuBarMenuItem(title: "\(name): \(error)")
-        }
-    }
-
-    private func appendInstalled(_ items: [StatusItem], to entries: inout [MenuBarMenuEntry]) {
-        appendSection("Installed (\(items.count))", items: items, to: &entries) { item in
-            let name = SecretRedactor.redact(item.name)
-            let current = item.current.map { " \(SecretRedactor.redact($0))" } ?? ""
-            return MenuBarMenuItem(title: "\(name)\(current)")
         }
     }
 

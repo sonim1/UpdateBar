@@ -15,7 +15,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: [:]
+            approvalStatuses: [:],
+            updateHistory: .empty
         )
 
         XCTAssertEqual(
@@ -42,6 +43,33 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.hasRepeatedSeparators)
     }
 
+    func testReplacesInstalledItemsWithThirtyDayUpdateHistory() {
+        let state = MenuBarState(
+            title: "Up to date",
+            badgeValue: nil,
+            outdatedItems: [],
+            approvalItems: [],
+            errorItems: [],
+            okItems: [statusItem(id: "ready", name: "Ready Tool", status: .ok)]
+        )
+        let history = MenuBarUpdateHistory(
+            buckets: [
+                DashboardDayCount(day: Date(timeIntervalSince1970: 0), count: 2),
+                DashboardDayCount(day: Date(timeIntervalSince1970: 86_400), count: 1),
+            ]
+        )
+
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: state,
+            approvalStatuses: [:],
+            updateHistory: history
+        )
+
+        XCTAssertTrue(model.entries.contains(.updateHistory(history)))
+        XCTAssertFalse(model.entries.labels.contains { $0.contains("Installed") })
+        XCTAssertFalse(model.entries.labels.contains("Ready Tool"))
+    }
+
     func testSingularAttentionCountUsesSingularCopy() {
         let state = MenuBarState(
             title: "Needs attention",
@@ -56,7 +84,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: [:]
+            approvalStatuses: [:],
+            updateHistory: .empty
         )
 
         XCTAssertTrue(model.entries.labels.contains("1 needs attention"))
@@ -74,7 +103,8 @@ final class MenuBarMenuModelTests: XCTestCase {
         )
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: [:]
+            approvalStatuses: [:],
+            updateHistory: .empty
         )
 
         XCTAssertFalse(model.entries.labels.contains("Open TUI"))
@@ -94,11 +124,13 @@ final class MenuBarMenuModelTests: XCTestCase {
         let activeModel = MenuBarMenuModelBuilder().makeMenu(
             state: state,
             approvalStatuses: [:],
+            updateHistory: .empty,
             activeActionTitle: "Update sk-or-v1-secret-value"
         )
         let finishedModel = MenuBarMenuModelBuilder().makeMenu(
             state: state,
             approvalStatuses: [:],
+            updateHistory: .empty,
             lastActionNotice: "Finished: Update sk-or-v1-secret-value"
         )
 
@@ -151,6 +183,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
             approvalStatuses: [:],
+            updateHistory: .empty,
             activeActionTitle: "Updating Old Tool"
         )
 
@@ -206,7 +239,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertNil(model.entries.item(titled: "Fresh Tool")?.action)
     }
 
-    func testBuildsActionableSectionsForUpdatesApprovalsErrorsAndInstalledItems() {
+    func testBuildsActionableSectionsForUpdatesApprovalsAndErrors() {
         let state = MenuBarState(
             title: "1 update",
             badgeValue: "1",
@@ -251,7 +284,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: approvals
+            approvalStatuses: approvals,
+            updateHistory: .empty
         )
 
         XCTAssertEqual(
@@ -272,9 +306,6 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "---",
                 "Errors (1)",
                 "Broken Tool: command failed",
-                "---",
-                "Installed (1)",
-                "Ready Tool 2.0.0",
                 "---",
                 "Dashboard",
                 "Manage Items...",
@@ -391,7 +422,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: [:]
+            approvalStatuses: [:],
+            updateHistory: .empty
         )
 
         let updateAllItem = model.entries.item(titled: "Update All")
@@ -413,7 +445,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: [:]
+            approvalStatuses: [:],
+            updateHistory: .empty
         )
 
         let runUpdatesItem = model.entries.item(titled: "Update All")
@@ -442,7 +475,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: [:]
+            approvalStatuses: [:],
+            updateHistory: .empty
         )
 
         let updateItem = model.entries.item(titled: "Old Tool 1.0.0 -> 1.1.0")
@@ -476,7 +510,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: approvals
+            approvalStatuses: approvals,
+            updateHistory: .empty
         )
 
         let submenu = try XCTUnwrap(model.entries.submenu(titled: "Tool"))
@@ -519,7 +554,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: ["empty": []]
+            approvalStatuses: ["empty": []],
+            updateHistory: .empty
         )
 
         let emptyItems = model.entries.items(titled: "Empty Tool")
@@ -564,7 +600,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: approvals
+            approvalStatuses: approvals,
+            updateHistory: .empty
         )
         let approvalSubmenus = model.entries.submenus.filter {
             $0.title.hasPrefix("Approval ")
@@ -627,7 +664,8 @@ final class MenuBarMenuModelTests: XCTestCase {
         )
         let builder = MenuBarMenuModelBuilder()
 
-        let normalMenu = builder.makeMenu(state: state, approvalStatuses: [:])
+        let normalMenu = builder.makeMenu(
+            state: state, approvalStatuses: [:], updateHistory: .empty)
         let errorMenu = builder.makeErrorMenu(errorDescription: "manifest invalid")
 
         XCTAssertEqual(
@@ -671,7 +709,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: [:]
+            approvalStatuses: [:],
+            updateHistory: .empty
         )
 
         XCTAssertTrue(model.entries.labels.contains("Broken Tool: failed with [REDACTED]"))
@@ -712,7 +751,8 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: [:]
+            approvalStatuses: [:],
+            updateHistory: .empty
         )
 
         XCTAssertTrue(
@@ -720,7 +760,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Old [REDACTED] 1.0.0-[REDACTED] -> 1.1.0-[REDACTED]"
             ))
         XCTAssertTrue(model.entries.labels.contains("Broken [REDACTED]: failed with [REDACTED]"))
-        XCTAssertTrue(model.entries.labels.contains("Ready [REDACTED] 2.0.0-[REDACTED]"))
+        XCTAssertFalse(model.entries.labels.contains { $0.contains("Ready [REDACTED]") })
         XCTAssertFalse(model.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
     }
 
@@ -761,14 +801,12 @@ final class MenuBarMenuModelTests: XCTestCase {
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: [:]
+            approvalStatuses: [:],
+            updateHistory: .empty
         )
 
         XCTAssertTrue(model.entries.labels.contains("and 1 more"))
-        XCTAssertEqual(
-            model.entries.labels.filter { $0 == "and 1 more" }.count,
-            2
-        )
+        XCTAssertEqual(model.entries.labels.filter { $0 == "and 1 more" }.count, 1)
     }
 
     func testActiveActionKeepsItemRowsAndFooterVisible() {
@@ -783,6 +821,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 installedIDs: ["ready"]
             ),
             approvalStatuses: [:],
+            updateHistory: .empty,
             activeActionTitle: "Updating approved items",
             activeItemProgress: progress
         )
@@ -799,9 +838,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertTrue(
             model.entries.labels.contains("Errors (1)"),
             "the Errors section must still render during an active action")
-        XCTAssertTrue(
-            model.entries.labels.contains("Installed (1)"),
-            "the Installed section must still render during an active action")
+        XCTAssertFalse(model.entries.labels.contains { $0.contains("Installed") })
     }
 
     func testActiveActionDisablesItemAndRefreshRowsButNotFooter() {
@@ -812,6 +849,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: stateWithOutdated(ids: ["alpha"]),
             approvalStatuses: [:],
+            updateHistory: .empty,
             activeActionTitle: "Updating approved items",
             activeItemProgress: progress
         )
@@ -835,6 +873,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: stateWithOutdated(ids: ["alpha"]),
             approvalStatuses: [:],
+            updateHistory: .empty,
             activeActionTitle: "Updating approved items",
             activeItemProgress: progress,
             isStopRequested: true
@@ -856,6 +895,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: stateWithOutdated(ids: ["alpha"]),
             approvalStatuses: [:],
+            updateHistory: .empty,
             activeActionTitle: "Updating approved items",
             activeItemProgress: progress
         )
@@ -892,12 +932,14 @@ final class MenuBarMenuModelTests: XCTestCase {
         let busy = MenuBarMenuModelBuilder().makeMenu(
             state: state,
             approvalStatuses: ["alpha": approvals],
+            updateHistory: .empty,
             activeActionTitle: "Updating approved items",
             activeItemProgress: progress
         )
         let idle = MenuBarMenuModelBuilder().makeMenu(
             state: state,
-            approvalStatuses: ["alpha": approvals]
+            approvalStatuses: ["alpha": approvals],
+            updateHistory: .empty
         )
 
         // Idle: the row is actionable. Busy: same row, no action. Checking
@@ -953,7 +995,7 @@ final class MenuBarMenuModelTests: XCTestCase {
 
 extension Array where Element == MenuBarMenuEntry {
     fileprivate var labels: [String] {
-        map { entry in
+        compactMap { entry in
             switch entry {
             case .separator:
                 return "---"
@@ -961,6 +1003,8 @@ extension Array where Element == MenuBarMenuEntry {
                 return item.title
             case .submenu(let submenu):
                 return "\(submenu.title) >"
+            case .updateHistory:
+                return nil
             }
         }
     }

@@ -45,7 +45,7 @@ public struct DashboardModel: Sendable {
         snapshot: StatusSnapshot,
         events: [HistoryEvent],
         now: Date,
-        days: Int = 28
+        days: Int = 30
     ) -> DashboardSummary {
         let successfulUpdates = events.filter {
             $0.event == .updateFinished && $0.outcome == "updated"

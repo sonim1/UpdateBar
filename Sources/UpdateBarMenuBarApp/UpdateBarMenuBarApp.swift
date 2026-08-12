@@ -13,6 +13,7 @@
         private var service: (any MenuBarServicing)?
         private var cliPath = ""
         private let formatter = MenuBarStatusFormatter()
+        private let dashboardModel = DashboardModel()
         private let statusIconRenderer = MenuBarStatusIconRenderer()
         private var renderedStatusIconState: MenuBarStatusIconState?
         private let menuBuilder = MenuBarMenuModelBuilder()
@@ -36,6 +37,7 @@
             okItems: []
         )
         private var approvalStatuses: [String: [CommandApprovalStatus]] = [:]
+        private var latestUpdateHistory = MenuBarUpdateHistory(buckets: [])
 
         static func main() {
             let app = NSApplication.shared
@@ -356,7 +358,8 @@
                 let loadingMenu = menuBuilder.makeLoadingMenu()
                 statusItem?.menu = makeMenu(from: loadingMenu)
             }
-            DispatchQueue.global(qos: .userInitiated).async { [service, formatter] in
+            DispatchQueue.global(qos: .userInitiated).async {
+                [service, formatter, dashboardModel] in
                 do {
                     guard let service else { return }
                     let snapshot = try service.status(refresh: refresh)
@@ -371,10 +374,17 @@
                         from: snapshot,
                         approvalsByItemID: approvals
                     )
+                    let updateHistory = MenuBarUpdateHistory.load(
+                        snapshot: snapshot,
+                        loadEvents: { try service.history(since: nil) },
+                        dashboardModel: dashboardModel,
+                        now: Date()
+                    )
                     DispatchQueue.main.async {
                         guard self.refreshGenerationGate.isCurrent(refreshToken) else { return }
                         self.latestState = state
                         self.approvalStatuses = approvals
+                        self.latestUpdateHistory = updateHistory
                         self.rebuildMenu()
                         self.dashboardPanelController?.reloadIfShown()
                     }
@@ -496,6 +506,7 @@
             let model = menuBuilder.makeMenu(
                 state: latestState,
                 approvalStatuses: approvalStatuses,
+                updateHistory: latestUpdateHistory,
                 activeActionTitle: activeAction?.title,
                 activeItemProgress: activeAction?.progress,
                 isStopRequested: activeAction?.isStopRequested ?? false,
@@ -526,6 +537,11 @@
                     }
                     parent.submenu = child
                     menu.addItem(parent)
+                case .updateHistory(let history):
+                    let item = NSMenuItem()
+                    item.view = MenuBarUpdateHistoryView(history: history)
+                    item.isEnabled = false
+                    menu.addItem(item)
                 }
             }
             return menu

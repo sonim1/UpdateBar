@@ -39,8 +39,12 @@ final class DashboardModelTests: XCTestCase {
             update(at: now.addingTimeInterval(-60)),
             update(at: calendar.date(byAdding: .day, value: -1, to: now)!),
             update(at: calendar.date(byAdding: .day, value: -27, to: now)!),
-            // Outside the 28-day window: ignored.
+            // Included in the 30-day window.
             update(at: calendar.date(byAdding: .day, value: -28, to: now)!),
+            // The oldest day in the 30-day range is -29.
+            update(at: calendar.date(byAdding: .day, value: -29, to: now)!),
+            // One day outside the range is excluded.
+            update(at: calendar.date(byAdding: .day, value: -30, to: now)!),
             // Failed updates are not chart-worthy.
             HistoryEvent(event: .updateFinished, id: "x", outcome: "failed", at: now),
         ]
@@ -48,11 +52,14 @@ final class DashboardModelTests: XCTestCase {
         let summary = DashboardModel(calendar: calendar).summary(
             snapshot: snapshot(outdated: 0, untrusted: 0), events: events, now: now)
 
-        XCTAssertEqual(summary.updatesPerDay.count, 28)
+        XCTAssertEqual(summary.updatesPerDay.count, 30)
         XCTAssertEqual(summary.updatesPerDay.first?.count, 1)
+        XCTAssertEqual(summary.updatesPerDay[1].count, 1)
+        XCTAssertEqual(summary.updatesPerDay[2].count, 1)
+        XCTAssertEqual(summary.updatesPerDay[3].count, 0)
         XCTAssertEqual(summary.updatesPerDay.last?.count, 2)
-        XCTAssertEqual(summary.updatesPerDay[26].count, 1)
-        XCTAssertEqual(summary.updatesPerDay.map(\.count).reduce(0, +), 4)
+        XCTAssertEqual(summary.updatesPerDay[28].count, 1)
+        XCTAssertEqual(summary.updatesPerDay.map(\.count).reduce(0, +), 6)
         let days = summary.updatesPerDay.map(\.day)
         XCTAssertEqual(days, days.sorted())
     }
@@ -62,8 +69,20 @@ final class DashboardModelTests: XCTestCase {
             snapshot: snapshot(outdated: 1, untrusted: 0), events: [], now: now)
 
         XCTAssertNil(summary.lastUpdated)
-        XCTAssertEqual(summary.updatesPerDay.count, 28)
+        XCTAssertEqual(summary.updatesPerDay.count, 30)
         XCTAssertTrue(summary.updatesPerDay.allSatisfy { $0.count == 0 })
+    }
+
+    func testHistoryLoadUsesEmptyBucketsWhenHistoryFails() {
+        let history = MenuBarUpdateHistory.load(
+            snapshot: snapshot(outdated: 2, untrusted: 1),
+            loadEvents: { throw HistoryLoadError.unavailable },
+            dashboardModel: DashboardModel(calendar: calendar),
+            now: now
+        )
+
+        XCTAssertEqual(history.buckets.count, 30)
+        XCTAssertEqual(history.totalUpdates, 0)
     }
 
     private func update(at date: Date) -> HistoryEvent {
@@ -88,5 +107,9 @@ final class DashboardModelTests: XCTestCase {
             }
             """
         return try! JSONDecoder.updateBar.decode(StatusSnapshot.self, from: Data(json.utf8))
+    }
+
+    private enum HistoryLoadError: Error {
+        case unavailable
     }
 }
