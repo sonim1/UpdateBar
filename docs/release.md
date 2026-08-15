@@ -58,9 +58,8 @@ would intentionally pause those jobs; approval is not required by the current
 setup.
 
 The checked-in Homebrew formula/cask metadata is a coherent packaging snapshot;
-it may differ from both the candidate version and the public tap. The repository
-and public release are currently `v0.6.15`, while the checked-in packaging
-snapshot is `0.6.3`. The release workflow notifies the public tap after the
+it may differ from both the candidate version in `version.env` and the latest
+public GitHub Release. The release workflow notifies the public tap after the
 GitHub Release becomes public. That notification can fail or lag independently,
 so verify the tap and rerun its dispatch when necessary.
 
@@ -273,8 +272,8 @@ Scripts/tui-smoke-test.sh
 Release identity:
 
 - GitHub repo slug: `sonim1/UpdateBar`.
-- Public latest release: `v0.6.15`.
-- Repository candidate and `version.env`: `0.6.15`.
+- Public latest release: use the repository's GitHub Releases page.
+- Repository candidate: use the canonical value in `version.env`.
 - Coherent checked-in Homebrew packaging snapshot: `0.6.3` (it may differ from
   both the public tap and an in-flight candidate).
 - Published prebuilt CLI archives cover Apple Silicon macOS and Linux x86_64.
