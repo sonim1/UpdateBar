@@ -67,13 +67,14 @@ UPDATEBAR_BIN=$PWD/.build/debug/updatebar .build/debug/updatebar-menubar
 Build the local app bundle and run its smoke test:
 
 ```bash
-Scripts/package-app.sh
+SPARKLE_PUBLIC_ED_KEY="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=" Scripts/package-app.sh
 Scripts/menubar-smoke-test.sh
 open dist/UpdateBar.app
 ```
 
-Local bundles are development artifacts. Public signing, notarization, and DMG
-publication are documented in [release.md](release.md).
+The example key is development-only. Local bundles are development artifacts;
+public signing, notarization, Sparkle keys, and DMG publication are documented
+in [release.md](release.md).
 
 ## Run The Ink TUI
 
