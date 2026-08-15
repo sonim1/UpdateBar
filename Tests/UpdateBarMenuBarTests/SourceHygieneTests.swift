@@ -2,6 +2,26 @@ import Foundation
 import XCTest
 
 final class SourceHygieneTests: XCTestCase {
+    func testResizableApplicationIconsPreserveAspectRatio() throws {
+        for path in [
+            "Sources/UpdateBarMenuBarApp/AboutView.swift",
+            "Sources/UpdateBarMenuBarApp/SettingsView.swift",
+        ] {
+            let source = try String(
+                contentsOf: URL(fileURLWithPath: path),
+                encoding: .utf8
+            )
+            let compact = source.filter { !$0.isWhitespace }
+
+            XCTAssertTrue(
+                compact.contains(
+                    "Image(nsImage:NSApp.applicationIconImage).resizable().scaledToFit().frame("
+                ),
+                "Resizable application icon must preserve its aspect ratio in \(path)"
+            )
+        }
+    }
+
     func testMenuBarAppDelegateAvoidsImplicitlyUnwrappedStoredProperties() throws {
         let sourceURL = URL(
             fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift")

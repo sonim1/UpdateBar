@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Changed
+
+- Reorganized the README and documentation index around installation, usage,
+  development, architecture, security, and release workflows.
+
+### Fixed
+
+- Preserved the application icon aspect ratio in About and Settings across
+  different window and screen sizes.
+
 ## 0.6.15 - 2026-08-12
 
 ### Changed

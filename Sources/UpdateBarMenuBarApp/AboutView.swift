@@ -11,6 +11,7 @@
             VStack(spacing: 16) {
                 Image(nsImage: NSApp.applicationIconImage)
                     .resizable()
+                    .scaledToFit()
                     .frame(width: 88, height: 88)
                 Text("UpdateBar").font(.title.weight(.semibold))
                 Text("Keep your local developer tools up to date, safely and quietly.")
