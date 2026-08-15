@@ -68,8 +68,10 @@ updatebar doctor
 Install a specific version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- v0.6.1
+curl -fsSL https://raw.githubusercontent.com/sonim1/UpdateBar/main/Scripts/install-release.sh | bash -s -- vX.Y.Z
 ```
+
+Replace `vX.Y.Z` with a published release tag.
 
 Set `UPDATEBAR_INSTALL_PREFIX` when installing outside `~/.local/bin`.
 The installer uses `curl`, `tar`, and `install`, then verifies the downloaded
@@ -130,18 +132,16 @@ brew upgrade --cask sonim1/tap/updatebar-app
 Manual GitHub Release install:
 
 ```bash
-VERSION=0.6.1
+VERSION=0.6.15
 ARCH=arm64
-curl -fL "https://github.com/sonim1/UpdateBar/releases/download/v${VERSION}/UpdateBar-${VERSION}-macos-${ARCH}.app.tar.gz" -o /tmp/UpdateBar.app.tar.gz
-tar -xzf /tmp/UpdateBar.app.tar.gz -C /Applications
-open /Applications/UpdateBar.app
+curl -fL "https://github.com/sonim1/UpdateBar/releases/download/v${VERSION}/UpdateBar-${VERSION}-macos-${ARCH}.dmg" -o /tmp/UpdateBar.dmg
+open /tmp/UpdateBar.dmg
 ```
 
-The current `v0.6.1` app asset uses the legacy `.app.tar.gz` format. It is signed
-with a Developer ID certificate and notarized by Apple. Starting with the next
-published app release, download `UpdateBar-<version>-macos-arm64.dmg`, open it,
-and drag `UpdateBar.app` to the DMG's `Applications` shortcut. Those DMGs are
-signed, notarized, stapled, and verified with Gatekeeper before publication.
+Drag `UpdateBar.app` to the mounted DMG's `Applications` shortcut. Current DMGs
+use the `UpdateBar-<version>-macos-arm64.dmg` name and are signed, notarized,
+stapled, and verified with Gatekeeper before publication. The historical
+`v0.6.1` release used a legacy `.app.tar.gz` asset instead.
 
 Runtime logs are written to:
 
