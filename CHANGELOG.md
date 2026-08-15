@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.16 - 2026-08-15
+
 ### Changed
 
 - Reorganized the README and documentation index around installation, usage,
