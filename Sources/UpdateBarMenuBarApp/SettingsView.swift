@@ -76,6 +76,7 @@
             HStack(spacing: 12) {
                 Image(nsImage: NSApp.applicationIconImage)
                     .resizable()
+                    .scaledToFit()
                     .frame(width: 44, height: 44)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("UpdateBar").font(.title2.weight(.semibold))
