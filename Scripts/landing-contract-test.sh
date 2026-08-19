@@ -28,7 +28,7 @@ grep -q 'brew install --cask sonim1/tap/updatebar-app' "$page"
 grep -q 'macOS 13+' "$page"
 grep -q 'Signed &amp; notarized' "$page"
 grep -q 'No telemetry' "$page"
-grep -q '<link rel="canonical" href="https://updatebar.roygen.com/">' "$page"
+grep -q '<link rel="canonical" href="https://updatebar.royjen.com/">' "$page"
 grep -q 'X-Content-Type-Options: nosniff' "$headers"
 grep -q "Content-Security-Policy: default-src 'self'" "$headers"
 
