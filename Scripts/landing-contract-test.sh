@@ -45,8 +45,8 @@ if grep -qiE 'TODO|TBD|placeholder|lorem ipsum' "$page" "$style"; then
   exit 1
 fi
 macos_user_root='/'"Users/"
-if grep -R -qE "${macos_user_root}|file:///" docs; then
-  echo 'public documentation contains a local filesystem identifier' >&2
+if grep -qE "${macos_user_root}|file:///" "$page" "$style"; then
+  echo 'public landing assets contain a local filesystem identifier' >&2
   exit 1
 fi
 
