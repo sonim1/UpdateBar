@@ -169,6 +169,7 @@ current product scope.
 
 ## Documentation
 
+- [Landing page](docs/index.html) — a visual introduction to trusted tool tracking and updates
 - [Documentation index](docs/README.md) — guides, references, architecture, and operations
 - [Installation](docs/install.md) — install, upgrade, verify, and uninstall
 - [Development](docs/development.md) — local setup, builds, tests, and quality gates
