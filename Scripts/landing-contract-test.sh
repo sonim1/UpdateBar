@@ -8,10 +8,11 @@ page='docs/index.html'
 style='docs/landing.css'
 icon='docs/AppIcon-256.png'
 favicon='docs/favicon.png'
+headers='docs/_headers'
 demo_dir='docs/demo'
 demo_assets=(overview.webp approval.webp history.webp)
 
-for path in "$page" "$style" "$icon" "$favicon"; do
+for path in "$page" "$style" "$icon" "$favicon" "$headers"; do
   test -s "$path" || { echo "missing landing asset: $path" >&2; exit 1; }
 done
 
@@ -27,6 +28,9 @@ grep -q 'brew install --cask sonim1/tap/updatebar-app' "$page"
 grep -q 'macOS 13+' "$page"
 grep -q 'Signed &amp; notarized' "$page"
 grep -q 'No telemetry' "$page"
+grep -q '<link rel="canonical" href="https://updatebar.roygen.com/">' "$page"
+grep -q 'X-Content-Type-Options: nosniff' "$headers"
+grep -q "Content-Security-Policy: default-src 'self'" "$headers"
 
 if grep -qiE '<script[[:space:]>]|<video[[:space:]>]|<canvas[[:space:]>]|tracker|analytics|http://' "$page" "$style"; then
   echo 'landing page must stay free of scripts, video, canvas, trackers, analytics, and insecure URLs' >&2
