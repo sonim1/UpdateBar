@@ -142,14 +142,14 @@ public struct UpdateBarCLIClient: Sendable {
     /// `stopSignal` are accepted for protocol conformance and ignored. This
     /// adapter is opt-in via UPDATEBAR_MENUBAR_ADAPTER=cli.
     public func update(
-        id: String,
+        ids: [String],
         cancellationToken: CancellationToken? = nil,
         onEvent: UpdateProgressHandler? = nil,
         stopSignal: UpdateStopSignal? = nil
     ) throws {
         let result = try runner.run(
             executablePath: executablePath,
-            arguments: ["update", id, "--yes", "--json"],
+            arguments: ["update"] + ids + ["--yes", "--json"],
             cancellationToken: cancellationToken
         )
         try ensureSuccess(result, allowedExitCodes: [0, 2, 3])

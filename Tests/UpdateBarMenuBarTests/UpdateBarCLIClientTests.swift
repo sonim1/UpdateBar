@@ -135,6 +135,24 @@ final class UpdateBarCLIClientTests: XCTestCase {
             ])
     }
 
+    func testUpdateSelectedPassesEveryExplicitID() throws {
+        let runner = RecordingRunner(
+            result: CommandResult(exitCode: 0, stdout: "[]", stderr: "")
+        )
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        try client.update(ids: ["alpha", "beta"])
+
+        XCTAssertEqual(
+            runner.calls,
+            [
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["update", "alpha", "beta", "--yes", "--json"])
+            ]
+        )
+    }
+
     func testUpdateActionsAllowPartialFailureExitCode() throws {
         let runner = RecordingRunner(result: CommandResult(exitCode: 2, stdout: "[]", stderr: ""))
         let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)

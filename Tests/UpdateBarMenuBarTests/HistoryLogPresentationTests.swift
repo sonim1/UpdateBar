@@ -120,7 +120,7 @@ final class HistoryLogPresentationTests: XCTestCase {
         func saveConfig(_ config: Config) throws { fatalError("unused") }
         func checkNow(cancellationToken: CancellationToken?) throws { fatalError("unused") }
         func update(
-            id: String,
+            ids: [String],
             cancellationToken: CancellationToken?,
             onEvent: UpdateProgressHandler?,
             stopSignal: UpdateStopSignal?

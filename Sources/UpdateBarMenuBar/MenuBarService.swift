@@ -13,7 +13,7 @@ public protocol MenuBarServicing: Sendable {
     func saveConfig(_ config: Config) throws
     func checkNow(cancellationToken: CancellationToken?) throws
     func update(
-        id: String,
+        ids: [String],
         cancellationToken: CancellationToken?,
         onEvent: UpdateProgressHandler?,
         stopSignal: UpdateStopSignal?
@@ -40,11 +40,29 @@ extension MenuBarServicing {
     }
 
     public func update(id: String) throws {
-        try update(id: id, cancellationToken: nil, onEvent: nil, stopSignal: nil)
+        try update(ids: [id], cancellationToken: nil, onEvent: nil, stopSignal: nil)
     }
 
     public func update(id: String, cancellationToken: CancellationToken?) throws {
-        try update(id: id, cancellationToken: cancellationToken, onEvent: nil, stopSignal: nil)
+        try update(ids: [id], cancellationToken: cancellationToken, onEvent: nil, stopSignal: nil)
+    }
+
+    public func update(
+        id: String,
+        cancellationToken: CancellationToken?,
+        onEvent: UpdateProgressHandler?,
+        stopSignal: UpdateStopSignal?
+    ) throws {
+        try update(
+            ids: [id],
+            cancellationToken: cancellationToken,
+            onEvent: onEvent,
+            stopSignal: stopSignal
+        )
+    }
+
+    public func update(ids: [String]) throws {
+        try update(ids: ids, cancellationToken: nil, onEvent: nil, stopSignal: nil)
     }
 
     public func updateAllApproved() throws {
@@ -148,13 +166,13 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
     }
 
     public func update(
-        id: String,
+        ids: [String],
         cancellationToken: CancellationToken? = nil,
         onEvent: UpdateProgressHandler? = nil,
         stopSignal: UpdateStopSignal? = nil
     ) throws {
         _ = try updateRunner(cancellationToken: cancellationToken).update(
-            ids: [id],
+            ids: ids,
             all: false,
             assumeYes: true,
             onEvent: onEvent,
