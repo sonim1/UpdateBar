@@ -11,12 +11,15 @@
         private let onChanged: () -> Void
         private let model = ManageItemsModel()
         private var mutationGate = ManageItemsMutationGate()
+        private var selectionModel = ManageItemsSelectionModel()
         private var rows: [ManageItemsRow] = []
         private var rowWarnings: [String: String] = [:]
         private var pendingEnabled: Bool?
         private var isLoading = false
+        private var isActionBusy = false
 
         var onRefresh: () -> Void = {}
+        var onUpdateItems: ([String]) -> Void = { _ in }
         var onError: (Error) -> Void = { _ in }
 
         private let tableView = NSTableView()
@@ -29,6 +32,11 @@
             return NSButton(image: image, target: nil, action: nil)
         }()
         private let loadingIndicator = NSProgressIndicator()
+        private let updateSelectedButton = NSButton(
+            title: "Update Selected (0)",
+            target: nil,
+            action: nil
+        )
 
         init(
             service: any MenuBarServicing,
@@ -72,11 +80,17 @@
                 return nil
             case .item(let item):
                 guard let identifier = tableColumn?.identifier.rawValue else { return nil }
+                if identifier == "select" {
+                    return selectionCell(row: row, item: item)
+                }
                 if identifier == "enabled" {
                     return checkboxCell(row: row, item: item)
                 }
                 if identifier == "status" {
                     return statusCell(item)
+                }
+                if identifier == "action" {
+                    return updateCell(row: row, item: item)
                 }
                 return textCell(text(identifier, item: item))
             }
@@ -84,6 +98,27 @@
 
         @objc private func reloadFromButton() {
             onRefresh()
+        }
+
+        @objc private func toggleSelection(_ sender: NSButton) {
+            guard rows.indices.contains(sender.tag),
+                case .item(let item) = rows[sender.tag]
+            else { return }
+            selectionModel.toggle(id: item.id, isEligible: item.isUpdateEligible)
+            updateControls()
+        }
+
+        @objc private func updateRow(_ sender: NSButton) {
+            guard rows.indices.contains(sender.tag),
+                case .item(let item) = rows[sender.tag], item.isUpdateEligible
+            else { return }
+            onUpdateItems([item.id])
+        }
+
+        @objc private func updateSelectedItems() {
+            let ids = selectionModel.selectedIDs
+            guard !ids.isEmpty else { return }
+            onUpdateItems(ids)
         }
 
         @objc private func toggleItem(_ sender: NSButton) {
@@ -113,6 +148,13 @@
         func setLoading() {
             _ = view
             isLoading = true
+            selectionModel.clear()
+            updateControls()
+        }
+
+        func setActionBusy(_ isBusy: Bool) {
+            _ = view
+            isActionBusy = isBusy
             updateControls()
         }
 
@@ -120,6 +162,7 @@
             _ = view
             guard mutationGate.accepts(items) else { return }
             pendingEnabled = nil
+            selectionModel.clear()
             rows = model.rows(from: items)
             tableView.reloadData()
             isLoading = false
@@ -139,24 +182,32 @@
             loadingIndicator.toolTip = "Refreshing items"
             loadingIndicator.setAccessibilityLabel("Refreshing items")
 
+            updateSelectedButton.target = self
+            updateSelectedButton.action = #selector(updateSelectedItems)
+            updateSelectedButton.bezelStyle = .rounded
+            updateSelectedButton.toolTip = "Select outdated items to update"
+            updateSelectedButton.setAccessibilityLabel("Update Selected (0)")
+
             let sectionTitle = NSTextField(labelWithString: "Items")
             sectionTitle.font = .systemFont(ofSize: 20, weight: .semibold)
             let spacer = NSView()
             spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
             let controls = NSStackView(views: [
-                sectionTitle, spacer, loadingIndicator, refreshButton,
+                sectionTitle, spacer, updateSelectedButton, loadingIndicator, refreshButton,
             ])
             controls.orientation = .horizontal
             controls.alignment = .centerY
             controls.spacing = 8
 
             for (identifier, title, width) in [
+                ("select", "Select", 52.0),
                 ("enabled", "On", 34.0),
-                ("name", "Name", 200.0),
-                ("current", "Current", 100.0),
-                ("latest", "Latest", 100.0),
-                ("status", "Status", 220.0),
+                ("name", "Name", 170.0),
+                ("current", "Current", 85.0),
+                ("latest", "Latest", 85.0),
+                ("status", "Status", 150.0),
+                ("action", "Action", 90.0),
             ] {
                 let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(identifier))
                 column.title = title
@@ -198,6 +249,7 @@
         func showError(_ error: Error) {
             _ = view
             isLoading = false
+            selectionModel.clear()
             updateControls()
         }
 
@@ -210,7 +262,13 @@
         }
 
         private func updateControls() {
-            refreshButton.isEnabled = !isLoading
+            let controlsEnabled = !isLoading && !isActionBusy && !mutationGate.isPending
+            refreshButton.isEnabled = controlsEnabled
+            let selectedCount = selectionModel.selectedIDs.count
+            let updateSelectedTitle = "Update Selected (\(selectedCount))"
+            updateSelectedButton.title = updateSelectedTitle
+            updateSelectedButton.setAccessibilityLabel(updateSelectedTitle)
+            updateSelectedButton.isEnabled = controlsEnabled && selectedCount > 0
             if isLoading {
                 loadingIndicator.startAnimation(nil)
             } else {
@@ -228,7 +286,7 @@
             button.tag = row
             let isPending = mutationGate.isPending(id: item.id)
             button.state = (isPending ? pendingEnabled : item.isEnabled) == true ? .on : .off
-            button.isEnabled = !isLoading && !mutationGate.isPending
+            button.isEnabled = !isLoading && !isActionBusy && !mutationGate.isPending
             let name = SecretRedactor.redact(item.name)
             let action = button.state == .on ? "Disable" : "Enable"
             button.toolTip = "\(action) \(name)"
@@ -257,6 +315,57 @@
             NSLayoutConstraint.activate([
                 stack.centerXAnchor.constraint(equalTo: cell.centerXAnchor),
                 stack.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            ])
+            return cell
+        }
+
+        private func selectionCell(row: Int, item: ManageItemRow) -> NSTableCellView {
+            let name = SecretRedactor.redact(item.name)
+            let isSelected = selectionModel.contains(item.id)
+            let button = NSButton(
+                checkboxWithTitle: "",
+                target: self,
+                action: #selector(toggleSelection(_:))
+            )
+            button.tag = row
+            button.state = isSelected ? .on : .off
+            button.isEnabled = item.isUpdateEligible && !isLoading && !isActionBusy
+                && !mutationGate.isPending
+            button.setAccessibilityLabel("\(isSelected ? "Deselect" : "Select") \(name)")
+            if let reason = item.updateDisabledReason {
+                button.toolTip = reason
+                button.setAccessibilityHelp(reason)
+            } else {
+                button.toolTip = "Select \(name) for Update Selected"
+            }
+            return centeredCell(containing: button)
+        }
+
+        private func updateCell(row: Int, item: ManageItemRow) -> NSTableCellView {
+            let name = SecretRedactor.redact(item.name)
+            let button = NSButton(title: "Update", target: self, action: #selector(updateRow(_:)))
+            button.tag = row
+            button.controlSize = .small
+            button.bezelStyle = .rounded
+            button.isEnabled = item.isUpdateEligible && !isLoading && !isActionBusy
+                && !mutationGate.isPending
+            button.setAccessibilityLabel("Update \(name)")
+            if let reason = item.updateDisabledReason {
+                button.toolTip = reason
+                button.setAccessibilityHelp(reason)
+            } else {
+                button.toolTip = "Update \(name)"
+            }
+            return centeredCell(containing: button)
+        }
+
+        private func centeredCell(containing view: NSView) -> NSTableCellView {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            let cell = NSTableCellView()
+            cell.addSubview(view)
+            NSLayoutConstraint.activate([
+                view.centerXAnchor.constraint(equalTo: cell.centerXAnchor),
+                view.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             ])
             return cell
         }
