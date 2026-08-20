@@ -69,6 +69,7 @@ final class HistoryLogPresentationTests: XCTestCase {
             let controller = DashboardPanelController(
                 service: service,
                 onItemsChanged: {},
+                onUpdateItems: { _ in },
                 onCheckForUpdates: {}
             )
 

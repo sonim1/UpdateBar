@@ -350,6 +350,11 @@ final class SourceHygieneTests: XCTestCase {
                 fileURLWithPath: "Sources/UpdateBarMenuBarApp/ManageItemsPanelController.swift"),
             encoding: .utf8
         )
+        let appSource = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
+            encoding: .utf8
+        )
         let dashboardCompact = dashboardSource.filter { !$0.isWhitespace }
         let sidebarCompact = sidebarSource.filter { !$0.isWhitespace }
         let manageItemsCompact = manageItemsSource.filter { !$0.isWhitespace }
@@ -408,6 +413,14 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(manageItemsSource.contains("ManageItemsPanelController"))
         XCTAssertFalse(manageItemsSource.contains("NSPanel("))
         XCTAssertFalse(manageItemsSource.contains("showWindowAndReload"))
+        XCTAssertTrue(
+            dashboardSource.contains("onUpdateItems: @escaping ([String]) -> Void"))
+        XCTAssertTrue(
+            dashboardSource.contains("manageItemsViewController.onUpdateItems = onUpdateItems"))
+        XCTAssertTrue(dashboardSource.contains("func applyActionState(isBusy: Bool)"))
+        XCTAssertTrue(appSource.contains("onUpdateItems: { [weak self] ids in"))
+        XCTAssertTrue(appSource.contains("self?.update(ids: ids)"))
+        XCTAssertTrue(appSource.contains("dashboardPanelController?.applyActionState("))
     }
 
     func testEmbeddedScanReplacesStandalonePanelAndBindsHelpAndAccessibility() throws {
@@ -660,9 +673,15 @@ final class SourceHygieneTests: XCTestCase {
             endingAt: "private func setStatusIcon(",
             in: source
         )
+        let runActionSource = try functionSource(
+            named: "private func runAction(",
+            endingAt: "nonisolated private func progressHandler(",
+            in: source
+        )
 
         XCTAssertTrue(refreshSource.contains("dashboardPanelController?.reloadIfShown()"))
         XCTAssertTrue(errorSource.contains("dashboardPanelController?.showErrorIfShown(error)"))
+        XCTAssertTrue(runActionSource.contains("dashboardPanelController?.reloadIfShown()"))
     }
 
     func testDashboardWindowControlsApplicationSwitcherVisibility() throws {
