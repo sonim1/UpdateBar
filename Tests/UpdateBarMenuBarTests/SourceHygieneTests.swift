@@ -112,7 +112,8 @@ final class SourceHygieneTests: XCTestCase {
         )
 
         XCTAssertTrue(updateSource.contains("runAction(\"Updatingapproveditems\")"))
-        XCTAssertTrue(updateSource.contains("runAction(\"Updating\\(id)\")"))
+        XCTAssertTrue(updateSource.contains("update(ids:[id])"))
+        XCTAssertTrue(updateSource.contains("runAction(title)"))
         XCTAssertFalse(updateSource.contains("confirm("))
     }
 
@@ -654,7 +655,10 @@ final class SourceHygieneTests: XCTestCase {
         let changed = try XCTUnwrap(toggleSource.range(of: "self.onChanged()"))
         XCTAssertLessThan(waiting.lowerBound, changed.lowerBound)
         XCTAssertFalse(toggleSource.contains("mutationGate.cancel()"))
-        XCTAssertTrue(source.contains("button.isEnabled = !isLoading && !mutationGate.isPending"))
+        XCTAssertTrue(
+            source.contains(
+                "button.isEnabled = !isLoading && !isActionBusy && !mutationGate.isPending"
+            ))
     }
 
     func testMenuRefreshPropagatesResultToVisibleDashboard() throws {
