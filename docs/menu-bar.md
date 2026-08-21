@@ -47,8 +47,10 @@ Current scope:
 `Dashboard` opens the Dashboard window directly. A left sidebar switches between
 Overview, Items, Scan & Add, Logs, Settings, and About in the same Dashboard window, with each section
 using native macOS UI. The sidebar, Items, Scan & Add, and Logs use AppKit controls;
-Overview, Settings, and About are SwiftUI-hosted. The sidebar footer shows a compact
-queue of available updates and routes each selection to Overview without executing it.
+Overview, Settings, and About are SwiftUI-hosted. The sidebar footer shows a single
+update summary when updates are available. It stays within the sidebar width and
+opens Items without starting an update; individual names, versions, and update actions
+live in Items.
 Overview shows pending-update and
 awaiting-approval counts, last check/update times, and a bar chart of successful
 updates over the last four weeks (from `~/.updatebar/history.jsonl`). Logs shows

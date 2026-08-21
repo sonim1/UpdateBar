@@ -1426,6 +1426,8 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("Update Selected"))
         XCTAssertTrue(docs.contains("row-level Update"))
         XCTAssertTrue(docs.contains("only outdated items are selectable"))
+        XCTAssertTrue(normalizedDocs.contains("single update summary"))
+        XCTAssertTrue(normalizedDocs.contains("opens Items without starting an update"))
         XCTAssertTrue(docs.contains("Cmd-Tab"))
         XCTAssertTrue(normalizedDocs.contains("menu-bar-only mode"))
         XCTAssertTrue(docs.contains("native error-recovery menu"))
