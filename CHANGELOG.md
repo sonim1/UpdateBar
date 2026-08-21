@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.17 - 2026-08-21
+
 ### Added
 
 - Added row-level and multi-select updates to Dashboard Items, limited to eligible
