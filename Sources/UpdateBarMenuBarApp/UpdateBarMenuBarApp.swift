@@ -127,7 +127,8 @@
 
         private func update(ids: [String]) {
             guard !ids.isEmpty else { return }
-            let title = ids.count == 1
+            let title =
+                ids.count == 1
                 ? "Updating \(ids[0])"
                 : "Updating \(ids.count) selected items"
             runAction(title) { [service] action in

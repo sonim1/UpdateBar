@@ -161,10 +161,11 @@
             )
             button.identifier = NSUserInterfaceItemIdentifier("sidebar-updates-summary")
             button.bezelStyle = .rounded
-            let imageView = NSImageView(image: NSImage(
-                systemSymbolName: "arrow.down.circle.fill",
-                accessibilityDescription: nil
-            ) ?? NSImage())
+            let imageView = NSImageView(
+                image: NSImage(
+                    systemSymbolName: "arrow.down.circle.fill",
+                    accessibilityDescription: nil
+                ) ?? NSImage())
             imageView.contentTintColor = .controlAccentColor
             imageView.setAccessibilityElement(false)
 
@@ -203,7 +204,8 @@
                 imageView.widthAnchor.constraint(equalToConstant: 16),
                 imageView.heightAnchor.constraint(equalToConstant: 16),
                 content.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 12),
-                content.trailingAnchor.constraint(lessThanOrEqualTo: button.trailingAnchor, constant: -10),
+                content.trailingAnchor.constraint(
+                    lessThanOrEqualTo: button.trailingAnchor, constant: -10),
                 content.centerYAnchor.constraint(equalTo: button.centerYAnchor),
             ])
         }

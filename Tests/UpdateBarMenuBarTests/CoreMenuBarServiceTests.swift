@@ -310,27 +310,32 @@ final class CoreMenuBarServiceTests: XCTestCase {
         let paths = AppPaths(homeDirectory: root)
         let ids = ["alpha", "beta", "ignored"]
         try ManifestStore(paths: paths).save(
-            manifest(items: ids.map {
-                recipe(
-                    id: $0,
-                    updateCommand: "\($0) update",
-                    currentCommand: "\($0) current"
-                )
-            }))
+            manifest(
+                items: ids.map {
+                    recipe(
+                        id: $0,
+                        updateCommand: "\($0) update",
+                        currentCommand: "\($0) current"
+                    )
+                }))
         try StateStore(paths: paths).save(
             State(
                 schemaVersion: 1,
                 generatedAt: now,
-                items: Dictionary(uniqueKeysWithValues: ids.map {
-                    ($0, ItemState(
-                        current: "1.0.0",
-                        latest: "1.1.0",
-                        status: .outdated,
-                        lastChecked: now,
-                        error: nil,
-                        backoffUntil: nil
-                    ))
-                })
+                items: Dictionary(
+                    uniqueKeysWithValues: ids.map {
+                        (
+                            $0,
+                            ItemState(
+                                current: "1.0.0",
+                                latest: "1.1.0",
+                                status: .outdated,
+                                lastChecked: now,
+                                error: nil,
+                                backoffUntil: nil
+                            )
+                        )
+                    })
             ))
         let commands = RecordingCommandRunner(results: [
             "alpha update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),

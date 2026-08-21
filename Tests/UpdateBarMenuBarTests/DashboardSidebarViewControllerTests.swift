@@ -106,12 +106,14 @@
                 $0.identifier?.rawValue == "sidebar-updates-summary"
             }
             let button = try XCTUnwrap(buttons.first)
-            let title = try XCTUnwrap(findTextFields(in: button).first {
-                $0.identifier?.rawValue == "sidebar-updates-title"
-            })
-            let detail = try XCTUnwrap(findTextFields(in: button).first {
-                $0.identifier?.rawValue == "sidebar-updates-detail"
-            })
+            let title = try XCTUnwrap(
+                findTextFields(in: button).first {
+                    $0.identifier?.rawValue == "sidebar-updates-title"
+                })
+            let detail = try XCTUnwrap(
+                findTextFields(in: button).first {
+                    $0.identifier?.rawValue == "sidebar-updates-detail"
+                })
 
             XCTAssertEqual(buttons.count, 1)
             XCTAssertEqual(title.stringValue, "Updates available")
@@ -135,9 +137,10 @@
 
             controller.apply(updateQueue: SidebarUpdateQueue(count: 0, items: [], overflowCount: 0))
 
-            XCTAssertFalse(findButtons(in: controller.view).contains {
-                $0.identifier?.rawValue == "sidebar-updates-summary"
-            })
+            XCTAssertFalse(
+                findButtons(in: controller.view).contains {
+                    $0.identifier?.rawValue == "sidebar-updates-summary"
+                })
         }
 
         func testUpdateSummaryRoutesToItemsWithoutUpdating() throws {
@@ -158,9 +161,10 @@
                     overflowCount: 1
                 )
             )
-            let button = try XCTUnwrap(findButtons(in: controller.view).first {
-                $0.identifier?.rawValue == "sidebar-updates-summary"
-            })
+            let button = try XCTUnwrap(
+                findButtons(in: controller.view).first {
+                    $0.identifier?.rawValue == "sidebar-updates-summary"
+                })
 
             button.performClick(nil)
 

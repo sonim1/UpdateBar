@@ -329,7 +329,8 @@
             )
             button.tag = row
             button.state = isSelected ? .on : .off
-            button.isEnabled = item.isUpdateEligible && !isLoading && !isActionBusy
+            button.isEnabled =
+                item.isUpdateEligible && !isLoading && !isActionBusy
                 && !mutationGate.isPending
             button.setAccessibilityLabel("\(isSelected ? "Deselect" : "Select") \(name)")
             if let reason = item.updateDisabledReason {
@@ -347,7 +348,8 @@
             button.tag = row
             button.controlSize = .small
             button.bezelStyle = .rounded
-            button.isEnabled = item.isUpdateEligible && !isLoading && !isActionBusy
+            button.isEnabled =
+                item.isUpdateEligible && !isLoading && !isActionBusy
                 && !mutationGate.isPending
             button.setAccessibilityLabel("Update \(name)")
             if let reason = item.updateDisabledReason {
