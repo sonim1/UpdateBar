@@ -112,7 +112,8 @@ final class SourceHygieneTests: XCTestCase {
         )
 
         XCTAssertTrue(updateSource.contains("runAction(\"Updatingapproveditems\")"))
-        XCTAssertTrue(updateSource.contains("runAction(\"Updating\\(id)\")"))
+        XCTAssertTrue(updateSource.contains("update(ids:[id])"))
+        XCTAssertTrue(updateSource.contains("runAction(title)"))
         XCTAssertFalse(updateSource.contains("confirm("))
     }
 
@@ -350,6 +351,11 @@ final class SourceHygieneTests: XCTestCase {
                 fileURLWithPath: "Sources/UpdateBarMenuBarApp/ManageItemsPanelController.swift"),
             encoding: .utf8
         )
+        let appSource = try String(
+            contentsOf: URL(
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
+            encoding: .utf8
+        )
         let dashboardCompact = dashboardSource.filter { !$0.isWhitespace }
         let sidebarCompact = sidebarSource.filter { !$0.isWhitespace }
         let manageItemsCompact = manageItemsSource.filter { !$0.isWhitespace }
@@ -365,6 +371,9 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(sidebarCompact.contains("NSImage(systemSymbolName:"))
         XCTAssertTrue(sidebarSource.contains("setAccessibilityLabel"))
         XCTAssertTrue(sidebarSource.contains("setAccessibilitySelected"))
+        XCTAssertTrue(sidebarSource.contains("var onOpenItems: () -> Void"))
+        XCTAssertFalse(sidebarSource.contains("onUpdateSelected"))
+        XCTAssertFalse(sidebarSource.contains("and \\(updateQueue.overflowCount) more"))
         XCTAssertTrue(
             sidebarSource.contains("widthAnchor.constraint(greaterThanOrEqualToConstant: 150)"))
         XCTAssertTrue(
@@ -387,7 +396,8 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(dashboardSource.contains("segmentedControlOnTop"))
         XCTAssertFalse(dashboardSource.contains("DashboardTab"))
         XCTAssertFalse(dashboardSource.contains("Label(\"Manage Items\""))
-        XCTAssertFalse(dashboardSource.contains("onOpenItems"))
+        XCTAssertTrue(dashboardSource.contains("sidebarViewController.onOpenItems ="))
+        XCTAssertTrue(dashboardCompact.contains("self?.select(.items)"))
 
         XCTAssertTrue(
             manageItemsCompact.contains(
@@ -395,11 +405,33 @@ final class SourceHygieneTests: XCTestCase {
             ))
         XCTAssertTrue(manageItemsSource.contains("func apply(items: [StatusItem]"))
         XCTAssertTrue(manageItemsSource.contains("var onRefresh: () -> Void"))
+        XCTAssertTrue(manageItemsSource.contains("var onUpdateItems: ([String]) -> Void"))
+        XCTAssertTrue(manageItemsSource.contains("private let updateSelectedButton = NSButton("))
+        XCTAssertTrue(manageItemsSource.contains("title: \"Update Selected (0)\""))
+        XCTAssertTrue(manageItemsSource.contains("@objc private func toggleSelection("))
+        XCTAssertTrue(manageItemsSource.contains("@objc private func updateRow("))
+        XCTAssertTrue(manageItemsSource.contains("@objc private func updateSelectedItems("))
+        XCTAssertTrue(manageItemsSource.contains("setAccessibilityHelp"))
         XCTAssertFalse(manageItemsSource.contains("service.status("))
+        XCTAssertFalse(manageItemsSource.contains("service.update("))
         XCTAssertFalse(manageItemsSource.contains("private func present("))
         XCTAssertFalse(manageItemsSource.contains("ManageItemsPanelController"))
         XCTAssertFalse(manageItemsSource.contains("NSPanel("))
         XCTAssertFalse(manageItemsSource.contains("showWindowAndReload"))
+        XCTAssertTrue(
+            dashboardSource.contains("onUpdateItems: @escaping ([String]) -> Void"))
+        XCTAssertTrue(
+            dashboardSource.contains("manageItemsViewController.onUpdateItems = onUpdateItems"))
+        XCTAssertTrue(dashboardSource.contains("func applyActionState(isBusy: Bool)"))
+        XCTAssertTrue(appSource.contains("onUpdateItems: { [weak self] ids in"))
+        XCTAssertTrue(appSource.contains("self?.update(ids: ids)"))
+        XCTAssertTrue(appSource.contains("dashboardPanelController?.applyActionState("))
+        XCTAssertEqual(
+            appSource.components(
+                separatedBy: "dashboardPanelController?.applySidebarQueue("
+            ).count - 1,
+            2
+        )
     }
 
     func testEmbeddedScanReplacesStandalonePanelAndBindsHelpAndAccessibility() throws {
@@ -633,7 +665,10 @@ final class SourceHygieneTests: XCTestCase {
         let changed = try XCTUnwrap(toggleSource.range(of: "self.onChanged()"))
         XCTAssertLessThan(waiting.lowerBound, changed.lowerBound)
         XCTAssertFalse(toggleSource.contains("mutationGate.cancel()"))
-        XCTAssertTrue(source.contains("button.isEnabled = !isLoading && !mutationGate.isPending"))
+        XCTAssertTrue(
+            source.contains(
+                "button.isEnabled = !isLoading && !isActionBusy && !mutationGate.isPending"
+            ))
     }
 
     func testMenuRefreshPropagatesResultToVisibleDashboard() throws {
@@ -652,9 +687,15 @@ final class SourceHygieneTests: XCTestCase {
             endingAt: "private func setStatusIcon(",
             in: source
         )
+        let runActionSource = try functionSource(
+            named: "private func runAction(",
+            endingAt: "nonisolated private func progressHandler(",
+            in: source
+        )
 
         XCTAssertTrue(refreshSource.contains("dashboardPanelController?.reloadIfShown()"))
         XCTAssertTrue(errorSource.contains("dashboardPanelController?.showErrorIfShown(error)"))
+        XCTAssertTrue(runActionSource.contains("dashboardPanelController?.reloadIfShown()"))
     }
 
     func testDashboardWindowControlsApplicationSwitcherVisibility() throws {

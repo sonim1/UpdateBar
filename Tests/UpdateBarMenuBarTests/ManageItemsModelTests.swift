@@ -23,7 +23,8 @@ final class ManageItemsModelTests: XCTestCase {
                         currentVersion: "1.0.0",
                         latestVersion: "1.1.0",
                         statusLabel: "outdated",
-                        isEnabled: true
+                        isEnabled: true,
+                        updateDisabledReason: nil
                     )),
                 .category(name: "cli", count: 2),
                 .item(
@@ -34,7 +35,8 @@ final class ManageItemsModelTests: XCTestCase {
                         currentVersion: "1.0.0",
                         latestVersion: "1.1.0",
                         statusLabel: "up to date",
-                        isEnabled: true
+                        isEnabled: true,
+                        updateDisabledReason: "Up to date"
                     )),
                 .item(
                     ManageItemRow(
@@ -44,7 +46,8 @@ final class ManageItemsModelTests: XCTestCase {
                         currentVersion: "1.0.0",
                         latestVersion: "1.1.0",
                         statusLabel: "disabled",
-                        isEnabled: false
+                        isEnabled: false,
+                        updateDisabledReason: "Disabled"
                     )),
             ]
         )
@@ -85,6 +88,51 @@ final class ManageItemsModelTests: XCTestCase {
             return XCTFail("expected item row")
         }
         XCTAssertEqual(row.statusLabel, "error: check.cmd exited 1")
+    }
+
+    func testUpdateAvailabilityUsesResolvedStatus() {
+        let cases: [(ItemStatus, Bool, String?)] = [
+            (.outdated, true, nil),
+            (.ok, false, "Up to date"),
+            (.disabled, false, "Disabled"),
+            (.untrusted, false, "Needs approval"),
+            (.pinned, false, "Pinned"),
+            (.checking, false, "Checking"),
+            (.differs, false, "Version differs"),
+            (.error, false, "Error"),
+        ]
+
+        for (status, expectedEligibility, expectedReason) in cases {
+            let rows = ManageItemsModel().rows(from: [
+                item(
+                    id: status.rawValue,
+                    name: status.rawValue,
+                    category: "cli",
+                    status: status
+                )
+            ])
+            guard case .item(let row)? = rows.last else {
+                return XCTFail("missing item row")
+            }
+            XCTAssertEqual(row.isUpdateEligible, expectedEligibility, status.rawValue)
+            XCTAssertEqual(row.updateDisabledReason, expectedReason, status.rawValue)
+        }
+    }
+
+    func testSelectionAcceptsOnlyEligibleIDsAndReturnsSortedIDs() {
+        var selection = ManageItemsSelectionModel()
+        selection.toggle(id: "z", isEligible: true)
+        selection.toggle(id: "blocked", isEligible: false)
+        selection.toggle(id: "a", isEligible: true)
+
+        XCTAssertEqual(selection.selectedIDs, ["a", "z"])
+        XCTAssertTrue(selection.contains("z"))
+        XCTAssertFalse(selection.contains("blocked"))
+
+        selection.toggle(id: "z", isEligible: true)
+        XCTAssertEqual(selection.selectedIDs, ["a"])
+        selection.clear()
+        XCTAssertTrue(selection.selectedIDs.isEmpty)
     }
 
     private func item(

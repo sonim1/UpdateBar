@@ -14,6 +14,9 @@ public struct ManageItemRow: Equatable, Sendable {
     public var latestVersion: String
     public var statusLabel: String
     public var isEnabled: Bool
+    public var updateDisabledReason: String?
+
+    public var isUpdateEligible: Bool { updateDisabledReason == nil }
 
     public init(
         id: String,
@@ -22,7 +25,8 @@ public struct ManageItemRow: Equatable, Sendable {
         currentVersion: String,
         latestVersion: String,
         statusLabel: String,
-        isEnabled: Bool
+        isEnabled: Bool,
+        updateDisabledReason: String?
     ) {
         self.id = id
         self.name = name
@@ -31,6 +35,30 @@ public struct ManageItemRow: Equatable, Sendable {
         self.latestVersion = latestVersion
         self.statusLabel = statusLabel
         self.isEnabled = isEnabled
+        self.updateDisabledReason = updateDisabledReason
+    }
+}
+
+public struct ManageItemsSelectionModel: Equatable, Sendable {
+    private var storage: Set<String> = []
+
+    public init() {}
+
+    public var selectedIDs: [String] { storage.sorted() }
+
+    public func contains(_ id: String) -> Bool {
+        storage.contains(id)
+    }
+
+    public mutating func toggle(id: String, isEligible: Bool) {
+        guard isEligible else { return }
+        if !storage.insert(id).inserted {
+            storage.remove(id)
+        }
+    }
+
+    public mutating func clear() {
+        storage.removeAll()
     }
 }
 
@@ -65,8 +93,30 @@ public struct ManageItemsModel: Sendable {
             currentVersion: item.current ?? "",
             latestVersion: item.latest ?? "",
             statusLabel: Self.statusLabel(for: item),
-            isEnabled: item.status != .disabled
+            isEnabled: item.status != .disabled,
+            updateDisabledReason: Self.updateDisabledReason(for: item)
         )
+    }
+
+    private static func updateDisabledReason(for item: StatusItem) -> String? {
+        switch item.status {
+        case .outdated:
+            return nil
+        case .ok:
+            return "Up to date"
+        case .disabled:
+            return "Disabled"
+        case .untrusted:
+            return "Needs approval"
+        case .pinned:
+            return "Pinned"
+        case .checking:
+            return "Checking"
+        case .differs:
+            return "Version differs"
+        case .error:
+            return "Error"
+        }
     }
 
     private static func statusLabel(for item: StatusItem) -> String {

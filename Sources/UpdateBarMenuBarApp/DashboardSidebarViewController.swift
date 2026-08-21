@@ -2,6 +2,13 @@
     import AppKit
     import UpdateBarMenuBar
 
+    private final class SidebarSummaryButton: NSButton {
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            let localPoint = convert(point, from: superview)
+            return bounds.contains(localPoint) ? self : nil
+        }
+    }
+
     final class DashboardSidebarViewController: NSViewController, NSTableViewDataSource,
         NSTableViewDelegate
     {
@@ -13,7 +20,7 @@
         private var isApplyingSelection = false
 
         var onSelectionChanged: (DashboardSection) -> Void = { _ in }
-        var onUpdateSelected: (String) -> Void = { _ in }
+        var onOpenItems: () -> Void = {}
 
         init(selectedSection: DashboardSection = .overview) {
             self.selectedSection = selectedSection
@@ -136,10 +143,6 @@
             renderUpdateQueue()
         }
 
-        func selectUpdate(id: String) {
-            onUpdateSelected(id)
-        }
-
         private func renderUpdateQueue() {
             for subview in queueContainer.arrangedSubviews {
                 queueContainer.removeArrangedSubview(subview)
@@ -151,39 +154,64 @@
             }
             queueContainer.isHidden = false
 
-            let header = NSTextField(labelWithString: "Updates available · \(updateQueue.count)")
-            header.font = .systemFont(ofSize: 11, weight: .semibold)
-            header.textColor = .secondaryLabelColor
-            queueContainer.addArrangedSubview(header)
+            let button = SidebarSummaryButton(
+                title: "",
+                target: self,
+                action: #selector(openItems)
+            )
+            button.identifier = NSUserInterfaceItemIdentifier("sidebar-updates-summary")
+            button.bezelStyle = .rounded
+            let imageView = NSImageView(
+                image: NSImage(
+                    systemSymbolName: "arrow.down.circle.fill",
+                    accessibilityDescription: nil
+                ) ?? NSImage())
+            imageView.contentTintColor = .controlAccentColor
+            imageView.setAccessibilityElement(false)
 
-            for item in updateQueue.items {
-                let button = NSButton(
-                    title: "\(item.title)  \(item.versionChange)",
-                    target: self,
-                    action: #selector(updateQueueButtonSelected(_:))
-                )
-                button.bezelStyle = .rounded
-                button.alignment = .left
-                button.font = .systemFont(ofSize: 11)
-                button.toolTip = "Open Overview for \(item.title)"
-                button.identifier = NSUserInterfaceItemIdentifier(item.id)
-                button.setAccessibilityLabel("Update \(item.title), \(item.versionChange)")
-                button.translatesAutoresizingMaskIntoConstraints = false
-                button.widthAnchor.constraint(greaterThanOrEqualToConstant: 130).isActive = true
-                queueContainer.addArrangedSubview(button)
-            }
+            let title = NSTextField(labelWithString: "Updates available")
+            title.identifier = NSUserInterfaceItemIdentifier("sidebar-updates-title")
+            title.font = .systemFont(ofSize: 11, weight: .semibold)
+            title.textColor = .labelColor
+            title.lineBreakMode = .byTruncatingTail
+            title.setAccessibilityElement(false)
 
-            if updateQueue.overflowCount > 0 {
-                let more = NSTextField(labelWithString: "and \(updateQueue.overflowCount) more")
-                more.font = .systemFont(ofSize: 11)
-                more.textColor = .secondaryLabelColor
-                queueContainer.addArrangedSubview(more)
-            }
+            let detail = NSTextField(labelWithString: "\(updateQueue.count) items · Open Items")
+            detail.identifier = NSUserInterfaceItemIdentifier("sidebar-updates-detail")
+            detail.font = .systemFont(ofSize: 10)
+            detail.textColor = .secondaryLabelColor
+            detail.lineBreakMode = .byTruncatingTail
+            detail.setAccessibilityElement(false)
+
+            let textStack = NSStackView(views: [title, detail])
+            textStack.orientation = .vertical
+            textStack.alignment = .leading
+            textStack.spacing = 1
+            let content = NSStackView(views: [imageView, textStack])
+            content.orientation = .horizontal
+            content.alignment = .centerY
+            content.spacing = 8
+            content.translatesAutoresizingMaskIntoConstraints = false
+            content.setAccessibilityElement(false)
+            button.addSubview(content)
+            button.setAccessibilityLabel("Open Items, \(updateQueue.count) updates available")
+            button.setAccessibilityHelp("Shows the Items section without starting an update")
+            button.translatesAutoresizingMaskIntoConstraints = false
+            queueContainer.addArrangedSubview(button)
+            NSLayoutConstraint.activate([
+                button.widthAnchor.constraint(equalTo: queueContainer.widthAnchor, constant: -20),
+                button.heightAnchor.constraint(equalToConstant: 48),
+                imageView.widthAnchor.constraint(equalToConstant: 16),
+                imageView.heightAnchor.constraint(equalToConstant: 16),
+                content.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 12),
+                content.trailingAnchor.constraint(
+                    lessThanOrEqualTo: button.trailingAnchor, constant: -10),
+                content.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            ])
         }
 
-        @objc private func updateQueueButtonSelected(_ sender: NSButton) {
-            guard let id = sender.identifier?.rawValue else { return }
-            selectUpdate(id: id)
+        @objc private func openItems() {
+            onOpenItems()
         }
     }
 #endif

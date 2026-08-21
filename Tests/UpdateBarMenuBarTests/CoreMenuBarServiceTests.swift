@@ -305,6 +305,66 @@ final class CoreMenuBarServiceTests: XCTestCase {
         XCTAssertEqual(eventRecorder.finishedIDs, ["tool"])
     }
 
+    func testUpdateSelectedForwardsOnlyExplicitIDs() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let ids = ["alpha", "beta", "ignored"]
+        try ManifestStore(paths: paths).save(
+            manifest(
+                items: ids.map {
+                    recipe(
+                        id: $0,
+                        updateCommand: "\($0) update",
+                        currentCommand: "\($0) current"
+                    )
+                }))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1,
+                generatedAt: now,
+                items: Dictionary(
+                    uniqueKeysWithValues: ids.map {
+                        (
+                            $0,
+                            ItemState(
+                                current: "1.0.0",
+                                latest: "1.1.0",
+                                status: .outdated,
+                                lastChecked: now,
+                                error: nil,
+                                backoffUntil: nil
+                            )
+                        )
+                    })
+            ))
+        let commands = RecordingCommandRunner(results: [
+            "alpha update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
+            "alpha current": CommandResult(exitCode: 0, stdout: "alpha 1.1.0", stderr: ""),
+            "alpha latest": CommandResult(exitCode: 0, stdout: "alpha 1.1.0", stderr: ""),
+            "beta update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
+            "beta current": CommandResult(exitCode: 0, stdout: "beta 1.1.0", stderr: ""),
+            "beta latest": CommandResult(exitCode: 0, stdout: "beta 1.1.0", stderr: ""),
+        ])
+        let testNow = now
+        let service = CoreMenuBarService(
+            paths: paths,
+            commandRunner: commands,
+            now: { testNow }
+        )
+        let recorder = ProgressIDRecorder()
+
+        try service.update(
+            ids: ["beta", "alpha"],
+            cancellationToken: nil,
+            onEvent: { recorder.record($0) },
+            stopSignal: nil
+        )
+
+        XCTAssertEqual(Set(recorder.startedIDs), Set(["alpha", "beta"]))
+        XCTAssertFalse(recorder.startedIDs.contains("ignored"))
+        XCTAssertEqual(Set(recorder.finishedIDs), Set(["alpha", "beta"]))
+    }
+
     private func manifest(items: [Recipe]) -> Manifest {
         Manifest(
             schemaVersion: 1,

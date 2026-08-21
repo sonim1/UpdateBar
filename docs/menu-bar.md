@@ -47,15 +47,22 @@ Current scope:
 `Dashboard` opens the Dashboard window directly. A left sidebar switches between
 Overview, Items, Scan & Add, Logs, Settings, and About in the same Dashboard window, with each section
 using native macOS UI. The sidebar, Items, Scan & Add, and Logs use AppKit controls;
-Overview, Settings, and About are SwiftUI-hosted. The sidebar footer shows a compact
-queue of available updates and routes each selection to Overview without executing it.
+Overview, Settings, and About are SwiftUI-hosted. The sidebar footer shows a single
+update summary when updates are available. It stays within the sidebar width and
+opens Items without starting an update; individual names, versions, and update actions
+live in Items.
 Overview shows pending-update and
 awaiting-approval counts, last check/update times, and a bar chart of successful
 updates over the last four weeks (from `~/.updatebar/history.jsonl`). Logs shows
 the newest persisted update and check events first, including update result and
-version transition. Items lists
-every registered item grouped by category with an enable/disable checkbox per
-item. `Manage Items...` opens that Dashboard window with Items selected, and
+version transition. Items lists every registered item grouped by category with
+a separate enable/disable checkbox. Eligible outdated rows also provide a
+row-level Update action. Users can select one or more eligible rows and run
+Update Selected; only outdated items are selectable. Current, disabled, pinned,
+checking, errored, and approval-blocked rows explain why updating is unavailable.
+Dashboard updates share the menu bar's global action state, progress, bounded
+parallelism, and Stop After Current behavior. `Manage Items...` opens that
+Dashboard window with Items selected, and
 `Scan & Add` opens it with Scan & Add selected, so neither action creates another
 panel. Scan & Add scans only when you press Scan. Checking an available candidate
 registers it immediately without approving any commands. Unchecking disables it

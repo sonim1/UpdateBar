@@ -28,6 +28,7 @@
         init(
             service: any MenuBarServicing,
             onItemsChanged: @escaping () -> Void,
+            onUpdateItems: @escaping ([String]) -> Void,
             onCheckForUpdates: @escaping () -> Void
         ) {
             self.service = service
@@ -77,12 +78,13 @@
             sidebarViewController.onSelectionChanged = { [weak self] section in
                 self?.select(section)
             }
-            sidebarViewController.onUpdateSelected = { [weak self] _ in
-                self?.select(.overview)
+            sidebarViewController.onOpenItems = { [weak self] in
+                self?.select(.items)
             }
             manageItemsViewController.onRefresh = { [weak self] in
                 self?.reload()
             }
+            manageItemsViewController.onUpdateItems = onUpdateItems
             manageItemsViewController.onError = { [weak self] error in
                 self?.showErrorIfShown(error)
             }
@@ -113,6 +115,10 @@
 
         func applySidebarQueue(_ queue: SidebarUpdateQueue) {
             sidebarViewController.apply(updateQueue: queue)
+        }
+
+        func applyActionState(isBusy: Bool) {
+            manageItemsViewController.setActionBusy(isBusy)
         }
 
         func showErrorIfShown(_ error: Error) {

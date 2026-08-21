@@ -122,9 +122,18 @@
         }
 
         private func update(id: String) {
-            runAction("Updating \(id)") { [service] action in
+            update(ids: [id])
+        }
+
+        private func update(ids: [String]) {
+            guard !ids.isEmpty else { return }
+            let title =
+                ids.count == 1
+                ? "Updating \(ids[0])"
+                : "Updating \(ids.count) selected items"
+            runAction(title) { [service] action in
                 try service?.update(
-                    id: id,
+                    ids: ids,
                     cancellationToken: action.token,
                     onEvent: self.progressHandler(for: action),
                     stopSignal: action.stopSignal
@@ -220,11 +229,23 @@
                     onItemsChanged: { [weak self] in
                         self?.refreshStatus(refresh: false)
                     },
+                    onUpdateItems: { [weak self] ids in
+                        self?.update(ids: ids)
+                    },
                     onCheckForUpdates: { [weak self] in
                         self?.updaterController.checkForUpdates(nil)
                     }
                 )
             }
+            dashboardPanelController?.applyActionState(
+                isBusy: actionCoordinator.activeAction != nil
+            )
+            dashboardPanelController?.applySidebarQueue(
+                SidebarUpdateQueueModel.make(
+                    outdatedItems: latestState.outdatedItems,
+                    limit: 3
+                )
+            )
             dashboardPanelController?.showWindowAndReload(selecting: section)
         }
 
@@ -449,6 +470,7 @@
                     DispatchQueue.main.async {
                         self.actionCoordinator.finish(activeAction, outcome: .failed)
                         self.showError(error)
+                        self.dashboardPanelController?.reloadIfShown()
                     }
                 }
             }
@@ -486,6 +508,7 @@
                 return
             }
             let activeAction = actionCoordinator.activeAction
+            dashboardPanelController?.applyActionState(isBusy: activeAction != nil)
             dashboardPanelController?.applySidebarQueue(
                 SidebarUpdateQueueModel.make(
                     outdatedItems: latestState.outdatedItems,
