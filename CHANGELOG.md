@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Added
+
+- Added row-level and multi-select updates to Dashboard Items, limited to eligible
+  outdated libraries and sharing the menu bar's running and stop state.
+
+### Changed
+
+- Replaced the Dashboard sidebar's per-library update list with one compact summary
+  that opens Items without starting an update.
+
+### Fixed
+
+- Kept the sidebar update summary inside its 150–190 point bounds and populated it
+  when Dashboard opens for the first time.
+
 ## 0.6.16 - 2026-08-15
 
 ### Changed
