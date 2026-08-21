@@ -426,6 +426,12 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(appSource.contains("onUpdateItems: { [weak self] ids in"))
         XCTAssertTrue(appSource.contains("self?.update(ids: ids)"))
         XCTAssertTrue(appSource.contains("dashboardPanelController?.applyActionState("))
+        XCTAssertEqual(
+            appSource.components(
+                separatedBy: "dashboardPanelController?.applySidebarQueue("
+            ).count - 1,
+            2
+        )
     }
 
     func testEmbeddedScanReplacesStandalonePanelAndBindsHelpAndAccessibility() throws {

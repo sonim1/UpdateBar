@@ -239,6 +239,12 @@
             dashboardPanelController?.applyActionState(
                 isBusy: actionCoordinator.activeAction != nil
             )
+            dashboardPanelController?.applySidebarQueue(
+                SidebarUpdateQueueModel.make(
+                    outdatedItems: latestState.outdatedItems,
+                    limit: 3
+                )
+            )
             dashboardPanelController?.showWindowAndReload(selecting: section)
         }
 
