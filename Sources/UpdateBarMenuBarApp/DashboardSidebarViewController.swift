@@ -2,6 +2,13 @@
     import AppKit
     import UpdateBarMenuBar
 
+    private final class SidebarSummaryButton: NSButton {
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            let localPoint = convert(point, from: superview)
+            return bounds.contains(localPoint) ? self : nil
+        }
+    }
+
     final class DashboardSidebarViewController: NSViewController, NSTableViewDataSource,
         NSTableViewDelegate
     {
@@ -147,17 +154,45 @@
             }
             queueContainer.isHidden = false
 
-            let button = NSButton(title: "", target: self, action: #selector(openItems))
+            let button = SidebarSummaryButton(
+                title: "",
+                target: self,
+                action: #selector(openItems)
+            )
             button.identifier = NSUserInterfaceItemIdentifier("sidebar-updates-summary")
             button.bezelStyle = .rounded
-            button.alignment = .left
-            button.image = NSImage(
+            let imageView = NSImageView(image: NSImage(
                 systemSymbolName: "arrow.down.circle.fill",
                 accessibilityDescription: nil
-            )
-            button.imagePosition = .imageLeading
-            button.contentTintColor = .controlAccentColor
-            button.attributedTitle = summaryTitle(count: updateQueue.count)
+            ) ?? NSImage())
+            imageView.contentTintColor = .controlAccentColor
+            imageView.setAccessibilityElement(false)
+
+            let title = NSTextField(labelWithString: "Updates available")
+            title.identifier = NSUserInterfaceItemIdentifier("sidebar-updates-title")
+            title.font = .systemFont(ofSize: 11, weight: .semibold)
+            title.textColor = .labelColor
+            title.lineBreakMode = .byTruncatingTail
+            title.setAccessibilityElement(false)
+
+            let detail = NSTextField(labelWithString: "\(updateQueue.count) items · Open Items")
+            detail.identifier = NSUserInterfaceItemIdentifier("sidebar-updates-detail")
+            detail.font = .systemFont(ofSize: 10)
+            detail.textColor = .secondaryLabelColor
+            detail.lineBreakMode = .byTruncatingTail
+            detail.setAccessibilityElement(false)
+
+            let textStack = NSStackView(views: [title, detail])
+            textStack.orientation = .vertical
+            textStack.alignment = .leading
+            textStack.spacing = 1
+            let content = NSStackView(views: [imageView, textStack])
+            content.orientation = .horizontal
+            content.alignment = .centerY
+            content.spacing = 8
+            content.translatesAutoresizingMaskIntoConstraints = false
+            content.setAccessibilityElement(false)
+            button.addSubview(content)
             button.setAccessibilityLabel("Open Items, \(updateQueue.count) updates available")
             button.setAccessibilityHelp("Shows the Items section without starting an update")
             button.translatesAutoresizingMaskIntoConstraints = false
@@ -165,32 +200,12 @@
             NSLayoutConstraint.activate([
                 button.widthAnchor.constraint(equalTo: queueContainer.widthAnchor, constant: -20),
                 button.heightAnchor.constraint(equalToConstant: 48),
+                imageView.widthAnchor.constraint(equalToConstant: 16),
+                imageView.heightAnchor.constraint(equalToConstant: 16),
+                content.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 12),
+                content.trailingAnchor.constraint(lessThanOrEqualTo: button.trailingAnchor, constant: -10),
+                content.centerYAnchor.constraint(equalTo: button.centerYAnchor),
             ])
-        }
-
-        private func summaryTitle(count: Int) -> NSAttributedString {
-            let title = NSMutableAttributedString(
-                string: "Updates available\n",
-                attributes: [
-                    .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
-                    .foregroundColor: NSColor.labelColor,
-                ]
-            )
-            title.append(NSAttributedString(
-                string: "\(count) items · Open Items",
-                attributes: [
-                    .font: NSFont.systemFont(ofSize: 10),
-                    .foregroundColor: NSColor.secondaryLabelColor,
-                ]
-            ))
-            let paragraph = NSMutableParagraphStyle()
-            paragraph.lineBreakMode = .byTruncatingTail
-            title.addAttribute(
-                .paragraphStyle,
-                value: paragraph,
-                range: NSRange(location: 0, length: title.length)
-            )
-            return title
         }
 
         @objc private func openItems() {

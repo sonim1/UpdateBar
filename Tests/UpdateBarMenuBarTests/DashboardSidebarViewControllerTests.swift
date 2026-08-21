@@ -106,9 +106,16 @@
                 $0.identifier?.rawValue == "sidebar-updates-summary"
             }
             let button = try XCTUnwrap(buttons.first)
+            let title = try XCTUnwrap(findTextFields(in: button).first {
+                $0.identifier?.rawValue == "sidebar-updates-title"
+            })
+            let detail = try XCTUnwrap(findTextFields(in: button).first {
+                $0.identifier?.rawValue == "sidebar-updates-detail"
+            })
 
             XCTAssertEqual(buttons.count, 1)
-            XCTAssertEqual(button.attributedTitle.string, "Updates available\n12 items · Open Items")
+            XCTAssertEqual(title.stringValue, "Updates available")
+            XCTAssertEqual(detail.stringValue, "12 items · Open Items")
             XCTAssertLessThanOrEqual(button.frame.maxX, try XCTUnwrap(button.superview).bounds.maxX)
             XCTAssertGreaterThanOrEqual(button.frame.minX, 0)
             XCTAssertEqual(button.accessibilityLabel(), "Open Items, 12 updates available")
@@ -116,6 +123,10 @@
                 button.accessibilityHelp(),
                 "Shows the Items section without starting an update"
             )
+
+            controller.view.frame.size.width = 190
+            controller.view.layoutSubtreeIfNeeded()
+            XCTAssertLessThanOrEqual(button.frame.maxX, try XCTUnwrap(button.superview).bounds.maxX)
         }
 
         func testEmptyUpdateQueueRendersNoSummaryButton() {
@@ -175,6 +186,17 @@
             }
             for subview in view.subviews {
                 result.append(contentsOf: findButtons(in: subview))
+            }
+            return result
+        }
+
+        private func findTextFields(in view: NSView) -> [NSTextField] {
+            var result: [NSTextField] = []
+            if let textField = view as? NSTextField {
+                result.append(textField)
+            }
+            for subview in view.subviews {
+                result.append(contentsOf: findTextFields(in: subview))
             }
             return result
         }
