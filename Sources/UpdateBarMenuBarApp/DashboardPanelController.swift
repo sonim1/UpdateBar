@@ -78,8 +78,8 @@
             sidebarViewController.onSelectionChanged = { [weak self] section in
                 self?.select(section)
             }
-            sidebarViewController.onUpdateSelected = { [weak self] _ in
-                self?.select(.overview)
+            sidebarViewController.onOpenItems = { [weak self] in
+                self?.select(.items)
             }
             manageItemsViewController.onRefresh = { [weak self] in
                 self?.reload()

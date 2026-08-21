@@ -371,6 +371,9 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(sidebarCompact.contains("NSImage(systemSymbolName:"))
         XCTAssertTrue(sidebarSource.contains("setAccessibilityLabel"))
         XCTAssertTrue(sidebarSource.contains("setAccessibilitySelected"))
+        XCTAssertTrue(sidebarSource.contains("var onOpenItems: () -> Void"))
+        XCTAssertFalse(sidebarSource.contains("onUpdateSelected"))
+        XCTAssertFalse(sidebarSource.contains("and \\(updateQueue.overflowCount) more"))
         XCTAssertTrue(
             sidebarSource.contains("widthAnchor.constraint(greaterThanOrEqualToConstant: 150)"))
         XCTAssertTrue(
@@ -393,7 +396,8 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(dashboardSource.contains("segmentedControlOnTop"))
         XCTAssertFalse(dashboardSource.contains("DashboardTab"))
         XCTAssertFalse(dashboardSource.contains("Label(\"Manage Items\""))
-        XCTAssertFalse(dashboardSource.contains("onOpenItems"))
+        XCTAssertTrue(dashboardSource.contains("sidebarViewController.onOpenItems ="))
+        XCTAssertTrue(dashboardCompact.contains("self?.select(.items)"))
 
         XCTAssertTrue(
             manageItemsCompact.contains(
