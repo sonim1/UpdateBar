@@ -83,11 +83,57 @@
             )
         }
 
-        func testUpdateQueueSelectionRoutesToCallbackWithoutUpdating() {
+        func testUpdateQueueRendersOneBoundedSummaryButton() throws {
             let controller = DashboardSidebarViewController()
-            var selectedIDs: [String] = []
-            controller.onUpdateSelected = { selectedIDs.append($0) }
+            _ = controller.view
+            controller.view.frame = NSRect(x: 0, y: 0, width: 150, height: 420)
+            controller.apply(
+                updateQueue: SidebarUpdateQueue(
+                    count: 12,
+                    items: [
+                        SidebarUpdateQueueItem(
+                            id: "long",
+                            title: "A Library Name That Must Never Control Sidebar Width",
+                            versionChange: "123.456.789 → 987.654.321"
+                        )
+                    ],
+                    overflowCount: 11
+                )
+            )
+            controller.view.layoutSubtreeIfNeeded()
 
+            let buttons = findButtons(in: controller.view).filter {
+                $0.identifier?.rawValue == "sidebar-updates-summary"
+            }
+            let button = try XCTUnwrap(buttons.first)
+
+            XCTAssertEqual(buttons.count, 1)
+            XCTAssertEqual(button.attributedTitle.string, "Updates available\n12 items · Open Items")
+            XCTAssertLessThanOrEqual(button.frame.maxX, try XCTUnwrap(button.superview).bounds.maxX)
+            XCTAssertGreaterThanOrEqual(button.frame.minX, 0)
+            XCTAssertEqual(button.accessibilityLabel(), "Open Items, 12 updates available")
+            XCTAssertEqual(
+                button.accessibilityHelp(),
+                "Shows the Items section without starting an update"
+            )
+        }
+
+        func testEmptyUpdateQueueRendersNoSummaryButton() {
+            let controller = DashboardSidebarViewController()
+            _ = controller.view
+
+            controller.apply(updateQueue: SidebarUpdateQueue(count: 0, items: [], overflowCount: 0))
+
+            XCTAssertFalse(findButtons(in: controller.view).contains {
+                $0.identifier?.rawValue == "sidebar-updates-summary"
+            })
+        }
+
+        func testUpdateSummaryRoutesToItemsWithoutUpdating() throws {
+            let controller = DashboardSidebarViewController()
+            _ = controller.view
+            var openCount = 0
+            controller.onOpenItems = { openCount += 1 }
             controller.apply(
                 updateQueue: SidebarUpdateQueue(
                     count: 2,
@@ -101,10 +147,13 @@
                     overflowCount: 1
                 )
             )
+            let button = try XCTUnwrap(findButtons(in: controller.view).first {
+                $0.identifier?.rawValue == "sidebar-updates-summary"
+            })
 
-            controller.selectUpdate(id: "brew")
+            button.performClick(nil)
 
-            XCTAssertEqual(selectedIDs, ["brew"])
+            XCTAssertEqual(openCount, 1)
         }
 
         private func findTableView(in view: NSView) -> NSTableView? {
@@ -117,6 +166,17 @@
                 }
             }
             return nil
+        }
+
+        private func findButtons(in view: NSView) -> [NSButton] {
+            var result: [NSButton] = []
+            if let button = view as? NSButton {
+                result.append(button)
+            }
+            for subview in view.subviews {
+                result.append(contentsOf: findButtons(in: subview))
+            }
+            return result
         }
     }
 #endif
