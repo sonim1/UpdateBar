@@ -302,6 +302,6 @@ rtk git commit -m "docs: document Dashboard prompt templates"
 
 Launch the built app against an isolated temporary UpdateBar home, open Dashboard → Templates, and verify source-list placement, card layout, category filtering, field updates, keyboard focus, copy icon feedback, tooltip, and VoiceOver labels. Record screenshots for pre-landing evidence without committing generated QA artifacts.
 
-- [ ] **Step 8: Complete pre-landing review and hand off to ship/deploy workflows**
+- [x] **Step 8: Complete pre-landing review and hand off to ship/deploy workflows**
 
 Run the required code review workflow, resolve all critical and important findings, then run `/ship`. After the PR passes CI, run `/land-and-deploy`, merge it, monitor the release workflow, and verify the published signed macOS release or deployment artifact according to the repository release configuration.
