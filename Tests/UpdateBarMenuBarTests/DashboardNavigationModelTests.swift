@@ -38,18 +38,18 @@ final class DashboardNavigationModelTests: XCTestCase {
     func testSectionsExposeStableOrderTitlesAndSymbols() {
         XCTAssertEqual(
             DashboardSection.allCases,
-            [.overview, .items, .scan, .logs, .settings, .about]
+            [.overview, .items, .scan, .templates, .logs, .settings, .about]
         )
-        XCTAssertEqual(DashboardSection.allCases.map(\.rawValue), [0, 1, 2, 3, 4, 5])
+        XCTAssertEqual(DashboardSection.allCases.map(\.rawValue), [0, 1, 2, 3, 4, 5, 6])
         XCTAssertEqual(
             DashboardSection.allCases.map(\.title),
-            ["Overview", "Items", "Scan & Add", "Logs", "Settings", "About"]
+            ["Overview", "Items", "Scan & Add", "Templates", "Logs", "Settings", "About"]
         )
         XCTAssertEqual(
             DashboardSection.allCases.map(\.systemImageName),
             [
-                "chart.bar", "list.bullet", "magnifyingglass", "doc.text",
-                "gearshape", "info.circle",
+                "chart.bar", "list.bullet", "magnifyingglass", "doc.on.doc",
+                "doc.text", "gearshape", "info.circle",
             ]
         )
     }

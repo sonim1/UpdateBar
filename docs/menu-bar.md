@@ -45,7 +45,7 @@ Current scope:
   expected rather than a regression
 
 `Dashboard` opens the Dashboard window directly. A left sidebar switches between
-Overview, Items, Scan & Add, Logs, Settings, and About in the same Dashboard window, with each section
+Overview, Items, Scan & Add, Templates, Logs, Settings, and About in the same Dashboard window, with each section
 using native macOS UI. The sidebar, Items, Scan & Add, and Logs use AppKit controls;
 Overview, Settings, and About are SwiftUI-hosted. The sidebar footer shows a single
 update summary when updates are available. It stays within the sidebar width and
@@ -60,6 +60,12 @@ a separate enable/disable checkbox. Eligible outdated rows also provide a
 row-level Update action. Users can select one or more eligible rows and run
 Update Selected; only outdated items are selectable. Current, disabled, pinned,
 checking, errored, and approval-blocked rows explain why updating is unavailable.
+Templates groups six built-in English prompts under Discover, Configure, and
+Operate. Each card provides task-specific fields, a selectable preview, and an
+icon-only copy action. The page copies prompts without executing commands,
+contacting an LLM, or persisting field values. Prompts that add, approve, or
+update require the LLM to show the exact command and wait for explicit user
+confirmation.
 Dashboard updates share the menu bar's global action state, progress, bounded
 parallelism, and Stop After Current behavior. `Manage Items...` opens that
 Dashboard window with Items selected, and

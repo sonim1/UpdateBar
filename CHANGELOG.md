@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.6.18 - 2026-08-23
+
+### Added
+
+- Added a native Dashboard Templates page with six categorized English prompts,
+  task-specific fields, selectable previews, and icon-only clipboard actions.
+
+### Fixed
+
+- Kept template cards aligned at the top of the scroll view and refreshed prompt
+  previews while users type so Copy always uses the visible field values.
+
 ## 0.6.17 - 2026-08-21
 
 ### Added
