@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.18 - 2026-08-23
+
 ### Added
 
 - Added a native Dashboard Templates page with six categorized English prompts,
