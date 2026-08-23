@@ -1413,9 +1413,13 @@ final class DocumentationSnapshotTests: XCTestCase {
         XCTAssertTrue(docs.contains("`Check Now` and `Update All`"))
         XCTAssertTrue(docs.contains("opens the Dashboard window directly"))
         XCTAssertTrue(docs.contains("left sidebar"))
-        for section in ["Overview", "Items", "Scan & Add", "Logs"] {
+        for section in ["Overview", "Items", "Scan & Add", "Templates", "Logs"] {
             XCTAssertTrue(docs.contains(section), "Dashboard docs missing \(section)")
         }
+        for category in ["Discover", "Configure", "Operate"] {
+            XCTAssertTrue(docs.contains(category), "Template docs missing \(category)")
+        }
+        XCTAssertTrue(normalizedDocs.contains("copies prompts without executing commands"))
         XCTAssertTrue(docs.contains("TUI is not exposed by the menu bar"))
         XCTAssertTrue(docs.contains("same Dashboard window"))
         XCTAssertTrue(docs.contains("scans only when you press Scan"))
