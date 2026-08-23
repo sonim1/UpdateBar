@@ -53,9 +53,9 @@
             let copyButton = try button("template-copy-addItem", in: controller.view)
 
             itemField.stringValue = "ripgrep"
-            sendAction(from: itemField)
+            notifyTextChanged(itemField)
             sourceField.stringValue = "BurntSushi/ripgrep"
-            sendAction(from: sourceField)
+            notifyTextChanged(sourceField)
             copyButton.performClick(nil)
 
             XCTAssertTrue(preview.string.contains("ripgrep"))
@@ -160,6 +160,12 @@
                 return
             }
             _ = NSApp.sendAction(action, to: control.target, from: control)
+        }
+
+        private func notifyTextChanged(_ field: NSTextField) {
+            field.delegate?.controlTextDidChange?(
+                Notification(name: NSControl.textDidChangeNotification, object: field)
+            )
         }
 
         private func button(_ identifier: String, in root: NSView) throws -> NSButton {

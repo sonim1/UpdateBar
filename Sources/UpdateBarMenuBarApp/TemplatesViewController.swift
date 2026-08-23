@@ -157,7 +157,7 @@
         }
     }
 
-    private final class PromptTemplateCardView: NSView {
+    private final class PromptTemplateCardView: NSView, NSTextFieldDelegate {
         private let definition: PromptTemplateDefinition
         private let onCopy: (PromptTemplateCardView) -> Void
         private let preview = NSTextView()
@@ -294,6 +294,7 @@
                 )
                 control.placeholderString = field.placeholder
                 control.font = .systemFont(ofSize: 11)
+                control.delegate = self
                 control.target = self
                 control.action = #selector(fieldChanged)
                 control.setAccessibilityLabel("\(definition.title), \(field.label)")
@@ -369,6 +370,10 @@
         }
 
         @objc private func fieldChanged() {
+            refreshPrompt()
+        }
+
+        func controlTextDidChange(_ notification: Notification) {
             refreshPrompt()
         }
 
