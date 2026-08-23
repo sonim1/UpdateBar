@@ -2,6 +2,7 @@ public enum DashboardSection: Int, CaseIterable, Equatable, Sendable {
     case overview
     case items
     case scan
+    case templates
     case logs
     case settings
     case about
@@ -14,6 +15,8 @@ public enum DashboardSection: Int, CaseIterable, Equatable, Sendable {
             return "Items"
         case .scan:
             return "Scan & Add"
+        case .templates:
+            return "Templates"
         case .logs:
             return "Logs"
         case .settings:
@@ -31,6 +34,8 @@ public enum DashboardSection: Int, CaseIterable, Equatable, Sendable {
             return "list.bullet"
         case .scan:
             return "magnifyingglass"
+        case .templates:
+            return "doc.on.doc"
         case .logs:
             return "doc.text"
         case .settings:

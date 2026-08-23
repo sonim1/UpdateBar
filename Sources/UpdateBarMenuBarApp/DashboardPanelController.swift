@@ -19,6 +19,7 @@
         private let settingsViewController: SettingsViewController
         private let aboutViewController: AboutViewController
         private let logsViewController = LogsViewController()
+        private let templatesViewController = TemplatesViewController()
         private let manageItemsViewController: ManageItemsViewController
         private let scanViewController: ScanViewController
         private weak var visibleContentViewController: NSViewController?
@@ -175,6 +176,8 @@
                 return manageItemsViewController
             case .scan:
                 return scanViewController
+            case .templates:
+                return templatesViewController
             case .logs:
                 return logsViewController
             case .settings:
