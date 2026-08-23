@@ -125,6 +125,35 @@
             )
         }
 
+        func testTemplateScrollDocumentUsesTopOrigin() throws {
+            let controller = TemplatesViewController(writeToPasteboard: { _ in true })
+            _ = controller.view
+            let scrollView = try XCTUnwrap(
+                descendants(of: NSScrollView.self, in: controller.view).first {
+                    $0.identifier?.rawValue == "template-scroll"
+                }
+            )
+
+            XCTAssertEqual(scrollView.documentView?.isFlipped, true)
+        }
+
+        func testTemplateFieldsFillCardWidthAtDashboardSize() throws {
+            let controller = TemplatesViewController(writeToPasteboard: { _ in true })
+            controller.view.frame = NSRect(x: 0, y: 0, width: 900, height: 700)
+            controller.view.layoutSubtreeIfNeeded()
+            let itemField = try textField(
+                "template-field-reviewApprove-itemName",
+                in: controller.view
+            )
+            let commandField = try textField(
+                "template-field-reviewApprove-commandField",
+                in: controller.view
+            )
+
+            XCTAssertGreaterThanOrEqual(itemField.frame.width, 140)
+            XCTAssertGreaterThanOrEqual(commandField.frame.width, 140)
+        }
+
         private func sendAction(from control: NSControl) {
             guard let action = control.action else {
                 XCTFail("Control has no action")

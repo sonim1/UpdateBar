@@ -53,7 +53,7 @@
             header.spacing = 20
             header.translatesAutoresizingMaskIntoConstraints = false
 
-            let categories = NSStackView()
+            let categories = FlippedStackView()
             categories.orientation = .vertical
             categories.alignment = .leading
             categories.spacing = 20
@@ -70,6 +70,7 @@
             scrollView.drawsBackground = false
             scrollView.hasVerticalScroller = true
             scrollView.hasHorizontalScroller = false
+            scrollView.identifier = NSUserInterfaceItemIdentifier("template-scroll")
             scrollView.documentView = categories
             scrollView.translatesAutoresizingMaskIntoConstraints = false
 
@@ -263,6 +264,10 @@
             body.translatesAutoresizingMaskIntoConstraints = false
             addSubview(body)
 
+            for bodyView in bodyViews.dropFirst() {
+                bodyView.widthAnchor.constraint(equalTo: body.widthAnchor).isActive = true
+            }
+
             NSLayoutConstraint.activate([
                 icon.widthAnchor.constraint(equalToConstant: 24),
                 icon.heightAnchor.constraint(equalToConstant: 24),
@@ -369,6 +374,12 @@
 
         @objc private func copyClicked() {
             onCopy(self)
+        }
+    }
+
+    private final class FlippedStackView: NSStackView {
+        override var isFlipped: Bool {
+            true
         }
     }
 #endif
