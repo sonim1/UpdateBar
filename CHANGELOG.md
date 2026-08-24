@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- Restored the standard Command-W shortcut for closing Dashboard and other titled
+  windows while keeping the menu bar app running.
+
 ## 0.6.18 - 2026-08-23
 
 ### Added
