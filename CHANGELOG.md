@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.19 - 2026-08-24
+
 ### Fixed
 
 - Restored the standard Command-W shortcut for closing Dashboard and other titled
