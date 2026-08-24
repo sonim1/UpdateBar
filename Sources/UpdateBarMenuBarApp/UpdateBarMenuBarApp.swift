@@ -53,16 +53,6 @@
         static func makeMainMenu() -> NSMenu {
             let mainMenu = NSMenu()
 
-            let applicationItem = NSMenuItem(title: "UpdateBar", action: nil, keyEquivalent: "")
-            let applicationMenu = NSMenu(title: "UpdateBar")
-            applicationMenu.addItem(
-                withTitle: "Quit UpdateBar",
-                action: #selector(NSApplication.terminate(_:)),
-                keyEquivalent: "q"
-            )
-            applicationItem.submenu = applicationMenu
-            mainMenu.addItem(applicationItem)
-
             let fileItem = NSMenuItem(title: "File", action: nil, keyEquivalent: "")
             let fileMenu = NSMenu(title: "File")
             let closeWindow = NSMenuItem(
