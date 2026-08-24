@@ -74,8 +74,8 @@ panel. Scan & Add scans only when you press Scan. Checking an available candidat
 registers it immediately without approving any commands. Unchecking disables it
 without deleting it, and checking it again re-enables the same item. While the
 Dashboard window is visible, UpdateBar appears in Cmd-Tab and the Dock. Closing
-the last visible titled UpdateBar window returns the process to menu-bar-only
-mode.
+the last visible titled UpdateBar window with Command-W or its close button returns
+the process to menu-bar-only mode.
 
 If an operation or status refresh fails, the status badge changes to `!` and the
 app directly assigns a native error-recovery menu. Refresh Status, Check Now,

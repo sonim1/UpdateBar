@@ -44,9 +44,28 @@
             let delegate = UpdateBarMenuBarApp()
             bootstrapDelegate = delegate
             app.delegate = delegate
+            app.mainMenu = makeMainMenu()
             app.setActivationPolicy(.accessory)
             debugLog("UpdateBarMenuBar main starting")
             app.run()
+        }
+
+        static func makeMainMenu() -> NSMenu {
+            let mainMenu = NSMenu()
+
+            let fileItem = NSMenuItem(title: "File", action: nil, keyEquivalent: "")
+            let fileMenu = NSMenu(title: "File")
+            let closeWindow = NSMenuItem(
+                title: "Close Window",
+                action: #selector(NSWindow.performClose(_:)),
+                keyEquivalent: "w"
+            )
+            closeWindow.target = nil
+            fileMenu.addItem(closeWindow)
+            fileItem.submenu = fileMenu
+            mainMenu.addItem(fileItem)
+
+            return mainMenu
         }
 
         func applicationDidFinishLaunching(_ notification: Notification) {
