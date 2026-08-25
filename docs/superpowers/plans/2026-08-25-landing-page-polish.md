@@ -17,13 +17,13 @@
 - Reference: `docs/index.html`
 - Reference: `docs/landing.css`
 
-- [ ] **Step 1: Run the static contract before editing**
+- [x] **Step 1: Run the static contract before editing**
 
 Run: `rtk test Scripts/landing-contract-test.sh`
 
 Expected: `landing contract passed`
 
-- [ ] **Step 2: Preserve the desktop baseline**
+- [x] **Step 2: Preserve the desktop baseline**
 
 Run:
 
@@ -37,12 +37,25 @@ rtk before-and-after \
 
 Expected: two PNG paths; keep the `before` image for the final comparison.
 
+- [x] **Step 3: Add the failing polish contract**
+
+Add two focused assertions to `Scripts/landing-contract-test.sh` before changing production CSS:
+
+```bash
+grep -q -- '--surface-glass:' "$style"
+grep -q 'grid-auto-flow: dense' "$style"
+```
+
+Run: `rtk test Scripts/landing-contract-test.sh`
+
+Expected: FAIL because `--surface-glass` is not defined yet.
+
 ### Task 2: Refine the cinematic hero and product stage
 
 **Files:**
 - Modify: `docs/landing.css`
 
-- [ ] **Step 1: Add precise surface and motion tokens**
+- [x] **Step 1: Add precise surface and motion tokens**
 
 Extend `:root` with the reusable values used by the refinement:
 
@@ -53,7 +66,7 @@ Extend `:root` with the reusable values used by the refinement:
 --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
 ```
 
-- [ ] **Step 2: Turn the header into a restrained floating control**
+- [x] **Step 2: Turn the header into a restrained floating control**
 
 Keep `.site-header` semantic placement and add a translucent inner surface, thin border, radius, and backdrop blur without introducing fixed positioning or JavaScript.
 
@@ -69,7 +82,7 @@ Keep `.site-header` semantic placement and add a translucent inner surface, thin
 }
 ```
 
-- [ ] **Step 3: Tighten hero hierarchy without changing copy**
+- [x] **Step 3: Tighten hero hierarchy without changing copy**
 
 Use a wide two-line heading, balanced supporting copy, integrated trust surface, and high-contrast CTA. Keep desktop product proof visible in the first 1000px viewport.
 
@@ -88,7 +101,7 @@ h1 { max-width: 1000px; margin-inline: auto; text-wrap: balance; }
 }
 ```
 
-- [ ] **Step 4: Give the real product screenshot a deliberate stage**
+- [x] **Step 4: Give the real product screenshot a deliberate stage**
 
 Add a controlled blue glow, inner highlight, shallow perspective, and hover response. Do not alter the images or CSS-only three-state sequence.
 
@@ -113,7 +126,7 @@ Add a controlled blue glow, inner highlight, shallow perspective, and hover resp
 }
 ```
 
-- [ ] **Step 5: Run the contract**
+- [x] **Step 5: Run the contract**
 
 Run: `rtk test Scripts/landing-contract-test.sh`
 
@@ -124,7 +137,7 @@ Expected: `landing contract passed`
 **Files:**
 - Modify: `docs/landing.css`
 
-- [ ] **Step 1: Make install the dominant conversion surface**
+- [x] **Step 1: Make install the dominant conversion surface**
 
 Increase chapter spacing, use a stronger border and layered blue surface, and improve command legibility without adding clipboard behavior.
 
@@ -142,7 +155,7 @@ Increase chapter spacing, use a stronger border and layered blue surface, and im
 }
 ```
 
-- [ ] **Step 2: Improve workflow continuity**
+- [x] **Step 2: Improve workflow continuity**
 
 Use the existing three cards and connectors. Add clearer top accents and hover/focus movement while preserving the Scan → Review → Update order.
 
@@ -168,7 +181,7 @@ Use the existing three cards and connectors. Add clearer top accents and hover/f
 .step-connector { color: rgba(98, 217, 233, 0.55); }
 ```
 
-- [ ] **Step 3: Refine the gapless feature grid**
+- [x] **Step 3: Refine the gapless feature grid**
 
 Keep exactly four cards in a 2×2 desktop grid, set `grid-auto-flow: dense`, and add distinct but restrained hover light. Verify four items fill four cells with no empty space.
 
@@ -188,7 +201,7 @@ Keep exactly four cards in a 2×2 desktop grid, set `grid-auto-flow: dense`, and
 .feature:hover::after { opacity: 1; }
 ```
 
-- [ ] **Step 4: Run the contract and whitespace check**
+- [x] **Step 4: Run the contract and whitespace check**
 
 Run: `rtk test Scripts/landing-contract-test.sh && rtk git diff --check`
 
@@ -201,17 +214,17 @@ Expected: contract passes and `git diff --check` prints no errors.
 - Verify: `docs/landing.css`
 - Create outside Git tracking: `.superpowers/screenshots/landing-polish/*.png`
 
-- [ ] **Step 1: Capture desktop after state at the baseline viewport**
+- [x] **Step 1: Capture desktop after state at the baseline viewport**
 
 Run `before-and-after` at `1440x1000`, using the preserved baseline PNG and the refined `docs/index.html` URL.
 
 Expected: before and after PNGs with matching dimensions.
 
-- [ ] **Step 2: Capture responsive states**
+- [x] **Step 2: Capture responsive states**
 
 Capture tablet at `768x1024` and mobile at `390x844`. Inspect overflow, heading line count, CTA layout, demo crop, command scrolling, and feature stacking.
 
-- [ ] **Step 3: Verify reduced-motion and contract behavior**
+- [x] **Step 3: Verify reduced-motion and contract behavior**
 
 Confirm `prefers-reduced-motion` still freezes the overview poster and removes nonessential transitions. Run:
 
@@ -223,7 +236,7 @@ rtk git status --short
 
 Expected: contract passes; no whitespace errors; only the plan and landing-specific CSS are changed.
 
-- [ ] **Step 4: Commit the implementation**
+- [x] **Step 4: Commit the implementation**
 
 ```bash
 rtk git add docs/landing.css docs/superpowers/plans/2026-08-25-landing-page-polish.md
