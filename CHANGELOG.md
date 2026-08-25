@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Changed
+
+- Reworked the public landing site around macOS and CLI search intent, with
+  dedicated pages, structured metadata, discovery files, and responsive UI.
+
 ## 0.6.19 - 2026-08-24
 
 ### Fixed
