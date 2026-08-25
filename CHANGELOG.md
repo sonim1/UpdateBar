@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.20 - 2026-08-25
+
 ### Changed
 
 - Reworked the public landing site around macOS and CLI search intent, with
