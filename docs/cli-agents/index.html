@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="UpdateBar is a deterministic CLI for developers and external AI agents that validates recipe data and gates exact command execution behind user approval.">
+    <title>UpdateBar CLI for Developers and AI Agents</title>
+    <link rel="canonical" href="https://updatebar.royjen.com/cli-agents/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="UpdateBar">
+    <meta property="og:title" content="UpdateBar CLI for Developers and AI Agents">
+    <meta property="og:description" content="Author recipe JSON externally, validate it deterministically, and keep exact command approval with the user.">
+    <meta property="og:url" content="https://updatebar.royjen.com/cli-agents/">
+    <meta property="og:image" content="https://updatebar.royjen.com/og-updatebar.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="UpdateBar CLI for Developers and AI Agents">
+    <meta name="twitter:description" content="Author recipe JSON externally, validate it deterministically, and keep exact command approval with the user.">
+    <meta name="twitter:image" content="https://updatebar.royjen.com/og-updatebar.png">
+    <link rel="icon" href="/favicon.png">
+    <link rel="stylesheet" href="/landing.css">
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://updatebar.royjen.com/#software",
+            "name": "UpdateBar",
+            "url": "https://updatebar.royjen.com/",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "macOS and Linux",
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "downloadUrl": "https://github.com/sonim1/UpdateBar/releases/latest",
+            "codeRepository": "https://github.com/sonim1/UpdateBar",
+            "license": "https://github.com/sonim1/UpdateBar/blob/main/LICENSE",
+            "featureList": [
+              "Validate user and agent-authored recipe JSON",
+              "Store imported recipes untrusted by default",
+              "Require exact command fingerprint approval",
+              "Provide stable JSON and JSONL command output",
+              "Redact secret-like values from captured output"
+            ]
+          },
+          {
+            "@type": "WebPage",
+            "@id": "https://updatebar.royjen.com/cli-agents/#webpage",
+            "url": "https://updatebar.royjen.com/cli-agents/",
+            "name": "UpdateBar CLI for Developers and AI Agents",
+            "description": "UpdateBar is a deterministic CLI for developers and external AI agents that validates recipe data and gates exact command execution behind user approval.",
+            "about": {
+              "@id": "https://updatebar.royjen.com/#software"
+            }
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <header class="site-header shell">
+      <a class="brand" href="/" aria-label="UpdateBar home">
+        <img src="/AppIcon-256.png" alt="" width="30" height="30">
+        <span>UpdateBar</span>
+      </a>
+      <nav class="header-nav" aria-label="Primary navigation">
+        <a class="nav-link" href="/macos/">macOS</a>
+        <a class="nav-link" aria-current="page" href="/cli-agents/">CLI &amp; agents</a>
+        <a class="nav-link nav-link--optional" href="https://github.com/sonim1/UpdateBar">GitHub</a>
+        <a class="button button--small button--secondary" href="https://github.com/sonim1/UpdateBar/blob/main/docs/cli.md">CLI docs</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="page-hero shell" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">CLI and external agents</p>
+          <h1 id="hero-title">A deterministic update CLI for developers and AI agents.</h1>
+          <p class="hero-lede">External agents may author recipe JSON. UpdateBar validates it, stores it untrusted, and gates exact command execution behind user approval.</p>
+          <div class="hero-actions">
+            <a class="button button--primary" href="https://github.com/sonim1/UpdateBar/blob/main/llms.txt">Open the agent guide</a>
+            <a class="button button--secondary" href="#workflow">See the workflow</a>
+          </div>
+        </div>
+
+        <div class="command-sheet" aria-label="Safe agent command workflow">
+          <div class="command-block">
+            <h2>Start with the guide</h2>
+            <div class="command-row"><code>updatebar guide agent</code></div>
+          </div>
+          <div class="command-block">
+            <h3>Author</h3>
+            <div class="command-row"><code>updatebar template recipe --kind npm --id my-tool --source my-tool &gt; recipe.json</code></div>
+          </div>
+          <div class="command-block">
+            <h3>Validate and preview</h3>
+            <div class="command-row"><code>updatebar validate recipe.json --json --explain</code></div>
+            <div class="command-row command-row--stacked"><code>updatebar add --from recipe.json --dry-run --json</code></div>
+          </div>
+          <div class="command-block">
+            <h3>Import and review</h3>
+            <div class="command-row"><code>updatebar add --from recipe.json --json</code></div>
+            <div class="command-row command-row--stacked"><code>updatebar approvals my-tool --json</code></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="workflow-section shell" id="workflow" aria-labelledby="workflow-title">
+        <div class="section-heading">
+          <h2 id="workflow-title">Keep generation outside the trust boundary.</h2>
+          <p>AI recipe generation happens outside UpdateBar. Validation, stored trust state, and command approval stay deterministic and user-controlled.</p>
+        </div>
+        <ol class="workflow-list">
+          <li>
+            <strong>Author</strong>
+            <p>A developer or external agent creates a recipe that describes one local tool and its command fields.</p>
+          </li>
+          <li>
+            <strong>Validate</strong>
+            <p>UpdateBar checks schema, supported fields, secret-like values, and command structure before anything is stored.</p>
+          </li>
+          <li>
+            <strong>Dry run</strong>
+            <p>Preview the normalized recipe and result envelope without writing it to the local registry.</p>
+          </li>
+          <li>
+            <strong>Import and review</strong>
+            <p>Save the recipe untrusted, inspect every command field, and ask the user before approving an exact fingerprint.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="contract-section shell" aria-labelledby="contract-title">
+        <div class="section-heading">
+          <h2 id="contract-title">Machine-readable without hidden decisions.</h2>
+          <p>Use snapshots for current state and JSONL events for operations that report progress.</p>
+        </div>
+        <div class="contract-grid">
+          <article class="info-panel">
+            <h3>JSON and JSONL contracts</h3>
+            <p><code>updatebar status --json</code> reads saved state without running shell commands or network requests.</p>
+            <p><code>updatebar check --json-stream</code> and <code>updatebar update --json-stream</code> emit line-delimited events while preserving command exit semantics.</p>
+            <a class="text-link" href="https://github.com/sonim1/UpdateBar/blob/main/docs/cli.md">Read the CLI contract</a>
+          </article>
+          <aside class="warning-panel" aria-labelledby="warning-title">
+            <h2 id="warning-title">Never approve commands silently.</h2>
+            <p>External agents author recipes. UpdateBar validates and gates execution.</p>
+            <p>Approved commands are not sandboxed. They run with your user privileges after explicit approval.</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="faq-section shell" aria-labelledby="faq-title">
+        <div class="section-heading">
+          <h2 id="faq-title">CLI and agent questions</h2>
+        </div>
+        <div class="faq-grid">
+          <div class="faq-list">
+            <details>
+              <summary>Can an agent approve a recipe automatically?</summary>
+              <p>No. Agents must show command fields to the user and wait for explicit confirmation before approval.</p>
+            </details>
+            <details>
+              <summary>What recipe formats are supported?</summary>
+              <p>UpdateBar accepts a single recipe JSON object or a manifest containing recipe items.</p>
+            </details>
+            <details>
+              <summary>Is status safe for read-only automation?</summary>
+              <p>Yes. <code>status --json</code> reads stored state without executing shell commands or network requests.</p>
+            </details>
+          </div>
+          <div class="faq-list">
+            <details>
+              <summary>How does UpdateBar handle secrets?</summary>
+              <p>Validation rejects literal secret-like values in stored recipe fields, and captured output uses secret redaction.</p>
+            </details>
+            <details>
+              <summary>Which platforms have published CLI assets?</summary>
+              <p>Published CLI binaries currently target Apple Silicon macOS and Linux x86_64.</p>
+            </details>
+            <details>
+              <summary>Does UpdateBar contain an AI model?</summary>
+              <p>No. Recipe generation belongs to external tools. UpdateBar provides deterministic validation, trust, and execution behavior.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="subpage-cta shell" aria-labelledby="reference-title">
+        <div>
+          <h2 id="reference-title">Build against the documented contract.</h2>
+          <p>Use the CLI reference for command signatures, output formats, and exit codes.</p>
+        </div>
+        <a class="button button--secondary" href="https://github.com/sonim1/UpdateBar/blob/main/docs/cli.md">Read the CLI reference</a>
+      </section>
+    </main>
+
+    <footer class="site-footer shell">
+      <div class="footer-brand">
+        <a class="brand brand--footer" href="/">
+          <img src="/AppIcon-256.png" alt="" width="30" height="30">
+          <span>UpdateBar</span>
+        </a>
+        <p>External agents author recipes. Users keep command approval.</p>
+      </div>
+      <nav aria-label="Footer navigation">
+        <a href="/">Home</a>
+        <a href="/macos/">macOS</a>
+        <a href="https://github.com/sonim1/UpdateBar/blob/main/docs/manifest.md">Manifest</a>
+        <a href="https://github.com/sonim1/UpdateBar/blob/main/docs/security.md">Security</a>
+      </nav>
+    </footer>
+  </body>
+</html>

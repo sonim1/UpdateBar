@@ -657,6 +657,10 @@ h3 {
   margin: 0;
 }
 
+.command-row--stacked {
+  margin-top: 10px !important;
+}
+
 .workflow-list {
   padding: 0;
   margin: 0;

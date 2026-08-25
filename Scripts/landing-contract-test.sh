@@ -97,7 +97,7 @@ if grep -RqiE 'src="https?://' "${pages[@]}" docs/404.html; then
   echo 'landing page images must be served locally' >&2
   exit 1
 fi
-if grep -RqiE 'updatebar (apply|inspect)|fully sandboxed|safe to run arbitrary|auto-approve|built-in AI|99\.9%|trusted by' "${pages[@]}"; then
+if grep -RqiE 'updatebar (apply|inspect)|fully sandboxed|safe to run arbitrary|auto-approve|built-in AI|99\.9%|(^|[^[:alnum:]_])trusted by' "${pages[@]}"; then
   echo 'landing pages contain an unsupported command or claim' >&2
   exit 1
 fi
