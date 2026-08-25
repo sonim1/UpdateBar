@@ -1,7 +1,7 @@
 # UpdateBar Landing Page Polish Design
 
-**Date:** 2026-08-25  
-**Status:** Approved direction  
+**Date:** 2026-08-25
+**Status:** Approved direction
 **Primary goal:** Increase perceived trust and product quality while making the Homebrew install action more prominent.
 
 ## Relationship to the existing design
