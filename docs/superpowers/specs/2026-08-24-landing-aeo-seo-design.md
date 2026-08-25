@@ -54,7 +54,7 @@ Purpose: define UpdateBar broadly, establish trust, and route visitors to the ri
 
 Required content:
 
-- exact title: `UpdateBar — macOS App & CLI for Updating Developer Tools`;
+- exact title: `UpdateBar | macOS App and CLI for Updating Developer Tools`;
 - exact `h1`: `Update developer tools from one trusted place.`;
 - a 40–60 word opening answer identifying UpdateBar as a macOS app and CLI that tracks local tools, compares versions, and runs only explicitly approved update commands;
 - the existing product demo and Homebrew install section;
@@ -71,7 +71,7 @@ Purpose: answer the intent behind a native macOS developer-tool updater and conv
 
 Required content:
 
-- exact title: `UpdateBar for macOS — Update Developer Tools from the Menu Bar`;
+- exact title: `UpdateBar for macOS | Update Developer Tools from the Menu Bar`;
 - exact `h1`: `Update developer tools from your Mac menu bar.`;
 - support statement: macOS 13 or later, with published app assets currently targeting Apple Silicon;
 - supported tracking examples: Homebrew, npm, GitHub releases, files, and custom recipes;
@@ -114,6 +114,65 @@ Every page must follow these rules:
 - Keep installation commands exact and consistent with `docs/install.md`.
 
 FAQ content exists to help users and answer engines understand the product. The design does not depend on `FAQPage` rich results, and no FAQ structured data is required.
+
+## Visual Design Direction
+
+Read this as a preservation-focused redesign of a technical product landing site for macOS developers and CLI/agent users. The visual language is calm, native, and trust-first rather than futuristic or AI-themed.
+
+Design dials:
+
+- `DESIGN_VARIANCE: 6` - asymmetric enough to avoid a template-like centered composition while remaining easy to scan;
+- `MOTION_INTENSITY: 3` - static product storytelling with hover, focus, and active feedback only;
+- `VISUAL_DENSITY: 4` - documentation-level substance with landing-page spacing.
+
+System rules:
+
+- preserve the existing dark graphite theme across every section and page;
+- use the existing electric blue as the single interface accent; the original app icon keeps its brand artwork but does not introduce additional UI accent colors;
+- retain the system sans-serif stack and monospace only for commands;
+- use 14-16px radii for content panels, 10-12px radii for controls, and a larger 20px radius only for product screenshot frames;
+- use real UpdateBar screenshots as product imagery; never recreate the Dashboard or terminal as decorative fake UI;
+- use borders, spacing, and background tone before shadows or glass effects;
+- keep navigation to one line and no taller than 72px on desktop;
+- use no em dash, numbered section label, decorative status dot, scroll cue, testimonial, fake metric, or unrelated logo in visible page content;
+- use no automatic carousel or screenshot animation; show a stable representative image and place additional real screenshots in the relevant narrative sections;
+- preserve visible focus, reduced-motion behavior, and mobile single-column collapse.
+
+### Home composition
+
+Use a 42/58 asymmetric split hero. The left side contains the product definition, one macOS install CTA, and one CLI/agent route CTA. The right side contains the real Overview screenshot at a readable scale. Move platform and trust details below the hero so the first viewport remains limited to the headline, concise answer, CTAs, and product image.
+
+Below the hero:
+
+1. two unequal audience route panels, with macOS slightly wider because it carries the primary install conversion while both routes retain equal hierarchy;
+2. one full-width trust-boundary statement containing explicit approval, no telemetry, and the honest non-sandbox fact;
+3. a non-numbered `Scan`, `Review`, `Update` flow separated by space and connectors rather than three generic cards;
+4. a compact FAQ and focused footer.
+
+### macOS composition
+
+Use a split hero with installation copy on the left and the real Overview screenshot on the right. Follow it with a compact capability band, then a vertical product narrative that uses the real Overview, Items, and Logs screenshots at varied scales. Do not repeat three identical image-and-copy rows: one state may span the full content width while the other two use offset compositions.
+
+Place the command approval and non-sandbox statement in one high-contrast full-width boundary panel. Group requirements and FAQ content beneath it, followed by one final Homebrew CTA.
+
+### CLI and agents composition
+
+Use an asymmetric split hero with the product definition and agent-guide CTA on the left. The right side is a real HTML command sheet, not terminal chrome or a rasterized code image.
+
+The command sheet and workflow may show only commands documented by the repository:
+
+```text
+updatebar guide agent
+updatebar template recipe --kind npm --id my-tool --source my-tool > recipe.json
+updatebar validate recipe.json --json --explain
+updatebar add --from recipe.json --dry-run --json
+updatebar add --from recipe.json --json
+updatebar approvals my-tool --json
+```
+
+Follow with a non-numbered `Author`, `Validate`, `Dry run`, `Import and review` workflow. Pair the JSON/JSONL contract explanation with a prominent warning that agents never approve commands silently, approved commands are not sandboxed, and approved commands run with user privileges. Finish with grouped FAQ content and one repeated `Open the agent guide` CTA.
+
+Generated mockups are directional references only. Their rasterized text and any invented command or product claim must not be copied. The implementation source of truth remains repository documentation and tests.
 
 ## Metadata and Structured Data
 
