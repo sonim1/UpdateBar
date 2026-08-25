@@ -824,3 +824,20 @@ h2 em {
     display: none;
   }
 }
+
+.not-found {
+  display: grid;
+  min-height: calc(100dvh - 160px);
+  align-content: center;
+  justify-items: start;
+  padding-block: 80px;
+}
+
+.not-found h1 {
+  max-width: 760px;
+}
+
+.not-found > p:not(.eyebrow) {
+  max-width: 560px;
+  color: var(--text-soft);
+}
