@@ -79,7 +79,7 @@ h3 {
 
 h1 {
   margin-bottom: 22px;
-  font-size: clamp(44px, 5.4vw, 76px);
+  font-size: clamp(44px, 4.4vw, 64px);
   font-weight: 760;
   letter-spacing: -0.058em;
   line-height: 0.98;
@@ -223,8 +223,8 @@ h3 {
 .hero--split,
 .page-hero {
   display: grid;
-  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
-  gap: 68px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 56px;
   align-items: center;
 }
 
@@ -255,6 +255,7 @@ h3 {
 .story-media img {
   display: block;
   width: 100%;
+  height: auto;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-media);
   background: var(--canvas-raised);
@@ -512,6 +513,10 @@ h3 {
   padding-block: 88px 104px;
 }
 
+.page-hero h1 {
+  font-size: clamp(42px, 3.75vw, 54px);
+}
+
 .capability-band {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -640,6 +645,11 @@ h3 {
 .command-sheet {
   display: grid;
   gap: 20px;
+  min-width: 0;
+}
+
+.command-block {
+  min-width: 0;
 }
 
 .command-block + .command-block {

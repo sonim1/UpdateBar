@@ -77,7 +77,7 @@ grep -q 'pixelHeight: 630' <<<"$dimensions"
 
 grep -q 'Update developer tools from one trusted place.' docs/index.html
 grep -q 'Update developer tools from your Mac menu bar.' docs/macos/index.html
-grep -q 'A deterministic update CLI for developers and AI agents.' docs/cli-agents/index.html
+grep -q 'A deterministic CLI for developers and AI agents.' docs/cli-agents/index.html
 grep -q 'updatebar guide agent' docs/cli-agents/index.html
 grep -q 'updatebar validate recipe.json --json --explain' docs/cli-agents/index.html
 grep -q 'updatebar add --from recipe.json --dry-run --json' docs/cli-agents/index.html
