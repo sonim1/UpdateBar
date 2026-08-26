@@ -81,5 +81,7 @@ grep -q 'prefers-reduced-motion: reduce' "$style"
 grep -q 'demo-frame--poster' "$page"
 grep -q '.demo-motion-toggle:checked ~ .demo-window' "$style"
 grep -q 'animation-play-state: paused' "$style"
+grep -q -- '--surface-glass:' "$style"
+grep -q 'grid-auto-flow: dense' "$style"
 
 echo 'landing contract passed'

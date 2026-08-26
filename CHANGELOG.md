@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.6.20 - 2026-08-26
+
+### Changed
+
+- Refined the landing page hierarchy, product framing, and installation path
+  while preserving its static, responsive, and reduced-motion behavior.
+
 ## 0.6.19 - 2026-08-24
 
 ### Fixed
