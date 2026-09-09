@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.22 - 2026-09-09
+
 ### Changed
 
 - Added dedicated macOS and CLI guides, structured metadata, discovery files,
