@@ -120,7 +120,7 @@ def validate(workflow)
     assert(marker_run.include?(fragment), "artifact marker is missing #{fragment}")
   end
   upload = verify_steps.fetch("Upload CLI artifact")
-  assert(upload["uses"] == "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02", "CLI upload must use reviewed SHA")
+  assert(upload["uses"] == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "CLI upload must use reviewed SHA")
   assert(upload.dig("with", "path").include?("release-marker"), "each CLI artifact must carry its provenance marker")
   assert(upload.dig("with", "retention-days") == 7, "intermediate CLI artifacts must keep their short retention")
   assert(!verify.to_s.match?(/build-app|generate-appcast|publish-release|R2_ACCESS/i), "verify must not package or publish")
@@ -169,7 +169,7 @@ def validate(workflow)
     assert(stage.include?(fragment), "immutable bundle staging is missing #{fragment}")
   end
   bundle_upload = package_steps.fetch("Upload immutable release bundle for failed-job retry")
-  assert(bundle_upload["uses"] == "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02", "bundle upload must use reviewed SHA")
+  assert(bundle_upload["uses"] == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "bundle upload must use reviewed SHA")
   assert(bundle_upload["with"] == {
     "name" => "updatebar-release-${{ env.RELEASE_TAG }}", "path" => "release-bundle/",
     "if-no-files-found" => "error", "retention-days" => 30, "include-hidden-files" => false
@@ -213,7 +213,7 @@ def validate(workflow)
   notify_steps = step_map(notify)
   assert(notify.fetch("steps").map { |step| step["name"] } == ["Checkout verified release commit", "Verify release commit", "Create tap GitHub App token", "Notify Homebrew tap"], "notify steps must stay retryable and isolated")
   token = notify_steps.fetch("Create tap GitHub App token")
-  assert(token["uses"] == "actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42", "tap token action must use reviewed SHA")
+  assert(token["uses"] == "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1", "tap token action must use reviewed SHA")
   assert(token["with"] == { "app-id" => "${{ vars.TAP_GITHUB_APP_ID }}", "private-key" => "${{ secrets.TAP_GITHUB_APP_PRIVATE_KEY }}", "owner" => "sonim1", "repositories" => "homebrew-tap", "permission-contents" => "write" }, "tap token must be scoped to homebrew-tap contents write")
   assert(notify_steps.fetch("Notify Homebrew tap")["run"] == 'Scripts/dispatch-homebrew-update.sh "$RELEASE_TAG"', "notify must dispatch the exact published tag")
   assert(!notify.to_s.match?(/build-app|generate-appcast|publish-release|R2_ACCESS|APPLE_CERTIFICATE/), "notify must not rebuild or republish")
