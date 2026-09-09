@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.21 - 2026-09-09
+
 ### Changed
 
 - Replaced the primary menu bar menu with a native popover that preserves item
