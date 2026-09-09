@@ -6,8 +6,8 @@ WORKFLOW="$ROOT/.github/workflows/ci.yml"
 [[ -f "$WORKFLOW" ]] || { echo "CI workflow is missing" >&2; exit 1; }
 
 ruby -rpsych -ropen3 -rtmpdir -rfileutils -rshellwords - "$WORKFLOW" <<'RUBY'
-CHECKOUT_ACTION = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
-TOKEN_ACTION = "actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42"
+CHECKOUT_ACTION = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+TOKEN_ACTION = "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1"
 LANE_IF = "${{ always() }}"
 GUARD_IF = "${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || needs.version.result != 'success' || needs.version.outputs.ready != 'true') }}"
 CI_REF = "${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}"

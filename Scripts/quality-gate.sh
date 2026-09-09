@@ -63,6 +63,11 @@ bash -n "${RELEASE_SYNTAX_SCRIPTS[@]}"
 echo "running quality gate contract checks"
 bash Scripts/quality-gate-contract-test.sh
 
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  echo "running landing contract checks"
+  bash Scripts/landing-contract-test.sh
+fi
+
 echo "running PR version preparation checks"
 bash Scripts/prepare-pr-version-test.sh
 

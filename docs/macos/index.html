@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="UpdateBar for macOS tracks local developer tools, shows what is outdated, and runs only update commands you explicitly approve.">
+    <title>UpdateBar for macOS | Update Developer Tools from the Menu Bar</title>
+    <link rel="canonical" href="https://updatebar.royjen.com/macos/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="UpdateBar">
+    <meta property="og:title" content="UpdateBar for macOS | Update tools from your menu bar">
+    <meta property="og:description" content="See what is outdated, review exact command access, and update approved tools from one native macOS app.">
+    <meta property="og:url" content="https://updatebar.royjen.com/macos/">
+    <meta property="og:image" content="https://updatebar.royjen.com/og-updatebar.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="UpdateBar for macOS | Update tools from your menu bar">
+    <meta name="twitter:description" content="See what is outdated, review exact command access, and update approved tools from one native macOS app.">
+    <meta name="twitter:image" content="https://updatebar.royjen.com/og-updatebar.png">
+    <link rel="icon" href="/favicon.png">
+    <link rel="stylesheet" href="/landing.css">
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://updatebar.royjen.com/#software",
+            "name": "UpdateBar",
+            "url": "https://updatebar.royjen.com/",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "macOS 13 and later",
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "downloadUrl": "https://github.com/sonim1/UpdateBar/releases/latest",
+            "codeRepository": "https://github.com/sonim1/UpdateBar",
+            "license": "https://github.com/sonim1/UpdateBar/blob/main/LICENSE",
+            "featureList": [
+              "Native macOS menu bar app and Dashboard",
+              "Track local developer tools",
+              "Require exact command fingerprint approval",
+              "Bundle the UpdateBar CLI",
+              "Operate without telemetry"
+            ]
+          },
+          {
+            "@type": "WebPage",
+            "@id": "https://updatebar.royjen.com/macos/#webpage",
+            "url": "https://updatebar.royjen.com/macos/",
+            "name": "UpdateBar for macOS | Update Developer Tools from the Menu Bar",
+            "description": "UpdateBar for macOS tracks local developer tools, shows what is outdated, and runs only update commands you explicitly approve.",
+            "about": {
+              "@id": "https://updatebar.royjen.com/#software"
+            }
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <header class="site-header shell">
+      <a class="brand" href="/" aria-label="UpdateBar home">
+        <img src="/AppIcon-256.png" alt="" width="30" height="30">
+        <span>UpdateBar</span>
+      </a>
+      <nav class="header-nav" aria-label="Primary navigation">
+        <a class="nav-link" aria-current="page" href="/macos/">macOS</a>
+        <a class="nav-link" href="/cli-agents/">CLI &amp; agents</a>
+        <a class="nav-link nav-link--optional" href="https://github.com/sonim1/UpdateBar">GitHub</a>
+        <a class="button button--small button--secondary" href="#install">Install</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="page-hero shell" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">UpdateBar for macOS</p>
+          <h1 id="hero-title">Update developer tools from your Mac menu bar.</h1>
+          <p class="hero-lede">See what is outdated, review the exact command access, and update approved tools from one native macOS app.</p>
+          <div class="hero-actions">
+            <a class="button button--primary" href="#install">Install with Homebrew</a>
+            <a class="button button--secondary" href="/cli-agents/">Explore the CLI</a>
+          </div>
+        </div>
+        <figure class="product-frame">
+          <img src="/demo/overview.webp" alt="UpdateBar Dashboard Overview on macOS" width="1556" height="904" fetchpriority="high" decoding="async">
+          <figcaption>A native Dashboard for the tools already on your Mac.</figcaption>
+        </figure>
+      </section>
+
+      <section class="capability-band shell" aria-label="UpdateBar workflow">
+        <article>
+          <h2>Scan</h2>
+          <p>Discover supported tools without changing your UpdateBar registry.</p>
+        </article>
+        <article>
+          <h2>Review</h2>
+          <p>Compare versions and inspect exact command fields before approval.</p>
+        </article>
+        <article>
+          <h2>Update</h2>
+          <p>Run one or many approved updates from the Dashboard or menu bar.</p>
+        </article>
+      </section>
+
+      <section class="product-story shell" aria-labelledby="story-title">
+        <div class="section-heading">
+          <h2 id="story-title">Keep update state visible.</h2>
+          <p>UpdateBar puts discovery, approval, progress, and history in one native surface without hiding what runs.</p>
+        </div>
+        <div class="story-list">
+          <article class="story-row story-row--wide">
+            <div class="story-copy">
+              <p class="panel-label">Scan</p>
+              <h3>See what needs attention.</h3>
+              <p>Track Homebrew, npm, GitHub releases, files, and custom recipes through one clear status model.</p>
+            </div>
+            <figure class="story-media">
+              <img src="/demo/overview.webp" alt="Overview showing outdated and approval counts" width="1556" height="904" loading="lazy" decoding="async">
+            </figure>
+          </article>
+
+          <article class="story-row">
+            <div class="story-copy">
+              <p class="panel-label">Review</p>
+              <h3>Understand versions and approval state.</h3>
+              <p>Inspect current and latest versions, then review the exact command fields that require access before anything runs.</p>
+            </div>
+            <figure class="story-media">
+              <img src="/demo/approval.webp" alt="Items view showing current, latest, and approval status" width="1556" height="904" loading="lazy" decoding="async">
+            </figure>
+          </article>
+
+          <article class="story-row story-row--reverse">
+            <div class="story-copy">
+              <p class="panel-label">Update</p>
+              <h3>Keep a readable history.</h3>
+              <p>Watch bounded update progress and review recorded outcomes without giving up the same deterministic core used by the CLI.</p>
+            </div>
+            <figure class="story-media">
+              <img src="/demo/history.webp" alt="Logs view showing completed UpdateBar update events" width="1556" height="904" loading="lazy" decoding="async">
+            </figure>
+          </article>
+        </div>
+      </section>
+
+      <section class="boundary-panel shell" aria-labelledby="boundary-title">
+        <div class="trust-mark" aria-hidden="true">✓</div>
+        <div>
+          <h2 id="boundary-title">Commands run only after explicit approval.</h2>
+          <p>Imported and discovered command fields stay gated by exact fingerprints. Approved commands are not sandboxed and still run with your user privileges.</p>
+        </div>
+        <a class="text-link" href="https://github.com/sonim1/UpdateBar/blob/main/docs/security.md">Read the security model</a>
+      </section>
+
+      <section class="requirements-section shell" aria-labelledby="requirements-title">
+        <div class="section-heading">
+          <h2 id="requirements-title">What the macOS app includes</h2>
+        </div>
+        <div class="requirements-grid">
+          <article class="info-panel">
+            <h3>Requirements and distribution</h3>
+            <ul class="fact-list">
+              <li>macOS 13+</li>
+              <li>Apple Silicon release assets</li>
+              <li>Signed &amp; notarized</li>
+              <li>Bundled <code>updatebar</code> CLI</li>
+              <li>No telemetry</li>
+              <li>Homebrew cask installation</li>
+            </ul>
+          </article>
+          <article class="info-panel">
+            <h3>Common questions</h3>
+            <div class="faq-list">
+              <details>
+                <summary>Does the app update tools automatically?</summary>
+                <p>No. Update commands require exact approval and an explicit update action.</p>
+              </details>
+              <details>
+                <summary>Does the cask include the CLI?</summary>
+                <p>Yes. The cask installs the app and links its bundled CLI onto your Homebrew path.</p>
+              </details>
+              <details>
+                <summary>Can I remove UpdateBar without deleting its data?</summary>
+                <p>Yes. Uninstalling the cask does not automatically remove your local registry and logs.</p>
+              </details>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="subpage-cta shell" id="install" aria-labelledby="install-title">
+        <div>
+          <h2 id="install-title">Install the app and bundled CLI.</h2>
+          <p>Use the signed Homebrew cask for the normal macOS setup.</p>
+        </div>
+        <div class="install-stack">
+          <div class="source-command" aria-label="Homebrew install command">
+            <span class="source-command__prompt" aria-hidden="true">$</span>
+            <code>brew install --cask sonim1/tap/updatebar-app</code>
+          </div>
+          <div class="inline-links">
+            <a href="https://github.com/sonim1/UpdateBar/blob/main/docs/install.md">Installation guide</a>
+            <a href="https://github.com/sonim1/UpdateBar/releases/latest">Latest release</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer shell">
+      <div class="footer-brand">
+        <a class="brand brand--footer" href="/">
+          <img src="/AppIcon-256.png" alt="" width="30" height="30">
+          <span>UpdateBar</span>
+        </a>
+        <p>A native update surface with an explicit command boundary.</p>
+      </div>
+      <nav aria-label="Footer navigation">
+        <a href="/">Home</a>
+        <a href="/cli-agents/">CLI &amp; agents</a>
+        <a href="https://github.com/sonim1/UpdateBar/blob/main/docs/menu-bar.md">Menu bar docs</a>
+        <a href="https://github.com/sonim1/UpdateBar">GitHub</a>
+      </nav>
+    </footer>
+  </body>
+</html>

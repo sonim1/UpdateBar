@@ -101,7 +101,7 @@ jobs:
     steps:
       - name: Create version GitHub App token
         id: version-token
-        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
         with:
           app-id: ${{ vars.VERSION_GITHUB_APP_ID }}
           private-key: ${{ secrets.VERSION_GITHUB_APP_PRIVATE_KEY }}
@@ -110,7 +110,7 @@ jobs:
           permission-contents: write
 
       - name: Checkout pull request head
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -276,7 +276,7 @@ jobs:
           set -euo pipefail
           echo "pull request version gate is not ready: policy=$POLICY_RESULT version=$VERSION_RESULT ready=$VERSION_READY" >&2
           exit 1
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
@@ -312,7 +312,7 @@ jobs:
           set -euo pipefail
           echo "pull request version gate is not ready: policy=$POLICY_RESULT version=$VERSION_RESULT ready=$VERSION_READY" >&2
           exit 1
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
