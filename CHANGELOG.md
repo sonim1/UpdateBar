@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed
+
+- Added dedicated macOS and CLI guides, structured metadata, discovery files,
+  and a custom 404 page while retaining the current landing page design.
+- Updated TUI development dependencies and pinned GitHub Actions, with workflow
+  contract checks aligned to the reviewed action revisions.
+
 ## 0.6.21 - 2026-09-09
 
 ### Changed

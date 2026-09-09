@@ -1,0 +1,22 @@
+# UpdateBar
+
+UpdateBar is a macOS app and CLI for tracking local developer tools, comparing installed and latest versions, and running only update commands the user explicitly approves.
+
+## Product routes
+
+- macOS app: https://updatebar.royjen.com/macos/
+- CLI and external agents: https://updatebar.royjen.com/cli-agents/
+- Source and documentation: https://github.com/sonim1/UpdateBar
+
+## Trust boundary
+
+Imported and agent-authored recipes start untrusted. UpdateBar validates recipe data and requires explicit approval of exact command fingerprints before execution. Approved commands are not sandboxed. They run with the user's privileges using an allowlisted environment plus time and output limits.
+
+UpdateBar has no built-in AI recipe generation and does not approve commands automatically. External agents may author recipe JSON, but they must never approve commands silently.
+
+## Canonical references
+
+- Installation: https://github.com/sonim1/UpdateBar/blob/main/docs/install.md
+- CLI reference: https://github.com/sonim1/UpdateBar/blob/main/docs/cli.md
+- Manifest format: https://github.com/sonim1/UpdateBar/blob/main/docs/manifest.md
+- Security: https://github.com/sonim1/UpdateBar/blob/main/docs/security.md
