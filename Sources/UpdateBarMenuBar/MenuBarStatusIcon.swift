@@ -48,14 +48,16 @@ extension MenuBarState {
 
         public init() {}
 
-        public func image(for state: MenuBarStatusIconState) -> NSImage {
+        public func image(for state: MenuBarStatusIconState, showsBadge: Bool = true) -> NSImage {
             let image = NSImage(size: Self.imageSize, flipped: false) { _ in
                 NSGraphicsContext.current?.shouldAntialias = true
                 NSColor.black.setFill()
                 NSColor.black.setStroke()
                 drawBrandMark()
-                clearBadgeBackdrop()
-                drawBadge(for: state)
+                if showsBadge {
+                    clearBadgeBackdrop()
+                    drawBadge(for: state)
+                }
                 return true
             }
             image.isTemplate = true

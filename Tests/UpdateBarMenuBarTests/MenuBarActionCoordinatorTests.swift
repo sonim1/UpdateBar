@@ -117,6 +117,52 @@ final class MenuBarActionCoordinatorTests: XCTestCase {
         XCTAssertEqual(action.progress.totalCount, 1)
     }
 
+    func testCompletedUpdateRetainsDistinctResultsAcrossChecks() throws {
+        let coordinator = MenuBarActionCoordinator()
+        let action = try XCTUnwrap(coordinator.begin("Updating", isUpdate: true))
+        action.apply(.planned([planItem(id: "success"), planItem(id: "failure")]))
+        action.apply(.itemFinished(updateResult(id: "success")))
+        action.apply(.itemFinished(updateResult(id: "failure", outcome: .failed)))
+        coordinator.finish(action, outcome: .finished)
+
+        XCTAssertEqual(coordinator.lastUpdateProgress.completedCount, 2)
+        XCTAssertEqual(coordinator.lastUpdateProgress.succeededIDs, ["success"])
+        XCTAssertEqual(coordinator.lastUpdateProgress.failedIDs, ["failure"])
+        let check = try XCTUnwrap(coordinator.begin("Checking"))
+        coordinator.finish(check, outcome: .finished)
+        XCTAssertEqual(coordinator.lastUpdateProgress.failedIDs, ["failure"])
+    }
+
+    func testStoppedUpdateRetainsUnstartedItemsWithoutCallingThemFailed() throws {
+        let coordinator = MenuBarActionCoordinator()
+        let action = try XCTUnwrap(coordinator.begin("Updating", isUpdate: true))
+        action.apply(.planned([planItem(id: "active"), planItem(id: "queued")]))
+        action.apply(.itemStarted(id: "active", name: "active"))
+        coordinator.stopActive()
+        action.apply(.itemFinished(updateResult(id: "active")))
+        coordinator.finish(action, outcome: .finished)
+
+        XCTAssertTrue(coordinator.lastUpdateWasStopped)
+        XCTAssertEqual(coordinator.lastUpdateProgress.completedCount, 1)
+        XCTAssertEqual(coordinator.lastUpdateProgress.totalCount, 2)
+        XCTAssertEqual(coordinator.lastUpdateProgress.failedIDs, [])
+        XCTAssertNil(coordinator.lastUpdateProgress.resultsByID["queued"])
+    }
+
+    func testFailedRetryPrecheckPreservesPreviousFailureForRecovery() throws {
+        let coordinator = MenuBarActionCoordinator()
+        let first = try XCTUnwrap(coordinator.begin("Updating", isUpdate: true))
+        first.apply(.planned([planItem(id: "failure")]))
+        first.apply(.itemFinished(updateResult(id: "failure", outcome: .failed)))
+        coordinator.finish(first, outcome: .finished)
+        let retry = try XCTUnwrap(coordinator.begin("Rechecking before retry", isUpdate: true))
+
+        coordinator.finish(retry, outcome: .failed)
+
+        XCTAssertEqual(coordinator.lastUpdateProgress.failedIDs, ["failure"])
+        XCTAssertEqual(coordinator.lastActionNotice, "Failed: Rechecking before retry")
+    }
+
     private func planItem(id: String, decision: UpdatePlanDecision = .willUpdate) -> UpdatePlanItem
     {
         UpdatePlanItem(

@@ -10,6 +10,23 @@
     final class UpdateBarMenuBarApp: NSObject, NSApplicationDelegate {
         private static var bootstrapDelegate: UpdateBarMenuBarApp?
         private var statusItem: NSStatusItem?
+        private var secondaryMenu = NSMenu()
+        private var isRefreshing = false
+        private var popoverError: String?
+        private lazy var popoverController = MenuBarPopoverController(
+            actions: MenuBarPopoverActions(
+                check: { [weak self] in self?.checkNow() },
+                update: { [weak self] ids in self?.update(ids: ids) },
+                retry: { [weak self] ids in self?.retryFailedUpdates(ids: ids) },
+                setApproval: { [weak self] id, status, approving in
+                    self?.setReviewedApproval(id: id, reviewed: status, approving: approving)
+                },
+                stop: { [weak self] in self?.stopCurrentAction() },
+                dashboard: { [weak self] section in self?.showDashboard(section) },
+                more: { [weak self] in self?.showSecondaryMenu() }
+            ),
+            supportsStopping: !(service is UpdateBarCLIClient)
+        )
         private var service: (any MenuBarServicing)?
         private var cliPath = ""
         private let formatter = MenuBarStatusFormatter()
@@ -95,7 +112,10 @@
             statusButton.title = ""
             statusButton.toolTip = "UpdateBar"
             statusButton.setAccessibilityIdentifier("updatebar-status-button")
-            statusButton.imagePosition = .imageOnly
+            statusButton.imagePosition = .imageLeading
+            statusButton.target = self
+            statusButton.action = #selector(statusButtonClicked(_:))
+            statusButton.sendAction(on: [.leftMouseUp, .rightMouseUp])
             setStatusIcon(.checking, accessibilityLabel: "UpdateBar checking")
             rebuildMenu()
             ProcessInfo.processInfo.disableAutomaticTermination("UpdateBar menu bar app running")
@@ -115,6 +135,26 @@
             Self.bootstrapDelegate = nil
         }
 
+        @objc private func statusButtonClicked(_ sender: NSStatusBarButton) {
+            if NSApp.currentEvent?.type == .rightMouseUp
+                || NSApp.currentEvent?.modifierFlags.contains(.control) == true
+            {
+                showSecondaryMenu()
+            } else {
+                popoverController.toggle(relativeTo: sender)
+            }
+        }
+
+        private func showSecondaryMenu() {
+            guard let button = statusItem?.button else { return }
+            popoverController.close()
+            secondaryMenu.popUp(
+                positioning: nil,
+                at: NSPoint(x: 0, y: button.bounds.minY),
+                in: button
+            )
+        }
+
         @objc private func checkNow() {
             runAction("Checking for updates") { [service] action in
                 try service?.checkNow(cancellationToken: action.token)
@@ -122,7 +162,7 @@
         }
 
         @objc private func updateAllApproved() {
-            runAction("Updating approved items") { [service] action in
+            runAction("Updating approved items", isUpdate: true) { [service] action in
                 try service?.updateAllApproved(
                     cancellationToken: action.token,
                     onEvent: self.progressHandler(for: action),
@@ -150,12 +190,43 @@
                 ids.count == 1
                 ? "Updating \(ids[0])"
                 : "Updating \(ids.count) selected items"
-            runAction(title) { [service] action in
+            runAction(title, isUpdate: true) { [service] action in
                 try service?.update(
                     ids: ids,
                     cancellationToken: action.token,
                     onEvent: self.progressHandler(for: action),
                     stopSignal: action.stopSignal
+                )
+            }
+        }
+
+        private func retryFailedUpdates(ids: [String]) {
+            let failed = Set(actionCoordinator.lastUpdateProgress.failedIDs)
+            let selected = ids.filter { failed.contains($0) }
+            guard !selected.isEmpty else { return }
+            let title =
+                selected.count == 1
+                ? "Retrying 1 failed item" : "Retrying \(selected.count) failed items"
+            runAction(title, isUpdate: true) { [service] action in
+                try service?.retryFailedUpdates(
+                    ids: selected,
+                    cancellationToken: action.token,
+                    onEvent: self.progressHandler(for: action),
+                    stopSignal: action.stopSignal
+                )
+            }
+        }
+
+        private func setReviewedApproval(
+            id: String, reviewed: CommandApprovalStatus, approving: Bool
+        ) {
+            let verb = approving ? "Approving" : "Revoking"
+            runAction("\(verb) \(id) \(reviewed.field)") { [service] action in
+                try service?.setReviewedApproval(
+                    id: id,
+                    reviewed: reviewed,
+                    approving: approving,
+                    cancellationToken: action.token
                 )
             }
         }
@@ -207,6 +278,7 @@
         }
 
         @objc private func stopCurrentAction() {
+            guard !(service is UpdateBarCLIClient) else { return }
             guard actionCoordinator.stopActive() != nil else { return }
             rebuildMenu()
         }
@@ -241,6 +313,7 @@
                 showError(MenuBarStartupError.serviceUnavailable)
                 return
             }
+            popoverController.close()
             activateApplicationForWindowedUI()
             if dashboardPanelController == nil {
                 dashboardPanelController = DashboardPanelController(
@@ -390,13 +463,15 @@
 
         private func refreshStatus(refresh: Bool) {
             let refreshToken = refreshGenerationGate.begin()
+            isRefreshing = true
+            updatePopover()
             let presentationMode = MenuBarRefreshPolicy.presentationMode(
                 activeActionTitle: actionCoordinator.activeAction?.title
             )
             if presentationMode == .showLoading {
                 setStatusIcon(.checking, accessibilityLabel: "UpdateBar checking")
                 let loadingMenu = menuBuilder.makeLoadingMenu()
-                statusItem?.menu = makeMenu(from: loadingMenu)
+                secondaryMenu = makeMenu(from: loadingMenu)
             }
             DispatchQueue.global(qos: .userInitiated).async {
                 [service, formatter, dashboardModel] in
@@ -425,6 +500,8 @@
                         self.latestState = state
                         self.approvalStatuses = approvals
                         self.latestUpdateHistory = updateHistory
+                        self.isRefreshing = false
+                        self.popoverError = nil
                         self.rebuildMenu()
                         self.dashboardPanelController?.reloadIfShown()
                     }
@@ -456,13 +533,16 @@
 
         private func runAction(
             _ title: String,
+            isUpdate: Bool = false,
             _ action: @escaping @Sendable (MenuBarActiveAction) throws -> Void
         ) {
-            guard let activeAction = actionCoordinator.begin(title) else {
+            guard let activeAction = actionCoordinator.begin(title, isUpdate: isUpdate) else {
                 rebuildMenu()
                 return
             }
             refreshGenerationGate.invalidate()
+            isRefreshing = false
+            popoverError = nil
             rebuildMenu()
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
@@ -509,8 +589,6 @@
 
         private var pendingMenuRebuild = false
 
-        /// Progress events arrive faster than a menu is worth rebuilding, and
-        /// replacing statusItem.menu while it is open flickers.
         private func scheduleThrottledMenuRebuild() {
             guard !pendingMenuRebuild else { return }
             pendingMenuRebuild = true
@@ -522,7 +600,7 @@
         }
 
         private func rebuildMenu() {
-            guard let statusItem else {
+            guard statusItem != nil else {
                 Self.debugLog("cannot rebuild menu before status item exists")
                 return
             }
@@ -539,6 +617,10 @@
                     .checking,
                     accessibilityLabel: "UpdateBar running \(activeAction.title)"
                 )
+            } else if isRefreshing {
+                setStatusIcon(.checking, accessibilityLabel: "UpdateBar refreshing status")
+            } else if popoverError != nil {
+                setStatusIcon(.attention, accessibilityLabel: "UpdateBar error")
             } else {
                 setStatusIcon(
                     latestState.statusIconState,
@@ -554,7 +636,23 @@
                 isStopRequested: activeAction?.isStopRequested ?? false,
                 lastActionNotice: activeAction == nil ? actionCoordinator.lastActionNotice : nil
             )
-            statusItem.menu = makeMenu(from: model)
+            secondaryMenu = makeMenu(from: model)
+            updatePopover()
+        }
+
+        private func updatePopover() {
+            let action = actionCoordinator.activeAction
+            popoverController.update(
+                state: latestState,
+                approvals: approvalStatuses,
+                progress: action?.progress ?? actionCoordinator.lastUpdateProgress,
+                activeActionTitle: action?.title,
+                isUpdateAction: action?.isUpdate ?? false,
+                isRefreshing: isRefreshing,
+                stopRequested: action?.isStopRequested ?? actionCoordinator.lastUpdateWasStopped,
+                notice: action == nil ? actionCoordinator.lastActionNotice : nil,
+                errorMessage: popoverError
+            )
         }
 
         private func makeMenu(from model: MenuBarMenuModel) -> NSMenu {
@@ -618,8 +716,14 @@
                 to: menuItem
             )
             switch action {
-            case .menu, .stopCurrentAction:
+            case .menu:
                 break
+            case .stopCurrentAction:
+                if service is UpdateBarCLIClient {
+                    menuItem.action = nil
+                    menuItem.isEnabled = false
+                    menuItem.toolTip = "Stopping after active commands is unavailable in CLI mode."
+                }
             case .update(let id):
                 menuItem.representedObject = ItemAction(id: id)
             case .approve(let id, let field), .revoke(let id, let field):
@@ -637,17 +741,19 @@
         private func showError(_ error: Error) {
             let errorDescription = SecretRedactor.redact(String(describing: error))
             Self.debugLog("showing error: \(errorDescription)")
+            isRefreshing = false
             guard actionCoordinator.activeAction == nil else {
                 rebuildMenu()
                 return
             }
             refreshGenerationGate.invalidate()
+            popoverError = errorDescription
             setStatusIcon(.attention, accessibilityLabel: "UpdateBar error")
-            guard let statusItem else { return }
             let model = menuBuilder.makeErrorMenu(
                 errorDescription: errorDescription
             )
-            statusItem.menu = makeMenu(from: model)
+            secondaryMenu = makeMenu(from: model)
+            updatePopover()
             dashboardPanelController?.showErrorIfShown(error)
         }
 
@@ -657,11 +763,15 @@
         ) {
             guard let button = statusItem?.button else { return }
             if renderedStatusIconState != state {
-                button.image = statusIconRenderer.image(for: state)
+                button.image = statusIconRenderer.image(
+                    for: state,
+                    showsBadge: state == .checking || state == .attention
+                        || latestState.outdatedItems.isEmpty
+                )
                 renderedStatusIconState = state
             }
-            button.title = ""
-            button.imagePosition = .imageOnly
+            button.title = state == .checking ? "" : latestState.badgeValue ?? ""
+            button.imagePosition = .imageLeading
             button.setAccessibilityLabel(accessibilityLabel)
         }
 

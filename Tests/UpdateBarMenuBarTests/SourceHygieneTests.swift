@@ -51,12 +51,13 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(source.contains("appendLog(message)"))
     }
 
-    func testMenuBarStatusItemUsesImageOnlyBrandedStatusStates() throws {
+    func testMenuBarStatusItemUsesBrandedIconAndActionableBadge() throws {
         let sourceURL = URL(
             fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
-        XCTAssertTrue(source.contains("statusButton.imagePosition = .imageOnly"))
+        XCTAssertTrue(source.contains("statusButton.imagePosition = .imageLeading"))
+        XCTAssertTrue(source.contains("latestState.badgeValue ?? \"\""))
         XCTAssertTrue(source.contains("setStatusIcon(.checking"))
         XCTAssertTrue(source.contains("latestState.statusIconState"))
         XCTAssertTrue(source.contains("setStatusIcon(.attention"))
@@ -111,9 +112,9 @@ final class SourceHygieneTests: XCTestCase {
             in: source
         )
 
-        XCTAssertTrue(updateSource.contains("runAction(\"Updatingapproveditems\")"))
+        XCTAssertTrue(updateSource.contains("runAction(\"Updatingapproveditems\",isUpdate:true)"))
         XCTAssertTrue(updateSource.contains("update(ids:[id])"))
-        XCTAssertTrue(updateSource.contains("runAction(title)"))
+        XCTAssertTrue(updateSource.contains("runAction(title,isUpdate:true)"))
         XCTAssertFalse(updateSource.contains("confirm("))
     }
 
@@ -151,7 +152,10 @@ final class SourceHygieneTests: XCTestCase {
                 "guardactionCoordinator.activeAction==nilelse{rebuildMenu()return}"
             )
         )
-        XCTAssertTrue(refreshSource.contains("statusItem?.menu=makeMenu("))
+        XCTAssertTrue(refreshSource.contains("secondaryMenu=makeMenu("))
+        XCTAssertTrue(refreshSource.contains("isRefreshing=trueupdatePopover()"))
+        XCTAssertTrue(refreshSource.contains("self.isRefreshing=falseself.popoverError=nil"))
+        XCTAssertFalse(refreshSource.contains("latestState=MenuBarState("))
 
         let runActionSource = try functionSource(
             named: "private func runAction(",
@@ -289,17 +293,20 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(scan.contains("Update failed"))
     }
 
-    func testMenuBarStatusItemUsesNativeMenuRouting() throws {
+    func testMenuBarStatusItemRoutesPrimaryPopoverAndSecondaryMenu() throws {
         let source = try String(
             contentsOf: URL(
                 fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
             encoding: .utf8
         )
-        XCTAssertFalse(source.contains("statusButton.target"))
-        XCTAssertFalse(source.contains("statusButton.action"))
-        XCTAssertFalse(source.contains("statusButton.sendAction"))
-        XCTAssertFalse(source.contains("togglePopover"))
-        XCTAssertFalse(source.contains("MenuBarPopoverController"))
+        XCTAssertTrue(source.contains("statusButton.target = self"))
+        XCTAssertTrue(source.contains("statusButton.action = #selector(statusButtonClicked(_:))"))
+        XCTAssertTrue(source.contains("statusButton.sendAction(on: [.leftMouseUp, .rightMouseUp])"))
+        XCTAssertTrue(source.contains("popoverController.toggle(relativeTo: sender)"))
+        XCTAssertTrue(source.contains("NSApp.currentEvent?.type == .rightMouseUp"))
+        XCTAssertTrue(source.contains("secondaryMenu.popUp("))
+        XCTAssertFalse(source.contains("statusItem.menu ="))
+        XCTAssertFalse(source.contains("statusItem?.menu ="))
 
         let rebuildSource = try functionSource(
             named: "private func rebuildMenu()",
@@ -307,7 +314,8 @@ final class SourceHygieneTests: XCTestCase {
             in: source
         )
         XCTAssertTrue(rebuildSource.contains("letmodel=menuBuilder.makeMenu("))
-        XCTAssertTrue(rebuildSource.contains("statusItem.menu=makeMenu(from:model)"))
+        XCTAssertTrue(rebuildSource.contains("secondaryMenu=makeMenu(from:model)"))
+        XCTAssertTrue(rebuildSource.contains("updatePopover()"))
 
         let errorSource = try functionSource(
             named: "private func showError(",
@@ -315,15 +323,21 @@ final class SourceHygieneTests: XCTestCase {
             in: source
         )
         XCTAssertTrue(errorSource.contains("letmodel=menuBuilder.makeErrorMenu("))
-        XCTAssertTrue(errorSource.contains("statusItem.menu=makeMenu(from:model)"))
+        XCTAssertTrue(errorSource.contains("secondaryMenu=makeMenu(from:model)"))
+        XCTAssertTrue(errorSource.contains("popoverError=errorDescription"))
+        XCTAssertTrue(errorSource.contains("updatePopover()"))
     }
 
-    func testCustomPopoverSourcesAreRemoved() {
+    func testPopoverUsesStableHostingAndLeavesDashboardInItsWindow() throws {
+        let controller = try String(
+            contentsOfFile: "Sources/UpdateBarMenuBarApp/MenuBarPopoverController.swift",
+            encoding: .utf8
+        )
+        XCTAssertTrue(controller.contains("NSPopover"))
+        XCTAssertTrue(controller.contains("NSHostingController"))
+        XCTAssertTrue(controller.contains(".transient"))
+        XCTAssertTrue(controller.contains("visibleFrame"))
         let paths = [
-            "Sources/UpdateBarMenuBarApp/MenuBarPopoverView.swift",
-            "Sources/UpdateBarMenuBarApp/MenuBarPopoverController.swift",
-            "Sources/UpdateBarMenuBar/MenuBarPopoverModel.swift",
-            "Tests/UpdateBarMenuBarTests/MenuBarPopoverModelTests.swift",
             "Sources/UpdateBarMenuBarApp/DashboardPopoverView.swift",
             "Sources/UpdateBarMenuBarApp/DashboardPopoverController.swift",
             "Sources/UpdateBarMenuBar/DashboardPopoverModel.swift",
@@ -519,9 +533,8 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertEqual(source.components(separatedBy: "DashboardPanelController(").count - 1, 1)
         XCTAssertFalse(source.contains("NSMenuDelegate"))
         XCTAssertFalse(source.contains("menu.delegate = self"))
-        XCTAssertFalse(source.contains("statusButton.target"))
-        XCTAssertFalse(source.contains("statusButton.action"))
-        XCTAssertFalse(source.contains("statusButton.sendAction"))
+        XCTAssertTrue(
+            compact.contains("popoverController.close()activateApplicationForWindowedUI()"))
         XCTAssertTrue(compact.contains("dashboardPanelController?.reloadIfShown()"))
     }
 

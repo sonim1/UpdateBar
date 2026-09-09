@@ -5,13 +5,15 @@ public final class MenuBarActiveAction: @unchecked Sendable {
     public let title: String
     public let token: CancellationToken
     public let stopSignal: UpdateStopSignal
+    public let isUpdate: Bool
     /// Main-queue only. The app hops before applying progress events.
     public private(set) var progress = MenuBarItemProgress()
 
-    init(title: String, token: CancellationToken) {
+    init(title: String, token: CancellationToken, isUpdate: Bool = false) {
         self.title = title
         self.token = token
         self.stopSignal = UpdateStopSignal()
+        self.isUpdate = isUpdate
     }
 
     public var isStopRequested: Bool { stopSignal.isStopRequested }
@@ -25,7 +27,7 @@ public final class MenuBarActiveAction: @unchecked Sendable {
     }
 }
 
-public enum MenuBarActionOutcome {
+public enum MenuBarActionOutcome: Equatable {
     case finished
     case cancelled
     case failed
@@ -34,15 +36,18 @@ public enum MenuBarActionOutcome {
 public final class MenuBarActionCoordinator {
     public private(set) var activeAction: MenuBarActiveAction?
     public private(set) var lastActionNotice: String?
+    public private(set) var lastUpdateProgress = MenuBarItemProgress()
+    public private(set) var lastUpdateWasStopped = false
 
     public init() {}
 
-    public func begin(_ title: String) -> MenuBarActiveAction? {
+    public func begin(_ title: String, isUpdate: Bool = false) -> MenuBarActiveAction? {
         if let activeAction {
             lastActionNotice = "Already running: \(activeAction.title)"
             return nil
         }
-        let action = MenuBarActiveAction(title: title, token: CancellationToken())
+        let action = MenuBarActiveAction(
+            title: title, token: CancellationToken(), isUpdate: isUpdate)
         activeAction = action
         lastActionNotice = nil
         return action
@@ -61,10 +66,19 @@ public final class MenuBarActionCoordinator {
 
     public func finish(_ action: MenuBarActiveAction, outcome: MenuBarActionOutcome) {
         guard activeAction === action else { return }
+        if action.isUpdate {
+            if !action.progress.isEmpty || (outcome == .finished && !action.isStopRequested) {
+                lastUpdateProgress = action.progress
+            }
+            lastUpdateWasStopped = action.isStopRequested
+        }
         activeAction = nil
         switch outcome {
         case .finished:
-            lastActionNotice = "Finished: \(action.title)"
+            lastActionNotice =
+                action.isUpdate && action.isStopRequested
+                ? "Stopped after running items finished"
+                : "Finished: \(action.title)"
         case .cancelled:
             lastActionNotice = "Cancelled: \(action.title)"
         case .failed:

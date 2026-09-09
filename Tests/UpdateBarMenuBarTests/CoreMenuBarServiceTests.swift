@@ -365,6 +365,105 @@ final class CoreMenuBarServiceTests: XCTestCase {
         XCTAssertEqual(Set(recorder.finishedIDs), Set(["alpha", "beta"]))
     }
 
+    func testReviewedApprovalRejectsChangedCommandWithoutApprovingIt() throws {
+        let paths = AppPaths(homeDirectory: try temporaryDirectory())
+        let store = ManifestStore(paths: paths)
+        var item = recipe(id: "tool", updateCommand: "tool update", currentCommand: "tool current")
+        item.trust.approvedCommands.removeValue(forKey: "update.cmd")
+        try store.save(manifest(items: [item]))
+        let service = CoreMenuBarService(paths: paths)
+        let reviewed = try XCTUnwrap(
+            service.approvals(id: "tool").first { $0.field == "update.cmd" })
+        item.update.cmd = "tool changed-update"
+        try store.save(manifest(items: [item]))
+
+        XCTAssertThrowsError(
+            try service.setReviewedApproval(id: "tool", reviewed: reviewed, approving: true)
+        ) { error in
+            XCTAssertTrue(error is MenuBarCommandReviewError)
+        }
+        let current = try service.approvals(id: "tool").first { $0.field == "update.cmd" }
+        XCTAssertEqual(current?.approved, false)
+        XCTAssertEqual(current?.command, "tool changed-update")
+    }
+
+    func testReviewedApprovalApprovesOnlyDisplayedFieldWithoutRunningCommands() throws {
+        let paths = AppPaths(homeDirectory: try temporaryDirectory())
+        var item = recipe(id: "tool", updateCommand: "tool update", currentCommand: "tool current")
+        item.trust.approvedCommands = [:]
+        try ManifestStore(paths: paths).save(manifest(items: [item]))
+        let commands = RecordingCommandRunner(results: [:])
+        let service = CoreMenuBarService(paths: paths, commandRunner: commands)
+        let reviewed = try XCTUnwrap(
+            service.approvals(id: "tool").first { $0.field == "update.cmd" })
+
+        try service.setReviewedApproval(id: "tool", reviewed: reviewed, approving: true)
+
+        XCTAssertEqual(
+            try service.approvals(id: "tool").filter(\.approved).map(\.field), ["update.cmd"])
+        XCTAssertTrue(commands.commands.isEmpty)
+    }
+
+    func testRetryRechecksErrorStateAndUpdatesOnlyFailedIDs() throws {
+        let paths = AppPaths(homeDirectory: try temporaryDirectory())
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "failed", updateCommand: "failed update", currentCommand: "failed current"),
+                recipe(id: "other", updateCommand: "other update", currentCommand: "other current"),
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "failed": ItemState(
+                        current: "1.0.0", latest: "1.1.0", status: .error, lastChecked: now,
+                        error: "Update failed", backoffUntil: nil),
+                    "other": ItemState(
+                        current: "1.0.0", latest: "1.1.0", status: .outdated, lastChecked: now,
+                        error: nil, backoffUntil: nil),
+                ]))
+        let commands = RecordingCommandRunner(results: [
+            "failed current": CommandResult(exitCode: 0, stdout: "1.0.0", stderr: ""),
+            "failed latest": CommandResult(exitCode: 0, stdout: "1.1.0", stderr: ""),
+            "failed update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
+            "other current": CommandResult(exitCode: 0, stdout: "1.0.0", stderr: ""),
+            "other latest": CommandResult(exitCode: 0, stdout: "1.1.0", stderr: ""),
+        ])
+        let service = CoreMenuBarService(paths: paths, commandRunner: commands)
+
+        try service.retryFailedUpdates(ids: ["failed"])
+
+        let calls = commands.commands.map(\.command)
+        XCTAssertEqual(calls.filter { $0 == "failed update" }.count, 1)
+        XCTAssertFalse(calls.contains("other update"))
+        let check = try XCTUnwrap(calls.firstIndex(of: "failed current"))
+        let update = try XCTUnwrap(calls.firstIndex(of: "failed update"))
+        XCTAssertLessThan(check, update)
+    }
+
+    func testRetryReportsUnsuccessfulPrecheckWithoutStartingAnUpdate() throws {
+        let paths = AppPaths(homeDirectory: try temporaryDirectory())
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(
+                    id: "failed", updateCommand: "failed update", currentCommand: "failed current")
+            ]))
+        let commands = RecordingCommandRunner(results: [
+            "failed current": CommandResult(exitCode: 1, stdout: "", stderr: "Sample check error"),
+            "failed latest": CommandResult(exitCode: 0, stdout: "1.1.0", stderr: ""),
+            "failed update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
+        ])
+        let service = CoreMenuBarService(paths: paths, commandRunner: commands)
+
+        XCTAssertThrowsError(try service.retryFailedUpdates(ids: ["failed"])) { error in
+            XCTAssertTrue(error is MenuBarRetryCheckError)
+        }
+
+        XCTAssertFalse(commands.commands.map(\.command).contains("failed update"))
+        XCTAssertEqual(try service.status(refresh: false).items.first?.status, .error)
+    }
+
     private func manifest(items: [Recipe]) -> Manifest {
         Manifest(
             schemaVersion: 1,

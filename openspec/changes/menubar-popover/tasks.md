@@ -1,0 +1,5 @@
+- [x] Implement stable native popover and presentation model.
+- [x] Integrate status button, refresh, approvals, progress and failed-only retry.
+- [x] Verify model/service boundaries and preserve relevant source contracts.
+- [x] Pass formatting and Scripts/quality-gate.sh.
+- [x] Exercise packaged app with isolated data; record native visual and functional review.

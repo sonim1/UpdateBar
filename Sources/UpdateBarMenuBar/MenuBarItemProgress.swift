@@ -8,6 +8,7 @@ public struct MenuBarItemProgress: Equatable, Sendable {
     }
     public var inFlightIDs: Set<String> = []
     public var finishedIDs: Set<String> = []
+    public private(set) var resultsByID: [String: UpdateResult] = [:]
 
     private var plannedLookup: Set<String> = []
 
@@ -19,6 +20,12 @@ public struct MenuBarItemProgress: Equatable, Sendable {
 
     public var totalCount: Int { plannedIDs.count }
     public var completedCount: Int { finishedIDs.count }
+    public var failedIDs: [String] {
+        plannedIDs.filter { resultsByID[$0]?.outcome == .failed }
+    }
+    public var succeededIDs: [String] {
+        plannedIDs.filter { resultsByID[$0]?.outcome == .updated }
+    }
 
     public mutating func apply(_ event: UpdateProgressEvent) {
         switch event {
@@ -27,6 +34,9 @@ public struct MenuBarItemProgress: Equatable, Sendable {
             // date. Only the ones that will actually run belong in the
             // counter, otherwise the menu opens at "(47/50)".
             plannedIDs = plan.filter { $0.decision == .willUpdate }.map(\.id)
+            inFlightIDs = []
+            finishedIDs = []
+            resultsByID = [:]
         case .itemStarted(let id, _):
             guard plannedLookup.contains(id) else { return }
             inFlightIDs.insert(id)
@@ -34,6 +44,7 @@ public struct MenuBarItemProgress: Equatable, Sendable {
             guard plannedLookup.contains(result.id) else { return }
             inFlightIDs.remove(result.id)
             finishedIDs.insert(result.id)
+            resultsByID[result.id] = result
         }
     }
 }

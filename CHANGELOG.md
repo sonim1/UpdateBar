@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Changed
+
+- Replaced the primary menu bar menu with a native popover that preserves item
+  selection and scroll position, with fixed status and action areas.
+- Added inline command and working-directory review, retained update results,
+  graceful stopping, and rechecking before retrying failed items only.
+- Kept Dashboard and the secondary menu available, with clear first-run,
+  current, error, and CLI-adapter states.
+
 ## 0.6.20 - 2026-08-26
 
 ### Changed
