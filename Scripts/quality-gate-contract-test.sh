@@ -40,6 +40,7 @@ fi
 ruby -e '
   quality_gate = File.binread(ARGV.fetch(0))
   expected_contracts = %w[
+    Scripts/landing-contract-test.sh
     Scripts/prepare-pr-version-test.sh
     Scripts/plan-release-test.sh
     Scripts/ci-workflow-test.sh

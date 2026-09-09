@@ -10,6 +10,7 @@
   and a custom 404 page while retaining the current landing page design.
 - Updated TUI development dependencies and pinned GitHub Actions, with workflow
   contract checks aligned to the reviewed action revisions.
+- Enforced landing metadata, navigation, and demo checks in the macOS quality gate.
 
 ## 0.6.21 - 2026-09-09
 
