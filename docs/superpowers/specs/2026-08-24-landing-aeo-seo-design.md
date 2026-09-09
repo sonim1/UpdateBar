@@ -1,7 +1,7 @@
 # UpdateBar Landing AEO/SEO Design
 
-**Date:** 2026-08-24  
-**Status:** Approved design  
+**Date:** 2026-08-24\
+**Status:** Approved design\
 **Baseline:** `origin/main` at `f9e89b6` (`v0.6.19`)
 
 ## Goal
