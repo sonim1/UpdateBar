@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Changed
+
+- Replaced Dashboard Items table with status sections and selectable update cards,
+  sharing the menu bar’s approved targets and real update progress.
+- Added all, selected and search-visible update actions, separate command review
+  and attention groups, and collapsed current/paused inventory.
+- Kept command approval, graceful stopping, failed-update retry and tracking
+  controls available from Items without changing command trust rules.
+
 ## 0.6.22 - 2026-09-09
 
 ### Changed

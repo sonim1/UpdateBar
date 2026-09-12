@@ -14,7 +14,11 @@
         private var isRefreshing = false
         private var popoverError: String?
         private lazy var popoverController = MenuBarPopoverController(
-            actions: MenuBarPopoverActions(
+            actions: itemActions,
+            supportsStopping: !(service is UpdateBarCLIClient)
+        )
+        private var itemActions: MenuBarPopoverActions {
+            MenuBarPopoverActions(
                 check: { [weak self] in self?.checkNow() },
                 update: { [weak self] ids in self?.update(ids: ids) },
                 retry: { [weak self] ids in self?.retryFailedUpdates(ids: ids) },
@@ -24,9 +28,8 @@
                 stop: { [weak self] in self?.stopCurrentAction() },
                 dashboard: { [weak self] section in self?.showDashboard(section) },
                 more: { [weak self] in self?.showSecondaryMenu() }
-            ),
-            supportsStopping: !(service is UpdateBarCLIClient)
-        )
+            )
+        }
         private var service: (any MenuBarServicing)?
         private var cliPath = ""
         private let formatter = MenuBarStatusFormatter()
@@ -321,17 +324,13 @@
                     onItemsChanged: { [weak self] in
                         self?.refreshStatus(refresh: false)
                     },
-                    onUpdateItems: { [weak self] ids in
-                        self?.update(ids: ids)
-                    },
+                    itemActions: itemActions,
                     onCheckForUpdates: { [weak self] in
                         self?.updaterController.checkForUpdates(nil)
                     }
                 )
             }
-            dashboardPanelController?.applyActionState(
-                isBusy: actionCoordinator.activeAction != nil
-            )
+            updatePopover()
             dashboardPanelController?.applySidebarQueue(
                 SidebarUpdateQueueModel.make(
                     outdatedItems: latestState.outdatedItems,
@@ -605,7 +604,6 @@
                 return
             }
             let activeAction = actionCoordinator.activeAction
-            dashboardPanelController?.applyActionState(isBusy: activeAction != nil)
             dashboardPanelController?.applySidebarQueue(
                 SidebarUpdateQueueModel.make(
                     outdatedItems: latestState.outdatedItems,
@@ -653,6 +651,7 @@
                 notice: action == nil ? actionCoordinator.lastActionNotice : nil,
                 errorMessage: popoverError
             )
+            dashboardPanelController?.applyItemsModel(popoverController.store.model)
         }
 
         private func makeMenu(from model: MenuBarMenuModel) -> NSMenu {
