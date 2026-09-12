@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.23 - 2026-09-12
+
 ### Changed
 
 - Replaced Dashboard Items table with status sections and selectable update cards,
