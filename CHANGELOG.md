@@ -18,6 +18,8 @@
 - Sized the sidebar update-summary button background to contain both text lines.
 - Kept the Dashboard window size stable when opening Templates, with long content
   scrolling inside the panel.
+- Prevented an Items layout loop after filtering or completing updates, and
+  stopped showing an in-progress stop message after a batch had finished.
 
 ## 0.6.22 - 2026-09-09
 

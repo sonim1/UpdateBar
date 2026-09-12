@@ -20,7 +20,7 @@
                 toolbar
                 Divider()
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: ItemsLayout.section) {
+                    VStack(alignment: .leading, spacing: ItemsLayout.section) {
                         notices
                         progressSummary
                         inventory
@@ -217,7 +217,9 @@
         }
 
         private var progressSubtitle: String {
-            if store.model.stopRequested { return store.model.stopMessage }
+            if store.model.isUpdating && store.model.stopRequested {
+                return store.model.stopMessage
+            }
             let progress = store.model.progress
             guard progress.totalCount > 0 else {
                 return store.model.activeActionTitle ?? "Update in progress"
