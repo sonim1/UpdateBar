@@ -23,3 +23,6 @@ Unique concise titles/descriptions reflect visible content. Canonical, OpenGraph
 
 ## 7. Accepted debt
 Existing static HTML repeats shared navigation and metadata; retain this small three-page architecture. Native screenshots use isolated fixture data. CJK localization is outside the current English site. Production audit depends on app release and site publication authorization.
+
+## 8. Stable media URLs
+Retain the existing overview.webp, approval.webp and history.webp URLs and their CSS slots while refreshing the native captures to ready, selected-running and completed states. This keeps the existing asset contract and avoids triggering an unrelated app release through a Scripts/ change. Visible captions and alt text describe the actual new images.
