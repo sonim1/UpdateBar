@@ -16,6 +16,8 @@
 ### Fixed
 
 - Sized the sidebar update-summary button background to contain both text lines.
+- Kept the Dashboard window size stable when opening Templates, with long content
+  scrolling inside the panel.
 
 ## 0.6.22 - 2026-09-09
 

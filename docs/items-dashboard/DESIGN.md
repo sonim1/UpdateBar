@@ -10,7 +10,7 @@ Replace the seven-column table with vertical status groups. Provider categories 
 
 Use system adaptive colors, system typography, SF Symbols, and native controls. Blue indicates action/selection, orange review, red attention, and green current status. Text and icons carry meaning independently of color. Monograms identify tools without external assets.
 
-Keep the existing sidebar and window. The default window is 1000×700 with a 760×420 minimum. Ready cards use an adaptive grid with a 310-point minimum column width. The fixed toolbar sits above one vertical content scroll area. Compact rows contain non-ready items. Use 6/12/20/24-point layout spacing, 10-point card corners, tonal fills, and thin separators. Long names and commands wrap.
+Keep the existing sidebar and window. The default content size is 1000×700 with a 760×420 minimum. Ready cards use an adaptive grid with a 310-point minimum column width. The fixed toolbar sits above one vertical content scroll area. Compact rows contain non-ready items. Use 6/12/20/24-point layout spacing, 10-point card corners, tonal fills, and thin separators. Long names and commands wrap.
 
 ## Actions and state
 
