@@ -13,6 +13,10 @@
 - Kept command approval, graceful stopping, failed-update retry and tracking
   controls available from Items without changing command trust rules.
 
+### Fixed
+
+- Sized the sidebar update-summary button background to contain both text lines.
+
 ## 0.6.22 - 2026-09-09
 
 ### Changed

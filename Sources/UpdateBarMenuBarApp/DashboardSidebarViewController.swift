@@ -160,7 +160,7 @@
                 action: #selector(openItems)
             )
             button.identifier = NSUserInterfaceItemIdentifier("sidebar-updates-summary")
-            button.bezelStyle = .rounded
+            button.bezelStyle = .regularSquare
             let imageView = NSImageView(
                 image: NSImage(
                     systemSymbolName: "arrow.down.circle.fill",
