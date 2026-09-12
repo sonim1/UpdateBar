@@ -10,7 +10,7 @@ icon='docs/AppIcon-256.png'
 favicon='docs/favicon.png'
 headers='docs/_headers'
 demo_dir='docs/demo'
-demo_assets=(overview.webp approval.webp history.webp)
+demo_assets=(items.webp selected.webp completed.webp)
 pages=(
   'docs/index.html'
   'docs/macos/index.html'
@@ -165,7 +165,7 @@ for asset in "${demo_assets[@]}"; do
   total_bytes=$((total_bytes + asset_bytes))
 done
 test "$(find "$demo_dir" -maxdepth 1 -type f -name '*.webp' | wc -l | tr -d ' ')" = 3
-poster_bytes="$(wc -c < "$demo_dir/overview.webp" | tr -d ' ')"
+poster_bytes="$(wc -c < "$demo_dir/items.webp" | tr -d ' ')"
 test "$poster_bytes" -le 358400 || {
   echo "landing demo poster exceeds 350 KiB: $poster_bytes bytes" >&2
   exit 1
@@ -178,7 +178,7 @@ test "$total_bytes" -le 1572864 || {
 for asset in "${demo_assets[@]}"; do
   grep -Rq "demo/$asset" "${pages[@]}"
 done
-test "$(grep -oE 'src="/?demo/(overview|approval|history)\.webp"' "$home_page" | sort -u | wc -l | tr -d ' ')" = 3
+test "$(grep -oE 'src="/?demo/(items|selected|completed)\.webp"' "$home_page" | sort -u | wc -l | tr -d ' ')" = 3
 grep -q -- '--demo-cycle: 9s' "$style"
 grep -q '@keyframes demo-overview' "$style"
 grep -q '@keyframes demo-approval' "$style"
