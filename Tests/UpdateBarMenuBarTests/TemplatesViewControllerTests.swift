@@ -154,6 +154,37 @@
             XCTAssertGreaterThanOrEqual(commandField.frame.width, 140)
         }
 
+        func testTemplatesStayWithinDashboardHeightAndScrollOverflow() throws {
+            let controller = TemplatesViewController(writeToPasteboard: { _ in true })
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 760, height: 420),
+                styleMask: [.titled],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentViewController = controller
+            window.setContentSize(NSSize(width: 760, height: 420))
+            let initialFrame = window.frame
+            window.layoutIfNeeded()
+
+            let scrollView = try XCTUnwrap(
+                descendants(of: NSScrollView.self, in: controller.view).first {
+                    $0.identifier?.rawValue == "template-scroll"
+                }
+            )
+            let documentView = try XCTUnwrap(scrollView.documentView)
+            let overflow = documentView.frame.height - scrollView.contentView.bounds.height
+
+            scrollView.contentView.scroll(
+                to: NSPoint(x: 0, y: max(0, overflow))
+            )
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+
+            XCTAssertEqual(window.frame, initialFrame)
+            XCTAssertGreaterThan(overflow, 0)
+            XCTAssertGreaterThan(scrollView.contentView.bounds.origin.y, 0)
+        }
+
         private func sendAction(from control: NSControl) {
             guard let action = control.action else {
                 XCTFail("Control has no action")

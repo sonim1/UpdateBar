@@ -69,7 +69,10 @@ final class HistoryLogPresentationTests: XCTestCase {
             let controller = DashboardPanelController(
                 service: service,
                 onItemsChanged: {},
-                onUpdateItems: { _ in },
+                itemActions: MenuBarPopoverActions(
+                    check: {}, update: { _ in }, retry: { _ in },
+                    setApproval: { _, _, _ in }, stop: {}, dashboard: { _ in }, more: {}
+                ),
                 onCheckForUpdates: {}
             )
 

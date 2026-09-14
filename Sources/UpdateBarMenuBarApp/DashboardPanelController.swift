@@ -29,7 +29,7 @@
         init(
             service: any MenuBarServicing,
             onItemsChanged: @escaping () -> Void,
-            onUpdateItems: @escaping ([String]) -> Void,
+            itemActions: MenuBarPopoverActions,
             onCheckForUpdates: @escaping () -> Void
         ) {
             self.service = service
@@ -41,11 +41,13 @@
             aboutViewController = AboutViewController()
             manageItemsViewController = ManageItemsViewController(
                 service: service,
-                onChanged: onItemsChanged
+                onChanged: onItemsChanged,
+                actions: itemActions,
+                supportsStopping: !(service is UpdateBarCLIClient)
             )
             scanViewController = ScanViewController(service: service, onChanged: {})
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 840, height: 520),
+                contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
@@ -82,10 +84,6 @@
             sidebarViewController.onOpenItems = { [weak self] in
                 self?.select(.items)
             }
-            manageItemsViewController.onRefresh = { [weak self] in
-                self?.reload()
-            }
-            manageItemsViewController.onUpdateItems = onUpdateItems
             manageItemsViewController.onError = { [weak self] error in
                 self?.showErrorIfShown(error)
             }
@@ -118,21 +116,19 @@
             sidebarViewController.apply(updateQueue: queue)
         }
 
-        func applyActionState(isBusy: Bool) {
-            manageItemsViewController.setActionBusy(isBusy)
+        func applyItemsModel(_ model: MenuBarPopoverModel) {
+            manageItemsViewController.apply(model: model)
         }
 
         func showErrorIfShown(_ error: Error) {
             guard window?.isVisible == true else { return }
             reloadGeneration &+= 1
-            manageItemsViewController.showError(error)
             presentDashboardError(error)
         }
 
         func reload() {
             reloadGeneration &+= 1
             let generation = reloadGeneration
-            manageItemsViewController.setLoading()
             DispatchQueue.global(qos: .userInitiated).async { [service, model] in
                 do {
                     let now = Date()
@@ -143,13 +139,11 @@
                         guard generation == self.reloadGeneration else { return }
                         self.apply(summary)
                         self.logsViewController.apply(events: events)
-                        self.manageItemsViewController.apply(items: snapshot.items)
                         self.scanViewController.applyRegisteredItems(snapshot.items)
                     }
                 } catch {
                     DispatchQueue.main.async {
                         guard generation == self.reloadGeneration else { return }
-                        self.manageItemsViewController.showError(error)
                         self.presentDashboardError(error)
                     }
                 }

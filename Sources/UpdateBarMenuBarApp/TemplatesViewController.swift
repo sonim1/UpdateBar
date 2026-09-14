@@ -96,9 +96,6 @@
                     equalTo: scrollView.contentView.trailingAnchor
                 ),
                 categories.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
-                categories.bottomAnchor.constraint(
-                    lessThanOrEqualTo: scrollView.contentView.bottomAnchor
-                ),
             ])
             view = content
         }

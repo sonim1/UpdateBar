@@ -46,8 +46,8 @@ Current scope:
 
 `Dashboard` opens the Dashboard window directly. A left sidebar switches between
 Overview, Items, Scan & Add, Templates, Logs, Settings, and About in the same Dashboard window, with each section
-using native macOS UI. The sidebar, Items, Scan & Add, and Logs use AppKit controls;
-Overview, Settings, and About are SwiftUI-hosted. The sidebar footer shows a single
+using native macOS UI. The sidebar, Scan & Add, and Logs use AppKit controls;
+Items, Overview, Settings, and About are SwiftUI-hosted. The sidebar footer shows a single
 update summary when updates are available. It stays within the sidebar width and
 opens Items without starting an update; individual names, versions, and update actions
 live in Items.
@@ -55,11 +55,16 @@ Overview shows pending-update and
 awaiting-approval counts, last check/update times, and a bar chart of successful
 updates over the last four weeks (from `~/.updatebar/history.jsonl`). Logs shows
 the newest persisted update and check events first, including update result and
-version transition. Items lists every registered item grouped by category with
-a separate enable/disable checkbox. Eligible outdated rows also provide a
-row-level Update action. Users can select one or more eligible rows and run
-Update Selected; only outdated items are selectable. Current, disabled, pinned,
-checking, errored, and approval-blocked rows explain why updating is unavailable.
+version transition. Items shows selectable **Ready to update** cards first,
+followed by separate **Needs review** and **Needs attention** groups. **Up to date**
+and **Paused** inventory starts collapsed. The primary action is **Update all**
+until cards are selected, then becomes **Update selected**. Searching clears the
+selection and scopes **Update visible** to matching eligible tools. Changed
+versions or approvals invalidate stale selections. Command details retain
+explicit per-field approval and enable/disable controls; approval never starts
+an update. Progress, graceful stopping, and failed-item retry share the menu
+bar's current action state. The CLI fallback does not offer unsupported stopping
+or invent per-item progress.
 Templates groups six built-in English prompts under Discover, Configure, and
 Operate. Each card provides task-specific fields, a selectable preview, and an
 icon-only copy action. The page copies prompts without executing commands,
