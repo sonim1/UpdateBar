@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.6.25 - 2026-09-14
+
+### Fixed
+
+- Excluded the landing-page-only contract script from app release classification,
+  alongside landing assets and documentation, while retaining releases for mixed
+  app or packaging changes.
+
 ## 0.6.24 - 2026-09-14
 
 ### Added

@@ -206,6 +206,26 @@ assert_status 65
 assert_output_contains 'does not match requested head'
 assert_worktree_clean
 
+# The exact landing contract is non-release, even without other documentation.
+create_fixture
+printf '#!/usr/bin/env bash\nexit 0\n' > "$REPOSITORY/Scripts/landing-contract-test.sh"
+HEAD_COMMIT="$(commit_all 'landing contract only')"
+run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch
+assert_status 0
+assert_output_equals $'release=false\nchanged=false\nready=true'
+assert_worktree_clean
+
+# App code, packaging, and similarly named scripts must not inherit the exception.
+for relevant_path in Sources/Feature/Feature.swift Scripts/package-app.sh Scripts/landing-contract-test-helper.sh; do
+  create_fixture
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$REPOSITORY/Scripts/landing-contract-test.sh"
+  printf '\n' >> "$REPOSITORY/$relevant_path"
+  HEAD_COMMIT="$(commit_all 'landing contract plus release-relevant file')"
+  run_prepare "$BASE_COMMIT" "$HEAD_COMMIT" patch
+  assert_status 0
+  assert_output_equals $'release=true\nchanged=true\nready=false\nversion=1.2.4'
+done
+
 # Root Markdown, docs/**, and openspec/** changes are documentation-only.
 create_fixture
 printf '\nDocumentation update.\n' >> "$REPOSITORY/README.md"
@@ -213,6 +233,10 @@ printf '# Root notes\n' > "$REPOSITORY/NOTES.markdown"
 mkdir -p "$REPOSITORY/docs/guide" "$REPOSITORY/openspec/changes/example"
 printf '# Guide\n' > "$REPOSITORY/docs/guide/index.md"
 printf '# Spec\n' > "$REPOSITORY/openspec/changes/example/spec.md"
+printf '<h1>Landing</h1>\n' > "$REPOSITORY/docs/index.html"
+printf 'body { color: white; }\n' > "$REPOSITORY/docs/landing.css"
+printf 'void 0;\n' > "$REPOSITORY/docs/install-prompt.js"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$REPOSITORY/Scripts/landing-contract-test.sh"
 HEAD_COMMIT="$(commit_all 'docs only')"
 DOCS_BEFORE="$(owned_fingerprint)"
 OUTPUT_FILE="$TEMP_ROOT/docs-output.env"

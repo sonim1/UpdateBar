@@ -17,8 +17,13 @@ trusted same-repo PR
 CI accepts only trusted pull requests from this repository for write-token
 version preparation. Fork, untrusted-author, and Dependabot pull requests fail
 closed; a maintainer must move an approved change to a maintainer-owned branch
-in `sonim1/UpdateBar`. Root Markdown files, `docs/`, and `openspec/`-only pull
-requests are documentation-only and never release.
+in `sonim1/UpdateBar`. Changes limited to root Markdown files, `docs/`,
+`openspec/`, and the LP-only `Scripts/landing-contract-test.sh` never prepare
+a version or publish an app release. This includes landing HTML, CSS, JavaScript,
+images, and README changes. CI and website deployment can still run.
+
+If app code, packaging, or another release-relevant file is included in the same
+change, normal version preparation and app release rules still apply.
 
 For a code or release pull request, keep nonempty notes under the canonical
 `## Unreleased` heading before the bot's first preparation. After that
