@@ -207,7 +207,7 @@ open_output_file
 DOCS_ONLY=1
 while IFS= read -r -d '' changed_path; do
   case "$changed_path" in
-    docs/* | openspec/*) ;;
+    docs/* | openspec/* | Scripts/landing-contract-test.sh) ;;
     */*) DOCS_ONLY=0 ;;
     *.md | *.markdown) ;;
     *) DOCS_ONLY=0 ;;

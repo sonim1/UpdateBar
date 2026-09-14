@@ -373,7 +373,8 @@ def documentation_only?(base_commit, head_commit)
   paths = changed.split("\0", -1)
   paths.pop if paths.last == ""
   paths.all? do |path|
-    path.start_with?("docs/".b, "openspec/".b) ||
+    path == "Scripts/landing-contract-test.sh".b ||
+      path.start_with?("docs/".b, "openspec/".b) ||
       (!path.include?("/".b) && (path.end_with?(".md".b) || path.end_with?(".markdown".b)))
   end
 end
