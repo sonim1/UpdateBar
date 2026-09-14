@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- Restored the native macOS menu for primary menu bar clicks, matching right-click
+  behavior while keeping the categorized Items interface in Dashboard.
+
 ## 0.6.25 - 2026-09-14
 
 ### Fixed
