@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.26 - 2026-09-14
+
 ### Fixed
 
 - Restored the native macOS menu for primary menu bar clicks, matching right-click
