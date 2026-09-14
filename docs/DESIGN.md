@@ -28,3 +28,6 @@ Existing static HTML repeats shared navigation and metadata; retain this small t
 
 ## 8. Stable media URLs
 Retain the existing overview.webp, approval.webp and history.webp URLs and their CSS slots while refreshing the native captures to ready, selected-running and completed states. This keeps the existing asset contract and avoids triggering an unrelated app release through a Scripts/ change. Visible captions and alt text describe the actual new images.
+
+## 9. Stylesheet publication
+All public HTML pages reference landing.css with its SHA-256 prefix in the v query parameter. Refresh that prefix when the stylesheet changes so returning visitors do not combine new HTML with a cached older layout. Keep the underlying stylesheet path stable.
