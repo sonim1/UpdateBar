@@ -289,20 +289,18 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(scan.contains("Update failed"))
     }
 
-    func testMenuBarStatusItemRoutesPrimaryPopoverAndSecondaryMenu() throws {
+    func testMenuBarStatusItemOpensNativeMenuForPrimaryAndSecondaryClicks() throws {
         let source = try String(
             contentsOf: URL(
                 fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
             encoding: .utf8
         )
-        XCTAssertTrue(source.contains("statusButton.target = self"))
-        XCTAssertTrue(source.contains("statusButton.action = #selector(statusButtonClicked(_:))"))
-        XCTAssertTrue(source.contains("statusButton.sendAction(on: [.leftMouseUp, .rightMouseUp])"))
-        XCTAssertTrue(source.contains("popoverController.toggle(relativeTo: sender)"))
-        XCTAssertTrue(source.contains("NSApp.currentEvent?.type == .rightMouseUp"))
-        XCTAssertTrue(source.contains("secondaryMenu.popUp("))
-        XCTAssertFalse(source.contains("statusItem.menu ="))
-        XCTAssertFalse(source.contains("statusItem?.menu ="))
+        XCTAssertTrue(source.contains("didSet { statusItem?.menu = secondaryMenu }"))
+        XCTAssertFalse(source.contains("statusButton.action ="))
+        XCTAssertFalse(source.contains("statusButton.sendAction("))
+        XCTAssertFalse(source.contains("popoverController.toggle("))
+        XCTAssertFalse(source.contains("secondaryMenu.popUp("))
+        XCTAssertTrue(source.contains("statusItem?.button?.performClick(nil)"))
 
         let rebuildSource = try functionSource(
             named: "private func rebuildMenu()",

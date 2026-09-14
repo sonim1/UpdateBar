@@ -10,7 +10,9 @@
     final class UpdateBarMenuBarApp: NSObject, NSApplicationDelegate {
         private static var bootstrapDelegate: UpdateBarMenuBarApp?
         private var statusItem: NSStatusItem?
-        private var secondaryMenu = NSMenu()
+        private var secondaryMenu = NSMenu() {
+            didSet { statusItem?.menu = secondaryMenu }
+        }
         private var isRefreshing = false
         private var popoverError: String?
         private lazy var popoverController = MenuBarPopoverController(
@@ -116,9 +118,6 @@
             statusButton.toolTip = "UpdateBar"
             statusButton.setAccessibilityIdentifier("updatebar-status-button")
             statusButton.imagePosition = .imageLeading
-            statusButton.target = self
-            statusButton.action = #selector(statusButtonClicked(_:))
-            statusButton.sendAction(on: [.leftMouseUp, .rightMouseUp])
             setStatusIcon(.checking, accessibilityLabel: "UpdateBar checking")
             rebuildMenu()
             ProcessInfo.processInfo.disableAutomaticTermination("UpdateBar menu bar app running")
@@ -138,24 +137,9 @@
             Self.bootstrapDelegate = nil
         }
 
-        @objc private func statusButtonClicked(_ sender: NSStatusBarButton) {
-            if NSApp.currentEvent?.type == .rightMouseUp
-                || NSApp.currentEvent?.modifierFlags.contains(.control) == true
-            {
-                showSecondaryMenu()
-            } else {
-                popoverController.toggle(relativeTo: sender)
-            }
-        }
-
         private func showSecondaryMenu() {
-            guard let button = statusItem?.button else { return }
             popoverController.close()
-            secondaryMenu.popUp(
-                positioning: nil,
-                at: NSPoint(x: 0, y: button.bounds.minY),
-                in: button
-            )
+            statusItem?.button?.performClick(nil)
         }
 
         @objc private func checkNow() {

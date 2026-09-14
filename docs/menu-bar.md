@@ -1,7 +1,8 @@
 # Menu Bar App
 
 The menu bar app is a native Swift/AppKit presentation layer for UpdateBar.
-Clicking the status item opens a native `NSMenu`.
+Clicking, right-clicking, or Control-clicking the status item opens the same native `NSMenu`.
+The categorized Items interface remains available in Dashboard.
 The menu follows the macOS system appearance and is rebuilt from current state using
 standard menu items, separators, submenus, application icons, and checkmarks.
 
