@@ -62,11 +62,25 @@ done
 ruby -rjson -ruri -e '
   titles = []
   descriptions = []
+  readme_prompt = File.read("README.md")[/## Install With AI.*?```text\n(.*?)\n```/m, 1]
+  raise "missing README installation prompt" unless readme_prompt
   ARGV.each do |path|
     html = File.binread(path)
     blocks = html.scan(%r{<script type="application/ld\+json">(.*?)</script>}m).flatten
     raise "missing JSON-LD: #{path}" unless blocks.length == 1
-    raise "unexpected executable script: #{path}" unless html.scan(/<script\b/i).length == 1
+    scripts = html.scan(%r{<script\b[^>]*>.*?</script>}mi)
+    expected_scripts = path == "docs/cli-agents/index.html" ? 1 : 2
+    raise "unexpected script opening tag: #{path}" unless html.scan(/<script\b/i).length == expected_scripts
+    raise "unexpected executable script: #{path}" unless scripts.length == expected_scripts
+    executable = scripts.reject { |script| script.start_with?(%q{<script type="application/ld+json">}) }
+    raise "unexpected executable script: #{path}" unless executable.all? { |script|
+      script == %q{<script src="/install-prompt.js" defer></script>}
+    }
+    unless path == "docs/cli-agents/index.html"
+      prompt = html[/<pre class="source-command ai-install__prompt"[^>]*><code>(.*?)<\/code><\/pre>/m, 1]
+      raise "installation prompt differs from README: #{path}" unless prompt == readme_prompt
+      raise "missing progressive copy button: #{path}" unless html.include?(%q{type="button" hidden>Copy prompt</button>})
+    end
     graph = JSON.parse(blocks.first).fetch("@graph")
     ids = graph.map { |entry| entry["@id"] }
     raise "missing software entity: #{path}" unless ids.include?("https://updatebar.royjen.com/#software")

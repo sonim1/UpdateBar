@@ -76,6 +76,7 @@
         ]
       }
     </script>
+    <script src="/install-prompt.js" defer></script>
   </head>
   <body>
     <header class="site-header shell">
@@ -209,7 +210,7 @@
         </div>
       </section>
 
-      <section class="subpage-cta shell" id="install" aria-labelledby="install-title">
+      <section class="subpage-cta subpage-cta--ai shell" id="install" aria-labelledby="install-title">
         <div>
           <h2 id="install-title">Install the app and bundled CLI.</h2>
           <p>Use the signed Homebrew cask for the normal macOS setup.</p>
@@ -219,6 +220,20 @@
             <span class="source-command__prompt" aria-hidden="true">$</span>
             <code>brew install --cask sonim1/tap/updatebar-app</code>
           </div>
+          <details class="ai-install">
+            <summary>Install with AI</summary>
+            <p>Paste this prompt into a coding agent with terminal access.</p>
+            <pre class="source-command ai-install__prompt" tabindex="0" aria-label="AI installation prompt"><code>Install UpdateBar on this machine using the official instructions:
+https://raw.githubusercontent.com/sonim1/UpdateBar/main/docs/install.md
+
+Check the OS, architecture, and existing installation first. On supported Macs, prefer the app with its bundled CLI; use the CLI-only path on Linux. If this machine is unsupported, explain the options before proceeding.
+
+Preserve existing configuration. Verify installation with updatebar --version and updatebar doctor. Report the results and any steps that still need my input. Do not approve recipes or update tracked tools.</code></pre>
+            <div class="ai-install__actions">
+              <button class="button button--small button--secondary" type="button" hidden>Copy prompt</button>
+              <span role="status" aria-live="polite"></span>
+            </div>
+          </details>
           <div class="inline-links">
             <a href="https://github.com/sonim1/UpdateBar/blob/main/docs/install.md">Installation guide</a>
             <a href="https://github.com/sonim1/UpdateBar/releases/latest">Latest release</a>

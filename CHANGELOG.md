@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.6.24 - 2026-09-14
+
+### Added
+
+- Added a copyable AI installation prompt to the landing page and README,
+  with official installation guidance and configuration-preserving checks.
+
 ## 0.6.23 - 2026-09-12
 
 ### Changed

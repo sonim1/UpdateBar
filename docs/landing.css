@@ -604,6 +604,40 @@ h2 em {
   color: var(--text);
 }
 
+.ai-install {
+  min-width: 0;
+}
+
+.ai-install summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ai-install p,
+.ai-install [role="status"] {
+  color: var(--text-soft);
+  font-size: 14px;
+}
+
+.ai-install__prompt {
+  display: block;
+  margin: 16px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ai-install__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.ai-install [hidden] {
+  display: none;
+}
+
 .how-it-works,
 .features {
   padding-bottom: 144px;
@@ -1294,6 +1328,10 @@ h2 em {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
+}
+
+.subpage-cta--ai {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .subpage-cta h2 {
