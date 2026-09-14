@@ -228,7 +228,7 @@ final class SourceHygieneTests: XCTestCase {
         )
         let items = try String(
             contentsOf: URL(
-                fileURLWithPath: "Sources/UpdateBarMenuBarApp/ManageItemsPanelController.swift"),
+                fileURLWithPath: "Sources/UpdateBarMenuBarApp/ItemsDashboardView.swift"),
             encoding: .utf8
         )
         let scan = try String(
@@ -251,18 +251,14 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(panel.contains("import Charts"))
         XCTAssertTrue(panel.contains("DashboardOverviewView(summary: summary)"))
 
-        XCTAssertTrue(items.contains(#"labelWithString: "Items""#))
-        XCTAssertTrue(items.contains(#"systemSymbolName: "arrow.clockwise""#))
-        XCTAssertTrue(items.contains("DashboardPresentationModel.itemsRefreshHelp"))
-        XCTAssertTrue(items.contains("refreshButton.toolTip"))
-        XCTAssertTrue(items.contains("refreshButton.setAccessibilityLabel"))
-        XCTAssertTrue(items.contains("NSProgressIndicator"))
-        XCTAssertTrue(items.contains("mutationGate.isPending(id:"))
-        XCTAssertTrue(items.contains(#"systemSymbolName: "exclamationmark.triangle.fill""#))
-        XCTAssertFalse(items.contains(#"NSButton(title: "Refresh""#))
-        XCTAssertFalse(items.contains("private let statusLabel"))
-        XCTAssertFalse(items.contains("statusLabel.stringValue"))
-        XCTAssertFalse(items.contains(#"labelWithString: "Ready""#))
+        XCTAssertTrue(items.contains(#"Text("Items")"#))
+        XCTAssertTrue(items.contains(#"Label("Check", systemImage: "arrow.clockwise")"#))
+        XCTAssertTrue(items.contains(#".help("Check approved items for updates")"#))
+        XCTAssertTrue(items.contains(".labelStyle(.iconOnly)"))
+        XCTAssertTrue(items.contains("ProgressView("))
+        XCTAssertTrue(items.contains("store.isMutationPending"))
+        XCTAssertTrue(items.contains(#"symbol: "exclamationmark.triangle""#))
+        XCTAssertFalse(items.contains("NSTableView"))
 
         XCTAssertTrue(scan.contains(#"labelWithString: "Scan & Add""#))
         XCTAssertTrue(scan.contains(#"NSButton(title: "Scan""#))
@@ -414,32 +410,25 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(dashboardCompact.contains("self?.select(.items)"))
 
         XCTAssertTrue(
-            manageItemsCompact.contains(
-                "finalclassManageItemsViewController:NSViewController,NSTableViewDataSource,NSTableViewDelegate"
-            ))
-        XCTAssertTrue(manageItemsSource.contains("func apply(items: [StatusItem]"))
-        XCTAssertTrue(manageItemsSource.contains("var onRefresh: () -> Void"))
-        XCTAssertTrue(manageItemsSource.contains("var onUpdateItems: ([String]) -> Void"))
-        XCTAssertTrue(manageItemsSource.contains("private let updateSelectedButton = NSButton("))
-        XCTAssertTrue(manageItemsSource.contains("title: \"Update Selected (0)\""))
-        XCTAssertTrue(manageItemsSource.contains("@objc private func toggleSelection("))
-        XCTAssertTrue(manageItemsSource.contains("@objc private func updateRow("))
-        XCTAssertTrue(manageItemsSource.contains("@objc private func updateSelectedItems("))
-        XCTAssertTrue(manageItemsSource.contains("setAccessibilityHelp"))
+            manageItemsCompact.contains("finalclassManageItemsViewController:NSViewController"))
+        XCTAssertTrue(manageItemsSource.contains("NSHostingController<ItemsDashboardView>"))
+        XCTAssertTrue(manageItemsSource.contains("func apply(model: MenuBarPopoverModel)"))
+        XCTAssertFalse(manageItemsSource.contains("NSTableView"))
         XCTAssertFalse(manageItemsSource.contains("service.status("))
         XCTAssertFalse(manageItemsSource.contains("service.update("))
         XCTAssertFalse(manageItemsSource.contains("private func present("))
         XCTAssertFalse(manageItemsSource.contains("ManageItemsPanelController"))
         XCTAssertFalse(manageItemsSource.contains("NSPanel("))
         XCTAssertFalse(manageItemsSource.contains("showWindowAndReload"))
+        XCTAssertTrue(dashboardSource.contains("itemActions: MenuBarPopoverActions"))
+        XCTAssertTrue(dashboardSource.contains("actions: itemActions"))
         XCTAssertTrue(
-            dashboardSource.contains("onUpdateItems: @escaping ([String]) -> Void"))
-        XCTAssertTrue(
-            dashboardSource.contains("manageItemsViewController.onUpdateItems = onUpdateItems"))
-        XCTAssertTrue(dashboardSource.contains("func applyActionState(isBusy: Bool)"))
-        XCTAssertTrue(appSource.contains("onUpdateItems: { [weak self] ids in"))
+            dashboardSource.contains("func applyItemsModel(_ model: MenuBarPopoverModel)"))
+        XCTAssertTrue(appSource.contains("actions: itemActions"))
         XCTAssertTrue(appSource.contains("self?.update(ids: ids)"))
-        XCTAssertTrue(appSource.contains("dashboardPanelController?.applyActionState("))
+        XCTAssertTrue(
+            appSource.contains(
+                "dashboardPanelController?.applyItemsModel(popoverController.store.model)"))
         XCTAssertEqual(
             appSource.components(
                 separatedBy: "dashboardPanelController?.applySidebarQueue("
@@ -557,7 +546,11 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(reloadSource.contains("reloadGeneration&+=1"))
         XCTAssertTrue(reloadSource.contains("letgeneration=reloadGeneration"))
         XCTAssertTrue(reloadSource.contains("guardgeneration==self.reloadGenerationelse{return}"))
-        XCTAssertTrue(reloadSource.contains("manageItemsViewController.apply(items:snapshot.items"))
+        XCTAssertFalse(reloadSource.contains("manageItemsViewController.apply(items:"))
+        XCTAssertTrue(
+            compact.contains(
+                "funcapplyItemsModel(_model:MenuBarPopoverModel){manageItemsViewController.apply(model:model)}"
+            ))
         XCTAssertTrue(
             reloadSource.contains("scanViewController.applyRegisteredItems(snapshot.items)"))
         XCTAssertTrue(source.contains("func reloadIfShown()"))
@@ -669,19 +662,19 @@ final class SourceHygieneTests: XCTestCase {
             encoding: .utf8
         )
         let toggleSource = try functionSource(
-            named: "@objc private func toggleItem(",
-            endingAt: "func setLoading()",
+            named: "func setEnabled(",
+            endingAt: "func isMutationPending(",
             in: source
         )
 
         let waiting = try XCTUnwrap(toggleSource.range(of: "mutationGate.begin("))
         let changed = try XCTUnwrap(toggleSource.range(of: "self.onChanged()"))
         XCTAssertLessThan(waiting.lowerBound, changed.lowerBound)
-        XCTAssertFalse(toggleSource.contains("mutationGate.cancel()"))
-        XCTAssertTrue(
-            source.contains(
-                "button.isEnabled = !isLoading && !isActionBusy && !mutationGate.isPending"
-            ))
+        let failureBranch = try XCTUnwrap(toggleSource.range(of: "}catch{"))
+        let successSource = toggleSource[..<failureBranch.lowerBound]
+        XCTAssertFalse(successSource.contains("mutationGate.cancel()"))
+        XCTAssertTrue(toggleSource.contains("!model.isBusy,!mutationGate.isPending"))
+        XCTAssertTrue(source.contains("guard mutationGate.accepts(incoming.state.allItems)"))
     }
 
     func testMenuRefreshPropagatesResultToVisibleDashboard() throws {

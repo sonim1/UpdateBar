@@ -1427,9 +1427,16 @@ final class DocumentationSnapshotTests: XCTestCase {
             normalizedDocs.contains("Checking an available candidate registers it immediately"))
         XCTAssertTrue(normalizedDocs.contains("Unchecking disables it without deleting it"))
         XCTAssertTrue(normalizedDocs.contains("checking it again re-enables the same item"))
-        XCTAssertTrue(docs.contains("Update Selected"))
-        XCTAssertTrue(docs.contains("row-level Update"))
-        XCTAssertTrue(docs.contains("only outdated items are selectable"))
+        for section in [
+            "Ready to update", "Needs review", "Needs attention", "Up to date", "Paused",
+        ] {
+            XCTAssertTrue(docs.contains(section), "Items docs missing status section \(section)")
+        }
+        XCTAssertTrue(docs.contains("Update all"))
+        XCTAssertTrue(docs.contains("Update selected"))
+        XCTAssertTrue(docs.contains("Update visible"))
+        XCTAssertTrue(normalizedDocs.contains("matching eligible tools"))
+        XCTAssertTrue(normalizedDocs.contains("approval never starts an update"))
         XCTAssertTrue(normalizedDocs.contains("single update summary"))
         XCTAssertTrue(normalizedDocs.contains("opens Items without starting an update"))
         XCTAssertTrue(docs.contains("Cmd-Tab"))

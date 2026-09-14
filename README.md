@@ -106,6 +106,10 @@ bulk updates, command approval management, a dashboard, logs, settings, and
 Sparkle app updates. The Homebrew cask installs the app and links its bundled
 CLI onto your Homebrew `PATH`.
 
+Dashboard Items groups tools by update readiness, command review, attention,
+current status, and paused tracking. Select cards to update specific tools, or
+use Update all; searching scopes the action to visible eligible tools.
+
 Current releases publish `UpdateBar-<version>-macos-arm64.dmg`. The historical
 v0.6.1 release used `UpdateBar-0.6.1-macos-arm64.app.tar.gz`.
 
