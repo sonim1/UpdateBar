@@ -3,19 +3,23 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="UpdateBar for macOS tracks local developer tools, shows what is outdated, and runs only update commands you explicitly approve.">
+    <meta name="description" content="A native macOS update dashboard for developer tools. Browse status categories, update selected or all ready tools, and track progress with explicit approval.">
     <title>UpdateBar for macOS | Update Developer Tools from the Menu Bar</title>
     <link rel="canonical" href="https://updatebar.royjen.com/macos/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="UpdateBar">
     <meta property="og:title" content="UpdateBar for macOS | Update tools from your menu bar">
-    <meta property="og:description" content="See what is outdated, review exact command access, and update approved tools from one native macOS app.">
+    <meta property="og:description" content="A native macOS update dashboard for developer tools. Browse status categories, update selected or all ready tools, and track progress with explicit approval.">
     <meta property="og:url" content="https://updatebar.royjen.com/macos/">
     <meta property="og:image" content="https://updatebar.royjen.com/og-updatebar.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="UpdateBar Items dashboard with Ready to update cards and Update all control">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="UpdateBar for macOS | Update tools from your menu bar">
-    <meta name="twitter:description" content="See what is outdated, review exact command access, and update approved tools from one native macOS app.">
+    <meta name="twitter:description" content="A native macOS update dashboard for developer tools. Browse status categories, update selected or all ready tools, and track progress with explicit approval.">
     <meta name="twitter:image" content="https://updatebar.royjen.com/og-updatebar.png">
+    <meta name="twitter:image:alt" content="UpdateBar Items dashboard with Ready to update cards and Update all control">
     <link rel="icon" href="/favicon.png">
     <link rel="stylesheet" href="/landing.css">
     <script type="application/ld+json">
@@ -28,7 +32,7 @@
             "name": "UpdateBar",
             "url": "https://updatebar.royjen.com/",
             "applicationCategory": "DeveloperApplication",
-            "operatingSystem": "macOS 13 and later",
+            "operatingSystem": "macOS 13 and later (app); macOS and Linux (CLI)",
             "isAccessibleForFree": true,
             "offers": {
               "@type": "Offer",
@@ -39,22 +43,35 @@
             "codeRepository": "https://github.com/sonim1/UpdateBar",
             "license": "https://github.com/sonim1/UpdateBar/blob/main/LICENSE",
             "featureList": [
-              "Native macOS menu bar app and Dashboard",
-              "Track local developer tools",
-              "Require exact command fingerprint approval",
-              "Bundle the UpdateBar CLI",
+              "Group tools by update readiness in the macOS Items dashboard",
+              "Update selected tools, all eligible tools, or visible search results",
+              "Review exact command fields before approval",
+              "Track update progress and retry failed items",
+              "Use stable CLI JSON and JSONL output",
               "Operate without telemetry"
-            ]
+            ],
+            "description": "UpdateBar tracks local developer tools through a native macOS app and CLI, with explicit command approval.",
+            "screenshot": "https://updatebar.royjen.com/demo/overview.webp"
           },
           {
             "@type": "WebPage",
             "@id": "https://updatebar.royjen.com/macos/#webpage",
             "url": "https://updatebar.royjen.com/macos/",
             "name": "UpdateBar for macOS | Update Developer Tools from the Menu Bar",
-            "description": "UpdateBar for macOS tracks local developer tools, shows what is outdated, and runs only update commands you explicitly approve.",
+            "description": "A native macOS update dashboard for developer tools. Browse status categories, update selected or all ready tools, and track progress with explicit approval.",
             "about": {
               "@id": "https://updatebar.royjen.com/#software"
+            },
+            "isPartOf": {
+              "@id": "https://updatebar.royjen.com/#website"
             }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://updatebar.royjen.com/#website",
+            "url": "https://updatebar.royjen.com/",
+            "name": "UpdateBar",
+            "inLanguage": "en"
           }
         ]
       }
@@ -79,15 +96,15 @@
         <div class="hero-copy">
           <p class="eyebrow">UpdateBar for macOS</p>
           <h1 id="hero-title">Update developer tools from your Mac menu bar.</h1>
-          <p class="hero-lede">See what is outdated, review the exact command access, and update approved tools from one native macOS app.</p>
+          <p class="hero-lede">See tools grouped by readiness. Select the ones you want, update every eligible tool, and follow progress without leaving the native dashboard.</p>
           <div class="hero-actions">
             <a class="button button--primary" href="#install">Install with Homebrew</a>
             <a class="button button--secondary" href="/cli-agents/">Explore the CLI</a>
           </div>
         </div>
         <figure class="product-frame">
-          <img src="/demo/overview.webp" alt="UpdateBar Dashboard Overview on macOS" width="1556" height="904" fetchpriority="high" decoding="async">
-          <figcaption>A native Dashboard for the tools already on your Mac.</figcaption>
+          <img src="/demo/overview.webp" alt="Items dashboard showing Ready to update cards and the Update all action" width="1520" height="904" fetchpriority="high" decoding="async">
+          <figcaption>The native Items dashboard, shown with example tools and versions.</figcaption>
         </figure>
       </section>
 
@@ -102,7 +119,7 @@
         </article>
         <article>
           <h2>Update</h2>
-          <p>Run one or many approved updates from the Dashboard or menu bar.</p>
+          <p>Update selected tools, all eligible tools, or visible search results from Items.</p>
         </article>
       </section>
 
@@ -114,34 +131,34 @@
         <div class="story-list">
           <article class="story-row story-row--wide">
             <div class="story-copy">
-              <p class="panel-label">Scan</p>
-              <h3>See what needs attention.</h3>
-              <p>Track Homebrew, npm, GitHub releases, files, and custom recipes through one clear status model.</p>
+              <p class="panel-label">Organize</p>
+              <h3>Know what is ready. See what needs you.</h3>
+              <p>Items groups tools into Ready to update, Needs review, Needs attention, Up to date, and Paused. Update-ready tools stay easy to find while current and paused tools can stay collapsed.</p>
             </div>
             <figure class="story-media">
-              <img src="/demo/overview.webp" alt="Overview showing outdated and approval counts" width="1556" height="904" loading="lazy" decoding="async">
+              <img src="/demo/overview.webp" alt="Ready to update section with selectable tool cards" width="1520" height="904" loading="lazy" decoding="async">
             </figure>
           </article>
 
           <article class="story-row">
             <div class="story-copy">
-              <p class="panel-label">Review</p>
-              <h3>Understand versions and approval state.</h3>
-              <p>Inspect current and latest versions, then review the exact command fields that require access before anything runs.</p>
+              <p class="panel-label">Choose</p>
+              <h3>Update all. Or just the tools you choose.</h3>
+              <p>Select ready cards for Update selected. Search narrows the action to Update visible and clears the previous selection. Tools that need command approval remain in Needs review until you approve them.</p>
             </div>
             <figure class="story-media">
-              <img src="/demo/approval.webp" alt="Items view showing current, latest, and approval status" width="1556" height="904" loading="lazy" decoding="async">
+              <img src="/demo/approval.webp" alt="A selected Git card running with the Update selected action" width="1520" height="904" loading="lazy" decoding="async">
             </figure>
           </article>
 
           <article class="story-row story-row--reverse">
             <div class="story-copy">
               <p class="panel-label">Update</p>
-              <h3>Keep a readable history.</h3>
-              <p>Watch bounded update progress and review recorded outcomes without giving up the same deterministic core used by the CLI.</p>
+              <h3>Follow the batch through to the result.</h3>
+              <p>See queued, running, and finished updates. Stop after the current work finishes or retry failed items without rerunning the whole batch. Recorded outcomes remain available in Logs.</p>
             </div>
             <figure class="story-media">
-              <img src="/demo/history.webp" alt="Logs view showing completed UpdateBar update events" width="1556" height="904" loading="lazy" decoding="async">
+              <img src="/demo/history.webp" alt="Completed batch showing two of two items finished and zero running" width="1520" height="904" loading="lazy" decoding="async">
             </figure>
           </article>
         </div>

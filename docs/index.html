@@ -3,19 +3,23 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="UpdateBar is a macOS app and CLI that tracks local developer tools and runs only update commands you explicitly approve.">
+    <meta name="description" content="Track developer tools from your Mac menu bar. See what is ready, select tools or update all, and review command access in a native dashboard.">
     <title>UpdateBar | macOS App and CLI for Updating Developer Tools</title>
     <link rel="canonical" href="https://updatebar.royjen.com/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="UpdateBar">
     <meta property="og:title" content="UpdateBar | Update developer tools from one trusted place">
-    <meta property="og:description" content="Track local tools, compare versions, and run only the update commands you approve.">
+    <meta property="og:description" content="Track developer tools from your Mac menu bar. See what is ready, select tools or update all, and review command access in a native dashboard.">
     <meta property="og:url" content="https://updatebar.royjen.com/">
     <meta property="og:image" content="https://updatebar.royjen.com/og-updatebar.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="UpdateBar Items dashboard with Ready to update cards and Update all control">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="UpdateBar | Update developer tools from one trusted place">
-    <meta name="twitter:description" content="Track local tools, compare versions, and run only the update commands you approve.">
+    <meta name="twitter:description" content="Track developer tools from your Mac menu bar. See what is ready, select tools or update all, and review command access in a native dashboard.">
     <meta name="twitter:image" content="https://updatebar.royjen.com/og-updatebar.png">
+    <meta name="twitter:image:alt" content="UpdateBar Items dashboard with Ready to update cards and Update all control">
     <link rel="icon" href="/favicon.png">
     <link rel="stylesheet" href="/landing.css">
     <script type="application/ld+json">
@@ -28,7 +32,7 @@
             "name": "UpdateBar",
             "url": "https://updatebar.royjen.com/",
             "applicationCategory": "DeveloperApplication",
-            "operatingSystem": "macOS 13 and later",
+            "operatingSystem": "macOS 13 and later (app); macOS and Linux (CLI)",
             "isAccessibleForFree": true,
             "offers": {
               "@type": "Offer",
@@ -39,22 +43,35 @@
             "codeRepository": "https://github.com/sonim1/UpdateBar",
             "license": "https://github.com/sonim1/UpdateBar/blob/main/LICENSE",
             "featureList": [
-              "Track local tools across package managers and custom recipes",
-              "Compare installed and latest versions",
-              "Require exact command fingerprint approval",
-              "Use stable JSON and JSONL command output",
+              "Group tools by update readiness in the macOS Items dashboard",
+              "Update selected tools, all eligible tools, or visible search results",
+              "Review exact command fields before approval",
+              "Track update progress and retry failed items",
+              "Use stable CLI JSON and JSONL output",
               "Operate without telemetry"
-            ]
+            ],
+            "description": "UpdateBar tracks local developer tools through a native macOS app and CLI, with explicit command approval.",
+            "screenshot": "https://updatebar.royjen.com/demo/overview.webp"
           },
           {
             "@type": "WebPage",
             "@id": "https://updatebar.royjen.com/#webpage",
             "url": "https://updatebar.royjen.com/",
             "name": "UpdateBar | macOS App and CLI for Updating Developer Tools",
-            "description": "UpdateBar is a macOS app and CLI that tracks local developer tools and runs only update commands you explicitly approve.",
+            "description": "Track developer tools from your Mac menu bar. See what is ready, select tools or update all, and review command access in a native dashboard.",
             "about": {
               "@id": "https://updatebar.royjen.com/#software"
+            },
+            "isPartOf": {
+              "@id": "https://updatebar.royjen.com/#website"
             }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://updatebar.royjen.com/#website",
+            "url": "https://updatebar.royjen.com/",
+            "name": "UpdateBar",
+            "inLanguage": "en"
           }
         ]
       }
@@ -82,7 +99,7 @@
         <div class="hero-copy">
           <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> Trusted updates, one place.</p>
           <h1 id="hero-title">Every tool.<br><em>One update away.</em></h1>
-          <p class="hero-lede">UpdateBar is a macOS app and CLI for tracking local developer tools, comparing versions, and running only the update commands you explicitly approve. Use the native Dashboard or deterministic command line with the same registry, approval boundary, and clear update history.</p>
+          <p class="hero-lede">See what is ready to update in one native macOS dashboard. Choose a few tools or update all, review commands that need approval, and follow every result. The menu bar and CLI share the same local registry.</p>
           <div class="hero-actions">
             <a class="button button--primary" href="#install">Install UpdateBar <span aria-hidden="true">→</span></a>
             <a class="text-link" href="#how-it-works">See how it works <span aria-hidden="true">↓</span></a>
@@ -103,14 +120,14 @@
             <span class="demo-motion-control__name">Pause or play demo animation</span>
           </label>
           <div class="demo-window" aria-hidden="true">
-            <img class="demo-frame demo-frame--overview demo-frame--poster" src="/demo/overview.webp" alt="" width="1556" height="904" fetchpriority="high" decoding="async">
-            <img class="demo-frame demo-frame--approval" src="/demo/approval.webp" alt="" width="1556" height="904" loading="lazy" decoding="async">
-            <img class="demo-frame demo-frame--history" src="/demo/history.webp" alt="" width="1556" height="904" loading="lazy" decoding="async">
-            <span class="demo-label demo-label--overview">See what needs attention</span>
-            <span class="demo-label demo-label--approval">Review every approval state</span>
-            <span class="demo-label demo-label--history">Keep a clear update history</span>
+            <img class="demo-frame demo-frame--overview demo-frame--poster" src="/demo/overview.webp" alt="" width="1520" height="904" fetchpriority="high" decoding="async">
+            <img class="demo-frame demo-frame--approval" src="/demo/approval.webp" alt="" width="1520" height="904" loading="lazy" decoding="async">
+            <img class="demo-frame demo-frame--history" src="/demo/history.webp" alt="" width="1520" height="904" loading="lazy" decoding="async">
+            <span class="demo-label demo-label--overview">Find tools ready to update</span>
+            <span class="demo-label demo-label--approval">Choose exactly what runs</span>
+            <span class="demo-label demo-label--history">Follow the result of every batch</span>
           </div>
-          <figcaption id="demo-caption">See updates, review command access, and keep the result visible from one native macOS app.</figcaption>
+          <figcaption id="demo-caption">Ready to update, selected updates, and a completed batch in the native Items dashboard. Example tools and versions.</figcaption>
         </figure>
       </section>
 
@@ -146,7 +163,7 @@
           <a class="audience-panel audience-panel--mac" href="/macos/">
             <span class="panel-label">macOS app</span>
             <h3>For developers who want updates visible.</h3>
-            <p>Scan tools, review exact command access, and update approved items from a native Dashboard.</p>
+            <p>See tools grouped by readiness, select what to update, and review exact command access in a native Dashboard.</p>
             <span class="panel-link">Explore UpdateBar for macOS</span>
           </a>
           <a class="audience-panel audience-panel--cli" href="/cli-agents/">
@@ -179,7 +196,7 @@
           <article class="step">
             <span class="step-number">03</span>
             <h3>Update</h3>
-            <p>Update one item or every approved outdated tool from the app or CLI.</p>
+            <p>Choose ready tools, update all eligible tools, or update visible search results from Items.</p>
           </article>
         </div>
       </section>
@@ -206,7 +223,7 @@
           <article class="feature">
             <p class="feature-kicker">Native where it matters</p>
             <h3>Keep daily updates in the menu bar.</h3>
-            <p>Check status, manage items, review approvals, and watch progress in a native macOS surface.</p>
+            <p>Open Items from the menu bar. Ready, review, attention, current, and paused groups show what needs your next action.</p>
           </article>
           <article class="feature">
             <p class="feature-kicker">CLI when you need it</p>
@@ -230,6 +247,10 @@
           <h2 id="faq-title">Frequently asked questions</h2>
         </div>
         <div class="faq-list">
+          <details>
+            <summary>Can I update only selected tools?</summary>
+            <p>Yes. Select cards in Ready to update and choose Update selected. With no selection, Update all runs eligible tools. A search changes the action to Update visible and clears the previous selection.</p>
+          </details>
           <details>
             <summary>What does UpdateBar update?</summary>
             <p>It tracks Homebrew, npm, GitHub releases, files, and custom recipes that you add to its local registry.</p>

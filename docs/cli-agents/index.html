@@ -9,13 +9,17 @@
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="UpdateBar">
     <meta property="og:title" content="UpdateBar CLI for Developers and AI Agents">
-    <meta property="og:description" content="Author recipe JSON externally, validate it deterministically, and keep exact command approval with the user.">
+    <meta property="og:description" content="UpdateBar is a deterministic CLI for developers and external AI agents that validates recipe data and gates exact command execution behind user approval.">
     <meta property="og:url" content="https://updatebar.royjen.com/cli-agents/">
     <meta property="og:image" content="https://updatebar.royjen.com/og-updatebar.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="UpdateBar Items dashboard with Ready to update cards and Update all control">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="UpdateBar CLI for Developers and AI Agents">
-    <meta name="twitter:description" content="Author recipe JSON externally, validate it deterministically, and keep exact command approval with the user.">
+    <meta name="twitter:description" content="UpdateBar is a deterministic CLI for developers and external AI agents that validates recipe data and gates exact command execution behind user approval.">
     <meta name="twitter:image" content="https://updatebar.royjen.com/og-updatebar.png">
+    <meta name="twitter:image:alt" content="UpdateBar Items dashboard with Ready to update cards and Update all control">
     <link rel="icon" href="/favicon.png">
     <link rel="stylesheet" href="/landing.css">
     <script type="application/ld+json">
@@ -28,7 +32,7 @@
             "name": "UpdateBar",
             "url": "https://updatebar.royjen.com/",
             "applicationCategory": "DeveloperApplication",
-            "operatingSystem": "macOS and Linux",
+            "operatingSystem": "macOS 13 and later (app); macOS and Linux (CLI)",
             "isAccessibleForFree": true,
             "offers": {
               "@type": "Offer",
@@ -39,12 +43,15 @@
             "codeRepository": "https://github.com/sonim1/UpdateBar",
             "license": "https://github.com/sonim1/UpdateBar/blob/main/LICENSE",
             "featureList": [
-              "Validate user and agent-authored recipe JSON",
-              "Store imported recipes untrusted by default",
-              "Require exact command fingerprint approval",
-              "Provide stable JSON and JSONL command output",
-              "Redact secret-like values from captured output"
-            ]
+              "Group tools by update readiness in the macOS Items dashboard",
+              "Update selected tools, all eligible tools, or visible search results",
+              "Review exact command fields before approval",
+              "Track update progress and retry failed items",
+              "Use stable CLI JSON and JSONL output",
+              "Operate without telemetry"
+            ],
+            "description": "UpdateBar tracks local developer tools through a native macOS app and CLI, with explicit command approval.",
+            "screenshot": "https://updatebar.royjen.com/demo/overview.webp"
           },
           {
             "@type": "WebPage",
@@ -54,7 +61,17 @@
             "description": "UpdateBar is a deterministic CLI for developers and external AI agents that validates recipe data and gates exact command execution behind user approval.",
             "about": {
               "@id": "https://updatebar.royjen.com/#software"
+            },
+            "isPartOf": {
+              "@id": "https://updatebar.royjen.com/#website"
             }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://updatebar.royjen.com/#website",
+            "url": "https://updatebar.royjen.com/",
+            "name": "UpdateBar",
+            "inLanguage": "en"
           }
         ]
       }

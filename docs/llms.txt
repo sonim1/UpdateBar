@@ -8,6 +8,10 @@ UpdateBar is a macOS app and CLI for tracking local developer tools, comparing i
 - CLI and external agents: https://updatebar.royjen.com/cli-agents/
 - Source and documentation: https://github.com/sonim1/UpdateBar
 
+## Native Items dashboard
+
+Items groups tracked tools into Ready to update, Needs review, Needs attention, Up to date, and Paused. Users can update selected ready tools, all eligible tools, or visible search results. Search clears the previous selection. The native coordinator shows progress, supports stopping after current work, and retries failed items. The menu bar opens the same Items view.
+
 ## Trust boundary
 
 Imported and agent-authored recipes start untrusted. UpdateBar validates recipe data and requires explicit approval of exact command fingerprints before execution. Approved commands are not sandboxed. They run with the user's privileges using an allowlisted environment plus time and output limits.
