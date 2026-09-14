@@ -1330,6 +1330,10 @@ h2 em {
   background: var(--surface);
 }
 
+.subpage-cta--ai {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .subpage-cta h2 {
   margin-bottom: 8px;
   font-size: clamp(28px, 3vw, 38px);

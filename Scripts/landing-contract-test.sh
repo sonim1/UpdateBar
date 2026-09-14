@@ -70,6 +70,7 @@ ruby -rjson -ruri -e '
     raise "missing JSON-LD: #{path}" unless blocks.length == 1
     scripts = html.scan(%r{<script\b[^>]*>.*?</script>}mi)
     expected_scripts = path == "docs/cli-agents/index.html" ? 1 : 2
+    raise "unexpected script opening tag: #{path}" unless html.scan(/<script\b/i).length == expected_scripts
     raise "unexpected executable script: #{path}" unless scripts.length == expected_scripts
     executable = scripts.reject { |script| script.start_with?(%q{<script type="application/ld+json">}) }
     raise "unexpected executable script: #{path}" unless executable.all? { |script|
