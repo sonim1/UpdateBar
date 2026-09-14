@@ -65,6 +65,19 @@ Published macOS releases are signed with a Developer ID certificate and
 notarized by Apple. See [docs/install.md](docs/install.md) for upgrades,
 uninstallation, GitHub Release binaries, and supported architectures.
 
+## Install With AI
+
+Paste this prompt into a coding agent with terminal access:
+
+```text
+Install UpdateBar on this machine using the official instructions:
+https://raw.githubusercontent.com/sonim1/UpdateBar/main/docs/install.md
+
+Check the OS, architecture, and existing installation first. On supported Macs, prefer the app with its bundled CLI; use the CLI-only path on Linux. If this machine is unsupported, explain the options before proceeding.
+
+Preserve existing configuration. Verify installation with updatebar --version and updatebar doctor. Report the results and any steps that still need my input. Do not approve recipes or update tracked tools.
+```
+
 ## Install From Source
 
 Build and install the CLI:
