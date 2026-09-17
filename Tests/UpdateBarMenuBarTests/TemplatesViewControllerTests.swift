@@ -123,6 +123,45 @@
                 copyButton.accessibilityLabel(),
                 "Could not copy prompt for Diagnose issues"
             )
+            XCTAssertEqual(copyButton.title, "Try again")
+        }
+
+        func testOnlySelectedEditorExpandsAndInputsSurviveSwitching() throws {
+            let controller = TemplatesViewController(writeToPasteboard: { _ in true })
+            _ = controller.view
+            let inspect = try button("template-customize-inspectCLI", in: controller.view)
+            let add = try button("template-customize-addItem", in: controller.view)
+            let inspectPreview = try textView("template-preview-inspectCLI", in: controller.view)
+            let addPreview = try textView("template-preview-addItem", in: controller.view)
+            XCTAssertTrue(inspectPreview.isHiddenOrHasHiddenAncestor)
+            XCTAssertTrue(addPreview.isHiddenOrHasHiddenAncestor)
+
+            add.performClick(nil)
+            XCTAssertFalse(addPreview.isHiddenOrHasHiddenAncestor)
+            let field = try textField("template-field-addItem-itemName", in: controller.view)
+            field.stringValue = "ripgrep"
+            notifyTextChanged(field)
+
+            inspect.performClick(nil)
+            XCTAssertFalse(inspectPreview.isHiddenOrHasHiddenAncestor)
+            XCTAssertTrue(addPreview.isHiddenOrHasHiddenAncestor)
+            add.performClick(nil)
+            XCTAssertEqual(field.stringValue, "ripgrep")
+            XCTAssertTrue(addPreview.string.contains("ripgrep"))
+            add.performClick(nil)
+            XCTAssertTrue(addPreview.isHiddenOrHasHiddenAncestor)
+        }
+
+        func testCopyActionsHaveVisibleLabelsAndFeedback() throws {
+            let controller = TemplatesViewController(writeToPasteboard: { _ in true })
+            _ = controller.view
+            let copyButtons = descendants(of: NSButton.self, in: controller.view).filter {
+                $0.identifier?.rawValue.hasPrefix("template-copy-") == true
+            }
+            XCTAssertTrue(copyButtons.allSatisfy { $0.title == "Copy prompt" })
+            let copy = try button("template-copy-inspectCLI", in: controller.view)
+            copy.performClick(nil)
+            XCTAssertEqual(copy.title, "Copied")
         }
 
         func testTemplateScrollDocumentUsesTopOrigin() throws {
@@ -137,9 +176,92 @@
             XCTAssertEqual(scrollView.documentView?.isFlipped, true)
         }
 
+        func testPreviewFollowsViewportWidthWithoutAWindowLayoutPass() throws {
+            let controller = TemplatesViewController(writeToPasteboard: { _ in true })
+            _ = controller.view
+            let preview = try textView("template-preview-inspectCLI", in: controller.view)
+            try button("template-customize-inspectCLI", in: controller.view).performClick(nil)
+            let scroll = try XCTUnwrap(preview.enclosingScrollView)
+            XCTAssertTrue(preview.autoresizingMask.contains(.width))
+
+            for width in [CGFloat(360), 520, 280] {
+                scroll.setFrameSize(NSSize(width: width, height: 180))
+                scroll.tile()
+                XCTAssertGreaterThan(scroll.contentView.bounds.width, 0)
+                XCTAssertEqual(preview.frame.width, scroll.contentView.bounds.width, accuracy: 1)
+            }
+        }
+
+        func testSelectingCategoryReturnsListToTop() throws {
+            let controller = TemplatesViewController(writeToPasteboard: { _ in true })
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 620, height: 420),
+                styleMask: [.titled], backing: .buffered, defer: false
+            )
+            window.contentViewController = controller
+            window.layoutIfNeeded()
+            let scroll = try XCTUnwrap(
+                descendants(of: NSScrollView.self, in: controller.view).first {
+                    $0.identifier?.rawValue == "template-scroll"
+                }
+            )
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: 200))
+            XCTAssertGreaterThan(scroll.contentView.bounds.minY, 0)
+            let filter = try XCTUnwrap(
+                descendants(of: NSSegmentedControl.self, in: controller.view).first
+            )
+            filter.selectedSegment = 0
+            sendAction(from: filter)
+            XCTAssertEqual(scroll.contentView.bounds.minY, 0, accuracy: 1)
+        }
+
+        func testExpandedFieldsParticipateInKeyboardNavigation() throws {
+            let controller = TemplatesViewController(writeToPasteboard: { _ in true })
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 620, height: 420),
+                styleMask: [.titled], backing: .buffered, defer: false
+            )
+            window.contentViewController = controller
+            window.layoutIfNeeded()
+            window.recalculateKeyViewLoop()
+            try button("template-customize-diagnose", in: controller.view).performClick(nil)
+            let symptom = try textField("template-field-diagnose-symptom", in: controller.view)
+            let item = try textField("template-field-diagnose-itemName", in: controller.view)
+
+            XCTAssertTrue(symptom.nextValidKeyView === item)
+            XCTAssertTrue(window.makeFirstResponder(symptom))
+            let tab = try XCTUnwrap(
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                    windowNumber: window.windowNumber, context: nil,
+                    characters: "\t", charactersIgnoringModifiers: "\t", isARepeat: false,
+                    keyCode: 48
+                ))
+            window.sendEvent(tab)
+            XCTAssertTrue(window.firstResponder === item.currentEditor())
+            XCTAssertNotNil(item.currentEditor())
+        }
+
+        func testLongInputsStayInASingleScrollableLine() throws {
+            let controller = TemplatesViewController(writeToPasteboard: { _ in true })
+            _ = controller.view
+            let field = try textField("template-field-diagnose-symptom", in: controller.view)
+            field.stringValue = String(repeating: "긴 오류 메시지 https://example.invalid/", count: 10)
+            notifyTextChanged(field)
+
+            XCTAssertEqual(field.maximumNumberOfLines, 1)
+            XCTAssertEqual(field.cell?.wraps, false)
+            XCTAssertEqual(field.cell?.isScrollable, true)
+            XCTAssertTrue(
+                try textView("template-preview-diagnose", in: controller.view)
+                    .string.contains(field.stringValue)
+            )
+        }
+
         func testTemplateFieldsFillCardWidthAtDashboardSize() throws {
             let controller = TemplatesViewController(writeToPasteboard: { _ in true })
             controller.view.frame = NSRect(x: 0, y: 0, width: 900, height: 700)
+            try button("template-customize-reviewApprove", in: controller.view).performClick(nil)
             controller.view.layoutSubtreeIfNeeded()
             let itemField = try textField(
                 "template-field-reviewApprove-itemName",

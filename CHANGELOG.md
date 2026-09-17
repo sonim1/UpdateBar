@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.6.27 - 2026-09-17
+
+### Fixed
+
+- Fixed blank Templates prompt previews by keeping the text view sized to its viewport.
+- Kept long template inputs on one scrollable line instead of clipping wrapped text.
+
+### Changed
+
+- Made Templates a full-width task list with one expandable editor, clearer copy
+  buttons and feedback, preserved inputs, and predictable category scrolling.
+
 ## 0.6.26 - 2026-09-14
 
 ### Fixed

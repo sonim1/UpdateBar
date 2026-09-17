@@ -67,8 +67,11 @@ an update. Progress, graceful stopping, and failed-item retry share the menu
 bar's current action state. The CLI fallback does not offer unsupported stopping
 or invent per-item progress.
 Templates groups six built-in English prompts under Discover, Configure, and
-Operate. Each card provides task-specific fields, a selectable preview, and an
-icon-only copy action. The page copies prompts without executing commands,
+Operate. A full-width list keeps tasks easy to scan. **Customize & preview** opens
+one editor at a time with task-specific fields and a selectable, wrapping preview.
+**Copy prompt** shows visible success or retry feedback. Category changes return
+the list to the top; entered values survive filtering and collapsing cards.
+The Dashboard keeps its size while the list scrolls. The page copies prompts without executing commands,
 contacting an LLM, or persisting field values. Prompts that add, approve, or
 update require the LLM to show the exact command and wait for explicit user
 confirmation.
