@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.27 - 2026-09-17
+
 ### Fixed
 
 - Fixed blank Templates prompt previews by keeping the text view sized to its viewport.
