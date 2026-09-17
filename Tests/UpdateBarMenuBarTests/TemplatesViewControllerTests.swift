@@ -230,11 +230,13 @@
 
             XCTAssertTrue(symptom.nextValidKeyView === item)
             XCTAssertTrue(window.makeFirstResponder(symptom))
-            let tab = try XCTUnwrap(NSEvent.keyEvent(
-                with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
-                windowNumber: window.windowNumber, context: nil,
-                characters: "\t", charactersIgnoringModifiers: "\t", isARepeat: false, keyCode: 48
-            ))
+            let tab = try XCTUnwrap(
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                    windowNumber: window.windowNumber, context: nil,
+                    characters: "\t", charactersIgnoringModifiers: "\t", isARepeat: false,
+                    keyCode: 48
+                ))
             window.sendEvent(tab)
             XCTAssertTrue(window.firstResponder === item.currentEditor())
             XCTAssertNotNil(item.currentEditor())
