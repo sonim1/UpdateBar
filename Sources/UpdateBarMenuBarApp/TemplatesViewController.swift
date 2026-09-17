@@ -13,6 +13,8 @@
             action: nil
         )
         private var categoryViews: [PromptTemplateCategory: NSView] = [:]
+        private var cards: [PromptTemplateCardView] = []
+        private let scrollView = NSScrollView()
 
         init(writeToPasteboard: @escaping PasteboardWriter = TemplatesViewController.copy) {
             self.writeToPasteboard = writeToPasteboard
@@ -29,7 +31,7 @@
 
             let subtitle = NSTextField(
                 wrappingLabelWithString:
-                    "Ready-to-use prompts for working with UpdateBar through an LLM."
+                    "Choose a task, customize its prompt, then copy it to your coding agent."
             )
             subtitle.font = .systemFont(ofSize: 13)
             subtitle.textColor = .secondaryLabelColor
@@ -47,10 +49,10 @@
             filterControl.setAccessibilityLabel("Template category")
 
             let header = NSStackView(views: [titleStack, filterControl])
-            header.orientation = .horizontal
-            header.alignment = .bottom
+            header.orientation = .vertical
+            header.alignment = .leading
             header.distribution = .fill
-            header.spacing = 20
+            header.spacing = 12
             header.translatesAutoresizingMaskIntoConstraints = false
 
             let categories = FlippedStackView()
@@ -66,7 +68,6 @@
                 categoryView.widthAnchor.constraint(equalTo: categories.widthAnchor).isActive = true
             }
 
-            let scrollView = NSScrollView()
             scrollView.drawsBackground = false
             scrollView.hasVerticalScroller = true
             scrollView.hasHorizontalScroller = false
@@ -106,30 +107,44 @@
             heading.textColor = .secondaryLabelColor
 
             let templates = PromptTemplateCatalog.templates.filter { $0.category == category }
-            let cards = templates.map { definition in
-                PromptTemplateCardView(definition: definition) { [weak self] card in
-                    self?.copyPrompt(from: card)
-                }
+            let categoryCards = templates.map { definition in
+                let card = PromptTemplateCardView(
+                    definition: definition,
+                    onCopy: { [weak self] card in self?.copyPrompt(from: card) },
+                    onToggle: { [weak self] card in self?.toggleEditor(card) }
+                )
+                cards.append(card)
+                return card
             }
-            let grid = NSGridView(views: [cards])
-            grid.columnSpacing = 12
-            grid.rowSpacing = 12
-            for index in cards.indices {
-                grid.column(at: index).xPlacement = .fill
-            }
-            if cards.count == 2 {
-                cards[0].widthAnchor.constraint(equalTo: cards[1].widthAnchor).isActive = true
+            let list = NSStackView(views: categoryCards)
+            list.orientation = .vertical
+            list.alignment = .leading
+            list.spacing = 12
+            for card in categoryCards {
+                card.widthAnchor.constraint(equalTo: list.widthAnchor).isActive = true
             }
 
-            let stack = NSStackView(views: [heading, grid])
+            let stack = NSStackView(views: [heading, list])
             stack.identifier = NSUserInterfaceItemIdentifier(
                 "template-category-\(category.rawValue)"
             )
             stack.orientation = .vertical
             stack.alignment = .leading
             stack.spacing = 8
-            grid.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            list.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             return stack
+        }
+
+        private func toggleEditor(_ selected: PromptTemplateCardView) {
+            let expanding = !selected.isExpanded
+            for card in cards {
+                card.setExpanded(card === selected && expanding)
+            }
+            view.layoutSubtreeIfNeeded()
+            guard let document = scrollView.documentView else { return }
+            let cardFrame = selected.convert(selected.bounds, to: document)
+            scrollView.contentView.scroll(to: NSPoint(x: 0, y: cardFrame.minY))
+            scrollView.reflectScrolledClipView(scrollView.contentView)
         }
 
         private func copyPrompt(from card: PromptTemplateCardView) {
@@ -145,6 +160,9 @@
             for (category, categoryView) in categoryViews {
                 categoryView.isHidden = selectedCategory.map { $0 != category } ?? false
             }
+            view.layoutSubtreeIfNeeded()
+            scrollView.contentView.scroll(to: .zero)
+            scrollView.reflectScrolledClipView(scrollView.contentView)
         }
 
         private static func copy(_ value: String) -> Bool {
@@ -157,10 +175,14 @@
     private final class PromptTemplateCardView: NSView, NSTextFieldDelegate {
         private let definition: PromptTemplateDefinition
         private let onCopy: (PromptTemplateCardView) -> Void
+        private let onToggle: (PromptTemplateCardView) -> Void
         private let preview = NSTextView()
         private let copyButton = NSButton()
+        private let customizeButton = NSButton()
+        private let editor = NSStackView()
         private var fieldControls: [PromptTemplateFieldKey: NSTextField] = [:]
         private var copyResetGeneration = 0
+        private(set) var isExpanded = false
 
         var prompt: String {
             preview.string
@@ -168,13 +190,16 @@
 
         init(
             definition: PromptTemplateDefinition,
-            onCopy: @escaping (PromptTemplateCardView) -> Void
+            onCopy: @escaping (PromptTemplateCardView) -> Void,
+            onToggle: @escaping (PromptTemplateCardView) -> Void
         ) {
             self.definition = definition
             self.onCopy = onCopy
+            self.onToggle = onToggle
             super.init(frame: .zero)
             buildView()
             refreshPrompt()
+            setExpanded(false)
         }
 
         required init?(coder: NSCoder) {
@@ -191,6 +216,7 @@
             let generation = copyResetGeneration
             let symbol = succeeded ? "checkmark" : "exclamationmark.triangle"
             copyButton.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+            copyButton.title = succeeded ? "Copied" : "Try again"
             copyButton.contentTintColor = succeeded ? .systemGreen : .systemRed
             copyButton.setAccessibilityLabel(
                 succeeded
@@ -201,6 +227,20 @@
                 guard let self, generation == self.copyResetGeneration else { return }
                 self.configureCopyButton()
             }
+        }
+
+        func setExpanded(_ expanded: Bool) {
+            isExpanded = expanded
+            editor.isHidden = !expanded
+            customizeButton.title = expanded ? "Hide preview" : "Customize & preview"
+            customizeButton.image = NSImage(
+                systemSymbolName: expanded ? "chevron.down" : "chevron.right",
+                accessibilityDescription: nil
+            )
+            customizeButton.setAccessibilityLabel(
+                "\(expanded ? "Hide" : "Customize") prompt for \(definition.title)"
+            )
+            customizeButton.setAccessibilityValue(expanded ? "Expanded" : "Collapsed")
         }
 
         private func buildView() {
@@ -221,11 +261,11 @@
             )
             icon.setAccessibilityElement(false)
 
-            let title = NSTextField(labelWithString: definition.title)
+            let title = NSTextField(wrappingLabelWithString: definition.title)
             title.font = .systemFont(ofSize: 14, weight: .semibold)
 
             let summary = NSTextField(wrappingLabelWithString: definition.summary)
-            summary.font = .systemFont(ofSize: 11)
+            summary.font = .systemFont(ofSize: 12)
             summary.textColor = .secondaryLabelColor
 
             let textStack = NSStackView(views: [title, summary])
@@ -237,27 +277,46 @@
             copyButton.target = self
             copyButton.action = #selector(copyClicked)
 
-            let header = NSStackView(views: [icon, textStack, copyButton])
+            let header = NSStackView(views: [icon, textStack, NSView(), copyButton])
             header.orientation = .horizontal
             header.alignment = .centerY
             header.spacing = 9
 
-            var bodyViews: [NSView] = [header]
-            if !definition.fields.isEmpty {
-                bodyViews.append(makeFieldsView())
-            }
-            bodyViews.append(makePreviewView())
-
-            let boundary = NSTextField(labelWithString: definition.boundary)
-            boundary.font = .systemFont(ofSize: 10)
-            boundary.textColor = .tertiaryLabelColor
+            let boundary = NSTextField(wrappingLabelWithString: definition.boundary)
+            boundary.font = .systemFont(ofSize: 12)
+            boundary.textColor = .secondaryLabelColor
             boundary.setAccessibilityLabel("Safety boundary: \(definition.boundary)")
-            bodyViews.append(boundary)
+            customizeButton.bezelStyle = .inline
+            customizeButton.font = .systemFont(ofSize: 12)
+            customizeButton.imagePosition = .imageLeading
+            customizeButton.identifier = NSUserInterfaceItemIdentifier(
+                "template-customize-\(definition.id.rawValue)"
+            )
+            customizeButton.target = self
+            customizeButton.action = #selector(toggleClicked)
+            customizeButton.setAccessibilityHelp("Shows input fields and the complete prompt")
+
+            let controls = NSStackView(views: [customizeButton, NSView(), boundary])
+            controls.orientation = .horizontal
+            controls.alignment = .centerY
+            controls.spacing = 12
+
+            editor.orientation = .vertical
+            editor.alignment = .leading
+            editor.spacing = 12
+            if !definition.fields.isEmpty {
+                editor.addArrangedSubview(makeFieldsView())
+            }
+            editor.addArrangedSubview(makePreviewView())
+            for editorView in editor.arrangedSubviews {
+                editorView.widthAnchor.constraint(equalTo: editor.widthAnchor).isActive = true
+            }
+            let bodyViews: [NSView] = [header, controls, editor]
 
             let body = NSStackView(views: bodyViews)
             body.orientation = .vertical
             body.alignment = .leading
-            body.spacing = 10
+            body.spacing = 12
             body.translatesAutoresizingMaskIntoConstraints = false
             addSubview(body)
 
@@ -268,21 +327,20 @@
             NSLayoutConstraint.activate([
                 icon.widthAnchor.constraint(equalToConstant: 24),
                 icon.heightAnchor.constraint(equalToConstant: 24),
-                copyButton.widthAnchor.constraint(equalToConstant: 28),
-                copyButton.heightAnchor.constraint(equalToConstant: 28),
+                copyButton.widthAnchor.constraint(equalToConstant: 116),
+                copyButton.heightAnchor.constraint(equalToConstant: 30),
                 header.widthAnchor.constraint(equalTo: body.widthAnchor),
-                body.topAnchor.constraint(equalTo: topAnchor, constant: 14),
-                body.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-                body.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-                body.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12),
-                widthAnchor.constraint(greaterThanOrEqualToConstant: 250),
+                body.topAnchor.constraint(equalTo: topAnchor, constant: 16),
+                body.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+                body.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+                body.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
             ])
         }
 
         private func makeFieldsView() -> NSView {
             let columns = definition.fields.map { field in
                 let label = NSTextField(labelWithString: field.label)
-                label.font = .systemFont(ofSize: 10, weight: .medium)
+                label.font = .systemFont(ofSize: 12, weight: .medium)
                 label.textColor = .secondaryLabelColor
 
                 let control = NSTextField()
@@ -290,7 +348,10 @@
                     "template-field-\(definition.id.rawValue)-\(field.key.rawValue)"
                 )
                 control.placeholderString = field.placeholder
-                control.font = .systemFont(ofSize: 11)
+                control.font = .systemFont(ofSize: 13)
+                control.maximumNumberOfLines = 1
+                control.cell?.wraps = false
+                control.cell?.isScrollable = true
                 control.delegate = self
                 control.target = self
                 control.action = #selector(fieldChanged)
@@ -320,8 +381,9 @@
             preview.isEditable = false
             preview.isSelectable = true
             preview.drawsBackground = false
-            preview.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
-            preview.textColor = .secondaryLabelColor
+            preview.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+            preview.textColor = .labelColor
+            preview.autoresizingMask = [.width]
             preview.textContainerInset = NSSize(width: 8, height: 7)
             preview.setAccessibilityLabel("Prompt preview for \(definition.title)")
 
@@ -334,19 +396,19 @@
             scrollView.hasHorizontalScroller = false
             scrollView.wantsLayer = true
             scrollView.layer?.cornerRadius = 6
-            scrollView.widthAnchor.constraint(greaterThanOrEqualToConstant: 220).isActive = true
-            scrollView.heightAnchor.constraint(equalToConstant: 104).isActive = true
+            scrollView.heightAnchor.constraint(equalToConstant: 200).isActive = true
             return scrollView
         }
 
         private func configureCopyButton() {
-            copyButton.title = ""
+            copyButton.title = "Copy prompt"
             copyButton.image = NSImage(
                 systemSymbolName: "doc.on.doc",
                 accessibilityDescription: nil
             )
-            copyButton.imagePosition = .imageOnly
-            copyButton.bezelStyle = .texturedRounded
+            copyButton.imagePosition = .imageLeading
+            copyButton.bezelStyle = .rounded
+            copyButton.font = .systemFont(ofSize: 12)
             copyButton.contentTintColor = nil
             copyButton.toolTip = "Copy prompt"
             copyButton.identifier = NSUserInterfaceItemIdentifier(
@@ -376,6 +438,10 @@
 
         @objc private func copyClicked() {
             onCopy(self)
+        }
+
+        @objc private func toggleClicked() {
+            onToggle(self)
         }
     }
 
