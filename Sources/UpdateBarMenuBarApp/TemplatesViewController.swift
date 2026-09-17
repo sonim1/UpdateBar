@@ -383,6 +383,9 @@
             preview.drawsBackground = false
             preview.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
             preview.textColor = .labelColor
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.lineBreakStrategy = .hangulWordPriority
+            preview.defaultParagraphStyle = paragraphStyle
             preview.autoresizingMask = [.width]
             preview.textContainerInset = NSSize(width: 8, height: 7)
             preview.setAccessibilityLabel("Prompt preview for \(definition.title)")

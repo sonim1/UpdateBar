@@ -180,12 +180,15 @@
             let controller = TemplatesViewController(writeToPasteboard: { _ in true })
             _ = controller.view
             let preview = try textView("template-preview-inspectCLI", in: controller.view)
-            let clip = try XCTUnwrap(preview.enclosingScrollView?.contentView)
+            try button("template-customize-inspectCLI", in: controller.view).performClick(nil)
+            let scroll = try XCTUnwrap(preview.enclosingScrollView)
             XCTAssertTrue(preview.autoresizingMask.contains(.width))
 
             for width in [CGFloat(360), 520, 280] {
-                clip.setFrameSize(NSSize(width: width, height: 180))
-                XCTAssertEqual(preview.frame.width, width, accuracy: 1)
+                scroll.setFrameSize(NSSize(width: width, height: 180))
+                scroll.tile()
+                XCTAssertGreaterThan(scroll.contentView.bounds.width, 0)
+                XCTAssertEqual(preview.frame.width, scroll.contentView.bounds.width, accuracy: 1)
             }
         }
 
@@ -226,6 +229,15 @@
             let item = try textField("template-field-diagnose-itemName", in: controller.view)
 
             XCTAssertTrue(symptom.nextValidKeyView === item)
+            XCTAssertTrue(window.makeFirstResponder(symptom))
+            let tab = try XCTUnwrap(NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil,
+                characters: "\t", charactersIgnoringModifiers: "\t", isARepeat: false, keyCode: 48
+            ))
+            window.sendEvent(tab)
+            XCTAssertTrue(window.firstResponder === item.currentEditor())
+            XCTAssertNotNil(item.currentEditor())
         }
 
         func testLongInputsStayInASingleScrollableLine() throws {
