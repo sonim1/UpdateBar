@@ -144,9 +144,11 @@ grep -q 'Signed &amp; notarized' docs/macos/index.html
 grep -q 'No telemetry' docs/index.html docs/macos/index.html
 grep -q 'X-Content-Type-Options: nosniff' "$headers"
 grep -q "Content-Security-Policy: default-src 'self'" "$headers"
+grep -Fq "script-src 'self' https://static.cloudflareinsights.com;" "$headers"
+grep -Fq "connect-src 'self' https://cloudflareinsights.com;" "$headers"
 
-if grep -RqiE '<video[[:space:]>]|<canvas[[:space:]>]|tracker|analytics|http://' "${pages[@]}" docs/404.html "$style"; then
-  echo 'landing pages must stay free of video, canvas, trackers, analytics, and insecure URLs' >&2
+if grep -RqiE '<video[[:space:]>]|<canvas[[:space:]>]|tracker|http://' "${pages[@]}" docs/404.html "$style"; then
+  echo 'landing pages must stay free of video, canvas, trackers, and insecure URLs' >&2
   exit 1
 fi
 if grep -RqiE 'src="https?://' "${pages[@]}" docs/404.html; then

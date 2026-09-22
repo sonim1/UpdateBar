@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="index, follow, max-image-preview:large">
     <meta name="description" content="A native macOS update dashboard for developer tools. Browse status categories, update selected or all ready tools, and track progress with explicit approval.">
     <title>UpdateBar for macOS | Update Developer Tools from the Menu Bar</title>
     <link rel="canonical" href="https://updatebar.royjen.com/macos/">
@@ -32,6 +33,7 @@
             "name": "UpdateBar",
             "url": "https://updatebar.royjen.com/",
             "applicationCategory": "DeveloperApplication",
+            "publisher": { "@type": "Organization", "@id": "https://royjen.com/#organization", "name": "Royjen", "url": "https://royjen.com/" },
             "operatingSystem": "macOS 13 and later (app); macOS and Linux (CLI)",
             "isAccessibleForFree": true,
             "offers": {
@@ -251,6 +253,8 @@ Preserve existing configuration. Verify installation with updatebar --version an
         <p>A native update surface with an explicit command boundary.</p>
       </div>
       <nav aria-label="Footer navigation">
+        <a href="https://royjen.com/">By Royjen</a>
+        <a href="https://royjen.com/privacy/">Website privacy</a>
         <a href="/">Home</a>
         <a href="/cli-agents/">CLI &amp; agents</a>
         <a href="https://github.com/sonim1/UpdateBar/blob/main/docs/menu-bar.md">Menu bar docs</a>
