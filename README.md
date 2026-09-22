@@ -8,6 +8,12 @@
   <strong>Track and update local tools through commands you explicitly trust.</strong>
 </p>
 
+<p align="center">
+  <a href="https://updatebar.royjen.com/">Website</a> ·
+  <a href="https://github.com/sonim1/UpdateBar/releases/latest">Download</a> ·
+  <a href="docs/install.md">Installation</a>
+</p>
+
 ---
 
 ## What UpdateBar Does
@@ -197,6 +203,7 @@ current product scope.
 - [Architecture](docs/architecture.md) — core, CLI, TUI, and menu bar boundaries
 - [Release workflow](docs/release-workflow.md) — concise release and recovery guide
 - [Troubleshooting](docs/troubleshooting.md) — common installation and runtime failures
+- [Website operations](docs/site-operations.md) — search visibility, Cloudflare analytics, and the shared three-site runbook
 
 Contributing guidelines live in [CONTRIBUTING.md](CONTRIBUTING.md). Release
 history lives in [CHANGELOG.md](CHANGELOG.md).

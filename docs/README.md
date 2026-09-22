@@ -27,6 +27,8 @@ working installation.
 
 ## Understand The System
 
+- [Website operations](site-operations.md) — landing deployment, search visibility,
+  Cloudflare analytics, and the shared Royjen runbook
 - [Architecture](architecture.md) — boundaries between the core, CLI, TUI, and
   macOS app
 - [Binary resolution](binary-resolution.md) — how presentation layers locate the
