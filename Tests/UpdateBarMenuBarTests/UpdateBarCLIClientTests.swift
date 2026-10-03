@@ -322,6 +322,25 @@ final class UpdateBarCLIClientTests: XCTestCase {
         XCTAssertEqual(result.stderr, "fedcba09")
     }
 
+    func testProcessRunnerDoesNotWaitForOutputPipesInheritedByBackgroundChildren() throws {
+        #if os(Linux)
+            throw XCTSkip("Linux /bin/sh keeps background jobs attached under Foundation Process")
+        #endif
+
+        let runner = ProcessRunner(timeout: 5)
+        let started = Date()
+
+        let result = try runner.run(
+            executablePath: "/bin/sh",
+            arguments: ["-c", "sleep 2 & printf done; printf warning >&2"]
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stdout, "done")
+        XCTAssertEqual(result.stderr, "warning")
+        XCTAssertLessThan(Date().timeIntervalSince(started), 1)
+    }
+
     func testProcessRunnerScrubsInheritedEnvironment() throws {
         let home = try temporaryDirectory(prefix: "updatebar-menubar-client-tests")
         let bin = home.appendingPathComponent("bin")

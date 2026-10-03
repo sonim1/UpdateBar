@@ -341,25 +341,18 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
         let stderr = Pipe()
         process.standardOutput = stdout
         process.standardError = stderr
-        let stdoutData = LockedData(maxBytes: maxOutputBytes)
-        let stderrData = LockedData(maxBytes: maxOutputBytes)
+        let output = try SubprocessOutputCapture(
+            stdout: stdout.fileHandleForReading,
+            stderr: stderr.fileHandleForReading,
+            maxOutputBytes: maxOutputBytes
+        )
         let finished = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in
             finished.signal()
         }
 
         try process.run()
-        let readersFinished = DispatchGroup()
-        readersFinished.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            Self.drain(stdout.fileHandleForReading, into: stdoutData)
-            readersFinished.leave()
-        }
-        readersFinished.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            Self.drain(stderr.fileHandleForReading, into: stderrData)
-            readersFinished.leave()
-        }
+        output.start()
 
         let deadline = Date().addingTimeInterval(timeout)
         while true {
@@ -367,7 +360,7 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
             if remaining <= 0 {
                 terminateProcess(process, gracefully: true)
                 _ = finished.wait(timeout: .now() + 2)
-                _ = readersFinished.wait(timeout: .now() + 2)
+                output.finish(timeout: 2)
                 throw UpdateBarCLIClientError.timedOut
             }
             if finished.wait(timeout: .now() + min(0.05, remaining)) == .success {
@@ -376,16 +369,16 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
             if cancellationToken?.isCancelled == true {
                 terminateProcess(process, gracefully: true)
                 _ = finished.wait(timeout: .now() + 2)
-                _ = readersFinished.wait(timeout: .now() + 2)
+                output.finish(timeout: 2)
                 throw UpdateBarCLIClientError.cancelled
             }
         }
-        readersFinished.wait()
+        output.finish(timeout: 0.2)
 
         return CommandResult(
             exitCode: process.terminationStatus,
-            stdout: String(decoding: stdoutData.data(), as: UTF8.self),
-            stderr: String(decoding: stderrData.data(), as: UTF8.self)
+            stdout: output.capturedStdout,
+            stderr: output.capturedStderr
         )
     }
 
@@ -413,37 +406,4 @@ public final class ProcessRunner: UpdateBarProcessRunning, @unchecked Sendable {
         }
     }
 
-    private static func drain(_ handle: FileHandle, into output: LockedData) {
-        while true {
-            let data = handle.availableData
-            if data.isEmpty { break }
-            output.append(data)
-        }
-    }
-}
-
-private final class LockedData: @unchecked Sendable {
-    private let lock = NSLock()
-    private let maxBytes: Int
-    private var storage = Data()
-
-    init(maxBytes: Int) {
-        self.maxBytes = max(0, maxBytes)
-    }
-
-    func append(_ data: Data) {
-        guard !data.isEmpty else { return }
-        lock.lock()
-        let remaining = maxBytes - storage.count
-        if remaining > 0 {
-            storage.append(data.prefix(remaining))
-        }
-        lock.unlock()
-    }
-
-    func data() -> Data {
-        lock.lock()
-        defer { lock.unlock() }
-        return storage
-    }
 }
