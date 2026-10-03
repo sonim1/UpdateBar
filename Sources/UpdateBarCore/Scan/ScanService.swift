@@ -106,7 +106,7 @@ public struct ScanService {
         guard let data = output.data(using: .utf8), !data.isEmpty else { return [] }
         let decoded = try JSONDecoder().decode(NPMGlobalList.self, from: data)
         return decoded.dependencies.map { package, info in
-            let id = "npm.\(idComponent(package))"
+            let id = "npm.\(npmIDComponent(package))"
             let category = category(for: package, detector: .npmGlobal)
             let recipe = Recipe(
                 id: id,
@@ -411,6 +411,31 @@ public struct ScanService {
             .joined()
             .trimmingCharacters(in: CharacterSet(charactersIn: ".-_"))
         return cleaned.isEmpty ? "tool" : cleaned
+    }
+
+    private func npmIDComponent(_ package: String) -> String {
+        if package.hasPrefix("@") {
+            let scopedName = package.dropFirst()
+            let components = scopedName.split(
+                separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+            if components.count == 2 {
+                return components.map { escapedNPMIDComponent(String($0)) }.joined(separator: ".")
+            }
+        }
+        return escapedNPMIDComponent(package)
+    }
+
+    private func escapedNPMIDComponent(_ value: String) -> String {
+        let escaped = value.utf8.map { byte -> String in
+            switch byte {
+            case 48...57, 97...122, 45:
+                String(UnicodeScalar(byte))
+            default:
+                "_" + String(format: "%02x", byte)
+            }
+        }
+        .joined()
+        return escaped.isEmpty ? "tool" : escaped
     }
 
     private func isASCIIIDComponentScalar(_ scalar: UnicodeScalar) -> Bool {
