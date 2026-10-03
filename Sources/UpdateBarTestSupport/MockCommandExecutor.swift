@@ -3,7 +3,7 @@ import UpdateBarCore
 
 /// Thread-safe because UpdateRunner executes recipes on a worker pool; several
 /// threads call `run` concurrently.
-public final class MockCommandExecutor: CommandRunning, @unchecked Sendable {
+public final class MockCommandExecutor: CommandLaunching, @unchecked Sendable {
     private let lock = NSLock()
     private var storedResults: [String: CommandResult]
     private var recorded: [ShellCommand] = []
@@ -47,23 +47,47 @@ public final class MockCommandExecutor: CommandRunning, @unchecked Sendable {
         lock.unlock()
     }
 
-    public func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult {
+    public func prepare(_ command: ShellCommand, policy: ExecutionPolicy) throws
+        -> any PreparedCommand
+    {
+        MockPreparedCommand(executor: self, command: command)
+    }
+
+    fileprivate func start(_ command: ShellCommand) throws -> any RunningCommand {
         lock.lock()
         recorded.append(command)
         let result = storedResults[command.command]
         let delay = delays[command.command]
         lock.unlock()
 
-        if let delay {
-            Thread.sleep(forTimeInterval: delay)
-        }
         guard let result else {
             throw MockError.missingCommand(command.command)
         }
-        return result
+        return MockRunningCommand(result: result, delay: delay)
     }
 
     public enum MockError: Error {
         case missingCommand(String)
+    }
+}
+
+private struct MockPreparedCommand: PreparedCommand {
+    let executor: MockCommandExecutor
+    let command: ShellCommand
+
+    func start() throws -> any RunningCommand {
+        try executor.start(command)
+    }
+}
+
+private struct MockRunningCommand: RunningCommand {
+    let result: CommandResult
+    let delay: TimeInterval?
+
+    func wait() throws -> CommandResult {
+        if let delay {
+            Thread.sleep(forTimeInterval: delay)
+        }
+        return result
     }
 }

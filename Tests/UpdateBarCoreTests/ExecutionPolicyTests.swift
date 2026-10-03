@@ -1,6 +1,12 @@
 import UpdateBarCore
 import XCTest
 
+#if os(Linux)
+    import Glibc
+#else
+    import Darwin
+#endif
+
 final class ExecutionPolicyTests: XCTestCase {
     func testCommandExecutorCapturesSuccessfulOutput() throws {
         let executor = CommandExecutor()
@@ -69,6 +75,134 @@ final class ExecutionPolicyTests: XCTestCase {
         ) { error in
             XCTAssertEqual(error as? ExecutionError, .cancelled(command: "sleep 5"))
         }
+    }
+
+    func testCommandExecutorTimeoutStopsFiniteDescendantBeforeItWrites() throws {
+        let root = try temporaryDirectory()
+        let marker = root.appendingPathComponent("timeout-descendant")
+        let executor = CommandExecutor()
+        let command =
+            "(trap '' INT TERM; sleep 2; printf written > \(ShellQuote.single(marker.path))) "
+            + "</dev/null >/dev/null 2>&1 & wait"
+        let started = Date()
+
+        XCTAssertThrowsError(
+            try executor.run(
+                ShellCommand(command: command, cwd: nil),
+                policy: ExecutionPolicy(timeout: 0.05, maxOutputBytes: 1024)
+            )
+        ) { error in
+            guard case .timedOut = error as? ExecutionError else {
+                return XCTFail("expected timeout, got \(error)")
+            }
+        }
+
+        Thread.sleep(forTimeInterval: max(0, 2.3 - Date().timeIntervalSince(started)))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
+    func testCommandExecutorCancellationStopsFiniteDescendantBeforeItWrites() throws {
+        let root = try temporaryDirectory()
+        let marker = root.appendingPathComponent("cancelled-descendant")
+        let token = CancellationToken()
+        let executor = CommandExecutor(cancellationToken: token)
+        let command =
+            "(trap '' INT TERM; sleep 2; printf written > \(ShellQuote.single(marker.path))) "
+            + "</dev/null >/dev/null 2>&1 & wait"
+        let started = Date()
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
+            token.cancel()
+        }
+
+        XCTAssertThrowsError(
+            try executor.run(
+                ShellCommand(command: command, cwd: nil),
+                policy: ExecutionPolicy(timeout: 5, maxOutputBytes: 1024)
+            )
+        ) { error in
+            guard case .cancelled = error as? ExecutionError else {
+                return XCTFail("expected cancellation, got \(error)")
+            }
+        }
+
+        Thread.sleep(forTimeInterval: max(0, 2.3 - Date().timeIntervalSince(started)))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
+    func testCommandExecutorOwnsDistinctProcessGroup() throws {
+        let running = try CommandExecutor().prepare(
+            ShellCommand(command: "sleep 0.1", cwd: nil),
+            policy: ExecutionPolicy(timeout: 5, maxOutputBytes: 1024)
+        ).start()
+
+        XCTAssertEqual(running.processIdentifier, running.processGroupIdentifier)
+        XCTAssertNotEqual(running.processGroupIdentifier, getpgrp())
+        XCTAssertEqual(try running.wait().exitCode, 0)
+    }
+
+    func testLaunchFailsClosedWhenProcessGroupIsNotOwned() throws {
+        let root = try temporaryDirectory()
+        let marker = root.appendingPathComponent("ownership-failure")
+        let prepared = try SubprocessLifecycle.prepare(
+            executableURL: URL(fileURLWithPath: "/bin/sh"),
+            arguments: [
+                "-c",
+                "trap '' TERM; /bin/sleep 2; printf written > \(ShellQuote.single(marker.path))",
+            ],
+            environment: [:],
+            timeout: 5,
+            maxOutputBytes: 1024,
+            cancellationToken: nil,
+            commandDescription: "ownership failure fixture",
+            processGroupIdentifier: { _ in
+                Thread.sleep(forTimeInterval: 0.05)
+                return getpgrp()
+            }
+        )
+
+        XCTAssertThrowsError(try prepared.start()) { error in
+            guard case .launchFailed = error as? ExecutionError else {
+                return XCTFail("expected launch failure, got \(error)")
+            }
+        }
+        Thread.sleep(forTimeInterval: 2.3)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
+    func testCancellingOneCommandDoesNotStopConcurrentCommand() throws {
+        let root = try temporaryDirectory()
+        let cancelledMarker = root.appendingPathComponent("cancelled")
+        let completedMarker = root.appendingPathComponent("completed")
+        let token = CancellationToken()
+        let cancelled = try CommandExecutor(cancellationToken: token).prepare(
+            ShellCommand(
+                command:
+                    "(trap '' INT TERM; sleep 2; printf written > "
+                    + "\(ShellQuote.single(cancelledMarker.path))) & wait",
+                cwd: nil
+            ),
+            policy: ExecutionPolicy(timeout: 5, maxOutputBytes: 1024)
+        ).start()
+        let independent = try CommandExecutor().prepare(
+            ShellCommand(
+                command: "sleep 0.3; printf written > \(ShellQuote.single(completedMarker.path))",
+                cwd: nil
+            ),
+            policy: ExecutionPolicy(timeout: 5, maxOutputBytes: 1024)
+        ).start()
+        XCTAssertNotEqual(cancelled.processGroupIdentifier, independent.processGroupIdentifier)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
+            token.cancel()
+        }
+
+        XCTAssertThrowsError(try cancelled.wait()) { error in
+            guard case .cancelled = error as? ExecutionError else {
+                return XCTFail("expected cancellation, got \(error)")
+            }
+        }
+        XCTAssertEqual(try independent.wait().exitCode, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: cancelledMarker.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: completedMarker.path))
     }
 
     func testExecutionErrorDescriptionsRedactSecretLikeValues() {

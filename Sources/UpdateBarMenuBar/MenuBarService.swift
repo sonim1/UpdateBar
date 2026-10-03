@@ -91,7 +91,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
     private let stateStore: StateStore
     private let configStore: ConfigStore
     private let httpClient: HTTPClient
-    private let injectedCommandRunner: (any CommandRunning)?
+    private let injectedCommandRunner: (any CommandLaunching)?
     private let commandEnvironment: [String: String]
     private let now: @Sendable () -> Date
     private let githubToken: String?
@@ -101,7 +101,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         scanHomeDirectory: URL? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         httpClient: HTTPClient = URLSessionHTTPClient(),
-        commandRunner: (any CommandRunning)? = nil,
+        commandRunner: (any CommandLaunching)? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         githubToken: String? = nil
     ) {
@@ -254,7 +254,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         )
     }
 
-    private func commandRunner(for cancellationToken: CancellationToken?) -> any CommandRunning {
+    private func commandRunner(for cancellationToken: CancellationToken?) -> any CommandLaunching {
         injectedCommandRunner
             ?? CommandExecutor(
                 environment: commandEnvironment,

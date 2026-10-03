@@ -188,6 +188,26 @@ final class UpdateRunnerTests: XCTestCase {
         XCTAssertTrue(commands.commands.isEmpty)
     }
 
+    func testRunnerRechecksApprovalImmediatelyBeforeLaunchingPlannedCommand() throws {
+        try assertRunnerRejectsManifestChangeBeforeLaunch(.revokeApproval)
+    }
+
+    func testRunnerRechecksEnabledStateImmediatelyBeforeLaunchingPlannedCommand() throws {
+        try assertRunnerRejectsManifestChangeBeforeLaunch(.disable)
+    }
+
+    func testRunnerRechecksPinImmediatelyBeforeLaunchingPlannedCommand() throws {
+        try assertRunnerRejectsManifestChangeBeforeLaunch(.pin)
+    }
+
+    func testRunnerRechecksRecipePresenceImmediatelyBeforeLaunchingPlannedCommand() throws {
+        try assertRunnerRejectsManifestChangeBeforeLaunch(.remove)
+    }
+
+    func testRunnerDoesNotLaunchOldOrNewCommandAfterRecipeCommandChanges() throws {
+        try assertRunnerRejectsManifestChangeBeforeLaunch(.replaceCommand)
+    }
+
     func testRunnerPlansFromStores() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
@@ -438,6 +458,61 @@ final class UpdateRunnerTests: XCTestCase {
         XCTAssertEqual(updates.map(\.outcome), [.updated])
     }
 
+    func testAuthorizationLockEndsAfterSpawnBeforeWait() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let planned = recipe(id: "tool")
+        try ManifestStore(paths: paths).save(manifest(items: [planned]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1,
+                generatedAt: now,
+                items: ["tool": itemState(status: .outdated)]
+            )
+        )
+        let commands = LockBoundaryCommandLauncher()
+        let updateFinished = DispatchSemaphore(value: 0)
+        let updateResult = LockedUpdateResult()
+        let testNow = now
+        DispatchQueue.global().async {
+            do {
+                let result = try UpdateRunner(
+                    manifestStore: ManifestStore(paths: AppPaths(homeDirectory: root)),
+                    stateStore: StateStore(paths: AppPaths(homeDirectory: root)),
+                    commandRunner: commands,
+                    now: { testNow },
+                    historyStore: HistoryStore(paths: AppPaths(homeDirectory: root))
+                ).update(ids: ["tool"], all: false, assumeYes: true)
+                updateResult.store(.success(result))
+            } catch {
+                updateResult.store(.failure(error))
+            }
+            updateFinished.signal()
+        }
+
+        XCTAssertEqual(commands.startEntered.wait(timeout: .now() + 1), .success)
+        let revokeFinished = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            defer { revokeFinished.signal() }
+            let currentPaths = AppPaths(homeDirectory: root)
+            _ = try? RegistryService(
+                manifestStore: ManifestStore(paths: currentPaths),
+                stateStore: StateStore(paths: currentPaths),
+                historyStore: HistoryStore(paths: currentPaths)
+            ).revokeApproval(id: "tool", field: "update.cmd")
+        }
+        XCTAssertEqual(revokeFinished.wait(timeout: .now() + 0.1), .timedOut)
+
+        commands.allowStart.signal()
+        XCTAssertEqual(commands.waitEntered.wait(timeout: .now() + 1), .success)
+        XCTAssertEqual(revokeFinished.wait(timeout: .now() + 1), .success)
+        XCTAssertEqual(updateFinished.wait(timeout: .now() + 0.1), .timedOut)
+
+        commands.allowWait.signal()
+        XCTAssertEqual(updateFinished.wait(timeout: .now() + 1), .success)
+        XCTAssertEqual(try updateResult.get().get().map(\.outcome), [.updated])
+    }
+
     private func updateRunner(
         paths: AppPaths,
         commands: MockCommandExecutor,
@@ -456,6 +531,70 @@ final class UpdateRunnerTests: XCTestCase {
             confirm: { _ in true },
             historyStore: HistoryStore(paths: paths)
         )
+    }
+
+    private func assertRunnerRejectsManifestChangeBeforeLaunch(
+        _ change: ManifestChangeBeforeLaunch
+    ) throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        let planned = recipe(id: "tool")
+        let manifestStore = ManifestStore(paths: paths)
+        try manifestStore.save(manifest(items: [planned]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1,
+                generatedAt: now,
+                items: ["tool": itemState(status: .outdated)]
+            )
+        )
+        let commands = MockCommandExecutor(results: [
+            "tool update": CommandResult(exitCode: 0, stdout: "old", stderr: ""),
+            "replacement update": CommandResult(exitCode: 0, stdout: "new", stderr: ""),
+            "tool current": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
+            "tool latest": CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: ""),
+        ])
+        let runner = updateRunner(paths: paths, commands: commands)
+        let testNow = now
+        let id = planned.id
+
+        let results = try runner.update(
+            ids: [id],
+            all: false,
+            assumeYes: true,
+            onEvent: { event in
+                guard case .itemStarted(let startedID, _) = event, startedID == id else { return }
+                let currentStore = ManifestStore(paths: AppPaths(homeDirectory: root))
+                try currentStore.withExclusiveLock {
+                    var currentManifest = try currentStore.loadExistingOrEmpty(now: testNow)
+                    guard var currentRecipe = currentManifest.item(id: id) else { return }
+                    switch change {
+                    case .revokeApproval:
+                        currentRecipe.trust.approvedCommands.removeValue(forKey: "update.cmd")
+                        currentManifest = currentManifest.replacing(item: currentRecipe)
+                    case .disable:
+                        currentRecipe.enabled = false
+                        currentManifest = currentManifest.replacing(item: currentRecipe)
+                    case .pin:
+                        currentRecipe.pin = "1.0.0"
+                        currentManifest = currentManifest.replacing(item: currentRecipe)
+                    case .remove:
+                        currentManifest = currentManifest.removing(id: id)
+                    case .replaceCommand:
+                        currentRecipe.update = UpdateSpec(cmd: "replacement update", cwd: "/tmp")
+                        TestApprovals.approveAllCommands(in: &currentRecipe)
+                        currentManifest = currentManifest.replacing(item: currentRecipe)
+                    }
+                    try currentStore.save(currentManifest)
+                }
+            }
+        )
+
+        XCTAssertTrue(
+            commands.commands.isEmpty,
+            "a command planned before the manifest change must not launch"
+        )
+        XCTAssertEqual(results.first?.outcome, change.expectedOutcome)
     }
 
     private func manifest(items: [Recipe]) -> Manifest {
@@ -514,6 +653,83 @@ final class UpdateRunnerTests: XCTestCase {
             .appendingPathComponent("updatebar-update-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+}
+
+private enum ManifestChangeBeforeLaunch: Sendable {
+    case revokeApproval
+    case disable
+    case pin
+    case remove
+    case replaceCommand
+
+    var expectedOutcome: UpdateOutcome {
+        switch self {
+        case .revokeApproval, .replaceCommand:
+            .skippedUntrusted
+        case .disable:
+            .skippedDisabled
+        case .pin:
+            .skippedPinned
+        case .remove:
+            .missing
+        }
+    }
+}
+
+private final class LockBoundaryCommandLauncher: CommandLaunching, @unchecked Sendable {
+    let startEntered = DispatchSemaphore(value: 0)
+    let allowStart = DispatchSemaphore(value: 0)
+    let waitEntered = DispatchSemaphore(value: 0)
+    let allowWait = DispatchSemaphore(value: 0)
+
+    func prepare(_ command: ShellCommand, policy: ExecutionPolicy) throws -> any PreparedCommand {
+        LockBoundaryPreparedCommand(owner: self, command: command.command)
+    }
+}
+
+private struct LockBoundaryPreparedCommand: PreparedCommand {
+    let owner: LockBoundaryCommandLauncher
+    let command: String
+
+    func start() throws -> any RunningCommand {
+        if command == "tool update" {
+            owner.startEntered.signal()
+            owner.allowStart.wait()
+            return LockBoundaryRunningCommand(owner: owner)
+        }
+        return ImmediateRunningCommand(
+            result: CommandResult(exitCode: 0, stdout: "tool 1.1.0", stderr: "")
+        )
+    }
+}
+
+private struct LockBoundaryRunningCommand: RunningCommand {
+    let owner: LockBoundaryCommandLauncher
+
+    func wait() throws -> CommandResult {
+        owner.waitEntered.signal()
+        owner.allowWait.wait()
+        return CommandResult(exitCode: 0, stdout: "updated", stderr: "")
+    }
+}
+
+private struct ImmediateRunningCommand: RunningCommand {
+    let result: CommandResult
+
+    func wait() throws -> CommandResult { result }
+}
+
+private final class LockedUpdateResult: @unchecked Sendable {
+    private let lock = NSLock()
+    private var result: Result<[UpdateResult], Error>?
+
+    func store(_ result: Result<[UpdateResult], Error>) {
+        lock.withLock { self.result = result }
+    }
+
+    func get() -> Result<[UpdateResult], Error> {
+        lock.withLock { result! }
     }
 }
 

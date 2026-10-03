@@ -135,6 +135,66 @@ final class UpdateBarCLIClientTests: XCTestCase {
             ])
     }
 
+    func testClientUsesOperationSpecificProcessPolicies() throws {
+        let runner = RecordingRunner(result: CommandResult(exitCode: 0, stdout: "[]", stderr: ""))
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        try client.checkNow()
+        try client.update(id: "tool")
+        try client.updateAllApproved()
+        _ = try client.approvals(id: "tool")
+
+        XCTAssertEqual(
+            runner.policies,
+            [.longRunning, .longRunning, .longRunning, .query]
+        )
+    }
+
+    func testLongUpdateOutlivesQueryDeadlineAndSucceeds() throws {
+        let home = try temporaryDirectory(prefix: "updatebar-menubar-client-tests")
+        let executable = home.appendingPathComponent("delayed-updatebar")
+        try writeExecutable(executable, body: "sleep 0.15\nprintf '[]\\n'")
+        let client = UpdateBarCLIClient(
+            executablePath: executable.path,
+            runner: ProcessRunner(timeout: 0.05, maxOutputBytes: 17)
+        )
+
+        try client.update(id: "tool")
+    }
+
+    func testQueryStillTimesOutAtShortDeadline() throws {
+        let home = try temporaryDirectory(prefix: "updatebar-menubar-client-tests")
+        let executable = home.appendingPathComponent("delayed-updatebar")
+        try writeExecutable(
+            executable,
+            body:
+                "sleep 0.15\n"
+                + "printf '{\"generated_at\":\"2026-06-10T00:00:00Z\","
+                + "\"items\":[],\"summary\":{\"errors\":0,\"outdated\":0,\"total\":0}}\\n'"
+        )
+        let client = UpdateBarCLIClient(
+            executablePath: executable.path,
+            runner: ProcessRunner(timeout: 0.05, maxOutputBytes: 17)
+        )
+
+        XCTAssertThrowsError(try client.status()) { error in
+            XCTAssertEqual(error as? UpdateBarCLIClientError, .timedOut)
+        }
+    }
+
+    func testLongRunningPolicyPreservesConfiguredOutputCap() throws {
+        let runner = ProcessRunner(timeout: 0.05, maxOutputBytes: 17)
+
+        let result = try runner.run(
+            executablePath: "/bin/sh",
+            arguments: ["-c", "sleep 0.1; printf '123456789012345678901234567890'"],
+            cancellationToken: nil,
+            policy: .longRunning
+        )
+
+        XCTAssertEqual(result.stdout, "12345678901234567")
+    }
+
     func testUpdateSelectedPassesEveryExplicitID() throws {
         let runner = RecordingRunner(
             result: CommandResult(exitCode: 0, stdout: "[]", stderr: "")
@@ -431,6 +491,170 @@ final class UpdateBarCLIClientTests: XCTestCase {
         }
     }
 
+    func testProcessRunnerTimeoutStopsFiniteDescendantBeforeItWrites() throws {
+        let home = try temporaryDirectory(prefix: "updatebar-menubar-client-tests")
+        let marker = home.appendingPathComponent("timeout-descendant")
+        let runner = ProcessRunner(timeout: 0.05)
+        let started = Date()
+
+        XCTAssertThrowsError(
+            try runner.run(
+                executablePath: "/bin/sh",
+                arguments: [
+                    "-c",
+                    "(trap '' INT TERM; sleep 2; printf written > \(ShellQuote.single(marker.path))) "
+                        + "</dev/null >/dev/null 2>&1 & wait",
+                ]
+            )
+        ) { error in
+            XCTAssertEqual(error as? UpdateBarCLIClientError, .timedOut)
+        }
+
+        Thread.sleep(forTimeInterval: max(0, 2.3 - Date().timeIntervalSince(started)))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
+    func testProcessRunnerCancellationStopsFiniteDescendantBeforeItWrites() throws {
+        let home = try temporaryDirectory(prefix: "updatebar-menubar-client-tests")
+        let marker = home.appendingPathComponent("cancelled-descendant")
+        let runner = ProcessRunner(timeout: 5)
+        let token = CancellationToken()
+        let started = Date()
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
+            token.cancel()
+        }
+
+        XCTAssertThrowsError(
+            try runner.run(
+                executablePath: "/bin/sh",
+                arguments: [
+                    "-c",
+                    "(trap '' INT TERM; sleep 2; printf written > \(ShellQuote.single(marker.path))) "
+                        + "</dev/null >/dev/null 2>&1 & wait",
+                ],
+                cancellationToken: token
+            )
+        ) { error in
+            XCTAssertEqual(error as? UpdateBarCLIClientError, .cancelled)
+        }
+
+        Thread.sleep(forTimeInterval: max(0, 2.3 - Date().timeIntervalSince(started)))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
+    func testLongUpdateCancellationStopsDescendantGroup() throws {
+        let home = try temporaryDirectory(prefix: "updatebar-menubar-client-tests")
+        let marker = home.appendingPathComponent("long-update-descendant")
+        let executable = home.appendingPathComponent("slow-updatebar")
+        try writeExecutable(
+            executable,
+            body:
+                "(trap '' INT TERM; sleep 2; printf written > \(ShellQuote.single(marker.path))) "
+                + "</dev/null >/dev/null 2>&1 & wait"
+        )
+        let token = CancellationToken()
+        let client = UpdateBarCLIClient(executablePath: executable.path)
+        let started = Date()
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
+            token.cancel()
+        }
+
+        XCTAssertThrowsError(try client.update(ids: ["tool"], cancellationToken: token)) {
+            error in
+            XCTAssertEqual(error as? UpdateBarCLIClientError, .cancelled)
+        }
+
+        Thread.sleep(forTimeInterval: max(0, 2.3 - Date().timeIntervalSince(started)))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
+    func testActualCLIAdapterCancellationStopsRecipeDescendant() throws {
+        let executablePath =
+            ProcessInfo.processInfo.environment["UPDATEBAR_TEST_BIN"]
+            ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent(".build/debug/updatebar").path
+        guard FileManager.default.isExecutableFile(atPath: executablePath) else {
+            XCTFail("build updatebar before running the actual CLI adapter regression")
+            return
+        }
+        let home = try temporaryDirectory(prefix: "updatebar-actual-cli-cancellation")
+        let paths = AppPaths(homeDirectory: home)
+        let ready = home.appendingPathComponent("ready")
+        let marker = home.appendingPathComponent("descendant")
+        var recipe = Recipe(
+            id: "actual-cli-cancel",
+            name: "Actual CLI cancellation",
+            category: "cli",
+            path: nil,
+            source: Source(kind: .custom, ref: "actual-cli-cancel", branch: nil),
+            versionScheme: .semver,
+            check: .command("printf '1.0.0\\n'"),
+            latest: LatestSpec(
+                strategy: .cmd,
+                cmd: "printf '2.0.0\\n'",
+                pattern: nil
+            ),
+            versionParse: .regex("([0-9]+\\.[0-9]+\\.[0-9]+)"),
+            update: UpdateSpec(
+                cmd:
+                    "printf ready > \(ShellQuote.single(ready.path)); "
+                    + "(trap '' INT TERM; /bin/sleep 2; printf survived > "
+                    + "\(ShellQuote.single(marker.path))) & wait",
+                cwd: nil
+            ),
+            pin: nil,
+            enabled: true,
+            trust: Trust(level: .trusted, approvedCommands: [:])
+        )
+        recipe.trust.approvedCommands = recipe.commandFingerprints()
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1,
+                items: [recipe],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+            )
+        )
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1,
+                generatedAt: now,
+                items: [
+                    recipe.id: ItemState(
+                        current: "1.0.0",
+                        latest: "2.0.0",
+                        status: .outdated,
+                        lastChecked: now,
+                        error: nil,
+                        backoffUntil: nil
+                    )
+                ]
+            )
+        )
+        try ConfigStore(paths: paths).save(.default)
+        let token = CancellationToken()
+        let started = Date()
+        DispatchQueue.global().async {
+            let deadline = Date().addingTimeInterval(2)
+            while !FileManager.default.fileExists(atPath: ready.path), Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.01)
+            }
+            token.cancel()
+        }
+
+        try withProcessEnvironment(["HOME": home.path, "UPDATEBAR_HOME": home.path]) {
+            let client = UpdateBarCLIClient(executablePath: executablePath)
+            XCTAssertThrowsError(
+                try client.update(ids: [recipe.id], cancellationToken: token)
+            ) { error in
+                XCTAssertEqual(error as? UpdateBarCLIClientError, .cancelled)
+            }
+        }
+        Thread.sleep(forTimeInterval: max(0, 2.5 - Date().timeIntervalSince(started)))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: ready.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
     private func withProcessEnvironment(
         _ values: [String: String],
         run body: () throws -> Void
@@ -459,11 +683,20 @@ final class UpdateBarCLIClientTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         return root
     }
+
+    private func writeExecutable(_ url: URL, body: String) throws {
+        try Data("#!/bin/sh\n\(body)\n".utf8).write(to: url)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: Int16(0o755))],
+            ofItemAtPath: url.path
+        )
+    }
 }
 
 private final class RecordingRunner: UpdateBarProcessRunning, @unchecked Sendable {
     private let result: CommandResult
     private(set) var calls: [CommandCall] = []
+    private(set) var policies: [UpdateBarProcessPolicy] = []
 
     init(result: CommandResult) {
         self.result = result
@@ -472,6 +705,16 @@ private final class RecordingRunner: UpdateBarProcessRunning, @unchecked Sendabl
     func run(executablePath: String, arguments: [String]) throws -> CommandResult {
         calls.append(CommandCall(executablePath: executablePath, arguments: arguments))
         return result
+    }
+
+    func run(
+        executablePath: String,
+        arguments: [String],
+        cancellationToken: CancellationToken?,
+        policy: UpdateBarProcessPolicy
+    ) throws -> CommandResult {
+        policies.append(policy)
+        return try run(executablePath: executablePath, arguments: arguments)
     }
 }
 

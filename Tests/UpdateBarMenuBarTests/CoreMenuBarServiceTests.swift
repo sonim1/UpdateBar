@@ -500,7 +500,7 @@ final class CoreMenuBarServiceTests: XCTestCase {
     }
 }
 
-private final class RecordingCommandRunner: CommandRunning, @unchecked Sendable {
+private final class RecordingCommandRunner: CommandLaunching, @unchecked Sendable {
     private let lock = NSLock()
     private var storedResults: [String: CommandResult]
     private var recorded: [ShellCommand] = []
@@ -528,6 +528,10 @@ private final class RecordingCommandRunner: CommandRunning, @unchecked Sendable 
         return recorded
     }
 
+    func prepare(_ command: ShellCommand, policy: ExecutionPolicy) throws -> any PreparedCommand {
+        RecordingPreparedCommand(runner: self, command: command, policy: policy)
+    }
+
     func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult {
         lock.lock()
         recorded.append(command)
@@ -539,6 +543,22 @@ private final class RecordingCommandRunner: CommandRunning, @unchecked Sendable 
         }
         return result
     }
+}
+
+private struct RecordingPreparedCommand: PreparedCommand {
+    let runner: RecordingCommandRunner
+    let command: ShellCommand
+    let policy: ExecutionPolicy
+
+    func start() throws -> any RunningCommand {
+        RecordedRunningCommand(result: try runner.run(command, policy: policy))
+    }
+}
+
+private struct RecordedRunningCommand: RunningCommand {
+    let result: CommandResult
+
+    func wait() throws -> CommandResult { result }
 }
 
 private struct MissingCommandError: Error {

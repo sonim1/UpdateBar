@@ -1,18 +1,22 @@
 import Foundation
 
-#if os(Linux)
-    import Glibc
-#else
-    import Darwin
-#endif
-
 public protocol CommandRunning: Sendable {
     func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult
 }
 
+public protocol CommandLaunching: CommandRunning {
+    func prepare(_ command: ShellCommand, policy: ExecutionPolicy) throws -> any PreparedCommand
+}
+
+extension CommandLaunching {
+    public func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult {
+        try prepare(command, policy: policy).start().wait()
+    }
+}
+
 /// The executor keeps immutable configuration and creates a fresh `Process`
 /// for every command, so instances can be shared by update workers.
-public struct CommandExecutor: CommandRunning, @unchecked Sendable {
+public struct CommandExecutor: CommandLaunching, @unchecked Sendable {
     private let environment: [String: String]
     private let fileManager: FileManager
     private let cancellationToken: CancellationToken?
@@ -27,7 +31,9 @@ public struct CommandExecutor: CommandRunning, @unchecked Sendable {
         self.cancellationToken = cancellationToken
     }
 
-    public func run(_ command: ShellCommand, policy: ExecutionPolicy) throws -> CommandResult {
+    public func prepare(_ command: ShellCommand, policy: ExecutionPolicy) throws
+        -> any PreparedCommand
+    {
         if let cwd = command.cwd {
             var isDirectory: ObjCBool = false
             guard fileManager.fileExists(atPath: cwd, isDirectory: &isDirectory),
@@ -36,56 +42,15 @@ public struct CommandExecutor: CommandRunning, @unchecked Sendable {
                 throw ExecutionError.invalidWorkingDirectory(cwd)
             }
         }
-        if cancellationToken?.isCancelled == true {
-            throw ExecutionError.cancelled(command: command.command)
-        }
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-c", command.command]
-        if let cwd = command.cwd {
-            process.currentDirectoryURL = URL(fileURLWithPath: cwd)
-        }
-        process.environment = scrubbedEnvironment()
-
-        let stdout = Pipe()
-        let stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
-        let output = try SubprocessOutputCapture(
-            stdout: stdout.fileHandleForReading,
-            stderr: stderr.fileHandleForReading,
-            maxOutputBytes: policy.maxOutputBytes
-        )
-
-        do {
-            try process.run()
-        } catch {
-            throw ExecutionError.launchFailed(String(describing: error))
-        }
-
-        output.start()
-
-        let deadline = Date().addingTimeInterval(policy.timeout)
-        while process.isRunning && Date() < deadline {
-            if cancellationToken?.isCancelled == true {
-                stopProcess(process)
-                output.finish(timeout: 2.0)
-                throw ExecutionError.cancelled(command: command.command)
-            }
-            Thread.sleep(forTimeInterval: 0.01)
-        }
-        if process.isRunning {
-            stopProcess(process)
-            output.finish(timeout: 2.0)
-            throw ExecutionError.timedOut(command: command.command)
-        }
-        output.finish(timeout: 0.2)
-
-        return CommandResult(
-            exitCode: process.terminationStatus,
-            stdout: output.capturedStdout,
-            stderr: output.capturedStderr
+        return try SubprocessLifecycle.prepare(
+            executableURL: URL(fileURLWithPath: "/bin/sh"),
+            arguments: ["-c", command.command],
+            currentDirectoryURL: command.cwd.map { URL(fileURLWithPath: $0) },
+            environment: scrubbedEnvironment(),
+            timeout: policy.timeout,
+            maxOutputBytes: policy.maxOutputBytes,
+            cancellationToken: cancellationToken,
+            commandDescription: command.command
         )
     }
 
@@ -101,27 +66,6 @@ public struct CommandExecutor: CommandRunning, @unchecked Sendable {
                 .joined(separator: ":")
         }
         return scrubbed
-    }
-
-    private func stopProcess(_ process: Process) {
-        guard process.isRunning else { return }
-
-        process.interrupt()
-        if waitForExit(process, timeout: 0.5) { return }
-
-        process.terminate()
-        if waitForExit(process, timeout: 1.0) { return }
-
-        kill(process.processIdentifier, SIGKILL)
-        _ = waitForExit(process, timeout: 1.0)
-    }
-
-    private func waitForExit(_ process: Process, timeout: TimeInterval) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while process.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.01)
-        }
-        return !process.isRunning
     }
 
 }
