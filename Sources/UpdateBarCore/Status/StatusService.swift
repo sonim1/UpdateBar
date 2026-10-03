@@ -72,8 +72,8 @@ public struct StatusService {
                 continue
             }
             let existing = copy.items[recipe.id]
-            if let lastChecked = existing?.lastChecked,
-                now.timeIntervalSince(lastChecked) < TimeInterval(config.refresh.interval.seconds)
+            if existing?.isFresh(now: now, ttl: TimeInterval(config.refresh.interval.seconds))
+                == true
             {
                 continue
             }

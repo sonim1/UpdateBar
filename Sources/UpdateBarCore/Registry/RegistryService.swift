@@ -406,8 +406,7 @@ public struct RegistryService {
     }
 
     private func isFresh(_ state: ItemState, now: Date) -> Bool {
-        guard let lastChecked = state.lastChecked else { return false }
-        return now.timeIntervalSince(lastChecked) < TimeInterval(config.refresh.interval.seconds)
+        state.isFresh(now: now, ttl: TimeInterval(config.refresh.interval.seconds))
     }
 
     private func currentVersion(for recipe: Recipe) throws -> String {

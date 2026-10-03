@@ -42,6 +42,12 @@ public struct ItemState: Codable, Equatable {
         self.backoffUntil = backoffUntil
     }
 
+    func isFresh(now: Date, ttl: TimeInterval) -> Bool {
+        guard let lastChecked else { return false }
+        let age = now.timeIntervalSince(lastChecked)
+        return age >= 0 && age < ttl
+    }
+
     enum CodingKeys: String, CodingKey {
         case current
         case latest

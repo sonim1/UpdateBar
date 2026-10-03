@@ -136,6 +136,40 @@ final class StatusServiceTests: XCTestCase {
         XCTAssertEqual(persisted.items["partial"]?.status, .ok)
     }
 
+    func testRefreshTreatsFutureAndExpiredTimestampsAsStale() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(homeDirectory: root)
+        var config = Config.default
+        config.refresh.interval = Duration(hours: 1)
+        let ttl = TimeInterval(config.refresh.interval.seconds)
+        let cases: [(id: String, age: TimeInterval, expected: ItemStatus)] = [
+            ("future", -60, .checking),
+            ("now", 0, .ok),
+            ("fresh", ttl - 1, .ok),
+            ("boundary", ttl, .checking),
+            ("expired", ttl + 1, .checking),
+        ]
+        try ManifestStore(paths: paths).save(
+            manifest(items: try cases.map { try recipe(id: $0.id) }))
+        try ConfigStore(paths: paths).save(config)
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: Dictionary(
+                    uniqueKeysWithValues: cases.map {
+                        ($0.id, itemState(lastChecked: now.addingTimeInterval(-$0.age)))
+                    })
+            ))
+
+        let snapshot = try statusService(paths: paths).snapshot(refresh: true)
+
+        for entry in cases {
+            XCTAssertEqual(
+                snapshot.items.first { $0.id == entry.id }?.status, entry.expected, entry.id)
+        }
+    }
+
     private func statusService(paths: AppPaths) -> StatusService {
         StatusService(
             manifestStore: ManifestStore(paths: paths),

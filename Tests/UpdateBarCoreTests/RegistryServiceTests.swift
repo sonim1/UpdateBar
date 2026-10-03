@@ -272,6 +272,45 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertEqual(commands.commands.map(\.command), ["cached current", "cached latest"])
     }
 
+    func testCheckRejectsFutureCacheTimesAndHonorsTTLBoundaries() throws {
+        let ttl = TimeInterval(Config.default.refresh.interval.seconds)
+        let cases: [(age: TimeInterval, cached: Bool)] = [
+            (-60, false), (0, true), (ttl - 1, true), (ttl, false), (ttl + 1, false),
+        ]
+        for entry in cases {
+            let root = try temporaryDirectory()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let paths = AppPaths(homeDirectory: root)
+            try ManifestStore(paths: paths).save(
+                manifest(items: [
+                    recipe(
+                        id: "cached", currentCommand: "cached current",
+                        latestCommand: "cached latest")
+                ]))
+            try StateStore(paths: paths).save(
+                State(
+                    schemaVersion: 1, generatedAt: now,
+                    items: [
+                        "cached": ItemState(
+                            current: "1.0.0", latest: "1.1.0", status: .outdated,
+                            lastChecked: now.addingTimeInterval(-entry.age), error: nil,
+                            backoffUntil: nil
+                        )
+                    ]
+                ))
+            let commands = MockCommandExecutor(results: [
+                "cached current": CommandResult(exitCode: 0, stdout: "cached 1.1.0", stderr: ""),
+                "cached latest": CommandResult(exitCode: 0, stdout: "cached 1.1.0", stderr: ""),
+            ])
+
+            let results = try registryService(paths: paths, commands: commands).check(force: false)
+
+            XCTAssertEqual(
+                results.first?.status, entry.cached ? .outdated : .ok, "age=\(entry.age)")
+            XCTAssertEqual(commands.commands.count, entry.cached ? 0 : 2, "age=\(entry.age)")
+        }
+    }
+
     func testCheckMarksUnapprovedCommandRecipeAsUntrusted() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
