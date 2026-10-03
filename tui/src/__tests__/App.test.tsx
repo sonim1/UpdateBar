@@ -5,6 +5,7 @@ import {render} from 'ink-testing-library';
 import {describe, expect, it} from 'vitest';
 import {App} from '../App.js';
 import type {CommandResult, StreamOptions, UpdateBarClient} from '../client.js';
+import type {StatusSnapshot} from '../types.js';
 
 describe('App', () => {
   it('renders status summary from the client', async () => {
@@ -83,6 +84,72 @@ describe('App', () => {
 
     expect(view.lastFrame()).toContain('Status unavailable');
     expect(view.lastFrame()).not.toContain('Loading status...');
+  });
+
+  it.each(['success', 'failure'] as const)(
+    'keeps the newer status when an older request finishes with %s',
+    async outcome => {
+      const fresh = await createClient().status();
+      const stale = {...fresh, summary: {...fresh.summary, total: 9, outdated: 0}};
+      let finishOlder: (() => void) | undefined;
+      const older = new Promise<StatusSnapshot>((resolve, reject) => {
+        finishOlder = () => outcome === 'success'
+          ? resolve(stale)
+          : reject(new Error('older status failed'));
+      });
+      let calls = 0;
+      const client = createClient({
+        status() {
+          calls += 1;
+          return calls === 1 ? older : Promise.resolve(fresh);
+        }
+      });
+      const view = render(<App client={client} />);
+
+      await waitForFrame(view, 'Refresh Status');
+      view.stdin.write('\r');
+      await waitForFrame(view, '1 tracked · 1 outdated');
+      if (!finishOlder) throw new Error('older request was not initialized');
+      finishOlder();
+      await wait();
+
+      expect(view.lastFrame()).toContain('1 tracked · 1 outdated');
+      expect(view.lastFrame()).not.toContain('9 tracked');
+      expect(view.lastFrame()).not.toContain('older status failed');
+      view.unmount();
+    }
+  );
+
+  it('keeps fresh update targets when the initial status request finishes later', async () => {
+    const fresh = await createClient().status();
+    const stale = {...fresh, summary: {...fresh.summary, outdated: 0}, items: []};
+    let finishOlder: (() => void) | undefined;
+    const older = new Promise<StatusSnapshot>(resolve => {
+      finishOlder = () => resolve(stale);
+    });
+    let calls = 0;
+    const client = createClient({
+      status() {
+        calls += 1;
+        return calls === 1 ? older : Promise.resolve(fresh);
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Run Updates');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    view.stdin.write('\u001B[B');
+    await wait();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'selected: 1/1');
+    if (!finishOlder) throw new Error('older request was not initialized');
+    finishOlder();
+    await wait();
+
+    expect(view.lastFrame()).toContain('selected: 1/1');
+    expect(view.lastFrame()).toContain('brew.gh · gh · 2.74.0 → 2.75.0');
+    view.unmount();
   });
 
   it('redacts status row secrets before rendering', async () => {

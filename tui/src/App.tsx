@@ -87,6 +87,7 @@ export function App({client: providedClient}: AppProps) {
   const [clientSetupError, setClientSetupError] = useState<string | undefined>();
   const [abortController, setAbortController] = useState<AbortController | undefined>();
   const abortControllerRef = useRef<AbortController | undefined>(undefined);
+  const statusGenerationRef = useRef(0);
 
   useEffect(() => {
     if (providedClient) return;
@@ -103,7 +104,10 @@ export function App({client: providedClient}: AppProps) {
 
   useEffect(() => {
     if (!client) return;
-    refreshStatus(client, setStatus, setError, setStatusUnavailable);
+    void refreshStatus(client);
+    return () => {
+      statusGenerationRef.current += 1;
+    };
   }, [client]);
 
   useEffect(() => {
@@ -289,6 +293,22 @@ export function App({client: providedClient}: AppProps) {
     }
   }
 
+  async function refreshStatus(activeClient: UpdateBarClient) {
+    const generation = ++statusGenerationRef.current;
+    try {
+      setStatusUnavailable(false);
+      const snapshot = await activeClient.status();
+      if (generation !== statusGenerationRef.current) return;
+      setStatus(snapshot);
+      setError(undefined);
+    } catch (caught) {
+      if (generation !== statusGenerationRef.current) return;
+      setStatus(undefined);
+      setStatusUnavailable(true);
+      setError(messageFor(caught));
+    }
+  }
+
   async function runMenuAction() {
     const selected = MENU_ITEMS[menuIndex]?.action;
     switch (selected) {
@@ -318,7 +338,7 @@ export function App({client: providedClient}: AppProps) {
     switch (selected) {
       case 'refresh-status':
         setScreen('status');
-        await refreshStatus(client, setStatus, setError, setStatusUnavailable);
+        await refreshStatus(client);
         return;
       case 'scan-add':
         await runScan(client);
@@ -335,14 +355,17 @@ export function App({client: providedClient}: AppProps) {
   }
 
   async function openUpdateSelection(activeClient: UpdateBarClient) {
+    const generation = ++statusGenerationRef.current;
     setUpdateIndex(0);
     setError(undefined);
     let snapshot: StatusSnapshot;
     try {
       snapshot = await activeClient.status();
+      if (generation !== statusGenerationRef.current) return;
       setStatus(snapshot);
       setStatusUnavailable(false);
     } catch (caught) {
+      if (generation !== statusGenerationRef.current) return;
       setStatus(undefined);
       setStatusUnavailable(true);
       setSelectedUpdateIds(new Set());
@@ -362,7 +385,7 @@ export function App({client: providedClient}: AppProps) {
     try {
       const report = await activeClient.checkNow({signal: controller.signal});
       setLogs(previous => [...previous, ...checkSummaryLines(report)]);
-      await refreshStatus(activeClient, setStatus, setError, setStatusUnavailable);
+      await refreshStatus(activeClient);
     } catch (caught) {
       const cancelled = controller.signal.aborted;
       setLogs(previous => [
@@ -412,7 +435,7 @@ export function App({client: providedClient}: AppProps) {
         ...result.errors
       ]);
       setSelectedScanIds(new Set());
-      await refreshStatus(client, setStatus, setError, setStatusUnavailable);
+      await refreshStatus(client);
     } catch (caught) {
       const cancelled = controller.signal.aborted;
       setLogs([cancelled ? 'registration cancelled' : 'registration failed']);
@@ -439,7 +462,7 @@ export function App({client: providedClient}: AppProps) {
         onEvent: event => setLogs(previous => [...previous, describeEvent(event)])
       });
       setSelectedUpdateIds(new Set());
-      await refreshStatus(activeClient, setStatus, setError, setStatusUnavailable);
+      await refreshStatus(activeClient);
     } catch (caught) {
       const cancelled = controller.signal.aborted;
       setLogs(previous => [
@@ -838,23 +861,6 @@ function helpText(screen: Screen, canCancel: boolean) {
   if (screen === 'confirm-update') return 'enter run · esc cancel · m menu · q quit';
   if (screen !== 'menu') return 'm menu · q quit';
   return '↑/↓ navigate · enter select · q quit';
-}
-
-async function refreshStatus(
-  client: UpdateBarClient,
-  setStatus: (status: StatusSnapshot | undefined) => void,
-  setError: (message: string | undefined) => void,
-  setStatusUnavailable: (unavailable: boolean) => void
-) {
-  try {
-    setStatusUnavailable(false);
-    setStatus(await client.status());
-    setError(undefined);
-  } catch (caught) {
-    setStatus(undefined);
-    setStatusUnavailable(true);
-    setError(messageFor(caught));
-  }
 }
 
 function describeEvent(event: MachineEvent) {
