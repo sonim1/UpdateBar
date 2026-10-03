@@ -460,14 +460,9 @@
                 [service, formatter, dashboardModel] in
                 do {
                     guard let service else { return }
-                    let snapshot = try service.status(refresh: refresh)
-                    var approvals: [String: [CommandApprovalStatus]] = [:]
-                    for item in snapshot.items {
-                        let itemApprovals = try service.approvals(id: item.id)
-                        if !itemApprovals.isEmpty {
-                            approvals[item.id] = itemApprovals
-                        }
-                    }
+                    let refreshed = try service.refreshSnapshot(refresh: refresh)
+                    let snapshot = refreshed.status
+                    let approvals = refreshed.approvalsByItemID
                     let state = formatter.makeState(
                         from: snapshot,
                         approvalsByItemID: approvals

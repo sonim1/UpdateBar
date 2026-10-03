@@ -170,6 +170,52 @@ final class StatusServiceTests: XCTestCase {
         }
     }
 
+    func testSnapshotWithApprovalsIncludesAllItemsWithoutCreatingStateOrConfig() throws {
+        for count in [0, 1, 100] {
+            let root = try temporaryDirectory()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let paths = AppPaths(homeDirectory: root)
+            let recipes = try (0..<count).map { try recipe(id: "tool-\($0)") }
+            try ManifestStore(paths: paths).save(manifest(items: recipes))
+
+            let snapshot = try statusService(paths: paths).snapshotWithApprovals()
+
+            XCTAssertEqual(snapshot.status.summary.total, count)
+            XCTAssertEqual(Set(snapshot.approvalsByItemID.keys), Set(recipes.map(\.id)))
+            for rows in snapshot.approvalsByItemID.values {
+                XCTAssertEqual(rows.map(\.field), ["check.cmd", "update.cmd"])
+                XCTAssertTrue(rows.allSatisfy(\.approved))
+            }
+            XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+            XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
+        }
+    }
+
+    func testSnapshotWithApprovalsReflectsCommandEditOnNextRead() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(homeDirectory: root)
+        var item = try recipe(id: "tool")
+        let store = ManifestStore(paths: paths)
+        try store.save(manifest(items: [item]))
+        let first = try statusService(paths: paths).snapshotWithApprovals()
+
+        item.update.cwd = "/tmp"
+        try store.save(manifest(items: [item]))
+        let second = try statusService(paths: paths).snapshotWithApprovals()
+        let firstApproval = try XCTUnwrap(
+            first.approvalsByItemID["tool"]?.first { $0.field == "update.cmd" })
+        let secondApproval = try XCTUnwrap(
+            second.approvalsByItemID["tool"]?.first { $0.field == "update.cmd" })
+
+        XCTAssertTrue(firstApproval.approved)
+        XCTAssertFalse(secondApproval.approved)
+        XCTAssertNotEqual(firstApproval.fingerprint, secondApproval.fingerprint)
+        XCTAssertNil(firstApproval.cwd)
+        XCTAssertEqual(secondApproval.cwd, "/tmp")
+        XCTAssertEqual(second.status.items.first?.status, .untrusted)
+    }
+
     private func statusService(paths: AppPaths) -> StatusService {
         StatusService(
             manifestStore: ManifestStore(paths: paths),

@@ -120,6 +120,54 @@ final class CoreMenuBarServiceTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
     }
 
+    func testRefreshSnapshotReturnsAllStatusAndApprovalsWithoutRunningCommands() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(homeDirectory: root)
+        let items = (0..<100).map {
+            recipe(
+                id: "tool-\($0)", updateCommand: "tool-\($0) update",
+                currentCommand: "tool-\($0) current")
+        }
+        try ManifestStore(paths: paths).save(manifest(items: items))
+        let commands = RecordingCommandRunner(results: [:])
+        let testNow = now
+        let service: any MenuBarServicing = CoreMenuBarService(
+            paths: paths, commandRunner: commands, now: { testNow }
+        )
+
+        let snapshot = try service.refreshSnapshot(refresh: false)
+
+        XCTAssertEqual(snapshot.status.summary.total, 100)
+        XCTAssertEqual(Set(snapshot.approvalsByItemID.keys), Set(items.map(\.id)))
+        XCTAssertTrue(
+            snapshot.approvalsByItemID.values.allSatisfy {
+                $0.count == 3 && $0.allSatisfy(\.approved)
+            })
+        XCTAssertTrue(commands.commands.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
+    }
+
+    func testRefreshSnapshotReflectsRevocationWithoutCachingPriorApprovals() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(homeDirectory: root)
+        let item = recipe(id: "tool", updateCommand: "tool update", currentCommand: "tool current")
+        try ManifestStore(paths: paths).save(manifest(items: [item]))
+        let service = CoreMenuBarService(paths: paths)
+        let first = try service.refreshSnapshot()
+
+        try service.revoke(id: "tool", field: "update.cmd")
+        let second = try service.refreshSnapshot()
+
+        XCTAssertEqual(
+            first.approvalsByItemID["tool"]?.first { $0.field == "update.cmd" }?.approved, true)
+        XCTAssertEqual(
+            second.approvalsByItemID["tool"]?.first { $0.field == "update.cmd" }?.approved, false)
+        XCTAssertEqual(second.status.items.first?.status, .untrusted)
+    }
+
     func testCoreServiceCancelsLongRunningUpdateCommand() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)

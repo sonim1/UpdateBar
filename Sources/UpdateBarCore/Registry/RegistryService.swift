@@ -253,20 +253,7 @@ public struct RegistryService {
         guard let recipe = manifest.item(id: id) else {
             throw RegistryError.itemNotFound(id)
         }
-        let commandTexts = recipe.commandTexts()
-        let commandCwds = recipe.commandWorkingDirectories()
-        return recipe.commandFingerprints()
-            .map { field, fingerprint in
-                ApprovalStatus(
-                    field: field,
-                    approved: recipe.trust.level == .trusted
-                        && recipe.trust.approvedCommands[field] == fingerprint,
-                    fingerprint: fingerprint,
-                    command: commandTexts[field] ?? "",
-                    cwd: commandCwds[field]
-                )
-            }
-            .sorted { $0.field < $1.field }
+        return ApprovalStatus.from(recipe)
     }
 
     public func recipe(id: String) throws -> Recipe {
