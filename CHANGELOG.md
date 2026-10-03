@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.28 - 2026-10-03
+
 ### Fixed
 
 - Rechecked command approval, enabled state, pins and command identity immediately
