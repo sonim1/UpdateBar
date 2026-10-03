@@ -25,6 +25,7 @@ public struct CommandResult: Equatable, Sendable {
 public final class CancellationToken: @unchecked Sendable {
     private let lock = NSLock()
     private var cancelled = false
+    private var terminationRequested = false
 
     public init() {}
 
@@ -34,9 +35,22 @@ public final class CancellationToken: @unchecked Sendable {
         return cancelled
     }
 
+    package var isTerminationRequested: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return terminationRequested
+    }
+
     public func cancel() {
         lock.lock()
         cancelled = true
+        lock.unlock()
+    }
+
+    package func requestTermination() {
+        lock.lock()
+        cancelled = true
+        terminationRequested = true
         lock.unlock()
     }
 }

@@ -136,6 +136,86 @@ final class StatusServiceTests: XCTestCase {
         XCTAssertEqual(persisted.items["partial"]?.status, .ok)
     }
 
+    func testRefreshTreatsFutureAndExpiredTimestampsAsStale() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(homeDirectory: root)
+        var config = Config.default
+        config.refresh.interval = Duration(hours: 1)
+        let ttl = TimeInterval(config.refresh.interval.seconds)
+        let cases: [(id: String, age: TimeInterval, expected: ItemStatus)] = [
+            ("future", -60, .checking),
+            ("now", 0, .ok),
+            ("fresh", ttl - 1, .ok),
+            ("boundary", ttl, .checking),
+            ("expired", ttl + 1, .checking),
+        ]
+        try ManifestStore(paths: paths).save(
+            manifest(items: try cases.map { try recipe(id: $0.id) }))
+        try ConfigStore(paths: paths).save(config)
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: Dictionary(
+                    uniqueKeysWithValues: cases.map {
+                        ($0.id, itemState(lastChecked: now.addingTimeInterval(-$0.age)))
+                    })
+            ))
+
+        let snapshot = try statusService(paths: paths).snapshot(refresh: true)
+
+        for entry in cases {
+            XCTAssertEqual(
+                snapshot.items.first { $0.id == entry.id }?.status, entry.expected, entry.id)
+        }
+    }
+
+    func testSnapshotWithApprovalsIncludesAllItemsWithoutCreatingStateOrConfig() throws {
+        for count in [0, 1, 100] {
+            let root = try temporaryDirectory()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let paths = AppPaths(homeDirectory: root)
+            let recipes = try (0..<count).map { try recipe(id: "tool-\($0)") }
+            try ManifestStore(paths: paths).save(manifest(items: recipes))
+
+            let snapshot = try statusService(paths: paths).snapshotWithApprovals()
+
+            XCTAssertEqual(snapshot.status.summary.total, count)
+            XCTAssertEqual(Set(snapshot.approvalsByItemID.keys), Set(recipes.map(\.id)))
+            for rows in snapshot.approvalsByItemID.values {
+                XCTAssertEqual(rows.map(\.field), ["check.cmd", "update.cmd"])
+                XCTAssertTrue(rows.allSatisfy(\.approved))
+            }
+            XCTAssertFalse(FileManager.default.fileExists(atPath: paths.stateFile.path))
+            XCTAssertFalse(FileManager.default.fileExists(atPath: paths.configFile.path))
+        }
+    }
+
+    func testSnapshotWithApprovalsReflectsCommandEditOnNextRead() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(homeDirectory: root)
+        var item = try recipe(id: "tool")
+        let store = ManifestStore(paths: paths)
+        try store.save(manifest(items: [item]))
+        let first = try statusService(paths: paths).snapshotWithApprovals()
+
+        item.update.cwd = "/tmp"
+        try store.save(manifest(items: [item]))
+        let second = try statusService(paths: paths).snapshotWithApprovals()
+        let firstApproval = try XCTUnwrap(
+            first.approvalsByItemID["tool"]?.first { $0.field == "update.cmd" })
+        let secondApproval = try XCTUnwrap(
+            second.approvalsByItemID["tool"]?.first { $0.field == "update.cmd" })
+
+        XCTAssertTrue(firstApproval.approved)
+        XCTAssertFalse(secondApproval.approved)
+        XCTAssertNotEqual(firstApproval.fingerprint, secondApproval.fingerprint)
+        XCTAssertNil(firstApproval.cwd)
+        XCTAssertEqual(secondApproval.cwd, "/tmp")
+        XCTAssertEqual(second.status.items.first?.status, .untrusted)
+    }
+
     private func statusService(paths: AppPaths) -> StatusService {
         StatusService(
             manifestStore: ManifestStore(paths: paths),

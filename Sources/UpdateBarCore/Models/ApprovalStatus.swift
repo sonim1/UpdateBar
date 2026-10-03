@@ -18,4 +18,19 @@ public struct ApprovalStatus: Codable, Equatable, Sendable {
         self.command = command
         self.cwd = cwd
     }
+
+    static func from(_ recipe: Recipe) -> [ApprovalStatus] {
+        let commands = recipe.commandTexts()
+        let workingDirectories = recipe.commandWorkingDirectories()
+        return recipe.commandFingerprints().map { field, fingerprint in
+            ApprovalStatus(
+                field: field,
+                approved: recipe.trust.level == .trusted
+                    && recipe.trust.approvedCommands[field] == fingerprint,
+                fingerprint: fingerprint,
+                command: commands[field] ?? "",
+                cwd: workingDirectories[field]
+            )
+        }.sorted { $0.field < $1.field }
+    }
 }

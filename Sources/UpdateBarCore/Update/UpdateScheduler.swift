@@ -4,8 +4,8 @@ import Foundation
 /// sharing a lane never run at the same time. A global barrier lane also
 /// excludes every other lane while it is executing.
 ///
-/// `@unchecked Sendable` because every mutable field is only touched inside
-/// `queue`, the same discipline `ProcessRunner` and `LockedData` use. The
+/// `@unchecked Sendable` because every mutable field is protected by
+/// `condition`. The
 /// stored `work` closure is invoked from worker threads by design.
 final class UpdateScheduler<Payload, Output>: @unchecked Sendable {
     struct Item {
@@ -14,7 +14,7 @@ final class UpdateScheduler<Payload, Output>: @unchecked Sendable {
         let payload: Payload
     }
 
-    private let queue = DispatchQueue(label: "com.updatebar.update-scheduler")
+    private let condition = NSCondition()
     private let stopSignal: UpdateStopSignal?
     private let onStart: ((Payload) throws -> Void)?
     private let onFinish: ((Output) throws -> Void)?
@@ -64,7 +64,7 @@ final class UpdateScheduler<Payload, Output>: @unchecked Sendable {
     private func drainLoop() {
         while let item = claimNextItem() {
             do {
-                try queue.sync { try onStart?(item.payload) }
+                try start(item)
                 let output = try work(item.payload)
                 complete(item, output: output)
             } catch {
@@ -73,24 +73,31 @@ final class UpdateScheduler<Payload, Output>: @unchecked Sendable {
         }
     }
 
-    /// Marks a lane busy and hands back the item, or returns nil when this
-    /// worker has nothing left it is allowed to start.
+    /// Idle workers wait for busy lanes to finish so a barrier does not
+    /// permanently reduce the worker pool to one thread.
     private func claimNextItem() -> Item? {
-        queue.sync {
+        condition.lock()
+        defer { condition.unlock() }
+        while !pending.isEmpty {
             if drained || thrown != nil { return nil }
             if stopSignal?.isStopRequested == true {
                 drained = true
                 return nil
             }
-            guard
-                let position = pending.firstIndex(where: canClaim)
-            else {
-                return nil
+            if let position = pending.firstIndex(where: canClaim) {
+                let item = pending.remove(at: position)
+                busyLanes.insert(item.lane)
+                return item
             }
-            let item = pending.remove(at: position)
-            busyLanes.insert(item.lane)
-            return item
+            condition.wait()
         }
+        return nil
+    }
+
+    private func start(_ item: Item) throws {
+        condition.lock()
+        defer { condition.unlock() }
+        try onStart?(item.payload)
     }
 
     private func canClaim(_ item: Item) -> Bool {
@@ -102,24 +109,26 @@ final class UpdateScheduler<Payload, Output>: @unchecked Sendable {
     }
 
     private func complete(_ item: Item, output: Output) {
-        queue.sync {
-            busyLanes.remove(item.lane)
-            outputs[item.index] = output
-            if shouldStopAfter?(output) == true {
-                drained = true
-            }
-            do {
-                try onFinish?(output)
-            } catch {
-                if thrown == nil { thrown = error }
-            }
+        condition.lock()
+        defer { condition.unlock() }
+        busyLanes.remove(item.lane)
+        outputs[item.index] = output
+        if shouldStopAfter?(output) == true {
+            drained = true
         }
+        do {
+            try onFinish?(output)
+        } catch {
+            if thrown == nil { thrown = error }
+        }
+        condition.broadcast()
     }
 
     private func fail(_ item: Item, error: Error) {
-        queue.sync {
-            busyLanes.remove(item.lane)
-            if thrown == nil { thrown = error }
-        }
+        condition.lock()
+        defer { condition.unlock() }
+        busyLanes.remove(item.lane)
+        if thrown == nil { thrown = error }
+        condition.broadcast()
     }
 }

@@ -156,6 +156,8 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(refreshSource.contains("isRefreshing=trueupdatePopover()"))
         XCTAssertTrue(refreshSource.contains("self.isRefreshing=falseself.popoverError=nil"))
         XCTAssertFalse(refreshSource.contains("latestState=MenuBarState("))
+        XCTAssertTrue(refreshSource.contains("service.refreshSnapshot(refresh:refresh)"))
+        XCTAssertFalse(refreshSource.contains("service.approvals(id:"))
 
         let runActionSource = try functionSource(
             named: "private func runAction(",

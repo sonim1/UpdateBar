@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+## 0.6.28 - 2026-10-03
+
+### Fixed
+
+- Rechecked command approval, enabled state, pins and command identity immediately
+  before starting a queued update, while allowing registry edits during execution.
+- Stopped descendants in verified owned process groups after timeout or
+  cancellation, including cancellation through the CLI adapter.
+- Kept healthy long-running checks and updates alive beyond the CLI query timeout,
+  while retaining query deadlines and bounded subprocess output capture.
+- Rejected HTTP error bodies as latest versions and future timestamps as fresh
+  cached checks.
+- Preserved distinct npm package IDs and existing saved package registrations.
+- Restored update parallelism after serial barriers and ignored superseded TUI
+  status responses.
+
+### Changed
+
+- Loaded native menu bar status and command approvals together for each refresh,
+  avoiding repeated full-manifest processing without caching stale approvals.
+
 ## 0.6.27 - 2026-09-17
 
 ### Fixed

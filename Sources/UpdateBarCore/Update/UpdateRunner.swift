@@ -8,7 +8,7 @@ public struct UpdateRunner {
     private let stateStore: StateStore
     private let config: Config
     private let httpClient: HTTPClient
-    private let commandRunner: CommandRunning
+    private let commandRunner: any CommandLaunching
     private let now: @Sendable () -> Date
     private let githubToken: String?
     private let environment: [String: String]
@@ -21,7 +21,7 @@ public struct UpdateRunner {
         stateStore: StateStore = StateStore(),
         config: Config = .default,
         httpClient: HTTPClient = URLSessionHTTPClient(),
-        commandRunner: CommandRunning = CommandExecutor(),
+        commandRunner: any CommandLaunching = CommandExecutor(),
         now: @escaping @Sendable () -> Date = { Date() },
         githubToken: String? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
@@ -141,10 +141,38 @@ public struct UpdateRunner {
 
     private func runUpdate(recipe: Recipe, planItem: UpdatePlanItem) throws -> UpdateResult {
         do {
-            let commandResult = try commandRunner.run(
+            let prepared = try commandRunner.prepare(
                 ShellCommand(command: recipe.update.cmd, cwd: expandedPath(recipe.update.cwd)),
                 policy: ExecutionPolicy(timeout: 30 * 60, maxOutputBytes: 256 * 1024)
             )
+            let launch = try manifestStore.withExclusiveLock {
+                let manifest = try manifestStore.loadExistingOrEmpty(now: now())
+                try validate(manifest)
+                guard let current = manifest.item(id: planItem.id) else {
+                    return UpdateLaunch.settled(.missing)
+                }
+                guard current.enabled else {
+                    return UpdateLaunch.settled(.skippedDisabled)
+                }
+                guard current.pin == nil else {
+                    return UpdateLaunch.settled(.skippedPinned)
+                }
+                guard
+                    current.commandFingerprints()["update.cmd"] == planItem.commandFingerprint,
+                    TrustPolicy.isApproved(current, field: "update.cmd")
+                else {
+                    return UpdateLaunch.settled(.skippedUntrusted)
+                }
+                return try UpdateLaunch.running(prepared.start())
+            }
+            let running: any RunningCommand
+            switch launch {
+            case .running(let command):
+                running = command
+            case .settled(let outcome):
+                return UpdateResult(planItem: planItem, outcome: outcome)
+            }
+            let commandResult = try running.wait()
             guard commandResult.exitCode == 0 else {
                 let error = "update.cmd exited \(commandResult.exitCode): \(commandResult.stderr)"
                 try markFailure(recipe: recipe, error: error)
@@ -190,6 +218,11 @@ public struct UpdateRunner {
                 error: SecretRedactor.redact(String(describing: error))
             )
         }
+    }
+
+    private enum UpdateLaunch {
+        case running(any RunningCommand)
+        case settled(UpdateOutcome)
     }
 
     // History is telemetry for the dashboard; it must never fail an update.

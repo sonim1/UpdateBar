@@ -41,11 +41,22 @@ Recipes should reference environment variables instead of storing secret values.
 
 Approved recipe commands are **not sandboxed**. The current guarantees are:
 
-- approval-gated: a command runs only while its exact fingerprint is approved
+- approval-gated: commands require approval of their exact fingerprints. Updates recheck
+  the recipe's existence, enabled and pin state, command/cwd fingerprint, and approval
+  under the manifest lock immediately before starting the process
 - environment-allowlisted: child processes see only `PATH`, `HOME`, `LANG`, `LC_ALL`, `LC_CTYPE`, `TMPDIR`, `USER`; relative entries are removed so recipe commands receive only absolute `PATH` entries
 - no login shell: commands run via `/bin/sh -c`; shell startup files are not sourced
-- timeout-capped and output-capped
+- timeout-capped and output-capped: timeout or cancellation sends escalating signals to the
+  isolated process group owned by that launch, including descendants that remain in the group
 - secrets redacted from captured output and errors
 
+Revoking an update approval after launch blocks later launches; it does not terminate
+an already running command.
+
+The CLI treats `SIGINT` as cooperative cancellation and `SIGTERM` as a request to
+terminate active command groups immediately. This lets an outer supervisor's escalation
+reach the inner command groups before the CLI itself is killed.
+
 An approved command can still read and write your files and use the network with your
-user's privileges. Approve commands you have read and understood.
+user's privileges. It can also deliberately leave its original process group, which is outside
+the descendant-cleanup guarantee. Approve commands you have read and understood.

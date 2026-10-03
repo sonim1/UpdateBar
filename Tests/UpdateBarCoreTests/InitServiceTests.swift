@@ -52,6 +52,49 @@ final class InitServiceTests: XCTestCase {
         XCTAssertFalse(message.contains(secret))
     }
 
+    func testRegisterSkipsEncodedNPMCandidateWhenLegacyIDAlreadyOwnsSource() throws {
+        let root = try temporaryDirectory()
+        let paths = AppPaths(homeDirectory: root)
+        var legacyRecipe = recipe(id: "npm.foo.bar")
+        legacyRecipe.name = "foo.bar"
+        legacyRecipe.source = Source(kind: .npm, ref: "foo.bar", branch: nil)
+        try ManifestStore(paths: paths).save(manifest(items: [legacyRecipe]))
+        let legacyState = State(
+            schemaVersion: 1,
+            generatedAt: now,
+            items: [
+                legacyRecipe.id: ItemState(
+                    current: "1.0.0",
+                    latest: "1.1.0",
+                    status: .outdated,
+                    lastChecked: now,
+                    error: nil,
+                    backoffUntil: nil
+                )
+            ]
+        )
+        try StateStore(paths: paths).save(legacyState)
+        let registry = RegistryService(
+            manifestStore: ManifestStore(paths: paths),
+            stateStore: StateStore(paths: paths),
+            now: { self.now },
+            historyStore: HistoryStore(paths: paths)
+        )
+        let service = InitService(registryService: registry)
+        var encodedRecipe = legacyRecipe
+        encodedRecipe.id = "npm.foo_2ebar"
+
+        let summary = try service.register(
+            candidates: [candidate(encodedRecipe)],
+            selectedIDs: [encodedRecipe.id],
+            replace: false
+        )
+
+        XCTAssertEqual(summary, InitSummary(added: [], replaced: [], skipped: [encodedRecipe.id]))
+        XCTAssertEqual(try registry.exportManifest().items, [legacyRecipe])
+        XCTAssertEqual(try StateStore(paths: paths).load(), legacyState)
+    }
+
     private func candidate(_ recipe: Recipe) -> ScanCandidate {
         ScanCandidate(
             id: recipe.id,
@@ -84,6 +127,14 @@ final class InitServiceTests: XCTestCase {
         )
         TestApprovals.approveAllCommands(in: &item)
         return item
+    }
+
+    private func manifest(items: [Recipe]) -> Manifest {
+        Manifest(
+            schemaVersion: 1,
+            items: items,
+            provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+        )
     }
 
     private func temporaryDirectory() throws -> URL {

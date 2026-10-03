@@ -96,7 +96,11 @@ private final class SignalCancellationHandler {
             Self.ignore(signalNumber)
             let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: .global())
             source.setEventHandler {
-                token.cancel()
+                if signalNumber == SIGTERM {
+                    token.requestTermination()
+                } else {
+                    token.cancel()
+                }
             }
             source.resume()
             sources.append(source)

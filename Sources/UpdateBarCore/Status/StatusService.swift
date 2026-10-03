@@ -19,6 +19,23 @@ public struct StatusService {
     }
 
     public func snapshot(refresh: Bool = false) throws -> StatusSnapshot {
+        try loadSnapshot(refresh: refresh).status
+    }
+
+    public func snapshotWithApprovals(refresh: Bool = false) throws -> StatusApprovalsSnapshot {
+        let loaded = try loadSnapshot(refresh: refresh)
+        let approvals = loaded.manifest.items.reduce(into: [String: [ApprovalStatus]]()) {
+            rows, recipe in
+            let statuses = ApprovalStatus.from(recipe)
+            if !statuses.isEmpty {
+                rows[recipe.id] = statuses
+            }
+        }
+        return StatusApprovalsSnapshot(status: loaded.status, approvalsByItemID: approvals)
+    }
+
+    private func loadSnapshot(refresh: Bool) throws -> (status: StatusSnapshot, manifest: Manifest)
+    {
         let now = now()
         let manifest = try manifestStore.loadExistingOrEmpty(now: now)
         try validate(manifest)
@@ -27,7 +44,7 @@ public struct StatusService {
         if refresh {
             if manifest.items.isEmpty {
                 state = try stateStore.loadExistingOrEmpty(now: now)
-                return StatusSnapshot.from(manifest: manifest, state: state, now: now)
+                return (StatusSnapshot.from(manifest: manifest, state: state, now: now), manifest)
             }
 
             let config = try configStore.loadExistingOrDefault()
@@ -48,7 +65,7 @@ public struct StatusService {
             state = try stateStore.loadExistingOrEmpty(now: now)
         }
 
-        return StatusSnapshot.from(manifest: manifest, state: state, now: now)
+        return (StatusSnapshot.from(manifest: manifest, state: state, now: now), manifest)
     }
 
     private func validate(_ manifest: Manifest) throws {
@@ -72,8 +89,8 @@ public struct StatusService {
                 continue
             }
             let existing = copy.items[recipe.id]
-            if let lastChecked = existing?.lastChecked,
-                now.timeIntervalSince(lastChecked) < TimeInterval(config.refresh.interval.seconds)
+            if existing?.isFresh(now: now, ttl: TimeInterval(config.refresh.interval.seconds))
+                == true
             {
                 continue
             }

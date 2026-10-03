@@ -1,8 +1,19 @@
 import Foundation
 import UpdateBarCore
 
+public struct MenuBarRefreshSnapshot: Equatable {
+    public let status: StatusSnapshot
+    public let approvalsByItemID: [String: [CommandApprovalStatus]]
+
+    public init(status: StatusSnapshot, approvalsByItemID: [String: [CommandApprovalStatus]]) {
+        self.status = status
+        self.approvalsByItemID = approvalsByItemID
+    }
+}
+
 public protocol MenuBarServicing: Sendable {
     func status(refresh: Bool) throws -> StatusSnapshot
+    func refreshSnapshot(refresh: Bool) throws -> MenuBarRefreshSnapshot
     func scan(category: String?) throws -> ScanReport
     func registerScannedCandidates(
         _ candidates: [ScanCandidate],
@@ -31,6 +42,18 @@ public protocol MenuBarServicing: Sendable {
 }
 
 extension MenuBarServicing {
+    public func refreshSnapshot(refresh: Bool = false) throws -> MenuBarRefreshSnapshot {
+        let snapshot = try status(refresh: refresh)
+        var rows: [String: [CommandApprovalStatus]] = [:]
+        for item in snapshot.items {
+            let statuses = try approvals(id: item.id)
+            if !statuses.isEmpty {
+                rows[item.id] = statuses
+            }
+        }
+        return MenuBarRefreshSnapshot(status: snapshot, approvalsByItemID: rows)
+    }
+
     public func scan() throws -> ScanReport {
         try scan(category: nil)
     }
@@ -91,7 +114,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
     private let stateStore: StateStore
     private let configStore: ConfigStore
     private let httpClient: HTTPClient
-    private let injectedCommandRunner: (any CommandRunning)?
+    private let injectedCommandRunner: (any CommandLaunching)?
     private let commandEnvironment: [String: String]
     private let now: @Sendable () -> Date
     private let githubToken: String?
@@ -101,7 +124,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         scanHomeDirectory: URL? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         httpClient: HTTPClient = URLSessionHTTPClient(),
-        commandRunner: (any CommandRunning)? = nil,
+        commandRunner: (any CommandLaunching)? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         githubToken: String? = nil
     ) {
@@ -128,6 +151,21 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
             configStore: configStore,
             now: now
         ).snapshot(refresh: refresh)
+    }
+
+    public func refreshSnapshot(refresh: Bool = false) throws -> MenuBarRefreshSnapshot {
+        let snapshot = try StatusService(
+            manifestStore: manifestStore,
+            stateStore: stateStore,
+            configStore: configStore,
+            now: now
+        ).snapshotWithApprovals(refresh: refresh)
+        return MenuBarRefreshSnapshot(
+            status: snapshot.status,
+            approvalsByItemID: snapshot.approvalsByItemID.mapValues {
+                $0.map(Self.commandApprovalStatus)
+            }
+        )
     }
 
     public func scan(category: String? = nil) throws -> ScanReport {
@@ -195,15 +233,18 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
     }
 
     public func approvals(id: String) throws -> [CommandApprovalStatus] {
-        try registryService(cancellationToken: nil).approvals(id: id).map { status in
-            CommandApprovalStatus(
-                field: status.field,
-                approved: status.approved,
-                fingerprint: status.fingerprint,
-                command: status.command,
-                cwd: status.cwd
-            )
-        }
+        try registryService(cancellationToken: nil).approvals(id: id).map(
+            Self.commandApprovalStatus)
+    }
+
+    private static func commandApprovalStatus(_ status: ApprovalStatus) -> CommandApprovalStatus {
+        CommandApprovalStatus(
+            field: status.field,
+            approved: status.approved,
+            fingerprint: status.fingerprint,
+            command: status.command,
+            cwd: status.cwd
+        )
     }
 
     public func approve(id: String, field: String, cancellationToken: CancellationToken? = nil)
@@ -254,7 +295,7 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         )
     }
 
-    private func commandRunner(for cancellationToken: CancellationToken?) -> any CommandRunning {
+    private func commandRunner(for cancellationToken: CancellationToken?) -> any CommandLaunching {
         injectedCommandRunner
             ?? CommandExecutor(
                 environment: commandEnvironment,

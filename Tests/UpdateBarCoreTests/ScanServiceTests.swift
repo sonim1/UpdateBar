@@ -179,6 +179,55 @@ final class ScanServiceTests: XCTestCase {
         XCTAssertEqual(report.candidates.map(\.id), ["brew.gh"])
     }
 
+    func testNPMGlobalScanKeepsLegacyIDsWhenNoCollisionExists() throws {
+        let service = ScanService(
+            commandRunner: MockCommandExecutor(results: [
+                ScanService.npmGlobalListCommand: CommandResult(
+                    exitCode: 0,
+                    stdout: #"{"dependencies":{"typescript":{"version":"1.0.0"}}}"#,
+                    stderr: ""
+                )
+            ]))
+
+        let report = try service.scan(detectors: [.npmGlobal])
+
+        XCTAssertEqual(report.candidates.map(\.id), ["npm.typescript"])
+    }
+
+    func testNPMGlobalScanDisambiguatesLegacyIDCollisionsStably() throws {
+        let fixtures = [
+            #"{"dependencies":{"@foo/bar":{"version":"1.0.0"},"foo.bar":{"version":"2.0.0"},"foo_2ebar":{"version":"3.0.0"}}}"#,
+            #"{"dependencies":{"foo_2ebar":{"version":"3.0.0"},"foo.bar":{"version":"2.0.0"},"@foo/bar":{"version":"1.0.0"}}}"#,
+        ]
+
+        let reports = try fixtures.map { output in
+            try ScanService(
+                commandRunner: MockCommandExecutor(results: [
+                    ScanService.npmGlobalListCommand: CommandResult(
+                        exitCode: 0,
+                        stdout: output,
+                        stderr: ""
+                    )
+                ])
+            ).scan(detectors: [.npmGlobal])
+        }
+
+        for report in reports {
+            XCTAssertEqual(report.errors, [])
+            XCTAssertEqual(
+                report.candidates.map(\.name).sorted(),
+                ["@foo/bar", "foo.bar", "foo_2ebar"]
+            )
+            let identifiers = Dictionary(
+                uniqueKeysWithValues: report.candidates.map { ($0.name, $0.id) })
+            XCTAssertEqual(identifiers["@foo/bar"], "npm.foo.bar")
+            XCTAssertEqual(identifiers["foo.bar"], "npm.foo_2ebar")
+            XCTAssertEqual(identifiers["foo_2ebar"], "npm.foo_5f2ebar")
+        }
+
+        XCTAssertEqual(reports[0].candidates.map(\.id), reports[1].candidates.map(\.id))
+    }
+
     func testNPMGlobalScanTreatsMissingDependenciesAsEmpty() throws {
         let commands = MockCommandExecutor(results: [
             ScanService.npmGlobalListCommand: CommandResult(

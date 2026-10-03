@@ -74,6 +74,12 @@ public struct InitService {
                 manifest = manifest.replacing(item: recipe)
                 stageForImport(recipe)
                 replaced.append(recipe.id)
+            } else if recipe.source.kind == .npm,
+                manifest.items.contains(where: {
+                    $0.source.kind == .npm && $0.source.ref == recipe.source.ref
+                })
+            {
+                skipped.append(recipe.id)
             } else {
                 manifest = manifest.replacing(item: recipe)
                 stageForImport(recipe)

@@ -253,20 +253,7 @@ public struct RegistryService {
         guard let recipe = manifest.item(id: id) else {
             throw RegistryError.itemNotFound(id)
         }
-        let commandTexts = recipe.commandTexts()
-        let commandCwds = recipe.commandWorkingDirectories()
-        return recipe.commandFingerprints()
-            .map { field, fingerprint in
-                ApprovalStatus(
-                    field: field,
-                    approved: recipe.trust.level == .trusted
-                        && recipe.trust.approvedCommands[field] == fingerprint,
-                    fingerprint: fingerprint,
-                    command: commandTexts[field] ?? "",
-                    cwd: commandCwds[field]
-                )
-            }
-            .sorted { $0.field < $1.field }
+        return ApprovalStatus.from(recipe)
     }
 
     public func recipe(id: String) throws -> Recipe {
@@ -406,8 +393,7 @@ public struct RegistryService {
     }
 
     private func isFresh(_ state: ItemState, now: Date) -> Bool {
-        guard let lastChecked = state.lastChecked else { return false }
-        return now.timeIntervalSince(lastChecked) < TimeInterval(config.refresh.interval.seconds)
+        state.isFresh(now: now, ttl: TimeInterval(config.refresh.interval.seconds))
     }
 
     private func currentVersion(for recipe: Recipe) throws -> String {
