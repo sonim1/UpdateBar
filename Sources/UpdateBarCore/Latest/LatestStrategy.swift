@@ -14,7 +14,15 @@ public protocol HTTPClient: Sendable {
 }
 
 public struct URLSessionHTTPClient: HTTPClient {
-    public init() {}
+    private let session: URLSession
+
+    public init() {
+        session = .shared
+    }
+
+    init(session: URLSession) {
+        self.session = session
+    }
 
     public func get(
         url: URL,
@@ -48,7 +56,7 @@ public struct URLSessionHTTPClient: HTTPClient {
         }
         let semaphore = DispatchSemaphore(value: 0)
         let box = ResponseBox()
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        session.dataTask(with: request) { data, response, error in
             if let error {
                 box.result = .failure(error)
             } else if requireHTTPSFinalURL,
@@ -57,8 +65,14 @@ public struct URLSessionHTTPClient: HTTPClient {
             {
                 let message = "\(finalURL.absoluteString): https redirect not allowed"
                 box.result = .failure(LatestError.invalidSource(message))
+            } else if let response = response as? HTTPURLResponse {
+                if (200...299).contains(response.statusCode) {
+                    box.result = .success(data ?? Data())
+                } else {
+                    box.result = .failure(LatestError.httpStatus(response.statusCode))
+                }
             } else {
-                box.result = .success(data ?? Data())
+                box.result = .failure(LatestError.invalidSource("non-http response"))
             }
             semaphore.signal()
         }.resume()
@@ -99,6 +113,7 @@ public protocol LatestStrategy {
 
 public enum LatestError: Error, CustomStringConvertible, Equatable {
     case invalidSource(String)
+    case httpStatus(Int)
     case missingField(String)
     case commandFailed(String)
     case parseFailed(String)
@@ -106,6 +121,7 @@ public enum LatestError: Error, CustomStringConvertible, Equatable {
     public var description: String {
         switch self {
         case .invalidSource(let message): SecretRedactor.redact(message)
+        case .httpStatus(let statusCode): "http status \(statusCode)"
         case .missingField(let message): SecretRedactor.redact(message)
         case .commandFailed(let message): SecretRedactor.redact(message)
         case .parseFailed(let message): SecretRedactor.redact(message)

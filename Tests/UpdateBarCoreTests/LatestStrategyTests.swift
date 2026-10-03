@@ -1,6 +1,11 @@
-import UpdateBarCore
+import Foundation
 import UpdateBarTestSupport
 import XCTest
+@testable import UpdateBarCore
+
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 final class LatestStrategyTests: XCTestCase {
     func testLatestErrorDescriptionsRedactSecretLikeValues() {
@@ -386,6 +391,59 @@ final class LatestStrategyTests: XCTestCase {
         }
     }
 
+    func testURLSessionHTTPClientReturnsSuccessfulHTTPResponseBody() throws {
+        let data = try httpClient().get(
+            url: URL(string: "https://stub.updatebar.test/success")!,
+            headers: [:],
+            requireHTTPSFinalURL: true
+        )
+
+        XCTAssertEqual(String(decoding: data, as: UTF8.self), "version: 3.2.1")
+    }
+
+    func testURLSessionHTTPClientRejectsVersionLookingHTTPErrorBodies() throws {
+        for (path, status) in [("not-found", 404), ("server-error", 500)] {
+            XCTAssertThrowsError(
+                try httpClient().get(
+                    url: URL(string: "https://stub.updatebar.test/\(path)")!,
+                    headers: ["Authorization": "Bearer request-secret-value"],
+                    requireHTTPSFinalURL: true
+                )
+            ) { error in
+                let message = String(describing: error)
+                XCTAssertEqual(message, "http status \(status)")
+                XCTAssertFalse(message.contains("version: 9.9.9"))
+                XCTAssertFalse(message.contains("request-secret-value"))
+            }
+        }
+    }
+
+    func testURLSessionHTTPClientRejectsNonHTTPVersionLookingResponseBody() throws {
+        XCTAssertThrowsError(
+            try httpClient().get(
+                url: URL(string: "https://stub.updatebar.test/non-http")!,
+                headers: [:],
+                requireHTTPSFinalURL: true
+            )
+        ) { error in
+            let message = String(describing: error)
+            XCTAssertEqual(message, "non-http response")
+            XCTAssertFalse(message.contains("version: 9.9.9"))
+        }
+    }
+
+    func testURLSessionHTTPClientRejectsRedirectToHTTPErrorResponse() throws {
+        XCTAssertThrowsError(
+            try httpClient().get(
+                url: URL(string: "https://stub.updatebar.test/redirect")!,
+                headers: [:],
+                requireHTTPSFinalURL: true
+            )
+        ) { error in
+            XCTAssertEqual(String(describing: error), "http status 500")
+        }
+    }
+
     func testCmdStrategyRunsApprovedCommandAndParsesVersion() throws {
         var item = try recipe()
         item.latest.strategy = .cmd
@@ -452,4 +510,98 @@ final class LatestStrategyTests: XCTestCase {
     private func emptyCommands() -> MockCommandExecutor {
         MockCommandExecutor(results: [:])
     }
+
+    private func httpClient() -> URLSessionHTTPClient {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HTTPStubURLProtocol.self]
+        return URLSessionHTTPClient(session: URLSession(configuration: configuration))
+    }
+}
+
+private final class HTTPStubURLProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool {
+        request.url?.host == "stub.updatebar.test"
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let url = request.url else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+
+        if url.path == "/redirect" {
+            let finalURL = URL(string: "https://stub.updatebar.test/server-error")!
+            #if canImport(FoundationNetworking)
+                // Corelibs URLProtocol redirects are unimplemented; report the final response.
+                let response = HTTPURLResponse(
+                    url: finalURL,
+                    statusCode: 500,
+                    httpVersion: "HTTP/1.1",
+                    headerFields: nil
+                )!
+                client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                client?.urlProtocol(self, didLoad: Data("version: 9.9.9".utf8))
+            #else
+                let response = HTTPURLResponse(
+                    url: url,
+                    statusCode: 302,
+                    httpVersion: "HTTP/1.1",
+                    headerFields: ["Location": finalURL.absoluteString]
+                )!
+                client?.urlProtocol(
+                    self,
+                    wasRedirectedTo: URLRequest(url: finalURL),
+                    redirectResponse: response
+                )
+            #endif
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
+
+        if url.path == "/non-http" {
+            let response = URLResponse(
+                url: url,
+                mimeType: "text/plain",
+                expectedContentLength: 16,
+                textEncodingName: "utf-8"
+            )
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Data("version: 9.9.9".utf8))
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
+
+        let status: Int
+        let body: String
+        switch url.path {
+        case "/success":
+            status = 200
+            body = "version: 3.2.1"
+        case "/not-found":
+            status = 404
+            body = "version: 9.9.9 request-secret-value"
+        case "/server-error":
+            status = 500
+            body = "version: 9.9.9 request-secret-value"
+        default:
+            status = 404
+            body = "unknown fixture"
+        }
+
+        let response = HTTPURLResponse(
+            url: url,
+            statusCode: status,
+            httpVersion: "HTTP/1.1",
+            headerFields: nil
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }
