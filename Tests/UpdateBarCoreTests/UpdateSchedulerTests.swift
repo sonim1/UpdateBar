@@ -111,6 +111,30 @@ final class UpdateSchedulerTests: XCTestCase {
         XCTAssertEqual(recorder.laneOverlaps, [])
     }
 
+    func testResumesParallelWorkAfterGlobalBarrier() throws {
+        let recorder = Recorder()
+        let scheduler = UpdateScheduler<String, String>(
+            items: items([UpdateLane.globalBarrierKey, "brew", "npm", "brew", "npm"]),
+            stopSignal: nil,
+            onStart: nil,
+            onFinish: nil,
+            shouldStopAfter: nil,
+            work: { lane in
+                recorder.enter(lane: lane)
+                Thread.sleep(forTimeInterval: lane == UpdateLane.globalBarrierKey ? 0.2 : 0.05)
+                recorder.leave(lane: lane)
+                return lane
+            }
+        )
+
+        let outputs = try scheduler.run(maxConcurrent: 3)
+
+        XCTAssertEqual(outputs.count, 5)
+        XCTAssertEqual(recorder.laneOverlaps, [])
+        XCTAssertEqual(
+            recorder.peak, 2, "independent lanes must resume parallel work after the barrier")
+    }
+
     func testStopSignalPreventsNewItemsFromStarting() throws {
         let stopSignal = UpdateStopSignal()
         let scheduler = UpdateScheduler<String, String>(
