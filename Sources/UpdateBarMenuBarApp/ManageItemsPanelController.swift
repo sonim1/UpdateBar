@@ -18,6 +18,7 @@
         private let presentationModel = ManageItemsModel()
         private var mutationGate = ManageItemsMutationGate()
         private var pendingEnabled: [String: Bool] = [:]
+        private var pendingPinned: [String: Bool] = [:]
 
         var onError: (Error) -> Void = { _ in }
 
@@ -51,6 +52,7 @@
         func apply(_ incoming: MenuBarPopoverModel) {
             guard mutationGate.accepts(incoming.state.allItems) else { return }
             pendingEnabled.removeAll()
+            pendingPinned.removeAll()
             model.update(
                 state: incoming.state,
                 approvals: incoming.approvals,
@@ -155,6 +157,35 @@
                     }
                 }
             }
+        }
+
+        func setPinned(id: String, pinned: Bool) {
+            guard !model.isBusy, !mutationGate.isPending,
+                let item = model.item(for: id), !pinned || item.current != nil
+            else { return }
+            mutationError = nil
+            mutationGate.begin(id: id, pinned: pinned)
+            pendingPinned[id] = pinned
+            objectWillChange.send()
+            DispatchQueue.global(qos: .userInitiated).async { [service, weak self] in
+                do {
+                    try service.setPinned(id: id, pinned: pinned)
+                    DispatchQueue.main.async { [weak self] in self?.onChanged() }
+                } catch {
+                    DispatchQueue.main.async {
+                        guard let self else { return }
+                        self.mutationGate.cancel()
+                        self.pendingPinned[id] = nil
+                        self.mutationError = SecretRedactor.redact(String(describing: error))
+                        self.onError(error)
+                        self.objectWillChange.send()
+                    }
+                }
+            }
+        }
+
+        func displayedPinnedState(for item: StatusItem) -> Bool {
+            pendingPinned[item.id] ?? item.pinned
         }
 
         func isMutationPending(id: String) -> Bool {

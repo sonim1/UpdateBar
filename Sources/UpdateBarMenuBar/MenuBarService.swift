@@ -38,6 +38,7 @@ public protocol MenuBarServicing: Sendable {
     func approve(id: String, field: String, cancellationToken: CancellationToken?) throws
     func revoke(id: String, field: String, cancellationToken: CancellationToken?) throws
     func setEnabled(id: String, enabled: Bool) throws
+    func setPinned(id: String, pinned: Bool) throws
     func history(since: Date?) throws -> [HistoryEvent]
 }
 
@@ -262,6 +263,15 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
 
     public func setEnabled(id: String, enabled: Bool) throws {
         _ = try registryService(cancellationToken: nil).setEnabled(id: id, enabled: enabled)
+    }
+
+    public func setPinned(id: String, pinned: Bool) throws {
+        let registry = try registryService(cancellationToken: nil)
+        if pinned {
+            _ = try registry.pin(id: id)
+        } else {
+            _ = try registry.unpin(id: id)
+        }
     }
 
     public func history(since: Date?) throws -> [HistoryEvent] {

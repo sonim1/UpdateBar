@@ -332,6 +332,7 @@
             fatalError("unused")
         }
         func setEnabled(id: String, enabled: Bool) throws { fatalError("unused") }
+        func setPinned(id: String, pinned: Bool) throws { fatalError("unused") }
         func history(since: Date?) throws -> [HistoryEvent] { fatalError("unused") }
     }
 #endif

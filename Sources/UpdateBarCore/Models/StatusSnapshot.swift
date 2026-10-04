@@ -48,7 +48,11 @@ public struct StatusSnapshot: Codable, Equatable {
         }
         guard let itemState else { return .checking }
         if itemState.status == .error { return .error }
-        if itemState.status == .checking { return .checking }
+        if itemState.status == .checking || itemState.status == .pinned
+            || itemState.status == .disabled
+        {
+            return .checking
+        }
         return itemState.status
     }
 

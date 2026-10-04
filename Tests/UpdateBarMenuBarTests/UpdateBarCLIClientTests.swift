@@ -307,12 +307,71 @@ final class UpdateBarCLIClientTests: XCTestCase {
             ])
     }
 
+    func testLoadConfigReadsStoredConcurrency() throws {
+        let runner = RecordingRunner(
+            result: CommandResult(
+                exitCode: 0,
+                stdout:
+                    #"{"refresh":{"interval":"6h"},"security":{"require_https_source":true},"update":{"max_concurrent":8}}"#,
+                stderr: ""
+            )
+        )
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        let config = try client.loadConfig()
+
+        XCTAssertEqual(config.update.maxConcurrent, 8)
+    }
+
+    func testSaveConfigUpdatesOnlyChangedConcurrency() throws {
+        let runner = SequencedRecordingRunner(results: [
+            CommandResult(
+                exitCode: 0,
+                stdout:
+                    #"{"refresh":{"interval":"6h"},"security":{"require_https_source":true},"update":{"max_concurrent":3}}"#,
+                stderr: ""
+            ),
+            CommandResult(exitCode: 0, stdout: "{}", stderr: ""),
+        ])
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+        var config = Config.default
+        config.update.maxConcurrent = 8
+
+        try client.saveConfig(config)
+
+        XCTAssertEqual(
+            runner.calls.map(\.arguments),
+            [
+                ["config", "get", "--json"],
+                ["config", "set", "update.max_concurrent", "8", "--json"],
+            ])
+    }
+
+    func testSetPinnedUsesExistingPinAndUnpinCommands() throws {
+        let runner = RecordingRunner(result: CommandResult(exitCode: 0, stdout: "{}", stderr: ""))
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        try client.setPinned(id: "tool", pinned: true)
+        try client.setPinned(id: "tool", pinned: false)
+
+        XCTAssertEqual(
+            runner.calls.map(\.arguments),
+            [
+                ["pin", "tool", "--json"], ["unpin", "tool", "--json"],
+            ])
+    }
+
     func testScanRegisterAndConfigActionsUseJSONContracts() throws {
         let runner = SequencedRecordingRunner(results: [
             CommandResult(exitCode: 0, stdout: #"{"candidates":[],"errors":[]}"#, stderr: ""),
             CommandResult(
                 exitCode: 0,
                 stdout: #"{"ok":true,"added":["brew.jq"],"replaced":[],"skipped":[],"errors":[]}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"refresh":{"interval":"6h"},"security":{"require_https_source":true}}"#,
                 stderr: ""
             ),
             CommandResult(
@@ -340,6 +399,7 @@ final class UpdateBarCLIClientTests: XCTestCase {
             replace: false
         )
         var config = try client.loadConfig()
+        XCTAssertEqual(config.update.maxConcurrent, 3)
         config.refresh.interval = Duration(minutes: 30)
         config.security.requireHTTPSSource = false
         try client.saveConfig(config)
@@ -355,6 +415,9 @@ final class UpdateBarCLIClientTests: XCTestCase {
                 CommandCall(
                     executablePath: "/tmp/updatebar",
                     arguments: ["init", "--select", "brew.jq", "--json"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["config", "get", "--json"]),
                 CommandCall(
                     executablePath: "/tmp/updatebar",
                     arguments: ["config", "get", "--json"]),

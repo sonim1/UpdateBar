@@ -6,8 +6,9 @@
 
     final class SettingsViewController: NSViewController {
         private let service: any MenuBarServicing
-        private let model: SettingsViewModel
+        let model: SettingsViewModel
         private let onSaved: () -> Void
+        private var loadedConfig: Config?
 
         init(
             service: any MenuBarServicing,
@@ -56,6 +57,7 @@
         }
 
         private func load() {
+            guard !model.isRunning else { return }
             model.isRunning = true
             model.status = "Loading..."
             DispatchQueue.global(qos: .userInitiated).async { [service] in
@@ -63,8 +65,7 @@
                     let config = try service.loadConfig()
                     DispatchQueue.main.async { [weak self] in
                         guard let self else { return }
-                        model.refreshInterval = config.refresh.interval.description
-                        model.requireHTTPS = config.security.requireHTTPSSource
+                        apply(config)
                         model.isRunning = false
                         model.status = "Loaded."
                     }
@@ -75,33 +76,44 @@
         }
 
         private func save() {
-            do {
-                var config = Config.default
-                try config.set(
+            guard !model.isRunning, let loadedConfig else { return }
+            let changes = [
+                (
                     "refresh.interval",
-                    value: model.refreshInterval.trimmingCharacters(in: .whitespacesAndNewlines)
-                )
-                try config.set(
-                    "security.require_https_source",
-                    value: model.requireHTTPS ? "true" : "false"
-                )
-                model.isRunning = true
-                model.status = "Saving..."
-                DispatchQueue.global(qos: .userInitiated).async { [service] in
-                    do {
-                        try service.saveConfig(config)
-                        DispatchQueue.main.async { [weak self] in
-                            self?.model.isRunning = false
-                            self?.model.status = "Saved."
-                            self?.onSaved()
-                        }
-                    } catch {
-                        DispatchQueue.main.async { [weak self] in self?.finish(error) }
+                    model.refreshInterval.trimmingCharacters(in: .whitespacesAndNewlines)
+                ),
+                ("security.require_https_source", String(model.requireHTTPS)),
+                ("update.max_concurrent", String(model.maxConcurrent)),
+            ].filter { loadedConfig.get($0.0) != $0.1 }
+            model.isRunning = true
+            model.status = "Saving..."
+            DispatchQueue.global(qos: .userInitiated).async { [service] in
+                do {
+                    var config = try service.loadConfig()
+                    for (key, value) in changes {
+                        try config.set(key, value: value)
                     }
+                    if !changes.isEmpty {
+                        try service.saveConfig(config)
+                    }
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        apply(config)
+                        model.isRunning = false
+                        model.status = "Saved."
+                        onSaved()
+                    }
+                } catch {
+                    DispatchQueue.main.async { [weak self] in self?.finish(error) }
                 }
-            } catch {
-                finish(error)
             }
+        }
+
+        private func apply(_ config: Config) {
+            loadedConfig = config
+            model.refreshInterval = config.refresh.interval.description
+            model.requireHTTPS = config.security.requireHTTPSSource
+            model.maxConcurrent = config.update.maxConcurrent
         }
 
         private func finish(_ error: Error) {

@@ -77,6 +77,45 @@ final class CoreMenuBarServiceTests: XCTestCase {
         XCTAssertFalse(savedConfig.security.requireHTTPSSource)
     }
 
+    func testPinControlsPreserveTrackingAndApprovalsAfterPinnedCheck() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(homeDirectory: root)
+        let original = recipe(
+            id: "tool", updateCommand: "tool update", currentCommand: "tool current")
+        try ManifestStore(paths: paths).save(manifest(items: [original]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": ItemState(
+                        current: "1.0.0", latest: "1.1.0", status: .outdated,
+                        lastChecked: now, error: nil, backoffUntil: nil
+                    )
+                ]
+            )
+        )
+        let commands = RecordingCommandRunner(results: [:])
+        let service = CoreMenuBarService(paths: paths, commandRunner: commands)
+
+        try service.setPinned(id: "tool", pinned: true)
+        XCTAssertTrue(try XCTUnwrap(service.status().items.first).pinned)
+        try service.checkNow()
+        try service.setPinned(id: "tool", pinned: false)
+        let snapshot = try service.status()
+        XCTAssertFalse(try XCTUnwrap(snapshot.items.first).pinned)
+        XCTAssertEqual(snapshot.items.first?.status, .checking)
+        try service.setPinned(id: "tool", pinned: true)
+        try service.setEnabled(id: "tool", enabled: false)
+        try service.setPinned(id: "tool", pinned: false)
+        let restored = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
+        XCTAssertNil(restored.pin)
+        XCTAssertFalse(restored.enabled)
+        XCTAssertEqual(restored.trust, original.trust)
+        XCTAssertEqual(try service.status().items.first?.status, .disabled)
+        XCTAssertTrue(commands.commands.isEmpty)
+    }
+
     func testCoreServiceReadsStatusApprovalsAndRunsUpdate() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)

@@ -142,5 +142,6 @@ final class HistoryLogPresentationTests: XCTestCase {
             fatalError("unused")
         }
         func setEnabled(id: String, enabled: Bool) throws { fatalError("unused") }
+        func setPinned(id: String, pinned: Bool) throws { fatalError("unused") }
     }
 #endif

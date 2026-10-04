@@ -164,6 +164,69 @@
             XCTAssertFalse(store.isMutationPending(id: "tool"))
         }
 
+        func testPinMutationWaitsForCanonicalStateAndClearsUpdateSelection() async {
+            let service = ItemsRecordingService()
+            let changed = expectation(description: "pin saved")
+            let store = ItemsDashboardStore(
+                service: service, onChanged: { changed.fulfill() }, actions: actions()
+            )
+            let original = item("tool")
+            store.apply(model(items: [original]))
+            store.toggleSelection(original)
+
+            store.setPinned(id: "tool", pinned: true)
+            await fulfillment(of: [changed], timeout: 2)
+
+            XCTAssertEqual(service.pinnedCalls, [.init(id: "tool", pinned: true)])
+            XCTAssertTrue(store.isMutationPending(id: "tool"))
+            XCTAssertTrue(store.displayedPinnedState(for: original))
+            store.apply(model(items: [original]))
+            XCTAssertTrue(store.isMutationPending(id: "tool"))
+            var pinned = original
+            pinned.pinned = true
+            pinned.status = .pinned
+            store.apply(model(items: [pinned]))
+            XCTAssertFalse(store.isMutationPending(id: "tool"))
+            XCTAssertTrue(store.primaryAction.ids.isEmpty)
+            XCTAssertTrue(store.selection.selectedIDs.isEmpty)
+        }
+
+        func testPinFailureRestoresStateAndAllowsRetry() async {
+            let service = ItemsRecordingService(pinningError: RegistryError.itemNotFound("removed"))
+            let failed = expectation(description: "pin failed")
+            let store = ItemsDashboardStore(service: service, onChanged: {}, actions: actions())
+            store.onError = { _ in failed.fulfill() }
+            let original = item("tool")
+            store.apply(model(items: [original]))
+
+            store.setPinned(id: "tool", pinned: true)
+            await fulfillment(of: [failed], timeout: 2)
+
+            XCTAssertFalse(store.isMutationPending(id: "tool"))
+            XCTAssertFalse(store.displayedPinnedState(for: original))
+            XCTAssertNotNil(store.mutationError)
+            XCTAssertEqual(store.primaryAction.ids, ["tool"])
+        }
+
+        func testBusyStateAndUnavailableVersionBlockPinning() {
+            let service = ItemsRecordingService()
+            let store = ItemsDashboardStore(service: service, onChanged: {}, actions: actions())
+            var busy = model(items: [item("tool")])
+            busy.update(
+                state: state([item("tool")]), approvals: [:],
+                activeActionTitle: "Updating items", isUpdateAction: true
+            )
+            store.apply(busy)
+            store.setPinned(id: "tool", pinned: true)
+            var unknown = item("tool")
+            unknown.current = nil
+            store.apply(model(items: [unknown]))
+            store.setPinned(id: "tool", pinned: true)
+
+            XCTAssertTrue(service.pinnedCalls.isEmpty)
+            XCTAssertFalse(store.isMutationPending(id: "tool"))
+        }
+
         func testControllerRetainsHostingControllerAcrossCanonicalApplies() {
             _ = NSApplication.shared
             let controller = ManageItemsViewController(
@@ -243,13 +306,26 @@
             var id: String
             var enabled: Bool
         }
+        struct PinnedCall: Equatable {
+            var id: String
+            var pinned: Bool
+        }
 
         private let lock = NSLock()
         private var calls: [EnabledCall] = []
+        private var pinCalls: [PinnedCall] = []
+        private let pinningError: (any Error)?
         var enabledCalls: [EnabledCall] { lock.withLock { calls } }
+        var pinnedCalls: [PinnedCall] { lock.withLock { pinCalls } }
+
+        init(pinningError: (any Error)? = nil) { self.pinningError = pinningError }
 
         func setEnabled(id: String, enabled: Bool) throws {
             lock.withLock { calls.append(EnabledCall(id: id, enabled: enabled)) }
+        }
+        func setPinned(id: String, pinned: Bool) throws {
+            lock.withLock { pinCalls.append(PinnedCall(id: id, pinned: pinned)) }
+            if let pinningError { throw pinningError }
         }
 
         func status(refresh: Bool) throws -> StatusSnapshot { fatalError("unused") }

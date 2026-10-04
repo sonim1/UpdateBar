@@ -502,6 +502,36 @@
                                 : "Enable tracking for \(item.name)"
                         )
 
+                        Divider()
+                        LabeledContent(
+                            "Pin",
+                            value: store.displayedPinnedState(for: item) ? "Pinned" : "Not pinned"
+                        )
+                        Button(
+                            store.displayedPinnedState(for: item) ? "Unpin" : "Pin current version"
+                        ) {
+                            store.setPinned(
+                                id: item.id, pinned: !store.displayedPinnedState(for: item)
+                            )
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(
+                            store.model.isBusy || store.isMutationPending
+                                || (!item.pinned && item.current == nil)
+                        )
+                        .accessibilityLabel(
+                            item.pinned
+                                ? "Unpin \(item.name)" : "Pin current version of \(item.name)"
+                        )
+                        .accessibilityIdentifier("items-pin")
+                        Text(
+                            item.current == nil && !item.pinned
+                                ? "Run a check to get the current version before pinning."
+                                : "Pinning pauses checks and updates without disabling tracking."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
                         if let commands = store.model.approvals[item.id], !commands.isEmpty {
                             Divider()
                             Text("Commands").font(.headline)
@@ -510,14 +540,20 @@
                             }
                         }
 
-                        if store.model.readyToCheckItems.contains(where: { $0.id == item.id }) {
+                        if store.model.readyToCheckItems.contains(where: { $0.id == item.id })
+                            || (!item.pinned && item.status == .checking)
+                        {
                             Divider()
-                            Text("Approval saved. Run a check to refresh this tool’s status.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            Text(
+                                item.status == .checking
+                                    ? "Run a check to refresh this tool’s status."
+                                    : "Approval saved. Run a check to refresh this tool’s status."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                             Button("Check Now", action: store.check)
                                 .buttonStyle(.borderedProminent)
-                                .disabled(store.model.isBusy)
+                                .disabled(store.model.isBusy || store.isMutationPending)
                                 .accessibilityLabel("Check for updates now")
                         }
                     }
