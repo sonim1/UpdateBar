@@ -263,6 +263,21 @@ final class ManageItemsMutationGateTests: XCTestCase {
         XCTAssertFalse(gate.isPending)
     }
 
+    func testPinMutationUsesManifestFlagEvenWhenTrackingIsDisabled() {
+        var gate = ManageItemsMutationGate()
+        gate.begin(id: "tool", pinned: true)
+        var snapshot = item(status: .disabled)
+
+        XCTAssertFalse(gate.accepts([snapshot]))
+        snapshot.pinned = true
+        XCTAssertTrue(gate.accepts([snapshot]))
+        gate.begin(id: "tool", pinned: false)
+        XCTAssertFalse(gate.accepts([snapshot]))
+        snapshot.pinned = false
+        XCTAssertTrue(gate.accepts([snapshot]))
+        XCTAssertFalse(gate.isPending)
+    }
+
     private func item(status: ItemStatus) -> StatusItem {
         StatusItem(
             id: "tool", name: "Tool", category: "cli", current: nil, latest: nil,

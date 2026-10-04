@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.6.29 - 2026-10-04
+
+### Fixed
+
+- Preserved saved update concurrency and settings changed through the CLI when
+  saving unrelated edits in Preferences.
+- Showed resumed recipes as needing a check instead of retaining cached pinned
+  or disabled status.
+
+### Changed
+
+- Added bounded update concurrency in Preferences and pin/unpin controls in
+  Items details, with a separate Check Now action after resuming checks.
+
 ## 0.6.28 - 2026-10-03
 
 ### Fixed

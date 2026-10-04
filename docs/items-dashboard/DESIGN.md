@@ -18,13 +18,13 @@ Keep the existing sidebar and window. The default content size is 1000×700 with
 - Needs review: command approval or a pending post-approval check. Review opens exact command details.
 - Needs attention: check failures or other unresolved status.
 - Up to date: collapsed current tools.
-- Paused: collapsed disabled or pinned tools; details retain tracking controls.
+- Paused: collapsed disabled or pinned tools; details retain separate tracking and pin controls.
 
 Selection starts empty and the primary action reads Update all with the eligible count. Selecting cards changes it to Update selected. Searching clears selection and scopes the unselected action to visible eligible results, labeled Update visible. Reconcile selection against current IDs, versions, and approval eligibility. Disable execution when busy, mutating tracking state, or without eligible targets.
 
 The batch summary and individual phases use the existing action coordinator. Stop after current finishes in-flight work and leaves queued tools untouched. Retry failed uses the canonical retry set. The CLI-backed fallback shows indeterminate progress and omits unsupported stopping.
 
-Command review shows the exact command and working directory with existing secret redaction. Acknowledgement is required before approval. Approval never starts an update; Check Now refreshes status separately. Identity changes invalidate acknowledgement. Tracking changes retain the existing mutation gate until the shared snapshot arrives.
+Command review shows the exact command and working directory with existing secret redaction. Acknowledgement is required before approval. Approval never starts an update; Check Now refreshes status separately. Identity changes invalidate acknowledgement. Tracking and pin changes retain the existing mutation gate until the shared snapshot arrives. Pinning requires a known current version, pauses checks and updates, and preserves tracking and approvals. Unpinning never starts a command; a cached paused result becomes a check-needed state.
 
 ## Integration and verification
 

@@ -58,6 +58,29 @@ final class StatusSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.items.first?.status, .untrusted)
     }
 
+    func testResumedRecipesDoNotRemainPausedByCachedState() throws {
+        let manifest = try loadManifest()
+        let now = Date(timeIntervalSince1970: 1_812_499_200)
+        for pausedStatus in [ItemStatus.pinned, .disabled] {
+            let state = State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "claude-code": ItemState(
+                        current: "1.4.2", latest: "1.5.0", status: pausedStatus,
+                        lastChecked: now, error: nil, backoffUntil: nil
+                    )
+                ]
+            )
+
+            let snapshot = StatusSnapshot.from(manifest: manifest, state: state, now: now)
+
+            XCTAssertEqual(snapshot.items.first?.status, .checking)
+            XCTAssertEqual(snapshot.items.first?.pinned, false)
+            XCTAssertEqual(snapshot.summary.pinned, 0)
+            XCTAssertEqual(snapshot.summary.disabled, 0)
+        }
+    }
+
     func testStatusSnapshotRedactsStoredErrorSecrets() throws {
         let manifest = try loadManifest()
         let now = Date(timeIntervalSince1970: 1_812_499_200)

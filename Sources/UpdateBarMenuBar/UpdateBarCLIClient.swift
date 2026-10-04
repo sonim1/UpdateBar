@@ -134,14 +134,19 @@ public struct UpdateBarCLIClient: Sendable {
             "security.require_https_source",
             value: String(payload.security.requireHTTPSSource)
         )
+        if let update = payload.update {
+            try config.set("update.max_concurrent", value: String(update.maxConcurrent))
+        }
         return config
     }
 
     public func saveConfig(_ config: Config) throws {
+        let current = try loadConfig()
         for (key, value) in [
             ("refresh.interval", config.refresh.interval.description),
             ("security.require_https_source", String(config.security.requireHTTPSSource)),
-        ] {
+            ("update.max_concurrent", String(config.update.maxConcurrent)),
+        ].filter({ current.get($0.0) != $0.1 }) {
             let result = try run(arguments: ["config", "set", key, value, "--json"])
             try ensureSuccess(result, allowedExitCodes: [0])
         }
@@ -224,6 +229,11 @@ public struct UpdateBarCLIClient: Sendable {
         try ensureSuccess(result, allowedExitCodes: [0])
     }
 
+    public func setPinned(id: String, pinned: Bool) throws {
+        let result = try run(arguments: [pinned ? "pin" : "unpin", id, "--json"])
+        try ensureSuccess(result, allowedExitCodes: [0])
+    }
+
     public func history(since: Date?) throws -> [HistoryEvent] {
         var arguments = ["history", "--json"]
         if let since {
@@ -300,6 +310,7 @@ public struct UpdateBarCLIClient: Sendable {
     private struct ConfigDumpPayload: Decodable {
         var refresh: Refresh
         var security: Security
+        var update: Update?
 
         struct Refresh: Decodable {
             var interval: String
@@ -310,6 +321,14 @@ public struct UpdateBarCLIClient: Sendable {
 
             enum CodingKeys: String, CodingKey {
                 case requireHTTPSSource = "require_https_source"
+            }
+        }
+
+        struct Update: Decodable {
+            var maxConcurrent: Int
+
+            enum CodingKeys: String, CodingKey {
+                case maxConcurrent = "max_concurrent"
             }
         }
     }

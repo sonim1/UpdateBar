@@ -6,6 +6,7 @@
     final class SettingsViewModel: ObservableObject {
         @Published var refreshInterval = "6h"
         @Published var requireHTTPS = true
+        @Published var maxConcurrent = Config.default.update.maxConcurrent
         @Published var status = "Ready"
         @Published var isRunning = false
 
@@ -44,6 +45,12 @@
                                 .frame(width: 150)
                         }
                         Toggle("Require HTTPS sources", isOn: $model.requireHTTPS)
+                        Stepper(
+                            "Parallel updates: \(model.maxConcurrent)",
+                            value: $model.maxConcurrent,
+                            in: UpdateConfig.validRange
+                        )
+                        .accessibilityIdentifier("settings-max-concurrent")
                     }
                     section("Updates") {
                         LabeledContent("Current version") {
