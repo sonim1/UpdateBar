@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.29 - 2026-10-04
+
 ### Fixed
 
 - Preserved saved update concurrency and settings changed through the CLI when
