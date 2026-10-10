@@ -201,11 +201,16 @@ public struct UpdateBarCLIClient: Sendable {
             [CommandApprovalStatus].self, from: Data(result.stdout.utf8))
     }
 
-    public func approve(id: String, field: String, cancellationToken: CancellationToken? = nil)
-        throws
-    {
+    public func approve(
+        id: String, field: String, expectedFingerprint: String? = nil,
+        cancellationToken: CancellationToken? = nil
+    ) throws {
+        var arguments = ["approve", id, "--field", field, "--json"]
+        if let expectedFingerprint {
+            arguments += ["--expected-fingerprint", expectedFingerprint]
+        }
         let result = try run(
-            arguments: ["approve", id, "--field", field, "--json"],
+            arguments: arguments,
             cancellationToken: cancellationToken
         )
         try ensureSuccess(result, allowedExitCodes: [0])

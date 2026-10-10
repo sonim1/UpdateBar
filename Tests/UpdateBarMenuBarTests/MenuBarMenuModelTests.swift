@@ -262,24 +262,23 @@ final class MenuBarMenuModelTests: XCTestCase {
                 statusItem(id: "ready", name: "Ready Tool", current: "2.0.0", status: .ok)
             ]
         )
-        let approvals = [
-            "fresh": [
-                CommandApprovalStatus(
-                    field: "update.cmd",
-                    approved: false,
-                    fingerprint: "abc",
-                    command: "fresh   update",
-                    cwd: "/tmp/fresh"
-                ),
-                CommandApprovalStatus(
-                    field: "check.cmd",
-                    approved: true,
-                    fingerprint: "def",
-                    command: "fresh check",
-                    cwd: nil
-                ),
-            ]
+        let freshApprovals = [
+            CommandApprovalStatus(
+                field: "update.cmd",
+                approved: false,
+                fingerprint: "abc",
+                command: "fresh   update",
+                cwd: "/tmp/fresh"
+            ),
+            CommandApprovalStatus(
+                field: "check.cmd",
+                approved: true,
+                fingerprint: "def",
+                command: "fresh check",
+                cwd: nil
+            ),
         ]
+        let approvals = ["fresh": freshApprovals]
 
         let model = MenuBarMenuModelBuilder().makeMenu(
             state: state,
@@ -326,10 +325,10 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertTrue(model.entries.labels.contains("Fresh Tool >"))
         XCTAssertFalse(model.entries.labels.contains { $0.contains("fresh update") })
         XCTAssertFalse(
-            model.entries.actions.contains(.approve(id: "fresh", field: "update.cmd"))
+            model.entries.actions.contains(.approve(id: "fresh", reviewed: freshApprovals[0]))
         )
         XCTAssertFalse(
-            model.entries.actions.contains(.revoke(id: "fresh", field: "check.cmd"))
+            model.entries.actions.contains(.revoke(id: "fresh", reviewed: freshApprovals[1]))
         )
 
         let submenu = model.entries.submenu(titled: "Fresh Tool")
@@ -338,8 +337,8 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertEqual(
             submenu?.items.map(\.action),
             [
-                .approve(id: "fresh", field: "update.cmd"),
-                .revoke(id: "fresh", field: "check.cmd"),
+                .approve(id: "fresh", reviewed: freshApprovals[0]),
+                .revoke(id: "fresh", reviewed: freshApprovals[1]),
             ]
         )
         XCTAssertEqual(

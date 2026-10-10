@@ -222,7 +222,7 @@
             guard let action = sender.representedObject as? ApprovalAction else { return }
             setApproval(
                 id: action.id,
-                field: action.field,
+                reviewed: action.reviewed,
                 approving: true,
                 confirmation: action.confirmation
             )
@@ -230,23 +230,21 @@
 
         private func setApproval(
             id: String,
-            field: String,
+            reviewed: CommandApprovalStatus,
             approving: Bool,
             confirmation: MenuBarActionConfirmation?
         ) {
             let fallback = MenuBarActionConfirmation.commandApproval(
                 id: id,
-                field: field,
+                field: reviewed.field,
                 approving: approving
             )
             guard confirm(confirmation ?? fallback) else { return }
             let verb = approving ? "Approve" : "Revoke"
-            runAction("\(verb) \(id) \(field)") { [service] action in
-                if approving {
-                    try service?.approve(id: id, field: field, cancellationToken: action.token)
-                } else {
-                    try service?.revoke(id: id, field: field, cancellationToken: action.token)
-                }
+            runAction("\(verb) \(id) \(reviewed.field)") { [service] action in
+                try service?.setReviewedApproval(
+                    id: id, reviewed: reviewed, approving: approving,
+                    cancellationToken: action.token)
             }
         }
 
@@ -254,7 +252,7 @@
             guard let action = sender.representedObject as? ApprovalAction else { return }
             setApproval(
                 id: action.id,
-                field: action.field,
+                reviewed: action.reviewed,
                 approving: false,
                 confirmation: action.confirmation
             )
@@ -704,10 +702,10 @@
                 }
             case .update(let id):
                 menuItem.representedObject = ItemAction(id: id)
-            case .approve(let id, let field), .revoke(let id, let field):
+            case .approve(let id, let reviewed), .revoke(let id, let reviewed):
                 menuItem.representedObject = ApprovalAction(
                     id: id,
-                    field: field,
+                    reviewed: reviewed,
                     confirmation: item.confirmation
                 )
             case .openTUIInTerminal(let bundleID):
@@ -926,12 +924,13 @@
 
     private final class ApprovalAction: NSObject {
         let id: String
-        let field: String
+        let reviewed: CommandApprovalStatus
         let confirmation: MenuBarActionConfirmation?
 
-        init(id: String, field: String, confirmation: MenuBarActionConfirmation?) {
+        init(id: String, reviewed: CommandApprovalStatus, confirmation: MenuBarActionConfirmation?)
+        {
             self.id = id
-            self.field = field
+            self.reviewed = reviewed
             self.confirmation = confirmation
         }
     }

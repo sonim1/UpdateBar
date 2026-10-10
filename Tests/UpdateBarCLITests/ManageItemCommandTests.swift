@@ -494,6 +494,70 @@ final class ManageItemCommandTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("updatebar approvals tool"))
     }
 
+    func testApproveExpectedFingerprintAcceptsReviewedCommand() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        defer { try? FileManager.default.removeItem(at: home) }
+        let paths = AppPaths(homeDirectory: home)
+        var item = recipe()
+        item.trust.level = .untrusted
+        item.trust.approvedCommands = [:]
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1, items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)))
+        let fingerprint = try XCTUnwrap(item.commandFingerprints()["update.cmd"])
+
+        let result = try CLIProcess.run(
+            [
+                "approve", "tool", "--field", "update.cmd",
+                "--expected-fingerprint", fingerprint, "--json",
+            ], home: home)
+        let stored = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
+
+        XCTAssertEqual(result.exitCode, 0, result.stdout + result.stderr)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertTrue(TrustPolicy.isApproved(stored, field: "update.cmd"))
+        XCTAssertFalse(TrustPolicy.isApproved(stored, field: "check.cmd"))
+    }
+
+    func testApproveExpectedFingerprintRejectsSupportedCommandEdit() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
+        defer { try? FileManager.default.removeItem(at: home) }
+        let paths = AppPaths(homeDirectory: home)
+        var item = recipe()
+        item.trust.level = .untrusted
+        item.trust.approvedCommands = [:]
+        try ManifestStore(paths: paths).save(
+            Manifest(
+                schemaVersion: 1, items: [item],
+                provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)))
+        let fingerprint = try XCTUnwrap(item.commandFingerprints()["update.cmd"])
+        let commandFile = home.appendingPathComponent("replacement.txt")
+        try Data("printf replacement".utf8).write(to: commandFile)
+        let edit = try CLIProcess.run(
+            ["edit", "tool", "--field", "update.cmd", "--from", commandFile.path, "--json"],
+            home: home)
+        XCTAssertEqual(edit.exitCode, 0, edit.stdout + edit.stderr)
+        let before = try Data(contentsOf: paths.manifestFile)
+
+        let result = try CLIProcess.run(
+            [
+                "approve", "tool", "--field", "update.cmd",
+                "--expected-fingerprint", fingerprint, "--json",
+            ], home: home)
+        let payload = try JSONDecoder.updateBar.decode(
+            ErrorEnvelope.self, from: Data(result.stdout.utf8))
+        let stored = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: "tool"))
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertEqual(result.stderr, "")
+        XCTAssertEqual(payload.code, "registry_error")
+        XCTAssertTrue(payload.errors.contains { $0.contains("command changed") })
+        XCTAssertEqual(try Data(contentsOf: paths.manifestFile), before)
+        XCTAssertEqual(stored.update.cmd, "printf replacement")
+        XCTAssertFalse(TrustPolicy.isApproved(stored, field: "update.cmd"))
+    }
+
     func testApproveListAndRevokeCommandFields() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-manage-tests")
         let paths = AppPaths(homeDirectory: home)

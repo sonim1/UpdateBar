@@ -284,12 +284,18 @@ on read. `--since` accepts an ISO-8601 date (`2026-07-01`) or date-time
 (`2026-07-01T00:00:00Z`). Human output is tab-separated with `AT`, `EVENT`,
 `ID`, and `DETAIL` columns.
 
-### `updatebar approve <id> --field <command-field> [--json]`
+### `updatebar approve <id> --field <command-field> [--expected-fingerprint <fingerprint>] [--json]`
 
 Approves one command field such as `check.cmd`, `latest.cmd`, or `update.cmd`. Add `--json` for a machine-readable mutation payload.
 Before approving, run `updatebar approvals <id>` to review valid command fields,
 command text, working directories, and fingerprints. Approve only command fields
 you accept.
+
+Pass the fingerprint returned by `approvals --json` as `--expected-fingerprint`
+to bind approval to the command you reviewed. The comparison and approval write
+share the manifest lock. If the command or working directory changed, approval
+fails with `registry_error` and leaves the manifest unchanged. Review the new
+command before approving again. Omitting the option approves the current command.
 
 ### `updatebar approvals <id> [--json]`
 
