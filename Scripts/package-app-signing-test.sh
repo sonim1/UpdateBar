@@ -163,7 +163,7 @@ printf '%s\n' "$*" >>"${OTOOL_LOG:?}"
 case "${1:-}" in
   -L)
     printf '%s:\n' "${2:-UpdateBar}"
-    printf '\t@rpath/Sparkle.framework/Versions/B/Sparkle (compatibility version 1.0.0, current version 2.9.4)\n'
+    printf '\t@rpath/Sparkle.framework/Versions/B/Sparkle (compatibility version 1.0.0, current version 2.10.0)\n'
     ;;
   -l)
     cat <<'OUT'

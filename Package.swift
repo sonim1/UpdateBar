@@ -16,7 +16,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
         .package(
             url: "https://github.com/sparkle-project/Sparkle",
-            revision: "b6496a74a087257ef5e6da1c5b29a447a60f5bd7"
+            revision: "eef1a539a373c1f1a320624b1130fc5de7b2e100"
         ),
     ],
     targets: [
