@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.6.30 - 2026-10-10
+
+### Fixed
+
+- Bound Menu Bar command approvals to the command and working directory shown
+  for review, rejecting changes made while confirmation is open or before saving.
+- Updated Sparkle to 2.10.0, including upstream installer and symlink security fixes.
+
 ## 0.6.29 - 2026-10-04
 
 ### Fixed

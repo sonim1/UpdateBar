@@ -274,6 +274,15 @@ run_case ci 0 SPARKLE_PRIVATE_ED_KEY="$PRIVATE"
 grep -Fq 'child:ruby' "$T/children"
 ! grep -Fq "$PRIVATE" "$T/children"
 test ! -e "$(cat "$LOG.keypath")"
+ruby -rjson -e '
+  path=ARGV.fetch(0); manifest=JSON.parse(File.binread(path))
+  manifest.fetch("pins").find{|pin| pin.fetch("identity")=="sparkle"}.fetch("state")["revision"]="b6496a74a087257ef5e6da1c5b29a447a60f5bd7"
+  File.write(path, JSON.generate(manifest))
+' "$R/Package.resolved"
+run_case obsolete-sparkle-pin 1
+grep -Fq 'Sparkle dependency is not pinned to the reviewed 2.10.0 commit' "$T/obsolete-sparkle-pin.err"
+test ! -e "$R/dist/updates/appcast.xml"
+cp "$ROOT/Package.resolved" "$R/Package.resolved"
 symlink_key_target="$T/symlink-key-target"
 run_case symlink-private-key 1 SPARKLE_PRIVATE_ED_KEY="$PRIVATE" FAKE_KEYFILE_SYMLINK=1 FAKE_KEYFILE_SYMLINK_TARGET="$symlink_key_target"
 [[ -f "$symlink_key_target" && ! -L "$symlink_key_target" ]]

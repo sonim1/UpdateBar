@@ -349,6 +349,38 @@ final class RegistryServiceTests: XCTestCase {
         XCTAssertEqual(approvals.first { $0.field == "update.cmd" }?.cwd, "/tmp/tool")
     }
 
+    func testApproveExpectedFingerprintRejectsChangedWorkingDirectoryWithoutSaving() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(homeDirectory: root)
+        let stores = Stores(paths: paths)
+        var item = recipe(id: "tool", currentCommand: "tool current", latestCommand: "tool latest")
+        item.trust = Trust(level: .untrusted, approvedCommands: [:])
+        item.update.cwd = "/tmp/reviewed"
+        try stores.manifest.save(manifest(items: [item]))
+        let commands = MockCommandExecutor(results: [:])
+        let service = registryService(paths: paths, commands: commands)
+        let reviewed = try XCTUnwrap(
+            service.approvals(id: item.id).first { $0.field == "update.cmd" })
+        item.update.cwd = "/tmp/replacement"
+        _ = try service.addRecipe(item, replace: true)
+        let before = try Data(contentsOf: paths.manifestFile)
+
+        XCTAssertThrowsError(
+            try service.approve(
+                id: item.id, field: reviewed.field, expectedFingerprint: reviewed.fingerprint)
+        ) { error in
+            guard case RegistryError.commandChanged("update.cmd") = error else {
+                return XCTFail("expected command changed, got \(error)")
+            }
+        }
+
+        XCTAssertEqual(try Data(contentsOf: paths.manifestFile), before)
+        let stored = try XCTUnwrap(stores.manifest.load().item(id: item.id))
+        XCTAssertFalse(TrustPolicy.isApproved(stored, field: "update.cmd"))
+        XCTAssertTrue(commands.commands.isEmpty)
+    }
+
     func testApproveRejectsInvalidManifestWithoutSavingApproval() throws {
         let root = try temporaryDirectory()
         let paths = AppPaths(homeDirectory: root)
@@ -378,6 +410,7 @@ final class RegistryServiceTests: XCTestCase {
             .invalidManifest(["bad value \(secret)"]),
             .commandFailed("stderr \(secret)"),
             .commandFieldNotFound(secret),
+            .commandChanged(secret),
             .checkFileNotReadable("/tmp/\(secret)"),
         ]
 

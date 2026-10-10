@@ -631,6 +631,69 @@ final class UpdateBarCLIClientTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
     }
 
+    func testReviewedApprovalRejectsCommandReplacedAfterCLIRead() throws {
+        let executablePath =
+            ProcessInfo.processInfo.environment["UPDATEBAR_TEST_BIN"]
+            ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent(".build/debug/updatebar").path
+        guard FileManager.default.isExecutableFile(atPath: executablePath) else {
+            XCTFail("build updatebar before running the actual CLI adapter regression")
+            return
+        }
+        let home = try temporaryDirectory(prefix: "updatebar-approval-race")
+        defer { try? FileManager.default.removeItem(at: home) }
+        let paths = AppPaths(homeDirectory: home)
+        let recipe = Recipe(
+            id: "tool",
+            name: "Tool",
+            category: "cli",
+            path: nil,
+            source: Source(kind: .custom, ref: "tool", branch: nil),
+            versionScheme: .semver,
+            check: .command("printf '1.0.0\\n'"),
+            latest: LatestSpec(strategy: .cmd, cmd: "printf '2.0.0\\n'", pattern: nil),
+            versionParse: .regex("([0-9]+\\.[0-9]+\\.[0-9]+)"),
+            update: UpdateSpec(cmd: "printf reviewed", cwd: nil),
+            pin: nil,
+            enabled: true,
+            trust: Trust(level: .untrusted, approvedCommands: [:])
+        )
+        let registry = RegistryService(
+            manifestStore: ManifestStore(paths: paths),
+            stateStore: StateStore(paths: paths),
+            environment: ["HOME": home.path, "UPDATEBAR_HOME": home.path]
+        )
+        _ = try registry.addRecipe(recipe, replace: false)
+        let reviewed = try XCTUnwrap(
+            CoreMenuBarService(paths: paths).approvals(id: recipe.id)
+                .first { $0.field == "update.cmd" }
+        )
+        var replacement = recipe
+        replacement.update.cmd = "printf replacement"
+        let replacementRecipe = replacement
+        let runner = ApprovalRaceRunner {
+            let service = RegistryService(
+                manifestStore: ManifestStore(paths: paths),
+                stateStore: StateStore(paths: paths),
+                environment: ["HOME": home.path, "UPDATEBAR_HOME": home.path]
+            )
+            _ = try service.addRecipe(replacementRecipe, replace: true)
+        }
+
+        try withProcessEnvironment(["HOME": home.path, "UPDATEBAR_HOME": home.path]) {
+            let client = UpdateBarCLIClient(executablePath: executablePath, runner: runner)
+            XCTAssertThrowsError(
+                try client.setReviewedApproval(id: recipe.id, reviewed: reviewed, approving: true)
+            ) { error in
+                XCTAssertTrue(String(describing: error).contains("command changed"))
+            }
+        }
+        let stored = try XCTUnwrap(ManifestStore(paths: paths).load().item(id: recipe.id))
+        XCTAssertEqual(stored.update.cmd, replacementRecipe.update.cmd)
+        XCTAssertFalse(TrustPolicy.isApproved(stored, field: "update.cmd"))
+        XCTAssertEqual(runner.approvalReads, 1)
+    }
+
     func testActualCLIAdapterCancellationStopsRecipeDescendant() throws {
         let executablePath =
             ProcessInfo.processInfo.environment["UPDATEBAR_TEST_BIN"]
@@ -753,6 +816,24 @@ final class UpdateBarCLIClientTests: XCTestCase {
             [.posixPermissions: NSNumber(value: Int16(0o755))],
             ofItemAtPath: url.path
         )
+    }
+}
+
+private final class ApprovalRaceRunner: UpdateBarProcessRunning, @unchecked Sendable {
+    private let afterApprovals: () throws -> Void
+    private(set) var approvalReads = 0
+
+    init(afterApprovals: @escaping () throws -> Void) {
+        self.afterApprovals = afterApprovals
+    }
+
+    func run(executablePath: String, arguments: [String]) throws -> CommandResult {
+        let result = try ProcessRunner().run(executablePath: executablePath, arguments: arguments)
+        if arguments.first == "approvals" {
+            approvalReads += 1
+            try afterApprovals()
+        }
+        return result
     }
 }
 

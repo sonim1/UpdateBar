@@ -58,8 +58,8 @@ run "DMG Gatekeeper validation" "$SPCTL_BIN" -a -vv -t open --context context:pr
 
 ruby -rjson -e '
   p=JSON.parse(File.binread(ARGV[0])); pin=p.fetch("pins").find{|x| x["identity"]=="sparkle"};
-  exit(pin && pin.dig("state","revision")=="b6496a74a087257ef5e6da1c5b29a447a60f5bd7" ? 0 : 1)
-' "$ROOT/Package.resolved" || fail "Sparkle dependency is not pinned to the reviewed 2.9.4 commit"
+  exit(pin && pin.dig("state","revision")=="eef1a539a373c1f1a320624b1130fc5de7b2e100" ? 0 : 1)
+' "$ROOT/Package.resolved" || fail "Sparkle dependency is not pinned to the reviewed 2.10.0 commit"
 
 tool_list="$(mktemp "${TMPDIR:-/tmp}/updatebar-appcast-tools.XXXXXX")"; work=''; key_file=''; final=''; lock=''; lock_owned=0
 metadata_dir=''; metadata_mount=''; metadata_attached=0

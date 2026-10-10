@@ -95,8 +95,8 @@ public enum MenuBarMenuItemAction: Equatable, Sendable {
     case menu(MenuBarMenuAction)
     case stopCurrentAction
     case update(id: String)
-    case approve(id: String, field: String)
-    case revoke(id: String, field: String)
+    case approve(id: String, reviewed: CommandApprovalStatus)
+    case revoke(id: String, reviewed: CommandApprovalStatus)
     case openTUIInTerminal(bundleID: String)
 }
 
@@ -324,8 +324,8 @@ public struct MenuBarMenuModelBuilder: Sendable {
         let verb = approval.approved ? "Revoke" : "Approve"
         let action: MenuBarMenuItemAction =
             approval.approved
-            ? .revoke(id: item.id, field: approval.field)
-            : .approve(id: item.id, field: approval.field)
+            ? .revoke(id: item.id, reviewed: approval)
+            : .approve(id: item.id, reviewed: approval)
         let confirmation = MenuBarActionConfirmation.commandApproval(
             for: item,
             status: approval

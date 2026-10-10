@@ -151,11 +151,16 @@ struct ApprovalCommand: ParsableCommand {
     @Option(name: .long, help: "Command field to approve, such as update.cmd.")
     var field: String
 
+    @Option(
+        name: .long, help: "Only approve if the command still matches the reviewed fingerprint.")
+    var expectedFingerprint: String?
+
     @Flag(name: .long, help: "Print machine-readable JSON.")
     var json = false
 
     func run() throws {
-        let recipe = try RegistryService().approve(id: id, field: field)
+        let recipe = try RegistryService().approve(
+            id: id, field: field, expectedFingerprint: expectedFingerprint)
         if json {
             try printJSON(redactedApprovalMutationPayload(for: recipe, field: field))
         } else {

@@ -28,7 +28,9 @@ extension MenuBarServicing {
         let current = try approvals(id: id).first { $0.field == reviewed.field }
         guard current == reviewed else { throw MenuBarCommandReviewError.commandChanged }
         if approving {
-            try approve(id: id, field: reviewed.field, cancellationToken: cancellationToken)
+            try approve(
+                id: id, field: reviewed.field, expectedFingerprint: reviewed.fingerprint,
+                cancellationToken: cancellationToken)
         } else {
             try revoke(id: id, field: reviewed.field, cancellationToken: cancellationToken)
         }

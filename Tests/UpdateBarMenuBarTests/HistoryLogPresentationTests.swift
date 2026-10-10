@@ -135,7 +135,10 @@ final class HistoryLogPresentationTests: XCTestCase {
             stopSignal: UpdateStopSignal?
         ) throws { fatalError("unused") }
         func approvals(id: String) throws -> [CommandApprovalStatus] { fatalError("unused") }
-        func approve(id: String, field: String, cancellationToken: CancellationToken?) throws {
+        func approve(
+            id: String, field: String, expectedFingerprint: String?,
+            cancellationToken: CancellationToken?
+        ) throws {
             fatalError("unused")
         }
         func revoke(id: String, field: String, cancellationToken: CancellationToken?) throws {

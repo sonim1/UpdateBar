@@ -230,6 +230,10 @@ public struct RegistryService {
     }
 
     public func approve(id: String, field: String) throws -> Recipe {
+        try approve(id: id, field: field, expectedFingerprint: nil)
+    }
+
+    public func approve(id: String, field: String, expectedFingerprint: String?) throws -> Recipe {
         try manifestStore.withExclusiveLock {
             var manifest = try loadValidExistingOrEmpty(now: now())
             guard var recipe = manifest.item(id: id) else {
@@ -238,6 +242,9 @@ public struct RegistryService {
             let fingerprints = recipe.commandFingerprints()
             guard let fingerprint = fingerprints[field] else {
                 throw RegistryError.commandFieldNotFound(field)
+            }
+            if let expectedFingerprint, fingerprint != expectedFingerprint {
+                throw RegistryError.commandChanged(field)
             }
             recipe.trust.approvedCommands[field] = fingerprint
             recipe.trust.level = .trusted
@@ -480,6 +487,7 @@ public enum RegistryError: Error, CustomStringConvertible, Equatable {
     case invalidManifest([String])
     case commandFailed(String)
     case commandFieldNotFound(String)
+    case commandChanged(String)
     case checkFileNotReadable(String)
 
     public var description: String {
@@ -496,6 +504,8 @@ public enum RegistryError: Error, CustomStringConvertible, Equatable {
             return redacted(message)
         case .commandFieldNotFound(let field):
             return "\(redacted(field)): command field not found"
+        case .commandChanged(let field):
+            return "\(redacted(field)): command changed; review the command again before approving"
         case .checkFileNotReadable(let path):
             return "check.file not readable: \(redacted(path))"
         }

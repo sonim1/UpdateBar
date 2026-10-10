@@ -16,6 +16,13 @@ Untrusted recipes must keep `approved_commands` empty.
 Changing a command string or `update.cwd` changes its `sha256:<64 lowercase hex>`
 fingerprint and invalidates the affected approval.
 
+Menu Bar approvals carry the fingerprint of the command shown for review. The
+manifest lock covers both the comparison with the current fingerprint and saving
+the approval. A command or working-directory change during review is rejected
+without saving an approval; review the new command before trying again.
+CLI callers can use `approve --expected-fingerprint <fingerprint>` for the same
+guarantee. Without that option, an explicit CLI approval approves the current command.
+
 ## Secrets
 
 Recipe commands run with an allowlisted environment. Common provider and GitHub token values are removed from child process environments and redacted from captured errors.

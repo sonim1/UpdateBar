@@ -35,7 +35,10 @@ public protocol MenuBarServicing: Sendable {
         stopSignal: UpdateStopSignal?
     ) throws
     func approvals(id: String) throws -> [CommandApprovalStatus]
-    func approve(id: String, field: String, cancellationToken: CancellationToken?) throws
+    func approve(
+        id: String, field: String, expectedFingerprint: String?,
+        cancellationToken: CancellationToken?
+    ) throws
     func revoke(id: String, field: String, cancellationToken: CancellationToken?) throws
     func setEnabled(id: String, enabled: Bool) throws
     func setPinned(id: String, pinned: Bool) throws
@@ -99,6 +102,11 @@ extension MenuBarServicing {
 
     public func approve(id: String, field: String) throws {
         try approve(id: id, field: field, cancellationToken: nil)
+    }
+
+    public func approve(id: String, field: String, cancellationToken: CancellationToken?) throws {
+        try approve(
+            id: id, field: field, expectedFingerprint: nil, cancellationToken: cancellationToken)
     }
 
     public func revoke(id: String, field: String) throws {
@@ -248,10 +256,12 @@ public struct CoreMenuBarService: MenuBarServicing, @unchecked Sendable {
         )
     }
 
-    public func approve(id: String, field: String, cancellationToken: CancellationToken? = nil)
-        throws
-    {
-        _ = try registryService(cancellationToken: cancellationToken).approve(id: id, field: field)
+    public func approve(
+        id: String, field: String, expectedFingerprint: String? = nil,
+        cancellationToken: CancellationToken? = nil
+    ) throws {
+        _ = try registryService(cancellationToken: cancellationToken).approve(
+            id: id, field: field, expectedFingerprint: expectedFingerprint)
     }
 
     public func revoke(id: String, field: String, cancellationToken: CancellationToken? = nil)
