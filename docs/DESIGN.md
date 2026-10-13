@@ -15,6 +15,8 @@ Use existing landing.css tokens: canvas #06090d, raised #0c1219, text #f5f8fc, s
 ## 4. Motion and accessibility
 Keep existing 9s CSS-only three-frame reel, keyboard-operable pause and reduced-motion poster. Place reel controls and captions outside screenshot content. Preserve real links, semantic headings, visible focus, FAQ disclosures. Describe screenshot contents in text/alt and do not rely on image text alone.
 
+All public routes start with a keyboard skip link targeting a focusable main landmark. The link stays above the viewport until focused, then uses the existing raised canvas, text, border and focus tokens. Activation moves keyboard focus to main content. It has no motion transition.
+
 ## 5. Reusable primitives and states
 Existing shell, site-header/nav, button primary/secondary/light and hover/focus, demo-reel/window/frame/caption and pause/reduced-motion, product-frame, story-row/media/copy, fact-list, FAQ details/summary, footer. Existing pages are the state harness; verify 375/768/1280px and keyboard/pause/FAQ states before completion. No new component framework.
 

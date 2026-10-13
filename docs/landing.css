@@ -80,6 +80,23 @@ label {
   -webkit-tap-highlight-color: transparent;
 }
 
+.skip-link {
+  position: fixed;
+  inset-block-start: 16px;
+  inset-inline-start: 16px;
+  z-index: 100;
+  padding: 12px 16px;
+  border: 1px solid var(--line-bright);
+  border-radius: var(--radius-sm);
+  background: var(--canvas-raised);
+  color: var(--text);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 .shell {
   width: min(calc(100% - 48px), var(--max-width));
   margin-inline: auto;
