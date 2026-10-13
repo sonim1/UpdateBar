@@ -153,7 +153,7 @@ final class SourceHygieneTests: XCTestCase {
             )
         )
         XCTAssertTrue(refreshSource.contains("secondaryMenu=makeMenu("))
-        XCTAssertTrue(refreshSource.contains("isRefreshing=trueupdatePopover()"))
+        XCTAssertTrue(refreshSource.contains("isRefreshing=trueupdateItemsModel()"))
         XCTAssertTrue(refreshSource.contains("self.isRefreshing=falseself.popoverError=nil"))
         XCTAssertFalse(refreshSource.contains("latestState=MenuBarState("))
         XCTAssertTrue(refreshSource.contains("service.refreshSnapshot(refresh:refresh)"))
@@ -311,7 +311,7 @@ final class SourceHygieneTests: XCTestCase {
         )
         XCTAssertTrue(rebuildSource.contains("letmodel=menuBuilder.makeMenu("))
         XCTAssertTrue(rebuildSource.contains("secondaryMenu=makeMenu(from:model)"))
-        XCTAssertTrue(rebuildSource.contains("updatePopover()"))
+        XCTAssertTrue(rebuildSource.contains("updateItemsModel()"))
 
         let errorSource = try functionSource(
             named: "private func showError(",
@@ -321,7 +321,7 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(errorSource.contains("letmodel=menuBuilder.makeErrorMenu("))
         XCTAssertTrue(errorSource.contains("secondaryMenu=makeMenu(from:model)"))
         XCTAssertTrue(errorSource.contains("popoverError=errorDescription"))
-        XCTAssertTrue(errorSource.contains("updatePopover()"))
+        XCTAssertTrue(errorSource.contains("updateItemsModel()"))
     }
 
     func testPopoverUsesStableHostingAndLeavesDashboardInItsWindow() throws {
@@ -424,11 +424,13 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(dashboardSource.contains("actions: itemActions"))
         XCTAssertTrue(
             dashboardSource.contains("func applyItemsModel(_ model: MenuBarPopoverModel)"))
-        XCTAssertTrue(appSource.contains("actions: itemActions"))
+        XCTAssertTrue(appSource.contains("itemActions: itemActions"))
+        XCTAssertTrue(appSource.contains("private var itemsModel = MenuBarPopoverModel()"))
+        XCTAssertFalse(appSource.contains("MenuBarPopoverController("))
         XCTAssertTrue(appSource.contains("self?.update(ids: ids)"))
         XCTAssertTrue(
             appSource.contains(
-                "dashboardPanelController?.applyItemsModel(popoverController.store.model)"))
+                "dashboardPanelController?.applyItemsModel(itemsModel)"))
         XCTAssertEqual(
             appSource.components(
                 separatedBy: "dashboardPanelController?.applySidebarQueue("
@@ -523,7 +525,7 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertFalse(source.contains("NSMenuDelegate"))
         XCTAssertFalse(source.contains("menu.delegate = self"))
         XCTAssertTrue(
-            compact.contains("popoverController.close()activateApplicationForWindowedUI()"))
+            compact.contains("activateApplicationForWindowedUI()ifdashboardPanelController==nil{"))
         XCTAssertTrue(compact.contains("dashboardPanelController?.reloadIfShown()"))
     }
 
