@@ -7,6 +7,17 @@
 
     @MainActor
     final class ScanViewControllerTests: XCTestCase {
+        func testScanResultsTableHasAnAccessibilityName() throws {
+            let controller = ScanViewController(
+                service: ScanFlowService(reports: []), onChanged: {}
+            )
+            let table = try XCTUnwrap(
+                descendants(of: NSTableView.self, in: controller.view).first
+            )
+
+            XCTAssertEqual(table.accessibilityLabel(), "Installed tool scan results")
+        }
+
         func testMixedPartialScanKeepsCandidateAndSurfacesRedactedWarning() async throws {
             let secret = "sk-1234567890abcdef"
             let report = ScanReport(
