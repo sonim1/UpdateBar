@@ -9,6 +9,105 @@
 
     @MainActor
     final class SettingsViewControllerTests: XCTestCase {
+        func testEnteringSettingsLoadsPersistedConfiguration() async throws {
+            let paths = temporaryPaths()
+            defer { try? FileManager.default.removeItem(at: paths.homeDirectory) }
+            var config = Config.default
+            config.refresh.interval = Duration(hours: 24)
+            config.update.maxConcurrent = 1
+            try ConfigStore(paths: paths).save(config)
+            let controller = SettingsViewController(
+                service: CoreMenuBarService(paths: paths), onSaved: {},
+                onCheckForUpdates: {}
+            )
+
+            await load(controller)
+
+            XCTAssertEqual(controller.model.refreshInterval, config.refresh.interval.description)
+            XCTAssertEqual(controller.model.maxConcurrent, 1)
+        }
+
+        func testReenteringSettingsReloadsExternalChanges() async throws {
+            let paths = temporaryPaths()
+            defer { try? FileManager.default.removeItem(at: paths.homeDirectory) }
+            try ConfigStore(paths: paths).save(.default)
+            let controller = SettingsViewController(
+                service: CoreMenuBarService(paths: paths), onSaved: {},
+                onCheckForUpdates: {}
+            )
+            await load(controller)
+            controller.viewDidDisappear()
+            var config = Config.default
+            config.refresh.interval = Duration(minutes: 30)
+            config.update.maxConcurrent = 1
+            try ConfigStore(paths: paths).save(config)
+
+            await load(controller)
+
+            XCTAssertEqual(controller.model.refreshInterval, "30m")
+            XCTAssertEqual(controller.model.maxConcurrent, 1)
+        }
+
+        func testOpeningAlreadyVisibleSettingsReloadsExternalChanges() async throws {
+            _ = NSApplication.shared
+            let paths = temporaryPaths()
+            defer { try? FileManager.default.removeItem(at: paths.homeDirectory) }
+            try ConfigStore(paths: paths).save(.default)
+            let now = Date()
+            try ManifestStore(paths: paths).save(
+                Manifest(
+                    schemaVersion: 1, items: [],
+                    provenance: Provenance(createdBy: "test", createdAt: now, updatedAt: now)
+                )
+            )
+            let dashboard = DashboardPanelController(
+                service: CoreMenuBarService(paths: paths), onItemsChanged: {},
+                itemActions: MenuBarPopoverActions(
+                    check: {}, update: { _ in }, retry: { _ in },
+                    setApproval: { _, _, _ in }, stop: {}, dashboard: { _ in }, more: {}
+                ),
+                onCheckForUpdates: {}
+            )
+            defer { dashboard.close() }
+            dashboard.showWindowAndReload(selecting: .settings)
+            let root = try XCTUnwrap(dashboard.window?.contentViewController)
+            let settings = try XCTUnwrap(settingsController(in: root))
+            await load(settings)
+            var external = Config.default
+            external.refresh.interval = Duration(hours: 12)
+            try ConfigStore(paths: paths).save(external)
+            let reloaded = expectation(description: "visible settings reloaded")
+            let observation = settings.model.$isRunning.dropFirst()
+                .filter { !$0 }.first().sink { _ in reloaded.fulfill() }
+
+            dashboard.showWindowAndReload(selecting: .settings)
+            await fulfillment(of: [reloaded], timeout: 2)
+            observation.cancel()
+
+            XCTAssertEqual(settings.model.refreshInterval, "12h")
+        }
+
+        func testReenteringSettingsPreservesUnsavedEdits() async throws {
+            let paths = temporaryPaths()
+            defer { try? FileManager.default.removeItem(at: paths.homeDirectory) }
+            try ConfigStore(paths: paths).save(.default)
+            let controller = SettingsViewController(
+                service: CoreMenuBarService(paths: paths), onSaved: {},
+                onCheckForUpdates: {}
+            )
+            await load(controller)
+            controller.model.refreshInterval = "1h"
+            controller.model.requireHTTPS = false
+            controller.viewDidDisappear()
+
+            controller.viewWillAppear()
+
+            XCTAssertFalse(controller.model.isRunning)
+            XCTAssertEqual(controller.model.refreshInterval, "1h")
+            XCTAssertFalse(controller.model.requireHTTPS)
+            XCTAssertEqual(try ConfigStore(paths: paths).load(), .default)
+        }
+
         func testSavingRefreshPreservesConfiguredConcurrency() async throws {
             let paths = temporaryPaths()
             defer { try? FileManager.default.removeItem(at: paths.homeDirectory) }
@@ -106,10 +205,11 @@
         }
 
         private func load(_ controller: SettingsViewController) async {
-            let loaded = expectation(description: "settings loaded")
+            _ = controller.view
+            let loaded = expectation(description: "settings loaded on appearance")
             let observation = controller.model.$isRunning.dropFirst()
                 .filter { !$0 }.first().sink { _ in loaded.fulfill() }
-            controller.prepare()
+            controller.viewWillAppear()
             await fulfillment(of: [loaded], timeout: 2)
             observation.cancel()
         }
@@ -119,6 +219,11 @@
                 homeDirectory: FileManager.default.temporaryDirectory
                     .appendingPathComponent("updatebar-settings-tests-\(UUID().uuidString)")
             )
+        }
+
+        private func settingsController(in root: NSViewController) -> SettingsViewController? {
+            if let settings = root as? SettingsViewController { return settings }
+            return root.children.compactMap { settingsController(in: $0) }.first
         }
     }
 #endif

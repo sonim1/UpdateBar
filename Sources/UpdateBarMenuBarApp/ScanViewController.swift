@@ -418,11 +418,25 @@
             infoIcon.widthAnchor.constraint(equalToConstant: 16).isActive = true
             infoIcon.heightAnchor.constraint(equalToConstant: 16).isActive = true
 
-            let counts = NSStackView(views: [
-                discoveredCountBadge,
-                enabledCountBadge,
-                disabledCountBadge,
-            ])
+            let counts = NSStackView()
+            let countPresentations = presentationModel.scanCounts(
+                discovered: 0, enabled: 0, disabled: 0
+            )
+            for (badge, count) in zip(
+                [discoveredCountBadge, enabledCountBadge, disabledCountBadge],
+                countPresentations
+            ) {
+                let title = NSTextField(labelWithString: count.accessibilityLabel)
+                title.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+                title.textColor = .labelColor
+                title.setAccessibilityElement(false)
+                let group = NSStackView(views: [title, badge])
+                group.orientation = .vertical
+                group.alignment = .centerX
+                group.spacing = 4
+                badge.widthAnchor.constraint(equalTo: group.widthAnchor).isActive = true
+                counts.addArrangedSubview(group)
+            }
             counts.orientation = .horizontal
             counts.alignment = .centerY
             counts.distribution = .fillEqually
@@ -445,6 +459,7 @@
             tableView.dataSource = self
             tableView.usesAlternatingRowBackgroundColors = true
             tableView.allowsColumnReordering = false
+            tableView.setAccessibilityLabel("Installed tool scan results")
 
             let scrollView = NSScrollView()
             scrollView.documentView = tableView

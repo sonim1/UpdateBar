@@ -15,10 +15,7 @@
         }
         private var isRefreshing = false
         private var popoverError: String?
-        private lazy var popoverController = MenuBarPopoverController(
-            actions: itemActions,
-            supportsStopping: !(service is UpdateBarCLIClient)
-        )
+        private var itemsModel = MenuBarPopoverModel()
         private var itemActions: MenuBarPopoverActions {
             MenuBarPopoverActions(
                 check: { [weak self] in self?.checkNow() },
@@ -138,7 +135,6 @@
         }
 
         private func showSecondaryMenu() {
-            popoverController.close()
             statusItem?.button?.performClick(nil)
         }
 
@@ -298,7 +294,6 @@
                 showError(MenuBarStartupError.serviceUnavailable)
                 return
             }
-            popoverController.close()
             activateApplicationForWindowedUI()
             if dashboardPanelController == nil {
                 dashboardPanelController = DashboardPanelController(
@@ -312,7 +307,7 @@
                     }
                 )
             }
-            updatePopover()
+            updateItemsModel()
             dashboardPanelController?.applySidebarQueue(
                 SidebarUpdateQueueModel.make(
                     outdatedItems: latestState.outdatedItems,
@@ -445,7 +440,7 @@
         private func refreshStatus(refresh: Bool) {
             let refreshToken = refreshGenerationGate.begin()
             isRefreshing = true
-            updatePopover()
+            updateItemsModel()
             let presentationMode = MenuBarRefreshPolicy.presentationMode(
                 activeActionTitle: actionCoordinator.activeAction?.title
             )
@@ -612,12 +607,12 @@
                 lastActionNotice: activeAction == nil ? actionCoordinator.lastActionNotice : nil
             )
             secondaryMenu = makeMenu(from: model)
-            updatePopover()
+            updateItemsModel()
         }
 
-        private func updatePopover() {
+        private func updateItemsModel() {
             let action = actionCoordinator.activeAction
-            popoverController.update(
+            itemsModel.update(
                 state: latestState,
                 approvals: approvalStatuses,
                 progress: action?.progress ?? actionCoordinator.lastUpdateProgress,
@@ -628,7 +623,7 @@
                 notice: action == nil ? actionCoordinator.lastActionNotice : nil,
                 errorMessage: popoverError
             )
-            dashboardPanelController?.applyItemsModel(popoverController.store.model)
+            dashboardPanelController?.applyItemsModel(itemsModel)
         }
 
         private func makeMenu(from model: MenuBarMenuModel) -> NSMenu {
@@ -729,7 +724,7 @@
                 errorDescription: errorDescription
             )
             secondaryMenu = makeMenu(from: model)
-            updatePopover()
+            updateItemsModel()
             dashboardPanelController?.showErrorIfShown(error)
         }
 

@@ -86,15 +86,21 @@
         }
 
         private func tile(_ metric: DashboardMetricPresentation) -> some View {
-            HStack(spacing: 8) {
-                Image(systemName: metric.iconName)
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-                Text(metric.visibleValue)
-                    .font(.title3.weight(.semibold))
-                    .monospacedDigit()
+            VStack(alignment: .leading, spacing: 4) {
+                Text(metric.accessibilityLabel)
+                    .font(.caption)
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
-                    .truncationMode(.tail)
+                HStack(spacing: 8) {
+                    Image(systemName: metric.iconName)
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    Text(metric.visibleValue)
+                        .font(.title3.weight(.semibold))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
             }
             .padding(12)
             .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)

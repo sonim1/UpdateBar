@@ -52,9 +52,11 @@ Items, Overview, Settings, and About are SwiftUI-hosted. The sidebar footer show
 update summary when updates are available. It stays within the sidebar width and
 opens Items without starting an update; individual names, versions, and update actions
 live in Items.
+The Dashboard retains its position when reopened. Summary metrics and scan
+counts display their names as well as their values.
 Overview shows pending-update and
 awaiting-approval counts, last check/update times, and a bar chart of successful
-updates over the last four weeks (from `~/.updatebar/history.jsonl`). Logs shows
+updates over the last 30 days (from `~/.updatebar/history.jsonl`). Logs shows
 the newest persisted update and check events first, including update result and
 version transition. Items shows selectable **Ready to update** cards first,
 followed by separate **Needs review** and **Needs attention** groups. **Up to date**
@@ -142,6 +144,10 @@ executable to override the `PATH` lookup.
 It edits the active UpdateBar configuration (by default `HOME/.updatebar/config.toml`)
 (`UPDATEBAR_HOME` can point to an alternate data directory) and exposes Sparkle's
 app-update check. The legacy `Open Config` menu action now routes to `Settings`.
+Entering Settings from either the sidebar or the menu loads the saved values;
+re-entering the section reloads changes made through the CLI when there are no
+unsaved edits. Sidebar navigation preserves unsaved input. Reload and an
+explicit Settings menu action load the saved configuration.
 `About` shows the app version, build,
 support contact, and acknowledgments without duplicating dashboard statistics.
 

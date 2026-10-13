@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 0.6.31 - 2026-10-13
+
+### Fixed
+
+- Loaded saved settings when entering Preferences from the Dashboard sidebar and
+  reloaded external changes on re-entry while preserving unsaved input.
+- Kept `m` and `q` as literal characters in TUI prompt input, with Escape to return
+  to the menu.
+- Preserved the Dashboard window position when reopening it.
+
+### Changed
+
+- Added visible names to Dashboard metrics and scan counts, named the scan result
+  table for accessibility, improved essential-label contrast, and added keyboard
+  skip links to all landing routes.
+- Updated Items state without constructing an unused legacy popover.
+- Documented the native, terminal, CLI and web E2E audit and improvement priorities.
+
 ## 0.6.30 - 2026-10-10
 
 ### Fixed

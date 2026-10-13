@@ -91,6 +91,7 @@
                 self?.presentDashboardError(error)
             }
             select(.overview)
+            window.center()
         }
 
         required init?(coder: NSCoder) {
@@ -99,9 +100,8 @@
 
         func showWindowAndReload(selecting section: DashboardSection) {
             select(section)
-            if section == .settings { settingsViewController.prepare() }
+            if section == .settings { settingsViewController.reload() }
             showWindow(nil)
-            window?.center()
             window?.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             reload()
