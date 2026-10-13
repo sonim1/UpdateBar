@@ -124,6 +124,10 @@ export function App({client: providedClient}: AppProps) {
         }
         return;
       }
+      if (screen === 'prompts') {
+        handlePromptsInput(_input, key);
+        return;
+      }
       if (_input === 'q') {
         exit();
         return;
@@ -134,10 +138,6 @@ export function App({client: providedClient}: AppProps) {
       }
       if (screen === 'scan') {
         handleScanInput(_input, key);
-        return;
-      }
-      if (screen === 'prompts') {
-        handlePromptsInput(_input, key);
         return;
       }
       if (screen === 'select-update') {
@@ -270,6 +270,10 @@ export function App({client: providedClient}: AppProps) {
   }
 
   function handlePromptsInput(input: string, key: Key) {
+    if (key.escape) {
+      setScreen('menu');
+      return;
+    }
     if (key.upArrow) {
       setSelectedPromptIndex(index => Math.max(0, index - 1));
       return;
@@ -853,7 +857,7 @@ function helpText(screen: Screen, canCancel: boolean) {
     return '↑/↓ navigate · a all · A clear · space select · enter add · m menu · q quit';
   }
   if (screen === 'prompts') {
-    return '↑/↓ select template · type tool name · m menu · q quit';
+    return '↑/↓ select template · type tool name · esc menu · ctrl+c quit';
   }
   if (screen === 'select-update') {
     return '↑/↓ navigate · a all · A clear · space select · enter confirm · m menu · q quit';

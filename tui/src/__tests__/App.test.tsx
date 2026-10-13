@@ -255,6 +255,53 @@ describe('App', () => {
     expect(view.lastFrame()).toContain('Enter a tool name first');
   });
 
+  it.each(['npm', 'jq', 'gemini'])('accepts %s character by character in prompts', async toolName => {
+    const stdin = new PassThrough() as NodeJS.ReadStream;
+    const stdout = new PassThrough() as NodeJS.WriteStream;
+    Object.defineProperty(stdin, 'isTTY', {value: true});
+    stdin.setRawMode = () => stdin;
+    stdin.ref = () => stdin;
+    stdin.unref = () => stdin;
+    Object.defineProperty(stdout, 'columns', {value: 100});
+    let frame = '';
+    stdout.on('data', (chunk: Buffer) => { frame = chunk.toString(); });
+    const view = renderInk(<App client={createClient()} />, {
+      stdin, stdout, stderr: createOutputStream(), debug: true,
+      exitOnCtrlC: false, patchConsole: false
+    });
+    const expectFrame = (text: string, input?: string) => new Promise<void>((resolve, reject) => {
+      const finish = (error?: Error) => {
+        clearTimeout(deadline);
+        stdout.off('data', inspect);
+        if (error) reject(error);
+        else resolve();
+      };
+      const inspect = () => { if (frame.includes(text)) finish(); };
+      const deadline = setTimeout(() => finish(new Error(`Expected ${text}; received ${frame}`)), 1_000);
+      stdout.on('data', inspect);
+      if (input === undefined) inspect();
+      else stdin.write(input);
+    });
+    try {
+      await expectFrame('Refresh Status');
+      await expectFrame('› Prompts', '\u001B[B'.repeat(7));
+      await expectFrame('Tool name:', '\r');
+      let entered = '';
+      for (const character of toolName) {
+        entered += character;
+        await expectFrame(`Tool name: ${entered}`, character);
+      }
+      expect(frame).toContain(`Prompt for tool: "${toolName}"`);
+      await expectFrame('Refresh Status', '\u001B');
+      expect(frame).not.toContain('Prompt Templates');
+    } finally {
+      view.unmount();
+      view.cleanup();
+      stdin.destroy();
+      stdout.destroy();
+    }
+  });
+
   it('redacts scan rows and scan errors before rendering', async () => {
     const secret = 'sk-or-v1-scan-secret-value';
     const client = createClient({

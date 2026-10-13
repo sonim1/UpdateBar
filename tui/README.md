@@ -36,6 +36,8 @@ select or clear.
 `Prompts` offers copy-ready English prompts for AI-assisted recipe generation.
 From this screen, enter a tool name, choose a template with `↑/↓`, and copy the
 rendered text into your workflow.
+All letters, including `m` and `q`, are tool-name input here. Use `Escape` to
+return to the menu or `Ctrl+C` to quit. Other screens keep their existing keys.
 
 Scan screen keys:
 
