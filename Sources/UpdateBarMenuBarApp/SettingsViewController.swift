@@ -31,7 +31,7 @@
                 onCheckForUpdates: onCheckForUpdates
             )
             super.init(nibName: nil, bundle: nil)
-            model.onReload = { [weak self] in self?.load() }
+            model.onReload = { [weak self] in self?.reload() }
             model.onSave = { [weak self] in self?.save() }
         }
 
@@ -52,11 +52,13 @@
             view = content
         }
 
-        func prepare() {
-            load()
+        override func viewWillAppear() {
+            super.viewWillAppear()
+            guard pendingChanges.isEmpty else { return }
+            reload()
         }
 
-        private func load() {
+        func reload() {
             guard !model.isRunning else { return }
             model.isRunning = true
             model.status = "Loading..."
@@ -76,15 +78,8 @@
         }
 
         private func save() {
-            guard !model.isRunning, let loadedConfig else { return }
-            let changes = [
-                (
-                    "refresh.interval",
-                    model.refreshInterval.trimmingCharacters(in: .whitespacesAndNewlines)
-                ),
-                ("security.require_https_source", String(model.requireHTTPS)),
-                ("update.max_concurrent", String(model.maxConcurrent)),
-            ].filter { loadedConfig.get($0.0) != $0.1 }
+            guard !model.isRunning, loadedConfig != nil else { return }
+            let changes = pendingChanges
             model.isRunning = true
             model.status = "Saving..."
             DispatchQueue.global(qos: .userInitiated).async { [service] in
@@ -107,6 +102,18 @@
                     DispatchQueue.main.async { [weak self] in self?.finish(error) }
                 }
             }
+        }
+
+        private var pendingChanges: [(String, String)] {
+            guard let loadedConfig else { return [] }
+            return [
+                (
+                    "refresh.interval",
+                    model.refreshInterval.trimmingCharacters(in: .whitespacesAndNewlines)
+                ),
+                ("security.require_https_source", String(model.requireHTTPS)),
+                ("update.max_concurrent", String(model.maxConcurrent)),
+            ].filter { loadedConfig.get($0.0) != $0.1 }
         }
 
         private func apply(_ config: Config) {
