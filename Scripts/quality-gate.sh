@@ -77,6 +77,13 @@ bash Scripts/plan-release-test.sh
 echo "running CI workflow checks"
 bash Scripts/ci-workflow-test.sh
 
+echo "running landing deployment checks"
+bash Scripts/site-deploy-workflow-test.sh
+bash Scripts/site-postdeploy-check-test.sh
+
+echo "running release download count checks"
+bash Scripts/release-download-counts-test.sh
+
 echo "running automatic release workflow checks"
 bash Scripts/automatic-release-workflow-test.sh
 

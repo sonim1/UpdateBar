@@ -1,0 +1,62 @@
+name: Deploy landing site
+
+"on":
+  push:
+    branches:
+      - main
+    paths:
+      - docs/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: landing-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout main source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+
+      - name: Validate landing contract
+        run: bash Scripts/landing-contract-test.sh
+
+      - name: Resolve deployment source
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha="$(git rev-parse HEAD)"
+          if [[ ! "$source_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "checked-out source SHA is not canonical" >&2
+            exit 64
+          fi
+          printf '%s\n' "$source_sha" > docs/deployment-source.txt
+          printf 'sha=%s\n' "$source_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: 4.151.0
+          command: pages deploy docs --project-name=updatebar-landing --branch=main --commit-hash=${{ steps.source.outputs.sha }} --commit-dirty=true
+
+      - name: Verify production
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: bash Scripts/site-postdeploy-check.sh https://updatebar.royjen.com "$SOURCE_SHA"
