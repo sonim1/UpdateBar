@@ -29,6 +29,14 @@ standalone TUI binary is available.
 The TUI calls the Swift CLI through JSON/JSONL contracts. It does not import
 Swift libraries.
 
+`View Logs` loads persistent records through `updatebar history --json`. It is
+separate from the short session output shown while a scan, check, registration,
+or update is running. Use `↑`/`↓` to browse stored records; cancellation is
+shown as a neutral notice, while command failures remain errors.
+
+Status `generated_at` reports when the CLI constructed the returned snapshot. It does
+not mean that `Refresh Status` ran new checks; use `Check Now` to run checks.
+
 The first-run flow is available from `Scan & Add`: scan installed tools, select
 full candidates with space, register them with enter, and use `a`/`A` to bulk
 select or clear.

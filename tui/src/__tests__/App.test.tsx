@@ -2,10 +2,17 @@ import React from 'react';
 import {PassThrough, Writable} from 'node:stream';
 import {render as renderInk} from 'ink';
 import {render} from 'ink-testing-library';
-import {describe, expect, it} from 'vitest';
+import {describe, expect, it, vi} from 'vitest';
 import {App} from '../App.js';
 import type {CommandResult, StreamOptions, UpdateBarClient} from '../client.js';
 import type {StatusSnapshot} from '../types.js';
+
+const mocks = vi.hoisted(() => ({exit: vi.fn()}));
+
+vi.mock('ink', async importOriginal => {
+  const ink = await importOriginal<typeof import('ink')>();
+  return {...ink, useApp: () => ({exit: mocks.exit})};
+});
 
 describe('App', () => {
   it('renders status summary from the client', async () => {
@@ -70,6 +77,35 @@ describe('App', () => {
     expect(view.lastFrame()).not.toContain('0 disabled');
     expect(view.lastFrame()).not.toContain('0 checking');
     expect(view.lastFrame()).not.toContain('0 differs');
+  });
+
+  it('distinguishes stored snapshot generation from tool check times', async () => {
+    const client = createClient({
+      async status() {
+        return {
+          generated_at: '2026-06-30T02:00:00Z',
+          summary: {total: 1, outdated: 1, errors: 0, untrusted: 0, pinned: 0},
+          items: [
+            {
+              id: 'brew.gh',
+              name: 'gh',
+              category: 'cloud-devops',
+              status: 'outdated',
+              pinned: false,
+              last_checked: '2026-06-30T01:00:00Z'
+            }
+          ]
+        };
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'Snapshot generated: 2026-06-30T02:00:00Z');
+    view.stdin.write('\r');
+    await waitForFrame(view, 'last checked: 2026-06-30T01:00:00Z');
+
+    expect(view.lastFrame()).toContain('last checked: 2026-06-30T01:00:00Z');
+    expect(view.lastFrame()).toContain('Check Now refreshes tool checks');
   });
 
   it('does not describe failed status loads as still loading', async () => {
@@ -457,9 +493,9 @@ describe('App', () => {
       view.stdin.write('\u001B[B');
       await wait();
       view.stdin.write('\r');
-      await waitForFrame(view, 'No logs yet');
+      await waitForFrame(view, 'No recorded history yet');
 
-      expect(view.lastFrame()).toContain('No logs yet');
+      expect(view.lastFrame()).toContain('No recorded history yet');
       expect(view.lastFrame()).not.toContain('config path: /tmp/updatebar-config-log-home/config.toml');
     } finally {
       view.unmount();
@@ -471,7 +507,227 @@ describe('App', () => {
     }
   });
 
-  it('shows an empty state when viewing logs before an action runs', async () => {
+  it('shows persisted history after View Logs in a new TUI instance', async () => {
+    const secret = 'sk-or-v1-history-secret-value';
+    const history = [
+      {
+        schema_version: 1,
+        event: 'update_finished',
+        id: 'brew.gh',
+        from: '2.74.0',
+        to: '2.75.0',
+        outcome: 'updated',
+        at: '2026-06-30T00:00:00Z',
+        target: '2.75.0',
+        command_exit_code: 0,
+        error: `verification unavailable ${secret}`
+      },
+      {
+        schema_version: 1,
+        event: 'update_finished',
+        id: 'x',
+        outcome: 'failed',
+        error: secret,
+        at: '2026-06-30T00:00:01Z'
+      }
+    ];
+    const client = createClient({async history() { return history; }});
+    const firstView = render(<App client={client} />);
+
+    await waitForFrame(firstView, 'View Logs');
+    firstView.stdin.write('\u001B[B');
+    await flushInput();
+    firstView.stdin.write('\u001B[B');
+    await flushInput();
+    firstView.stdin.write('\u001B[B');
+    await flushInput();
+    firstView.stdin.write('\u001B[B');
+    await flushInput();
+    firstView.stdin.write('\u001B[B');
+    await flushInput();
+    firstView.stdin.write('\r');
+    await waitForFrame(firstView, 'Stored history');
+    firstView.unmount();
+
+    const secondView = render(<App client={client} />);
+    await waitForFrame(secondView, 'View Logs');
+    secondView.stdin.write('\u001B[B');
+    await flushInput();
+    secondView.stdin.write('\u001B[B');
+    await flushInput();
+    secondView.stdin.write('\u001B[B');
+    await flushInput();
+    secondView.stdin.write('\u001B[B');
+    await flushInput();
+    secondView.stdin.write('\u001B[B');
+    await flushInput();
+    secondView.stdin.write('\r');
+    await waitForFrame(secondView, 'brew.gh · 2.74.0 → 2.75.0 · updated');
+
+    expect(secondView.lastFrame()).toContain('Stored history');
+    expect(secondView.lastFrame()).toContain('brew.gh · 2.74.0 → 2.75.0 · updated');
+    expect(secondView.lastFrame()).toContain('target 2.75.0 · exit 0 · error:');
+    expect(secondView.lastFrame()).toContain('[REDACTED]');
+    expect(secondView.lastFrame()).not.toContain(secret);
+    expect(secondView.lastFrame().indexOf('2026-06-30T00:00:01Z · x')).toBeLessThan(
+      secondView.lastFrame().indexOf('2026-06-30T00:00:00Z · brew.gh')
+    );
+    secondView.unmount();
+  });
+
+  it('returns from history with m and quits with q', async () => {
+    mocks.exit.mockClear();
+    const client = createClient({
+      async history() {
+        return [
+          {
+            schema_version: 1,
+            event: 'check_finished',
+            outdated: 0,
+            at: '2026-06-30T00:00:00Z'
+          }
+        ];
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'View Logs');
+    for (let index = 0; index < 5; index += 1) {
+      view.stdin.write('\u001B[B');
+      await flushInput();
+    }
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Stored history');
+    view.stdin.write('m');
+    await waitForFrame(view, 'Refresh Status');
+
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Stored history');
+    view.stdin.write('q');
+    await flushInput();
+
+    expect(mocks.exit).toHaveBeenCalledTimes(1);
+    view.unmount();
+  });
+
+  it('pages duplicate history identities without React key warnings', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const client = createClient({
+      async history() {
+        return Array.from({length: 10}, (_, index) => ({
+          schema_version: 1,
+          event: 'update_finished',
+          id: 'brew.gh',
+          outcome: 'failed',
+          error: `attempt ${index}`,
+          at: '2026-06-30T00:00:00Z'
+        }));
+      }
+    });
+    const view = render(<App client={client} />);
+
+    try {
+      await waitForFrame(view, 'View Logs');
+      for (let index = 0; index < 5; index += 1) {
+        view.stdin.write('\u001B[B');
+        await flushInput();
+      }
+      view.stdin.write('\r');
+      await waitForFrame(view, 'attempt 9');
+      for (let index = 0; index < 8; index += 1) {
+        view.stdin.write('\u001B[B');
+        await flushInput();
+      }
+
+      expect(view.lastFrame()).toContain('attempt 0');
+      expect(consoleError.mock.calls.flat().join(' ')).not.toContain('same key');
+    } finally {
+      consoleError.mockRestore();
+      view.unmount();
+    }
+  });
+
+  it('renders persisted history diagnostics without terminal controls', async () => {
+    const client = createClient({
+      async history() {
+        return [
+          {
+            schema_version: 1,
+            event: 'update_finished',
+            id: 'brew.gh',
+            target: '2.75.0\tforged',
+            outcome: 'failed',
+            error: 'failure\nforged\u001B[31m',
+            at: '2026-06-30T00:00:00Z'
+          }
+        ];
+      }
+    });
+    const view = render(<App client={client} />);
+
+    await waitForFrame(view, 'View Logs');
+    view.stdin.write('\u001B[B');
+    await flushInput();
+    view.stdin.write('\u001B[B');
+    await flushInput();
+    view.stdin.write('\u001B[B');
+    await flushInput();
+    view.stdin.write('\u001B[B');
+    await flushInput();
+    view.stdin.write('\u001B[B');
+    await flushInput();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Stored history');
+
+    expect(view.lastFrame()).toContain('target 2.75.0 forged');
+    expect(view.lastFrame()).toContain('error: failure forged [31m');
+    expect(view.lastFrame()).not.toContain('\t');
+    expect(view.lastFrame()).not.toContain('\u001B');
+    expect(view.lastFrame()).not.toContain('failure\nforged');
+    view.unmount();
+  });
+
+  it('keeps an oversized history diagnostic to one rendered row', async () => {
+    const client = createClient({
+      async history() {
+        return [
+          {
+            schema_version: 1,
+            event: 'update_finished',
+            id: 'brew.gh',
+            outcome: 'failed',
+            error: 'x'.repeat(3_700),
+            at: '2026-06-30T00:00:00Z'
+          }
+        ];
+      }
+    });
+    const view = render(<App client={client} />);
+    Object.defineProperty(view.stdout, 'columns', {value: 30});
+
+    await waitForFrame(view, 'View Logs');
+    view.stdin.write('\u001B[B');
+    await flushInput();
+    view.stdin.write('\u001B[B');
+    await flushInput();
+    view.stdin.write('\u001B[B');
+    await flushInput();
+    view.stdin.write('\u001B[B');
+    await flushInput();
+    view.stdin.write('\u001B[B');
+    await flushInput();
+    view.stdin.write('\r');
+    await waitForFrame(view, 'Stored history');
+
+    const frame = view.lastFrame() ?? '';
+    expect(frame.split('\n').length).toBeLessThanOrEqual(12);
+    expect(frame).toContain('…');
+    expect(frame).toContain('Full diagnostics: updatebar');
+    expect(frame).toContain('history');
+    view.unmount();
+  });
+
+  it('shows an empty state when viewing history before records exist', async () => {
     const client = createClient();
     const view = render(<App client={client} />);
 
@@ -483,9 +739,9 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await wait();
     view.stdin.write('\r');
-    await waitForFrame(view, 'No logs yet');
+    await waitForFrame(view, 'No recorded history yet');
 
-    expect(view.lastFrame()).toContain('No logs yet');
+    expect(view.lastFrame()).toContain('No recorded history yet');
   });
 
   it('clears stale status errors when viewing empty logs', async () => {
@@ -504,9 +760,9 @@ describe('App', () => {
     view.stdin.write('\u001B[B');
     await wait();
     view.stdin.write('\r');
-    await waitForFrame(view, 'No logs yet');
+    await waitForFrame(view, 'No recorded history yet');
 
-    expect(view.lastFrame()).toContain('No logs yet');
+    expect(view.lastFrame()).toContain('No recorded history yet');
     expect(view.lastFrame()).not.toContain('status unavailable');
     expect(view.lastFrame()).toContain('Status unavailable');
   });
@@ -995,6 +1251,30 @@ describe('App', () => {
 
     expect(view.lastFrame()).toContain('scan cancelled');
     expect(view.lastFrame()).not.toContain('exit 1');
+  });
+
+  it('recovers from scan cancellation with a neutral notice after real keystrokes', async () => {
+    const client = createClient({
+      async scan(options) {
+        return new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () => reject(new Error('exit 1')));
+        });
+      }
+    });
+    const view = render(<App client={client} />);
+
+    view.stdin.write('\u001B[B');
+    await flushInput();
+    view.stdin.write('\r');
+    await flushInput();
+    view.stdin.write('c');
+    await flushInput();
+    await flushInput();
+
+    expect(view.lastFrame()).toContain('Cancellation: scan cancelled');
+    expect(view.lastFrame()).toContain('No scan candidates');
+    expect(view.lastFrame()).not.toContain('Scanning...');
+    view.unmount();
   });
 
   it('does not keep showing scan progress after scan failure', async () => {
@@ -1895,6 +2175,9 @@ function createClient(overrides: Partial<UpdateBarClient> = {}): UpdateBarClient
         summary: {total: 0, outdated: 0, errors: 0, untrusted: 0, disabled: 0, pinned: 0}
       };
     },
+    async history() {
+      return [];
+    },
     async updateAll() {
       return {exitCode: 0, stdout: '', stderr: ''};
     },
@@ -1925,6 +2208,10 @@ function createOutputStream(): NodeJS.WriteStream {
 
 async function wait(ms = 20) {
   await new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function flushInput() {
+  await new Promise<void>(resolve => setImmediate(resolve));
 }
 
 async function waitForFrame(

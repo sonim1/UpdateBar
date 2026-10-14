@@ -9,6 +9,7 @@ import type {
   CheckReport,
   CheckSummary,
   CheckResult,
+  HistoryEvent,
   InitResult,
   ItemStatus,
   MachineEvent,
@@ -46,6 +47,7 @@ const SCAN_CAPABILITIES = new Set<ScanCandidate['capability']>([
 ]);
 
 const SCAN_CONFIDENCES = new Set<ScanCandidate['confidence']>(['high', 'medium', 'low']);
+const HISTORY_EVENT_TYPES = new Set<string>(['update_finished', 'check_finished']);
 
 const SUBPROCESS_ENV_KEYS = [
   'PATH',
@@ -159,6 +161,7 @@ function subprocessEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 
 export interface UpdateBarClient {
   status(): Promise<StatusSnapshot>;
+  history(options?: RunOptions): Promise<HistoryEvent[]>;
   scan(options?: RunOptions): Promise<ScanReport>;
   initSelected(ids: string[], options?: RunOptions): Promise<InitResult>;
   checkNow(options?: RunOptions): Promise<CheckReport>;
@@ -173,6 +176,12 @@ export class CLIUpdateBarClient implements UpdateBarClient {
     const result = await this.runner.run(['status', '--json', '--exit-zero-on-outdated']);
     ensureExit(result, [0, 10]);
     return normalizeStatusSnapshot(parseStatusSnapshot(result.stdout));
+  }
+
+  async history(options: RunOptions = {}): Promise<HistoryEvent[]> {
+    const result = await this.runner.run(['history', '--json'], options);
+    ensureExit(result, [0]);
+    return parseHistoryEvents(parseJSON<unknown>(result.stdout, 'history'));
   }
 
   async scan(options: RunOptions = {}): Promise<ScanReport> {
@@ -410,6 +419,31 @@ function parseCheckResults(results: unknown[]): CheckResult[] {
   return results;
 }
 
+function parseHistoryEvents(value: unknown): HistoryEvent[] {
+  if (!Array.isArray(value) || !value.every(isHistoryEvent)) {
+    throw new Error('unexpected history result format from updatebar');
+  }
+  return value;
+}
+
+function isHistoryEvent(value: unknown): value is HistoryEvent {
+  if (!isObject(value)) return false;
+  return (
+    value.schema_version === 1 &&
+    typeof value.event === 'string' &&
+    HISTORY_EVENT_TYPES.has(value.event) &&
+    isOptionalString(value.id) &&
+    isOptionalString(value.from) &&
+    isOptionalString(value.to) &&
+    isOptionalString(value.outcome) &&
+    isOptionalNonNegativeInteger(value.outdated) &&
+    isValidMachineTimestampValue(value.at) &&
+    isOptionalString(value.error) &&
+    isOptionalString(value.target) &&
+    isOptionalInteger(value.command_exit_code)
+  );
+}
+
 function isStatusItem(value: unknown): value is StatusItem {
   if (!isObject(value)) return false;
   return (
@@ -492,6 +526,10 @@ function isNonNegativeInteger(value: unknown) {
 
 function isOptionalNonNegativeInteger(value: unknown) {
   return value === undefined || isNonNegativeInteger(value);
+}
+
+function isOptionalInteger(value: unknown) {
+  return value === undefined || (typeof value === 'number' && Number.isInteger(value));
 }
 
 function normalizeStatusSnapshot(snapshot: StatusSnapshot): StatusSnapshot {

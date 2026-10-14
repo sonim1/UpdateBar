@@ -10,7 +10,45 @@ import {
 } from '../client.js';
 import type {MachineEvent} from '../types.js';
 
+
 describe('CLIUpdateBarClient', () => {
+  it('reads persisted history through the Swift CLI contract', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout:
+        '[{"schema_version":1,"event":"update_finished","id":"brew.gh","from":"2.74.0","to":"2.75.0","outcome":"updated","at":"2026-06-30T00:00:00Z"}]',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    const history = await client.history();
+
+    expect(history).toEqual([
+      {
+        schema_version: 1,
+        event: 'update_finished',
+        id: 'brew.gh',
+        from: '2.74.0',
+        to: '2.75.0',
+        outcome: 'updated',
+        at: '2026-06-30T00:00:00Z'
+      }
+    ]);
+    expect(runner.calls[0]).toEqual(['history', '--json']);
+  });
+
+  it('rejects persisted history with an invalid schema or timestamp', async () => {
+    const runner = new FakeRunner({
+      exitCode: 0,
+      stdout:
+        '[{"schema_version":2,"event":"check_finished","outdated":1,"at":"June 30, 2026"}]',
+      stderr: ''
+    });
+    const client = new CLIUpdateBarClient(runner);
+
+    await expect(client.history()).rejects.toThrow('unexpected history result format from updatebar');
+  });
+
   it('reads status JSON through the Swift CLI contract', async () => {
     const runner = new FakeRunner({
       exitCode: 10,

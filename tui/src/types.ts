@@ -147,3 +147,19 @@ export interface CheckSummary {
   pinned: number;
   differs: number;
 }
+
+export type HistoryEventType = 'update_finished' | 'check_finished';
+
+export interface HistoryEvent {
+  schema_version: 1;
+  event: HistoryEventType;
+  id?: string;
+  from?: string;
+  to?: string;
+  outcome?: string;
+  outdated?: number;
+  at: string;
+  error?: string;
+  target?: string;
+  command_exit_code?: number;
+}
