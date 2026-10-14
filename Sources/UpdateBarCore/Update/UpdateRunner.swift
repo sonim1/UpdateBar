@@ -140,6 +140,8 @@ public struct UpdateRunner {
     }
 
     private func runUpdate(recipe: Recipe, planItem: UpdatePlanItem) throws -> UpdateResult {
+        var commandExitCode: Int?
+        var observedCurrent: String?
         do {
             let prepared = try commandRunner.prepare(
                 ShellCommand(command: recipe.update.cmd, cwd: expandedPath(recipe.update.cwd)),
@@ -173,15 +175,18 @@ public struct UpdateRunner {
                 return UpdateResult(planItem: planItem, outcome: outcome)
             }
             let commandResult = try running.wait()
+            commandExitCode = Int(commandResult.exitCode)
             guard commandResult.exitCode == 0 else {
                 let error = "update.cmd exited \(commandResult.exitCode): \(commandResult.stderr)"
                 try markFailure(recipe: recipe, error: error)
-                recordHistory(planItem: planItem, outcome: "failed", to: nil)
-                return UpdateResult(
+                let result = UpdateResult(
                     planItem: planItem,
                     outcome: .failed,
-                    error: SecretRedactor.redact(error)
+                    error: error,
+                    commandExitCode: commandExitCode
                 )
+                recordHistory(planItem: planItem, result: result, observedCurrent: nil)
+                return result
             }
 
             let checks = try RegistryService(
@@ -193,30 +198,58 @@ public struct UpdateRunner {
                 now: now,
                 githubToken: githubToken,
                 environment: environment
-            ).check(ids: [recipe.id], force: true)
+            ).check(ids: [recipe.id], force: true) { event in
+                if event.phase == .itemFinished {
+                    observedCurrent = event.observedCurrent
+                }
+            }
             let check = checks.first
-            recordHistory(planItem: planItem, outcome: "updated", to: check?.current)
-            return UpdateResult(
+            let verificationError: String?
+            if let observedCurrent, let target = planItem.latest {
+                let status = try VersionComparator.status(
+                    current: observedCurrent, latest: target, scheme: recipe.versionScheme
+                )
+                verificationError =
+                    status == .ok
+                    ? nil
+                    : "Update command completed, but installed version \(observedCurrent) does not reach target \(target)."
+            } else {
+                verificationError =
+                    "Update command completed, but the installed target could not be verified."
+                    + (check?.error.map { " \($0)" } ?? " Run a check before retrying.")
+            }
+            if let verificationError {
+                try markFailure(recipe: recipe, error: verificationError)
+            }
+            let result = UpdateResult(
                 planItem: planItem,
-                outcome: .updated,
+                outcome: verificationError == nil ? .updated : .failed,
                 current: check?.current,
                 latest: check?.latest,
-                error: check?.error
+                error: verificationError ?? check?.error,
+                commandExitCode: commandExitCode
             )
+            recordHistory(planItem: planItem, result: result, observedCurrent: observedCurrent)
+            return result
         } catch let error as ExecutionError where error.isCancellation {
-            return UpdateResult(
+            let result = UpdateResult(
                 planItem: planItem,
                 outcome: .cancelled,
-                error: SecretRedactor.redact(String(describing: error))
+                error: String(describing: error),
+                commandExitCode: commandExitCode
             )
+            recordHistory(planItem: planItem, result: result, observedCurrent: observedCurrent)
+            return result
         } catch {
             try markFailure(recipe: recipe, error: String(describing: error))
-            recordHistory(planItem: planItem, outcome: "failed", to: nil)
-            return UpdateResult(
+            let result = UpdateResult(
                 planItem: planItem,
                 outcome: .failed,
-                error: SecretRedactor.redact(String(describing: error))
+                error: String(describing: error),
+                commandExitCode: commandExitCode
             )
+            recordHistory(planItem: planItem, result: result, observedCurrent: observedCurrent)
+            return result
         }
     }
 
@@ -226,14 +259,19 @@ public struct UpdateRunner {
     }
 
     // History is telemetry for the dashboard; it must never fail an update.
-    private func recordHistory(planItem: UpdatePlanItem, outcome: String, to: String?) {
+    private func recordHistory(
+        planItem: UpdatePlanItem, result: UpdateResult, observedCurrent: String?
+    ) {
         try? historyStore.append(
             HistoryEvent(
                 event: .updateFinished,
                 id: planItem.id,
                 from: planItem.current,
-                to: to ?? planItem.latest,
-                outcome: outcome,
+                to: observedCurrent,
+                outcome: result.outcome.rawValue,
+                target: planItem.latest,
+                error: result.error,
+                commandExitCode: result.commandExitCode,
                 at: now()
             ))
     }
@@ -269,6 +307,8 @@ public struct UpdateResult: Codable, Equatable, Sendable {
     public var latest: String?
     public var error: String?
     public var commandFingerprint: String?
+    public var target: String?
+    public var commandExitCode: Int?
 
     public init(
         id: String,
@@ -277,7 +317,9 @@ public struct UpdateResult: Codable, Equatable, Sendable {
         current: String?,
         latest: String?,
         error: String?,
-        commandFingerprint: String?
+        commandFingerprint: String?,
+        target: String? = nil,
+        commandExitCode: Int? = nil
     ) {
         self.id = SecretRedactor.redact(id)
         self.name = SecretRedactor.redact(name)
@@ -286,6 +328,8 @@ public struct UpdateResult: Codable, Equatable, Sendable {
         self.latest = latest.map(SecretRedactor.redact)
         self.error = error.map(SecretRedactor.redact)
         self.commandFingerprint = commandFingerprint
+        self.target = target.map(SecretRedactor.redact)
+        self.commandExitCode = commandExitCode
     }
 
     init(
@@ -293,7 +337,8 @@ public struct UpdateResult: Codable, Equatable, Sendable {
         outcome: UpdateOutcome,
         current: String? = nil,
         latest: String? = nil,
-        error: String? = nil
+        error: String? = nil,
+        commandExitCode: Int? = nil
     ) {
         self.init(
             id: planItem.id,
@@ -302,7 +347,9 @@ public struct UpdateResult: Codable, Equatable, Sendable {
             current: current ?? planItem.current,
             latest: latest ?? planItem.latest,
             error: error,
-            commandFingerprint: planItem.commandFingerprint
+            commandFingerprint: planItem.commandFingerprint,
+            target: planItem.latest,
+            commandExitCode: commandExitCode
         )
     }
 
@@ -314,6 +361,8 @@ public struct UpdateResult: Codable, Equatable, Sendable {
         case latest
         case error
         case commandFingerprint = "command_fingerprint"
+        case target
+        case commandExitCode = "command_exit_code"
     }
 }
 
