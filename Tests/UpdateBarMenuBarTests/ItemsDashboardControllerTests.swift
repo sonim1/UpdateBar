@@ -44,6 +44,19 @@
             XCTAssertEqual(store.primaryAction.title, "Update visible (1)")
         }
 
+        func testEmptyItemsCanOpenScanAndAdd() {
+            var destination: DashboardSection?
+            var callbacks = actions()
+            callbacks.dashboard = { destination = $0 }
+            let store = ItemsDashboardStore(
+                service: ItemsRecordingService(), onChanged: {}, actions: callbacks
+            )
+
+            store.openScanAndAdd()
+
+            XCTAssertEqual(destination, .scan)
+        }
+
         func testBusyStateBlocksCheckUpdateAndApprovalButAllowsSupportedStop() {
             var checks = 0
             var updates = 0
@@ -233,12 +246,17 @@
                 service: ItemsRecordingService(), onChanged: {}, actions: actions()
             )
             let host = controller.hostingController
+            let tracked = item("tool")
 
-            controller.apply(model: model(items: [item("tool")]))
-            controller.apply(model: model(items: [item("tool", status: .ok)]))
+            controller.apply(model: model(items: [tracked]))
+            controller.store.setQuery("tool")
+            controller.store.toggleSelection(tracked)
+            controller.apply(model: model(items: [tracked]))
 
             XCTAssertTrue(controller.hostingController === host)
             XCTAssertTrue(controller.view === host.view)
+            XCTAssertEqual(controller.store.selection.query, "tool")
+            XCTAssertTrue(controller.store.selection.contains("tool"))
         }
 
         private func actions() -> MenuBarPopoverActions {

@@ -102,6 +102,10 @@
             actions.check()
         }
 
+        func openScanAndAdd() {
+            actions.dashboard(.scan)
+        }
+
         func update() {
             guard !model.isBusy, !mutationGate.isPending else { return }
             let ids = primaryAction.ids

@@ -58,7 +58,11 @@ Overview shows pending-update and
 awaiting-approval counts, last check/update times, and a bar chart of successful
 updates over the last 30 days (from `~/.updatebar/history.jsonl`). Logs shows
 the newest persisted update and check events first, including update result and
-version transition. Items shows selectable **Ready to update** cards first,
+version transition. Search and tool, outcome and time filters combine to narrow
+the list. Selecting a failed update shows its redacted error and command exit
+code in a scrollable detail pane; **Copy failure detail** copies the full
+stored detail. New events distinguish observed versions from the planned
+target. Items shows selectable **Ready to update** cards first,
 followed by separate **Needs review** and **Needs attention** groups. **Up to date**
 and **Paused** inventory starts collapsed. The primary action is **Update all**
 until cards are selected, then becomes **Update selected**. Searching clears the
@@ -82,7 +86,9 @@ parallelism, and Stop After Current behavior. `Manage Items...` opens that
 Dashboard window with Items selected, and
 `Scan & Add` opens it with Scan & Add selected, so neither action creates another
 panel. Scan & Add scans only when you press Scan. Checking an available candidate
-registers it immediately without approving any commands. Unchecking disables it
+registers it immediately without approving any commands. An empty Items list
+has a **Scan & Add** button. The Scan page distinguishes **Not scanned yet**
+from a completed scan with no discovered tools. Unchecking disables an item
 without deleting it, and checking it again re-enables the same item. While the
 Dashboard window is visible, UpdateBar appears in Cmd-Tab and the Dock. Closing
 the last visible titled UpdateBar window with Command-W or its close button returns
