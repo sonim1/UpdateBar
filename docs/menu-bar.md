@@ -86,11 +86,11 @@ parallelism, and Stop After Current behavior. `Manage Items...` opens that
 Dashboard window with Items selected, and
 `Scan & Add` opens it with Scan & Add selected, so neither action creates another
 panel. Scan & Add scans only when you press Scan. Checking an available candidate
-registers it immediately without approving any commands. An empty Items list
-has a **Scan & Add** button. The Scan page distinguishes **Not scanned yet**
-from a completed scan with no discovered tools. Unchecking disables an item
-without deleting it, and checking it again re-enables the same item. While the
-Dashboard window is visible, UpdateBar appears in Cmd-Tab and the Dock. Closing
+registers it immediately without approving any commands. Unchecking disables it
+without deleting it, and checking it again re-enables the same item. An empty
+Items list has a **Scan & Add** button. The Scan page distinguishes **Not scanned
+yet** from a completed scan with no discovered tools. While the Dashboard window
+is visible, UpdateBar appears in Cmd-Tab and the Dock. Closing
 the last visible titled UpdateBar window with Command-W or its close button returns
 the process to menu-bar-only mode.
 
