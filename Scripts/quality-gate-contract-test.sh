@@ -44,6 +44,9 @@ ruby -e '
     Scripts/prepare-pr-version-test.sh
     Scripts/plan-release-test.sh
     Scripts/ci-workflow-test.sh
+    Scripts/site-deploy-workflow-test.sh
+    Scripts/site-postdeploy-check-test.sh
+    Scripts/release-download-counts-test.sh
     Scripts/automatic-release-workflow-test.sh
     Scripts/release-tooling-test.sh
     Scripts/setup-update-hosting-test.sh
@@ -71,6 +74,9 @@ ruby -e '
     Scripts/prepare-pr-version-test.sh
     Scripts/plan-release-test.sh
     Scripts/ci-workflow-test.sh
+    Scripts/site-deploy-workflow-test.sh
+    Scripts/site-postdeploy-check-test.sh
+    Scripts/release-download-counts-test.sh
     Scripts/automatic-release-workflow-test.sh
   ]
   new_order = invocations.select { |path| expected_new_order.include?(path) }

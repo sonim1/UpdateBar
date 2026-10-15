@@ -13,6 +13,9 @@ public struct HistoryEvent: Codable, Equatable, Sendable {
     public var to: String?
     public var outcome: String?
     public var outdated: Int?
+    public var target: String?
+    public var error: String?
+    public var commandExitCode: Int?
     public var at: Date
 
     public init(
@@ -22,6 +25,9 @@ public struct HistoryEvent: Codable, Equatable, Sendable {
         to: String? = nil,
         outcome: String? = nil,
         outdated: Int? = nil,
+        target: String? = nil,
+        error: String? = nil,
+        commandExitCode: Int? = nil,
         at: Date
     ) {
         self.schemaVersion = 1
@@ -31,6 +37,13 @@ public struct HistoryEvent: Codable, Equatable, Sendable {
         self.to = to.map(SecretRedactor.redact)
         self.outcome = outcome
         self.outdated = outdated
+        self.target = target.map(SecretRedactor.redact)
+        self.error = error.map {
+            let redacted = SecretRedactor.redact($0)
+            return redacted.count > 4096
+                ? String(redacted.prefix(4096)) + "\n[truncated]" : redacted
+        }
+        self.commandExitCode = commandExitCode
         self.at = at
     }
 
@@ -42,6 +55,9 @@ public struct HistoryEvent: Codable, Equatable, Sendable {
         case to
         case outcome
         case outdated
+        case target
+        case error
+        case commandExitCode = "command_exit_code"
         case at
     }
 }

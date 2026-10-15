@@ -55,7 +55,9 @@ public struct RegistryService {
             var state = try stateStore.load(now: checkDate)
             var results: [CheckResult] = []
 
-            func appendResult(for recipe: Recipe, state itemState: ItemState) throws {
+            func appendResult(
+                for recipe: Recipe, state itemState: ItemState, observedCurrent: String? = nil
+            ) throws {
                 let result = self.result(for: recipe, state: itemState)
                 results.append(result)
                 try onEvent?(
@@ -63,7 +65,8 @@ public struct RegistryService {
                         phase: .itemFinished,
                         id: recipe.id,
                         name: recipe.name,
-                        result: result
+                        result: result,
+                        observedCurrent: observedCurrent
                     ))
             }
 
@@ -125,9 +128,11 @@ public struct RegistryService {
 
                 var observedCurrent = existing?.current
                 var observedLatest = existing?.latest
+                var freshCurrent: String?
                 do {
                     let current = try currentVersion(for: recipe)
                     observedCurrent = current
+                    freshCurrent = current
                     let latest = try latestVersion(for: recipe)
                     observedLatest = latest
                     let status = try VersionComparator.status(
@@ -144,7 +149,7 @@ public struct RegistryService {
                         backoffUntil: nil
                     )
                     state.items[recipe.id] = itemState
-                    try appendResult(for: recipe, state: itemState)
+                    try appendResult(for: recipe, state: itemState, observedCurrent: freshCurrent)
                 } catch let error as ExecutionError where error.isCancellation {
                     throw error
                 } catch {
@@ -157,7 +162,7 @@ public struct RegistryService {
                         backoffUntil: nil
                     )
                     state.items[recipe.id] = itemState
-                    try appendResult(for: recipe, state: itemState)
+                    try appendResult(for: recipe, state: itemState, observedCurrent: freshCurrent)
                 }
             }
 

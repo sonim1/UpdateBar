@@ -180,7 +180,9 @@
                 ItemsEmptyState(
                     title: "No tracked items",
                     message: "Use Scan & Add to find tools you want UpdateBar to track.",
-                    symbol: "shippingbox"
+                    symbol: "shippingbox",
+                    actionTitle: "Scan & Add",
+                    action: store.openScanAndAdd
                 )
             } else {
                 ForEach(ManageItemsSectionKind.allCases, id: \.self) { kind in
@@ -631,6 +633,22 @@
         let title: String
         let message: String
         let symbol: String
+        let actionTitle: String?
+        let action: (() -> Void)?
+
+        init(
+            title: String,
+            message: String,
+            symbol: String,
+            actionTitle: String? = nil,
+            action: (() -> Void)? = nil
+        ) {
+            self.title = title
+            self.message = message
+            self.symbol = symbol
+            self.actionTitle = actionTitle
+            self.action = action
+        }
 
         var body: some View {
             VStack(spacing: 10) {
@@ -643,9 +661,14 @@
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                if let actionTitle, let action {
+                    Button(actionTitle, action: action)
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("items-scan-add")
+                }
             }
             .frame(maxWidth: .infinity, minHeight: 220)
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: action == nil ? .combine : .contain)
         }
     }
 

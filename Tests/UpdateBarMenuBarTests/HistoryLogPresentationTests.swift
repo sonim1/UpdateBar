@@ -3,6 +3,7 @@ import UpdateBarMenuBar
 import XCTest
 
 #if os(macOS)
+    import AppKit
     @testable import UpdateBarMenuBarApp
 #endif
 
@@ -61,6 +62,51 @@ final class HistoryLogPresentationTests: XCTestCase {
         XCTAssertEqual(rows.map(\.title), ["old-tool updated"])
     }
 
+    func testRowsFilterBySearchToolOutcomeAndTimeAndRetainFailureMetadata() {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let matching = HistoryEvent(
+            event: .updateFinished,
+            id: "example-tool",
+            from: "1.0.0",
+            to: "1.1.0",
+            outcome: "failed",
+            target: "2.0.0",
+            error: "command reported an error",
+            commandExitCode: 4,
+            at: now.addingTimeInterval(-60)
+        )
+        let stale = HistoryEvent(
+            event: .updateFinished,
+            id: "example-tool",
+            outcome: "failed",
+            at: now.addingTimeInterval(-8 * 24 * 60 * 60)
+        )
+        let success = HistoryEvent(
+            event: .updateFinished,
+            id: "other-tool",
+            outcome: "updated",
+            at: now.addingTimeInterval(-60)
+        )
+
+        let rows = HistoryLogPresentation.rows(
+            from: [stale, success, matching],
+            filters: HistoryLogFilters(
+                query: "example",
+                tool: "example-tool",
+                outcome: "failed",
+                timeRange: .lastSevenDays
+            ),
+            now: now
+        )
+
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertEqual(rows.first?.detail, "Observed: 1.0.0 → 1.1.0 · Target: 2.0.0")
+        XCTAssertEqual(
+            rows.first?.failureDetail,
+            "command reported an error · Exit code: 4"
+        )
+    }
+
     #if os(macOS)
         @MainActor
         func testDashboardRequestsAllRetainedHistoryForLogs() {
@@ -80,6 +126,62 @@ final class HistoryLogPresentationTests: XCTestCase {
 
             wait(for: [requested], timeout: 1)
             XCTAssertNil(service.historySince)
+        }
+
+        @MainActor
+        func testLongFailureDetailStaysScrollableAndFiltersClearSelection() throws {
+            _ = NSApplication.shared
+            let controller = LogsViewController()
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 860, height: 600),
+                styleMask: [.titled], backing: .buffered, defer: false
+            )
+            window.contentViewController = controller
+            let diagnostic = String(repeating: "diagnostic detail\n", count: 200)
+            controller.apply(events: [
+                HistoryEvent(
+                    event: .updateFinished,
+                    id: "example-tool",
+                    outcome: "failed",
+                    error: diagnostic,
+                    at: Date()
+                )
+            ])
+            controller.view.layoutSubtreeIfNeeded()
+            let table = try XCTUnwrap(
+                descendants(of: NSTableView.self, in: controller.view).first
+            )
+            table.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+            controller.tableViewSelectionDidChange(Notification(name: .init("selection")))
+            controller.view.layoutSubtreeIfNeeded()
+
+            let detailScroll = try XCTUnwrap(
+                descendants(of: NSScrollView.self, in: controller.view).first {
+                    $0.accessibilityIdentifier() == "logs-failure-detail"
+                }
+            )
+            let tableScroll = try XCTUnwrap(
+                descendants(of: NSScrollView.self, in: controller.view).first {
+                    $0.accessibilityIdentifier() == "logs-table"
+                }
+            )
+            let textView = try XCTUnwrap(detailScroll.documentView as? NSTextView)
+            XCTAssertEqual(textView.string, diagnostic)
+            XCTAssertTrue(textView.isSelectable)
+            XCTAssertLessThanOrEqual(detailScroll.frame.height, 128)
+            XCTAssertGreaterThan(tableScroll.frame.height, detailScroll.frame.height)
+
+            let search = try XCTUnwrap(
+                descendants(of: NSSearchField.self, in: controller.view).first {
+                    $0.accessibilityIdentifier() == "logs-search"
+                }
+            )
+            search.stringValue = "does-not-match"
+            controller.controlTextDidChange(Notification(name: .init("filter"), object: search))
+
+            XCTAssertEqual(table.numberOfRows, 0)
+            XCTAssertEqual(table.selectedRow, -1)
+            XCTAssertTrue(detailScroll.isHidden)
         }
     #endif
 }
@@ -146,5 +248,16 @@ final class HistoryLogPresentationTests: XCTestCase {
         }
         func setEnabled(id: String, enabled: Bool) throws { fatalError("unused") }
         func setPinned(id: String, pinned: Bool) throws { fatalError("unused") }
+    }
+#endif
+
+#if os(macOS)
+    @MainActor
+    private func descendants<View: NSView>(of type: View.Type, in root: NSView) -> [View] {
+        var matches = root.subviews.compactMap { $0 as? View }
+        for subview in root.subviews {
+            matches.append(contentsOf: descendants(of: type, in: subview))
+        }
+        return matches
     }
 #endif

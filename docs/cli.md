@@ -261,6 +261,13 @@ When no items are registered, human output suggests `updatebar scan` and
 When selected items are skipped because they are pinned or disabled, human
 output suggests `updatebar unpin <id>` or `updatebar enable <id>`.
 Returns `2` if any selected update fails.
+An exit-zero update command counts as successful only after a fresh local
+version check reaches the version selected in the update plan. A failed local
+check or an unchanged/older installed version produces a failed result, even
+when the command exited zero. A newer upstream release discovered afterwards
+does not change that original target. Update JSON adds optional `target` and
+`command_exit_code` fields; the latter records the updater process result
+separately from installed-version verification.
 In machine-readable mode (`--json` or `--json-stream`), prompts are suppressed;
 omit `--yes` to skip execution and receive a `.cancelled` outcome.
 
@@ -283,6 +290,17 @@ file is size-capped by dropping the oldest lines; malformed lines are skipped
 on read. `--since` accepts an ISO-8601 date (`2026-07-01`) or date-time
 (`2026-07-01T00:00:00Z`). Human output is tab-separated with `AT`, `EVENT`,
 `ID`, and `DETAIL` columns.
+
+New update events keep the planned `target` separate from `to`, which is only
+the version observed by the post-update local check. An absent `to` means the
+installed version was not verified. Optional `error` and `command_exit_code`
+fields retain the failure reason and updater process result. Errors are
+redacted before retaining a 4,096-character prefix plus a truncation marker.
+Human output normalizes
+terminal control characters within each cell; JSON retains structured text.
+These additions retain schema version 1 and accept older records without the
+new fields. Older history is left intact and cannot establish whether its
+recorded `to` was an observed version or an intended target.
 
 ### `updatebar approve <id> --field <command-field> [--expected-fingerprint <fingerprint>] [--json]`
 

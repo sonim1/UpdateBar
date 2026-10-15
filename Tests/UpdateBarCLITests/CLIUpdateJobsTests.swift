@@ -40,6 +40,12 @@ final class CLIUpdateJobsTests: XCTestCase {
 
         XCTAssertEqual(serialResult.exitCode, 0)
         XCTAssertEqual(parallelResult.exitCode, 0)
+        for result in [serialResult, parallelResult] {
+            let updates = try JSONDecoder.updateBar.decode(
+                [UpdateResult].self, from: Data(result.stdout.utf8))
+            XCTAssertEqual(updates.count, 2)
+            XCTAssertTrue(updates.allSatisfy { $0.outcome == .updated && $0.current == "1.1.0" })
+        }
         XCTAssertLessThan(
             parallelElapsed,
             serialElapsed - 0.2,
@@ -50,12 +56,17 @@ final class CLIUpdateJobsTests: XCTestCase {
     private func configuredConcurrentUpdateHome() throws -> URL {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-jobs-tests")
         let paths = AppPaths(homeDirectory: home)
-        let firstScript = try writeSleeper(named: "slow-first", in: home)
-        let secondScript = try writeSleeper(named: "slow-second", in: home)
+        addTeardownBlock { try FileManager.default.removeItem(at: home) }
+        let firstVersion = home.appendingPathComponent("first-version")
+        let secondVersion = home.appendingPathComponent("second-version")
+        try "1.0.0".write(to: firstVersion, atomically: true, encoding: .utf8)
+        try "1.0.0".write(to: secondVersion, atomically: true, encoding: .utf8)
+        let firstScript = try writeSleeper(named: "slow-first", version: firstVersion, in: home)
+        let secondScript = try writeSleeper(named: "slow-second", version: secondVersion, in: home)
         try ManifestStore(paths: paths).save(
             manifest(items: [
-                recipe(id: "first", updateCommand: firstScript),
-                recipe(id: "second", updateCommand: secondScript),
+                recipe(id: "first", version: firstVersion, updateCommand: firstScript),
+                recipe(id: "second", version: secondVersion, updateCommand: secondScript),
             ])
         )
         try StateStore(paths: paths).save(
@@ -82,7 +93,7 @@ final class CLIUpdateJobsTests: XCTestCase {
         )
     }
 
-    private func recipe(id: String, updateCommand: String) -> Recipe {
+    private func recipe(id: String, version: URL, updateCommand: String) -> Recipe {
         var item = Recipe(
             id: id,
             name: id,
@@ -90,7 +101,7 @@ final class CLIUpdateJobsTests: XCTestCase {
             path: nil,
             source: Source(kind: .custom, ref: id, branch: nil),
             versionScheme: .semver,
-            check: .command("printf '\(id) 1.0.0'"),
+            check: .command("cat \(ShellQuote.single(version.path))"),
             latest: LatestSpec(strategy: .cmd, cmd: "printf '\(id) 1.1.0'", pattern: nil),
             versionParse: .regex("([0-9]+\\.[0-9]+\\.[0-9]+)"),
             update: UpdateSpec(cmd: updateCommand, cwd: nil),
@@ -113,9 +124,10 @@ final class CLIUpdateJobsTests: XCTestCase {
         )
     }
 
-    private func writeSleeper(named name: String, in home: URL) throws -> String {
+    private func writeSleeper(named name: String, version: URL, in home: URL) throws -> String {
         let script = home.appendingPathComponent(name)
-        try "#!/bin/sh\nsleep 0.4\n".write(to: script, atomically: true, encoding: .utf8)
+        let content = "#!/bin/sh\nsleep 0.4\nprintf '1.1.0' > \(ShellQuote.single(version.path))\n"
+        try content.write(to: script, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes(
             [.posixPermissions: 0o755],
             ofItemAtPath: script.path

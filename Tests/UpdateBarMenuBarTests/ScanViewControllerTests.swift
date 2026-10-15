@@ -18,6 +18,32 @@
             XCTAssertEqual(table.accessibilityLabel(), "Installed tool scan results")
         }
 
+        func testGuidanceDistinguishesInitialAndEmptyCompletedScan() async throws {
+            let controller = ScanViewController(
+                service: ScanFlowService(reports: [ScanReport(candidates: [], errors: [])]),
+                onChanged: {}
+            )
+            _ = controller.view
+            let scanButton = try XCTUnwrap(
+                descendants(of: NSButton.self, in: controller.view)
+                    .first { $0.title == "Scan" }
+            )
+
+            XCTAssertTrue(
+                descendants(of: NSTextField.self, in: controller.view)
+                    .contains { $0.accessibilityIdentifier() == "scan-guidance-initial" }
+            )
+
+            scanButton.performClick(nil)
+            let didFinishScan = await waitUntil { scanButton.isEnabled }
+
+            XCTAssertTrue(didFinishScan)
+            XCTAssertTrue(
+                descendants(of: NSTextField.self, in: controller.view)
+                    .contains { $0.accessibilityIdentifier() == "scan-guidance-empty" }
+            )
+        }
+
         func testMixedPartialScanKeepsCandidateAndSurfacesRedactedWarning() async throws {
             let secret = "sk-1234567890abcdef"
             let report = ScanReport(

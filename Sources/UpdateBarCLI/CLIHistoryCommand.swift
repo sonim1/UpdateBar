@@ -54,7 +54,15 @@ struct HistoryCommand: ParsableCommand {
             case .updateFinished:
                 let transition = [event.from, event.to].compactMap { $0 }
                     .joined(separator: " -> ")
-                detail = [transition, event.outcome ?? ""].filter { !$0.isEmpty }
+                let verification = event.to == nil ? "installed version unverified" : nil
+                detail = [
+                    transition,
+                    event.outcome,
+                    verification,
+                    event.target.map { "target \($0)" },
+                    event.commandExitCode.map { "command exit \($0)" },
+                    event.error,
+                ].compactMap { $0 }.filter { !$0.isEmpty }
                     .joined(separator: " · ")
             case .checkFinished:
                 detail = "\(event.outdated ?? 0) outdated"
@@ -65,7 +73,13 @@ struct HistoryCommand: ParsableCommand {
                     event.event.rawValue,
                     event.id ?? "-",
                     detail,
-                ].joined(separator: "\t"))
+                ].map(terminalCell).joined(separator: "\t"))
         }
+    }
+
+    private func terminalCell(_ value: String) -> String {
+        SecretRedactor.redact(value).unicodeScalars.map {
+            CharacterSet.controlCharacters.contains($0) ? " " : String($0)
+        }.joined()
     }
 }

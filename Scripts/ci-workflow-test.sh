@@ -9,8 +9,9 @@ ruby -rpsych -ropen3 -rtmpdir -rfileutils -rshellwords - "$WORKFLOW" <<'RUBY'
 CHECKOUT_ACTION = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 TOKEN_ACTION = "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1"
 LANE_IF = "${{ always() }}"
-GUARD_IF = "${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || needs.version.result != 'success' || needs.version.outputs.ready != 'true') }}"
+GUARD_IF = "${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || (needs.policy.outputs.trusted == 'true' && (needs.version.result != 'success' || needs.version.outputs.ready != 'true'))) }}"
 CI_REF = "${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}"
+CACHE_SCOPE = "${{ github.event_name == 'pull_request' && needs.policy.outputs.cache_scope || 'push' }}"
 
 def assert(value, message)
   raise "FAIL: #{message}" unless value
@@ -38,7 +39,7 @@ def action_step(job, action)
   matches.first
 end
 
-def run_policy_probe(policy_run, state:, merged:)
+def run_policy_probe(policy_run, state: "open", merged: "false", head_repository: "sonim1/UpdateBar", association: "OWNER", actor: "sonim1", author: "sonim1")
   Dir.mktmpdir("updatebar-ci-policy-probe") do |directory|
     output = File.join(directory, "github-output")
     environment = {
@@ -46,11 +47,11 @@ def run_policy_probe(policy_run, state:, merged:)
       "BASE_REF" => "main",
       "PR_STATE" => state,
       "PR_MERGED" => merged,
-      "HEAD_REPOSITORY" => "sonim1/UpdateBar",
+      "HEAD_REPOSITORY" => head_repository,
       "REPOSITORY" => "sonim1/UpdateBar",
-      "AUTHOR_ASSOCIATION" => "OWNER",
-      "ACTOR" => "sonim1",
-      "AUTHOR_LOGIN" => "sonim1",
+      "AUTHOR_ASSOCIATION" => association,
+      "ACTOR" => actor,
+      "AUTHOR_LOGIN" => author,
       "LABELS_JSON" => "[]",
     }
     stdout, stderr, status = Open3.capture3(environment, "bash", "-c", policy_run)
@@ -128,9 +129,17 @@ def run_runtime_probes(workflow)
   jobs = workflow.fetch("jobs")
   policy_run = jobs.fetch("policy").fetch("steps").first.fetch("run")
 
-  open_result = run_policy_probe(policy_run, state: "open", merged: "false")
+  open_result = run_policy_probe(policy_run)
   assert(open_result.fetch(:status).success?, "open unmerged trusted PR policy probe must pass")
-  assert(open_result.fetch(:emitted) == "trusted=false\nrelease_kind=patch\ntrusted=true\n", "open unmerged policy probe must emit trusted patch outputs")
+  assert(open_result.fetch(:emitted) == "trusted=false\nrelease_kind=patch\ncache_scope=trusted\ntrusted=true\n", "open unmerged policy probe must emit trusted patch outputs")
+
+  dependabot_result = run_policy_probe(policy_run, actor: "dependabot[bot]", author: "dependabot[bot]", association: "CONTRIBUTOR")
+  assert(dependabot_result.fetch(:status).success?, "Dependabot PR policy probe must enter read-only CI")
+  assert(dependabot_result.fetch(:emitted) == "trusted=false\ncache_scope=untrusted\n", "Dependabot must never receive trusted version preparation")
+
+  fork_result = run_policy_probe(policy_run, head_repository: "contributor/UpdateBar", association: "CONTRIBUTOR", actor: "contributor", author: "contributor")
+  assert(fork_result.fetch(:status).success?, "fork PR policy probe must enter read-only CI")
+  assert(fork_result.fetch(:emitted) == "trusted=false\ncache_scope=untrusted\n", "fork PR must never receive trusted version preparation")
 
   closed_result = run_policy_probe(policy_run, state: "closed", merged: "false")
   assert(!closed_result.fetch(:status).success? && closed_result.fetch(:status).exitstatus == 65, "closed PR policy probe must fail closed")
@@ -220,7 +229,8 @@ def validate(workflow)
   assert(policy["outputs"] == {
     "trusted" => "${{ steps.policy.outputs.trusted }}",
     "release_kind" => "${{ steps.policy.outputs.release_kind }}",
-  }, "policy must expose only trust and release kind")
+    "cache_scope" => "${{ steps.policy.outputs.cache_scope }}",
+  }, "policy must expose trust, release kind, and isolated cache scope")
   assert(policy.fetch("steps").length == 1, "policy must contain only its metadata validation step")
   policy_step = policy.fetch("steps").first
   assert(policy_step["name"] == "Validate pull request policy" && policy_step["id"] == "policy" && policy_step["shell"] == "bash", "policy validation step must remain explicit")
@@ -245,19 +255,23 @@ def validate(workflow)
     "[[ \"$BASE_REF\" != \"main\" ]]",
     "[[ \"$PR_STATE\" != \"open\" ]]",
     "[[ \"$PR_MERGED\" != \"false\" ]]",
-    "[[ \"$HEAD_REPOSITORY\" != \"$REPOSITORY\" ]]",
-    "[[ \"$ACTOR\" == \"dependabot[bot]\" || \"$AUTHOR_LOGIN\" == \"dependabot[bot]\" ]]",
+    "[[ -z \"$HEAD_REPOSITORY\" ]]",
     "OWNER | MEMBER | COLLABORATOR)",
-    '*) reject "author association is not trusted: $AUTHOR_ASSOCIATION" ;;',
+    '*) trusted_author=false ;;',
+    '[[ "$HEAD_REPOSITORY" != "$REPOSITORY" ||',
+    '"$ACTOR" == "dependabot[bot]" || "$AUTHOR_LOGIN" == "dependabot[bot]" ||',
+    '"$trusted_author" != "true" ]]',
+    "printf 'cache_scope=untrusted\\n' >> \"$GITHUB_OUTPUT\"",
     'labels & %w[release:minor release:major]',
     "release_labels.length > 1",
     'release_labels.empty? ? "patch" : release_labels.fetch(0).delete_prefix("release:")',
     "printf 'release_kind=%s\\n' \"$release_kind\" >> \"$GITHUB_OUTPUT\"",
+    "printf 'cache_scope=trusted\\n' >> \"$GITHUB_OUTPUT\"",
     "printf 'trusted=true\\n' >> \"$GITHUB_OUTPUT\"",
   ].each do |fragment|
     assert(policy_run.include?(fragment), "policy is missing trust-boundary fragment: #{fragment}")
   end
-  assert(!policy_run.include?("CONTRIBUTOR") && !policy_run.include?("FIRST_TIME_CONTRIBUTOR"), "untrusted author associations must fail closed")
+  assert(!policy_run.include?("CONTRIBUTOR") && !policy_run.include?("FIRST_TIME_CONTRIBUTOR"), "untrusted author associations must remain read-only")
   assert(policy_run.index("printf 'trusted=false") < policy_run.index("[[ \"$BASE_REF\""), "policy must default to untrusted before validation")
   assert(policy_run.index("printf 'trusted=true") > policy_run.index("release_labels.length > 1"), "policy may trust only after state and label validation")
 
@@ -370,12 +384,13 @@ def validate(workflow)
     assert(guard["if"] == GUARD_IF && guard["shell"] == "bash", "#{name} guard must run for every unready PR state")
     assert(guard["env"] == {
       "POLICY_RESULT" => "${{ needs.policy.result }}",
+      "TRUSTED" => "${{ needs.policy.outputs.trusted }}",
       "VERSION_RESULT" => "${{ needs.version.result }}",
       "VERSION_READY" => "${{ needs.version.outputs.ready }}",
     }, "#{name} guard diagnostics must receive dependency state through the environment")
     assert(guard["run"] == <<~SHELL, "#{name} guard must diagnose and fail the required check")
       set -euo pipefail
-      echo "pull request version gate is not ready: policy=$POLICY_RESULT version=$VERSION_RESULT ready=$VERSION_READY" >&2
+      echo "pull request version gate is not ready: policy=$POLICY_RESULT trusted=$TRUSTED version=$VERSION_RESULT ready=$VERSION_READY" >&2
       exit 1
     SHELL
     job.fetch("steps").drop(1).each do |step|
@@ -392,16 +407,16 @@ def validate(workflow)
   assert(macos["runs-on"] == "macos-15" && !macos.key?("container"), "macos runner must remain macos-15")
   assert(action_step(macos, "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020") == {
     "uses" => "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-    "with" => { "node-version" => 20, "cache" => "npm", "cache-dependency-path" => "tui/package-lock.json" },
-  }, "macos Node tooling must remain unchanged")
+    "with" => { "node-version" => 20 },
+  }, "macos Node tooling must not share an npm cache across trust lanes")
   assert(action_step(macos, "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9") == {
     "uses" => "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
     "with" => {
       "path" => ".build",
-      "key" => "macos-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}",
-      "restore-keys" => "macos-spm-${{ runner.os }}-",
+      "key" => "macos-spm-#{CACHE_SCOPE}-${{ runner.os }}-${{ hashFiles('Package.resolved') }}",
+      "restore-keys" => "macos-spm-#{CACHE_SCOPE}-${{ runner.os }}-",
     },
-  }, "macos Swift cache must remain unchanged")
+  }, "macos Swift cache must be isolated by trust lane")
   assert(named_step(macos, "Install shellcheck")["run"] == "brew install shellcheck", "macos shellcheck installation must remain unchanged")
   assert(named_step(macos, "Quality gate")["run"] == "SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh", "macos quality gate command must remain unchanged")
 
@@ -410,10 +425,10 @@ def validate(workflow)
     "uses" => "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
     "with" => {
       "path" => ".build",
-      "key" => "linux-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}",
-      "restore-keys" => "linux-spm-${{ runner.os }}-",
+      "key" => "linux-spm-#{CACHE_SCOPE}-${{ runner.os }}-${{ hashFiles('Package.resolved') }}",
+      "restore-keys" => "linux-spm-#{CACHE_SCOPE}-${{ runner.os }}-",
     },
-  }, "linux Swift cache must remain unchanged")
+  }, "linux Swift cache must be isolated by trust lane")
   assert(named_step(linux, "Install quality gate dependencies")["run"] == "apt-get update\napt-get install -y nodejs ruby shellcheck\n", "linux quality dependencies must remain unchanged")
   assert(named_step(linux, "Trust the checked-out workspace")["run"] == 'git config --global --add safe.directory "$GITHUB_WORKSPACE"', "linux safe-directory command must remain unchanged")
   assert(named_step(linux, "Quality gate")["run"] == "SKIP_MENUBAR_SMOKE=1 SKIP_TUI_SMOKE=1 SKIP_TUI_INPUT=1 SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh", "linux quality gate command must remain unchanged")
@@ -429,9 +444,9 @@ mutations = {
   "workflow write permission" => ->(value) { value.fetch("permissions")["contents"] = "write" },
   "cross-run concurrency" => ->(value) { value.fetch("concurrency")["group"] = "CI" },
   "token before policy" => ->(value) { value.fetch("jobs").fetch("version").delete("needs") },
-  "fork acceptance" => ->(value) {
+  "fork privilege escalation" => ->(value) {
     step = value.fetch("jobs").fetch("policy").fetch("steps").first
-    step["run"] = step.fetch("run").sub('[[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]', '[[ -z "$HEAD_REPOSITORY" ]]')
+    step["run"] = step.fetch("run").sub('[[ "$HEAD_REPOSITORY" != "$REPOSITORY" ||', '[[ -z "$HEAD_REPOSITORY" ||')
   },
   "closed PR acceptance" => ->(value) {
     step = value.fetch("jobs").fetch("policy").fetch("steps").first
@@ -441,17 +456,13 @@ mutations = {
     step = value.fetch("jobs").fetch("policy").fetch("steps").first
     step["run"] = step.fetch("run").sub('[[ "$PR_MERGED" != "false" ]]', '[[ -z "$PR_MERGED" ]]')
   },
-  "untrusted association" => ->(value) {
+  "untrusted association privilege escalation" => ->(value) {
     step = value.fetch("jobs").fetch("policy").fetch("steps").first
-    step["run"] = step.fetch("run").sub("OWNER | MEMBER | COLLABORATOR)", "OWNER | MEMBER | COLLABORATOR | CONTRIBUTOR)")
+    step["run"] = step.fetch("run").sub('*) trusted_author=false ;;', '*) trusted_author=true ;;')
   },
-  "untrusted association fallthrough" => ->(value) {
+  "Dependabot privilege escalation" => ->(value) {
     step = value.fetch("jobs").fetch("policy").fetch("steps").first
-    step["run"] = step.fetch("run").sub('*) reject "author association is not trusted: $AUTHOR_ASSOCIATION" ;;', "*) ;;")
-  },
-  "Dependabot acceptance" => ->(value) {
-    step = value.fetch("jobs").fetch("policy").fetch("steps").first
-    step["run"] = step.fetch("run").sub('[[ "$ACTOR" == "dependabot[bot]" || "$AUTHOR_LOGIN" == "dependabot[bot]" ]]', '[[ -z "$ACTOR" ]]')
+    step["run"] = step.fetch("run").sub('"$ACTOR" == "dependabot[bot]" || "$AUTHOR_LOGIN" == "dependabot[bot]" ||', '"$ACTOR" == "not-dependabot" || "$AUTHOR_LOGIN" == "not-dependabot" ||')
   },
   "release label conflict" => ->(value) {
     step = value.fetch("jobs").fetch("policy").fetch("steps").first
@@ -555,7 +566,7 @@ mutations.each do |name, mutate|
   raise "FAIL: validator accepted mutation: #{name}"
 end
 
-puts "CI workflow tests passed (#{mutations.length} security mutations rejected; 7 runtime probes passed)"
+puts "CI workflow tests passed (#{mutations.length} security mutations rejected; 9 runtime probes passed)"
 RUBY
 
 exit 0

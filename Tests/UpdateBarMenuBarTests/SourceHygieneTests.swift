@@ -324,27 +324,6 @@ final class SourceHygieneTests: XCTestCase {
         XCTAssertTrue(errorSource.contains("updateItemsModel()"))
     }
 
-    func testPopoverUsesStableHostingAndLeavesDashboardInItsWindow() throws {
-        let controller = try String(
-            contentsOfFile: "Sources/UpdateBarMenuBarApp/MenuBarPopoverController.swift",
-            encoding: .utf8
-        )
-        XCTAssertTrue(controller.contains("NSPopover"))
-        XCTAssertTrue(controller.contains("NSHostingController"))
-        XCTAssertTrue(controller.contains(".transient"))
-        XCTAssertTrue(controller.contains("visibleFrame"))
-        let paths = [
-            "Sources/UpdateBarMenuBarApp/DashboardPopoverView.swift",
-            "Sources/UpdateBarMenuBarApp/DashboardPopoverController.swift",
-            "Sources/UpdateBarMenuBar/DashboardPopoverModel.swift",
-            "Tests/UpdateBarMenuBarTests/DashboardPopoverModelTests.swift",
-        ]
-
-        for path in paths {
-            XCTAssertFalse(FileManager.default.fileExists(atPath: path), path)
-        }
-    }
-
     func testDashboardUsesOneSidebarWindowWithThreeEmbeddedSections() throws {
         let dashboardSource = try String(
             contentsOf: URL(

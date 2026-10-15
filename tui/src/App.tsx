@@ -3,12 +3,13 @@ import path from 'node:path';
 import {Box, Text, useApp, useInput, useStdin, type Key} from 'ink';
 import {createDefaultClient, type UpdateBarClient} from './client.js';
 import {redactSecrets} from './secrets.js';
-import type {CheckReport, MachineEvent, ScanCandidate, ScanReport, StatusItem, StatusSnapshot} from './types.js';
+import type {CheckReport, HistoryEvent, MachineEvent, ScanCandidate, ScanReport, StatusItem, StatusSnapshot} from './types.js';
 
 type Screen =
   | 'menu'
   | 'status'
   | 'logs'
+  | 'history'
   | 'config-path'
   | 'scan'
   | 'select-update'
@@ -76,6 +77,9 @@ export function App({client: providedClient}: AppProps) {
   const [status, setStatus] = useState<StatusSnapshot | undefined>();
   const [statusUnavailable, setStatusUnavailable] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
+  const [history, setHistory] = useState<HistoryEvent[] | undefined>();
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [historyUnavailable, setHistoryUnavailable] = useState(false);
   const [scanReport, setScanReport] = useState<ScanReport | undefined>();
   const [scanIndex, setScanIndex] = useState(0);
   const [selectedScanIds, setSelectedScanIds] = useState<Set<string>>(() => new Set());
@@ -84,6 +88,7 @@ export function App({client: providedClient}: AppProps) {
   const [promptToolName, setPromptToolName] = useState('');
   const [selectedPromptIndex, setSelectedPromptIndex] = useState(0);
   const [error, setError] = useState<string | undefined>();
+  const [notice, setNotice] = useState<string | undefined>();
   const [clientSetupError, setClientSetupError] = useState<string | undefined>();
   const [abortController, setAbortController] = useState<AbortController | undefined>();
   const abortControllerRef = useRef<AbortController | undefined>(undefined);
@@ -134,6 +139,10 @@ export function App({client: providedClient}: AppProps) {
       }
       if (_input === 'm' && screen !== 'menu' && !abortController) {
         setScreen('menu');
+        return;
+      }
+      if (screen === 'history') {
+        handleHistoryInput(key);
         return;
       }
       if (screen === 'scan') {
@@ -297,6 +306,17 @@ export function App({client: providedClient}: AppProps) {
     }
   }
 
+  function handleHistoryInput(key: {upArrow: boolean; downArrow: boolean}) {
+    const events = history ?? [];
+    if (key.upArrow) {
+      setHistoryIndex(index => Math.max(0, index - 1));
+      return;
+    }
+    if (key.downArrow) {
+      setHistoryIndex(index => Math.min(Math.max(0, events.length - 1), index + 1));
+    }
+  }
+
   async function refreshStatus(activeClient: UpdateBarClient) {
     const generation = ++statusGenerationRef.current;
     try {
@@ -321,10 +341,7 @@ export function App({client: providedClient}: AppProps) {
         setError(undefined);
         return;
       case 'view-logs':
-        setScreen('logs');
-        if (logs.length === 0) {
-          setError(undefined);
-        }
+        await loadHistory(client);
         return;
       case 'open-prompts':
         setScreen('prompts');
@@ -381,11 +398,41 @@ export function App({client: providedClient}: AppProps) {
     setScreen('select-update');
   }
 
+  async function loadHistory(activeClient: UpdateBarClient | undefined) {
+    if (!activeClient) {
+      setHistoryUnavailable(true);
+      setError(clientSetupError ?? 'updatebar client unavailable');
+      setScreen('history');
+      return;
+    }
+    const controller = beginAbortableAction();
+    setScreen('history');
+    setHistory(undefined);
+    setHistoryIndex(0);
+    setHistoryUnavailable(false);
+    setError(undefined);
+    setNotice(undefined);
+    try {
+      setHistory(await activeClient.history({signal: controller.signal}));
+    } catch (caught) {
+      setHistory([]);
+      if (controller.signal.aborted) {
+        setNotice('Cancellation: history load cancelled');
+      } else {
+        setHistoryUnavailable(true);
+        setError(messageFor(caught));
+      }
+    } finally {
+      endAbortableAction(controller);
+    }
+  }
+
   async function runCheck(activeClient: UpdateBarClient) {
     const controller = beginAbortableAction();
     setScreen('logs');
     setLogs(['check started']);
     setError(undefined);
+    setNotice(undefined);
     try {
       const report = await activeClient.checkNow({signal: controller.signal});
       setLogs(previous => [...previous, ...checkSummaryLines(report)]);
@@ -396,7 +443,11 @@ export function App({client: providedClient}: AppProps) {
         ...previous.filter(line => line !== 'check started'),
         cancelled ? 'check cancelled' : 'check failed'
       ]);
-      setError(cancelled ? 'check cancelled' : messageFor(caught));
+      if (cancelled) {
+        setNotice('Cancellation: check cancelled');
+      } else {
+        setError(messageFor(caught));
+      }
     } finally {
       endAbortableAction(controller);
     }
@@ -409,11 +460,16 @@ export function App({client: providedClient}: AppProps) {
     setScanIndex(0);
     setSelectedScanIds(new Set());
     setError(undefined);
+    setNotice(undefined);
     try {
       setScanReport(await activeClient.scan({signal: controller.signal}));
     } catch (caught) {
       setScanReport({candidates: [], errors: []});
-      setError(controller.signal.aborted ? 'scan cancelled' : messageFor(caught));
+      if (controller.signal.aborted) {
+        setNotice('Cancellation: scan cancelled');
+      } else {
+        setError(messageFor(caught));
+      }
     } finally {
       endAbortableAction(controller);
     }
@@ -430,6 +486,7 @@ export function App({client: providedClient}: AppProps) {
     setScreen('logs');
     setLogs(['registering scan selections']);
     setError(undefined);
+    setNotice(undefined);
     try {
       const result = await client.initSelected(ids, {signal: controller.signal});
       setLogs([
@@ -443,7 +500,11 @@ export function App({client: providedClient}: AppProps) {
     } catch (caught) {
       const cancelled = controller.signal.aborted;
       setLogs([cancelled ? 'registration cancelled' : 'registration failed']);
-      setError(cancelled ? 'registration cancelled' : messageFor(caught));
+      if (cancelled) {
+        setNotice('Cancellation: registration cancelled');
+      } else {
+        setError(messageFor(caught));
+      }
     } finally {
       endAbortableAction(controller);
     }
@@ -460,6 +521,7 @@ export function App({client: providedClient}: AppProps) {
     setScreen('updating');
     setLogs(['update started']);
     setError(undefined);
+    setNotice(undefined);
     try {
       await activeClient.updateSelected(ids, {
         signal: controller.signal,
@@ -473,7 +535,11 @@ export function App({client: providedClient}: AppProps) {
         ...previous.filter(line => line !== 'update started'),
         cancelled ? 'update cancelled' : 'update failed'
       ]);
-      setError(cancelled ? 'update cancelled' : messageFor(caught));
+      if (cancelled) {
+        setNotice('Cancellation: update cancelled');
+      } else {
+        setError(messageFor(caught));
+      }
     } finally {
       endAbortableAction(controller);
       setScreen('logs');
@@ -497,6 +563,7 @@ export function App({client: providedClient}: AppProps) {
     <Box flexDirection="column">
       <Text bold>UpdateBar</Text>
       {error && <Text color="red">{redactSecrets(error)}</Text>}
+      {notice && <Text color="yellow">{redactSecrets(notice)}</Text>}
       <StatusLine status={status} unavailable={statusUnavailable} />
       {screen === 'menu' && (
         <Box flexDirection="column" marginTop={1}>
@@ -509,6 +576,13 @@ export function App({client: providedClient}: AppProps) {
         </Box>
       )}
       {screen === 'status' && <StatusList status={status} />}
+      {screen === 'history' && (
+        <HistoryList
+          events={history}
+          cursorIndex={historyIndex}
+          unavailable={historyUnavailable}
+        />
+      )}
       {screen === 'scan' && (
         <ScanList report={scanReport} selectedIds={selectedScanIds} cursorIndex={scanIndex} />
       )}
@@ -539,6 +613,7 @@ export function App({client: providedClient}: AppProps) {
       )}
       {(screen === 'logs' || screen === 'updating') && (
         <Box flexDirection="column" marginTop={1}>
+          <Text dimColor>Session output</Text>
           {screen === 'updating' && <Text color="yellow">Running updates. Press c to cancel.</Text>}
           {logs.length === 0 ? (
             <Text dimColor>No logs yet</Text>
@@ -559,7 +634,12 @@ export function App({client: providedClient}: AppProps) {
 function StatusLine({status, unavailable}: {status: StatusSnapshot | undefined; unavailable: boolean}) {
   if (unavailable) return <Text dimColor>Status unavailable</Text>;
   if (!status) return <Text dimColor>Loading status...</Text>;
-  return <Text>{formatStatusSummary(status)}</Text>;
+  return (
+    <Box flexDirection="column">
+      <Text>{formatStatusSummary(status)}</Text>
+      <Text dimColor>{`Snapshot generated: ${status.generated_at} · Check Now refreshes tool checks`}</Text>
+    </Box>
+  );
 }
 
 function formatStatusSummary(status: StatusSnapshot) {
@@ -599,6 +679,63 @@ function StatusList({status}: {status: StatusSnapshot | undefined}) {
   );
 }
 
+function HistoryList({
+  events,
+  cursorIndex,
+  unavailable
+}: {
+  events: HistoryEvent[] | undefined;
+  cursorIndex: number;
+  unavailable: boolean;
+}) {
+  if (events === undefined) return <Text dimColor>Loading recorded history...</Text>;
+  if (unavailable) return <Text dimColor>Recorded history unavailable</Text>;
+  if (events.length === 0) return <Text dimColor>No recorded history yet</Text>;
+  const visibleRows = getVisibleRows([...events].reverse(), cursorIndex, 8);
+  const firstVisibleRow = visibleRows[0]?.row;
+  const lastVisibleRow = visibleRows.at(-1)?.row;
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text bold>Stored history</Text>
+      <Text dimColor>{`showing ${
+        typeof firstVisibleRow === 'number' ? firstVisibleRow + 1 : 0
+      }-${
+        typeof lastVisibleRow === 'number' ? lastVisibleRow + 1 : 0
+      } of ${events.length}`}</Text>
+      {visibleRows.map(({row, item}) => (
+        <Text
+          key={`${item.at}-${item.event}-${item.id ?? 'event'}-${row}`}
+          color={row === cursorIndex ? 'cyan' : undefined}
+          wrap="truncate-end"
+        >
+          {renderHistoryEvent(item)}
+        </Text>
+      ))}
+      <Text dimColor>Full diagnostics: updatebar history</Text>
+    </Box>
+  );
+}
+
+function renderHistoryEvent(event: HistoryEvent) {
+  if (event.event === 'check_finished') {
+    const detail = typeof event.outdated === 'number' ? `${event.outdated} outdated` : 'check completed';
+    const error = event.error ? ` · error: ${event.error}` : '';
+    return sanitizeHistoryText(`${event.at} · check finished · ${detail}${error}`);
+  }
+
+  const subject = event.id ?? event.target ?? 'update';
+  const transition = [event.from, event.to].filter(value => value?.trim()).join(' → ');
+  const detail = [transition, event.outcome].filter(value => value?.trim()).join(' · ');
+  const target = event.target && event.target !== subject ? ` · target ${event.target}` : '';
+  const exit = typeof event.command_exit_code === 'number' ? ` · exit ${event.command_exit_code}` : '';
+  const error = event.error ? ` · error: ${event.error}` : '';
+  return sanitizeHistoryText(`${event.at} · ${subject}${detail ? ` · ${detail}` : ''}${target}${exit}${error}`);
+}
+
+function sanitizeHistoryText(text: string) {
+  return redactSecrets(text.replace(/\p{Cc}/gu, ' '));
+}
+
 function renderStatusRow(item: StatusItem) {
   if (item.id === 'no items') {
     return <Text italic>no items tracked yet</Text>;
@@ -607,8 +744,9 @@ function renderStatusRow(item: StatusItem) {
     .filter(value => Boolean(value))
     .map(value => value?.trim())
     .join(' → ');
+  const checked = item.last_checked ? ` · last checked: ${item.last_checked}` : '';
   const suffix = item.error ? ` · ! ${item.error}` : '';
-  return <Text>{redactSecrets(`${item.id} (${item.category}) ${item.status}${version ? ` · ${version}` : ''}${suffix}`)}</Text>;
+  return <Text>{redactSecrets(`${item.id} (${item.category}) ${item.status}${version ? ` · ${version}` : ''}${checked}${suffix}`)}</Text>;
 }
 
 function statusColor(status: StatusItem['status']) {
@@ -859,6 +997,7 @@ function helpText(screen: Screen, canCancel: boolean) {
   if (screen === 'prompts') {
     return '↑/↓ select template · type tool name · esc menu · ctrl+c quit';
   }
+  if (screen === 'history') return '↑/↓ navigate · m menu · q quit';
   if (screen === 'select-update') {
     return '↑/↓ navigate · a all · A clear · space select · enter confirm · m menu · q quit';
   }

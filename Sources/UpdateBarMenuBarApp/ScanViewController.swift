@@ -93,6 +93,7 @@
         private let discoveredCountBadge = ScanCountBadgeView(frame: .zero)
         private let enabledCountBadge = ScanCountBadgeView(frame: .zero)
         private let disabledCountBadge = ScanCountBadgeView(frame: .zero)
+        private let scanGuidanceLabel = NSTextField(wrappingLabelWithString: "")
 
         init(
             service: any MenuBarServicing,
@@ -442,6 +443,11 @@
             counts.distribution = .fillEqually
             counts.spacing = 8
 
+            scanGuidanceLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+            scanGuidanceLabel.textColor = .secondaryLabelColor
+            scanGuidanceLabel.lineBreakMode = .byWordWrapping
+            scanGuidanceLabel.maximumNumberOfLines = 0
+
             for (identifier, title, width) in [
                 ("tracked", "On", 42.0),
                 ("name", "Name", 180.0),
@@ -467,7 +473,7 @@
             scrollView.hasHorizontalScroller = true
             scrollView.borderType = .bezelBorder
 
-            let stack = NSStackView(views: [controls, counts, scrollView])
+            let stack = NSStackView(views: [controls, counts, scanGuidanceLabel, scrollView])
             stack.orientation = .vertical
             stack.alignment = .leading
             stack.spacing = 10
@@ -501,6 +507,7 @@
             updateCountBadge(discoveredCountBadge, count: counts[0])
             updateCountBadge(enabledCountBadge, count: counts[1])
             updateCountBadge(disabledCountBadge, count: counts[2])
+            updateScanGuidance()
             let scanControl = presentationModel.scanControl(state: scanControlState)
             scanButton.toolTip = scanControl.toolTip
             scanButton.setAccessibilityLabel(scanControl.accessibilityLabel)
@@ -518,6 +525,28 @@
             } else {
                 scanProgressIndicator.stopAnimation(nil)
             }
+        }
+
+        private func updateScanGuidance() {
+            let message: String
+            let identifier: String
+            switch (lastReport, isScanning, scanControlState) {
+            case (_, true, _):
+                message = "Scanning for installed tools…"
+                identifier = "scan-guidance-scanning"
+            case (nil, _, .failed):
+                message = "The scan did not finish. Try again to find installed tools."
+                identifier = "scan-guidance-failed"
+            case (nil, _, _):
+                message = "Not scanned yet. Run Scan to find installed tools."
+                identifier = "scan-guidance-initial"
+            case (.some, _, _):
+                message = "No supported installed tools found in this scan."
+                identifier = "scan-guidance-empty"
+            }
+            scanGuidanceLabel.stringValue = message
+            scanGuidanceLabel.isHidden = !rows.isEmpty
+            scanGuidanceLabel.setAccessibilityIdentifier(identifier)
         }
 
         private func updateCountBadge(

@@ -43,6 +43,43 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertEqual(events.map(\.outdated), [1])
     }
 
+    func testPersistsObservedVersionSeparatelyFromTargetAndCommandOutcome() throws {
+        let store = try makeStore()
+        try store.append(
+            HistoryEvent(
+                event: .updateFinished, id: "tool", from: "1.0.0", to: "1.0.0",
+                outcome: "failed", target: "1.1.0", error: "Target was not installed",
+                commandExitCode: 0, at: now
+            ))
+
+        let event = try XCTUnwrap(store.events().first)
+        XCTAssertEqual(event.to, "1.0.0")
+        XCTAssertEqual(event.target, "1.1.0")
+        XCTAssertEqual(event.outcome, "failed")
+        XCTAssertEqual(event.commandExitCode, 0)
+        XCTAssertEqual(event.error, "Target was not installed")
+    }
+
+    func testDiagnosticIsRedactedBeforeTruncationAndRemainsReadableAfterReload() throws {
+        let paths = try temporaryPaths()
+        let secret = "sk-or-v1-secret-value"
+        let error =
+            String(repeating: "x", count: 4080) + secret + " " + String(repeating: "y", count: 1000)
+        try HistoryStore(paths: paths).append(
+            HistoryEvent(
+                event: .updateFinished, id: "tool", outcome: "failed",
+                target: secret, error: error, commandExitCode: 7, at: now
+            ))
+
+        let persisted = try String(contentsOf: paths.historyFile, encoding: .utf8)
+        let event = try XCTUnwrap(HistoryStore(paths: paths).events().first)
+        XCTAssertFalse(persisted.contains(secret))
+        XCTAssertEqual(event.target, "[REDACTED]")
+        XCTAssertEqual(event.commandExitCode, 7)
+        XCTAssertTrue(try XCTUnwrap(event.error).hasSuffix("[truncated]"))
+        XCTAssertLessThan(try XCTUnwrap(event.error).count, 4200)
+    }
+
     func testMissingFileReadsAsEmpty() throws {
         let store = try makeStore()
         XCTAssertEqual(try store.events(), [])

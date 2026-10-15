@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+## 0.6.32 - 2026-10-14
+
+### Fixed
+
+- Verify the freshly installed version reaches the planned update target before
+  reporting success, and retain command exit codes and redacted failure reasons.
+- Separate observed and target versions in update history and preserve legacy
+  history records in the CLI, Dashboard and TUI.
+- Run read-only CI checks for dependency and fork pull requests without granting
+  permission to change release versions.
+- Keep long failure diagnostics within a scrollable Logs detail pane and retain
+  terminal menu/quit shortcuts while browsing stored history.
+- Keep terminal history rows distinct when a tool has multiple attempts in the
+  same second.
+
+### Changed
+
+- Add search and tool, outcome and time filters to Dashboard Logs, with selectable
+  failure details and a copy action.
+- Link the empty Items view to Scan & Add and distinguish scan guidance before
+  scanning from a completed scan with no results.
+- Read stored history in the TUI, distinguish session output, show check freshness
+  and present cancellation as a neutral notice.
+- Remove the unused legacy popover and move shared item actions into their own file.
+- Add a main-branch landing deployment workflow with source revision verification,
+  and a GitHub release download report that distinguishes transfers from users.
+- Update the compatible TUI development dependency releases.
+
 ## 0.6.31 - 2026-10-13
 
 ### Fixed

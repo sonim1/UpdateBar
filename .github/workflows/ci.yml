@@ -27,6 +27,7 @@ jobs:
     outputs:
       trusted: ${{ steps.policy.outputs.trusted }}
       release_kind: ${{ steps.policy.outputs.release_kind }}
+      cache_scope: ${{ steps.policy.outputs.cache_scope }}
     steps:
       - name: Validate pull request policy
         id: policy
@@ -60,17 +61,21 @@ jobs:
           if [[ "$PR_MERGED" != "false" ]]; then
             reject "pull request must not be merged"
           fi
-          if [[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]; then
-            reject "head repository must match the base repository"
-          fi
-          if [[ "$ACTOR" == "dependabot[bot]" || "$AUTHOR_LOGIN" == "dependabot[bot]" ]]; then
-            reject "Dependabot pull requests cannot prepare versions"
+          if [[ -z "$HEAD_REPOSITORY" ]]; then
+            reject "head repository is missing"
           fi
 
           case "$AUTHOR_ASSOCIATION" in
-            OWNER | MEMBER | COLLABORATOR) ;;
-            *) reject "author association is not trusted: $AUTHOR_ASSOCIATION" ;;
+            OWNER | MEMBER | COLLABORATOR) trusted_author=true ;;
+            *) trusted_author=false ;;
           esac
+
+          if [[ "$HEAD_REPOSITORY" != "$REPOSITORY" ||
+                "$ACTOR" == "dependabot[bot]" || "$AUTHOR_LOGIN" == "dependabot[bot]" ||
+                "$trusted_author" != "true" ]]; then
+            printf 'cache_scope=untrusted\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           if ! release_kind="$(
             /usr/bin/ruby -rjson -e '
@@ -87,6 +92,7 @@ jobs:
           fi
 
           printf 'release_kind=%s\n' "$release_kind" >> "$GITHUB_OUTPUT"
+          printf 'cache_scope=trusted\n' >> "$GITHUB_OUTPUT"
           printf 'trusted=true\n' >> "$GITHUB_OUTPUT"
 
   version:
@@ -266,15 +272,16 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Enforce pull request version gate
-        if: ${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || needs.version.result != 'success' || needs.version.outputs.ready != 'true') }}
+        if: ${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || (needs.policy.outputs.trusted == 'true' && (needs.version.result != 'success' || needs.version.outputs.ready != 'true'))) }}
         shell: bash
         env:
           POLICY_RESULT: ${{ needs.policy.result }}
+          TRUSTED: ${{ needs.policy.outputs.trusted }}
           VERSION_RESULT: ${{ needs.version.result }}
           VERSION_READY: ${{ needs.version.outputs.ready }}
         run: |
           set -euo pipefail
-          echo "pull request version gate is not ready: policy=$POLICY_RESULT version=$VERSION_RESULT ready=$VERSION_READY" >&2
+          echo "pull request version gate is not ready: policy=$POLICY_RESULT trusted=$TRUSTED version=$VERSION_RESULT ready=$VERSION_READY" >&2
           exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -283,13 +290,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: tui/package-lock.json
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .build
-          key: macos-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
-          restore-keys: macos-spm-${{ runner.os }}-
+          key: macos-spm-${{ github.event_name == 'pull_request' && needs.policy.outputs.cache_scope || 'push' }}-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: macos-spm-${{ github.event_name == 'pull_request' && needs.policy.outputs.cache_scope || 'push' }}-${{ runner.os }}-
       - name: Install shellcheck
         run: brew install shellcheck
       - name: Quality gate
@@ -302,15 +307,16 @@ jobs:
     container: swift:6.0
     steps:
       - name: Enforce pull request version gate
-        if: ${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || needs.version.result != 'success' || needs.version.outputs.ready != 'true') }}
+        if: ${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || (needs.policy.outputs.trusted == 'true' && (needs.version.result != 'success' || needs.version.outputs.ready != 'true'))) }}
         shell: bash
         env:
           POLICY_RESULT: ${{ needs.policy.result }}
+          TRUSTED: ${{ needs.policy.outputs.trusted }}
           VERSION_RESULT: ${{ needs.version.result }}
           VERSION_READY: ${{ needs.version.outputs.ready }}
         run: |
           set -euo pipefail
-          echo "pull request version gate is not ready: policy=$POLICY_RESULT version=$VERSION_RESULT ready=$VERSION_READY" >&2
+          echo "pull request version gate is not ready: policy=$POLICY_RESULT trusted=$TRUSTED version=$VERSION_RESULT ready=$VERSION_READY" >&2
           exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -319,8 +325,8 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .build
-          key: linux-spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
-          restore-keys: linux-spm-${{ runner.os }}-
+          key: linux-spm-${{ github.event_name == 'pull_request' && needs.policy.outputs.cache_scope || 'push' }}-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: linux-spm-${{ github.event_name == 'pull_request' && needs.policy.outputs.cache_scope || 'push' }}-${{ runner.os }}-
       - name: Install quality gate dependencies
         run: |
           apt-get update
