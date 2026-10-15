@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.6.33 - 2026-10-15
+
+### Fixed
+
+- Wait for the exact deployed website source marker to reach the production
+  domain, with bounded retries for missing, stale or unreachable responses.
+
 ## 0.6.32 - 2026-10-14
 
 ### Fixed
