@@ -59,7 +59,7 @@ for canonical in "${canonicals[@]}"; do
   test "$(grep -Fh "<link rel=\"canonical\" href=\"$canonical\">" "${pages[@]}" | wc -l | tr -d ' ')" = 1
 done
 
-ruby -rjson -ruri -e '
+ruby -rjson -ruri -rzlib -e '
   titles = []
   descriptions = []
   readme_prompt = File.read("README.md")[/## Install With AI.*?```text\n(.*?)\n```/m, 1]
@@ -114,6 +114,14 @@ ruby -rjson -ruri -e '
       end
     end
   end
+
+  image_header = File.binread("docs/og-updatebar.png", 33)
+  raise "invalid Open Graph PNG header" unless image_header.bytesize == 33 &&
+    image_header.start_with?("\x89PNG\r\n\x1a\n".b) &&
+    image_header.byteslice(8, 8) == [13, "IHDR"].pack("Na4") &&
+    Zlib.crc32(image_header.byteslice(12, 17)) == image_header.byteslice(29, 4).unpack1("N")
+  width, height = image_header.byteslice(16, 8).unpack("N2")
+  raise "Open Graph image must be 1200x630" unless width == 1200 && height == 630
 ' "${pages[@]}"
 
 grep -Fxq 'User-agent: *' docs/robots.txt
@@ -126,10 +134,6 @@ test "$(grep -c '<url>' docs/sitemap.xml)" = 3
 
 grep -q '<meta name="robots" content="noindex">' docs/404.html
 grep -q 'Approved commands are not sandboxed.' docs/llms.txt
-
-dimensions="$(sips -g pixelWidth -g pixelHeight docs/og-updatebar.png 2>/dev/null)"
-grep -q 'pixelWidth: 1200' <<<"$dimensions"
-grep -q 'pixelHeight: 630' <<<"$dimensions"
 
 grep -q 'Update developer tools from one trusted place.' docs/index.html
 grep -q 'Update developer tools from your Mac menu bar.' docs/macos/index.html
