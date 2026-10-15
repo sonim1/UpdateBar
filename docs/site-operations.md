@@ -20,6 +20,12 @@ and a route that must return a real HTTP 404. Reading `main` at execution time
 prevents an older queued event from deploying an older commit after a newer
 deployment. Production deployments are never triggered by a pull request.
 
+Pages may finish uploading before its production domain serves the new source
+marker. Verification retries that marker up to 24 times, with five-second read
+limits and five-second gaps. A missing, stale or unreachable marker must become
+the exact deployed commit before verification can pass; an incorrect home page
+or a missing route that returns HTTP 200 still fails the deployment check.
+
 The repository must have this GitHub Actions variable and secret before the
 workflow can deploy:
 

@@ -12,7 +12,7 @@ body="$(mktemp)"
 trap 'rm -f "$body"' EXIT
 
 fetch() {
-  curl --silent --show-error --location --max-time 30 \
+  curl --silent --show-error --location --max-time "${2:-30}" \
     --header 'Cache-Control: no-cache' \
     --output "$body" --write-out '%{http_code}' "$1"
 }
@@ -28,10 +28,20 @@ grep -Fq '<link rel="canonical" href="https://updatebar.royjen.com/">' "$body" |
   exit 1
 }
 
-status="$(fetch "$origin/deployment-source.txt?source=$source_sha")"
-[[ "$status" == 200 ]] || { echo "deployment source marker returned HTTP $status" >&2; exit 1; }
-[[ "$(tr -d '\r\n' < "$body")" == "$source_sha" ]] || {
-  echo 'production does not report the deployed source SHA' >&2
+marker_ready=0
+for attempt in {1..24}; do
+  if status="$(fetch "$origin/deployment-source.txt?source=$source_sha" 5)" &&
+    [[ "$status" == 200 ]] && [[ "$(tr -d '\r\n' < "$body")" == "$source_sha" ]]; then
+    marker_ready=1
+    break
+  fi
+  if [[ "$attempt" -lt 24 ]]; then
+    echo "waiting for production source marker ($attempt/24, HTTP $status)" >&2
+    sleep 5
+  fi
+done
+[[ "$marker_ready" == 1 ]] || {
+  echo "production source marker did not become ready (last HTTP $status)" >&2
   exit 1
 }
 
