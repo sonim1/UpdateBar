@@ -11,6 +11,9 @@ Homebrew and Sparkle publishing are separate from the website.
 `.github/workflows/site-deploy.yml` publishes after a push to `main` changes a
 file under `docs/`. When each serialized job starts, it checks out the current
 reviewed `main`, selects Node.js 24, and runs `Scripts/landing-contract-test.sh`.
+The precheck uses Ruby standard libraries to validate the Open Graph PNG header
+and its 1200 by 630 dimensions, so it works on the Linux deployment runner
+without macOS image tools.
 It writes the checked-out commit to `deployment-source.txt`, attaches that same
 commit to the Pages deployment, then checks the public home page, source marker
 and a route that must return a real HTTP 404. Reading `main` at execution time
