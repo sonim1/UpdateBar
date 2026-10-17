@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.34 - 2026-10-17
+
 ### Fixed
 
 - Align TUI Node requirements with the locked dependencies and check strict
