@@ -10,6 +10,7 @@ abort "missing packaged app E2E runner" unless File.file?(runner)
 %w[
   Tests/PackagedAppE2E/PackagedAppE2E.xcodeproj/project.pbxproj
   Tests/PackagedAppE2E/PackagedAppE2E.xcodeproj/xcshareddata/xcschemes/PackagedAppE2E.xcscheme
+  Tests/PackagedAppE2E/PackagedAppE2E-Info.plist
 ].each do |path|
   abort "missing E2E test project input: #{path}" unless File.file?(File.join(root, path))
 end

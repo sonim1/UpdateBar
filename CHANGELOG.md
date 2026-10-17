@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Fixed
+
+- Align TUI Node requirements with the locked dependencies and check strict
+  installs, tests, lint, builds, and packaging on Node 22.13, 22, 24, and 26.
+
+### Changed
+
+- Exercise first-use registration, exact-command approval, updates, history,
+  relaunch persistence, empty-scan retry, and unchanged-version failures through
+  the packaged macOS app in an isolated XCUITest workflow.
+
 ## 0.6.33 - 2026-10-15
 
 ### Fixed

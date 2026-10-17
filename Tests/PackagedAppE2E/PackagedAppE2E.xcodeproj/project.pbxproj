@@ -19,7 +19,7 @@
 		};
 		000000000000000000000002 = {
 			isa = PBXGroup;
-			children = (000000000000000000000005, 000000000000000000000016, 000000000000000000000003);
+			children = (000000000000000000000005, 000000000000000000000016, 000000000000000000000017, 000000000000000000000003);
 			sourceTree = "<group>";
 		};
 		000000000000000000000003 = {
@@ -112,6 +112,12 @@
 			isa = PBXFileReference;
 			lastKnownFileType = text.xcconfig;
 			path = PackagedAppE2E.xcconfig;
+			sourceTree = "<group>";
+		};
+		000000000000000000000017 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.xml;
+			path = PackagedAppE2E-Info.plist;
 			sourceTree = "<group>";
 		};
 	};

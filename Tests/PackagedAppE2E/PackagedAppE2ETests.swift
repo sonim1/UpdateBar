@@ -174,14 +174,14 @@ private final class AppFixture {
     private var launched = false
 
     init(includeBrew: Bool = true) throws {
-        guard
-            let path = Bundle(for: PackagedAppE2ETests.self)
-                .object(forInfoDictionaryKey: "UpdateBarE2EAppPath") as? String,
-            path.hasPrefix("/"),
+        let path =
+            Bundle(for: PackagedAppE2ETests.self)
+            .object(forInfoDictionaryKey: "UpdateBarE2EAppPath") as? String
+        guard let path, path.hasPrefix("/"),
             let bundle = Bundle(url: URL(fileURLWithPath: path)),
             let identifier = bundle.bundleIdentifier
         else {
-            throw FixtureError.invalidBundle
+            throw FixtureError.invalidBundle(path)
         }
         guard NSRunningApplication.runningApplications(withBundleIdentifier: identifier).isEmpty
         else {
@@ -339,15 +339,15 @@ private final class AppFixture {
 }
 
 private enum FixtureError: LocalizedError {
-    case invalidBundle
+    case invalidBundle(String?)
     case appAlreadyRunning
     case timedOut(String)
     case cliFailed([String], String)
 
     var errorDescription: String? {
         switch self {
-        case .invalidBundle:
-            "Run Scripts/app-e2e.sh with a packaged UpdateBar.app."
+        case .invalidBundle(let path):
+            "Run Scripts/app-e2e.sh with a packaged UpdateBar.app; configured path: \(path ?? "missing")."
         case .appAlreadyRunning:
             "Quit the running UpdateBar app before testing; E2E will not terminate an existing instance."
         case .timedOut(let condition):
