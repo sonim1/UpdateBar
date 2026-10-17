@@ -270,6 +270,7 @@ jobs:
     needs: [policy, version]
     if: ${{ always() }}
     runs-on: macos-15
+    timeout-minutes: 30
     steps:
       - name: Enforce pull request version gate
         if: ${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || (needs.policy.outputs.trusted == 'true' && (needs.version.result != 'success' || needs.version.outputs.ready != 'true'))) }}
@@ -289,7 +290,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: 20
+          node-version: 24
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .build
@@ -299,6 +300,16 @@ jobs:
         run: brew install shellcheck
       - name: Quality gate
         run: SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh
+      - name: Test packaged app
+        run: bash Scripts/app-e2e.sh dist/UpdateBar.app "$RUNNER_TEMP/updatebar-app-e2e.xcresult"
+      - name: Upload E2E evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: packaged-app-e2e-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/updatebar-app-e2e.xcresult
+          if-no-files-found: warn
+          retention-days: 7
 
   linux:
     needs: [policy, version]
@@ -335,3 +346,35 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Quality gate
         run: SKIP_MENUBAR_SMOKE=1 SKIP_TUI_SMOKE=1 SKIP_TUI_INPUT=1 SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh
+
+  tui:
+    needs: [policy, version]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['22.13.0', '22.x', '24.x', '26.x']
+    steps:
+      - name: Enforce pull request version gate
+        if: ${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || (needs.policy.outputs.trusted == 'true' && (needs.version.result != 'success' || needs.version.outputs.ready != 'true'))) }}
+        shell: bash
+        env:
+          POLICY_RESULT: ${{ needs.policy.result }}
+          TRUSTED: ${{ needs.policy.outputs.trusted }}
+          VERSION_RESULT: ${{ needs.version.result }}
+          VERSION_READY: ${{ needs.version.outputs.ready }}
+        run: |
+          set -euo pipefail
+          echo "pull request version gate is not ready: policy=$POLICY_RESULT trusted=$TRUSTED version=$VERSION_RESULT ready=$VERSION_READY" >&2
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: TUI runtime checks
+        run: bash Scripts/tui-smoke-test.sh

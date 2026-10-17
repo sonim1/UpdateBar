@@ -50,7 +50,7 @@ UpdateBar has no telemetry.
 - macOS 13 or later for the menu bar app
 - macOS on Apple Silicon or Linux x86_64 for published CLI binaries
 - Swift 6 toolchain for source builds
-- Node.js and npm only when building the optional Ink TUI from source
+- Node.js 22.13+ (22.x) or 24+ and npm for the optional Ink TUI
 
 ## Install With Homebrew
 

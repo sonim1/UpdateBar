@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$ROOT/.github/workflows/ci.yml"
 [[ -f "$WORKFLOW" ]] || { echo "CI workflow is missing" >&2; exit 1; }
 
-ruby -rpsych -ropen3 -rtmpdir -rfileutils -rshellwords - "$WORKFLOW" <<'RUBY'
+ruby -rpsych -rjson -ropen3 -rtmpdir -rfileutils -rshellwords - "$WORKFLOW" <<'RUBY'
 CHECKOUT_ACTION = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 TOKEN_ACTION = "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1"
 LANE_IF = "${{ always() }}"
@@ -208,7 +208,7 @@ def validate(workflow)
   }, "concurrency must cancel superseded runs per pull request or push ref")
 
   jobs = workflow.fetch("jobs")
-  assert(jobs.keys == %w[policy version macos linux], "job graph must be policy, version, macos, and linux")
+  assert(jobs.keys == %w[policy version macos linux tui], "job graph must include the isolated TUI runtime matrix")
   jobs.each_value do |job|
     job.fetch("steps", []).each do |step|
       next unless step.key?("uses")
@@ -221,6 +221,7 @@ def validate(workflow)
   version = jobs.fetch("version")
   macos = jobs.fetch("macos")
   linux = jobs.fetch("linux")
+  tui = jobs.fetch("tui")
 
   assert(!policy.key?("needs"), "policy must be the first job in the PR dependency graph")
   assert(policy["if"] == "${{ github.event_name == 'pull_request' }}", "policy must be PR-only")
@@ -374,7 +375,7 @@ def validate(workflow)
   assert(commit_run.index('git ls-remote') < commit_run.index('git add --'), "the exact remote head must be validated before staging")
   assert(commit_run.index('git ls-remote') < commit_run.index(expected_push), "the exact remote head must be validated before compare-and-swap push")
 
-  { "macos" => macos, "linux" => linux }.each do |name, job|
+  { "macos" => macos, "linux" => linux, "tui" => tui }.each do |name, job|
     assert(job["needs"].is_a?(Array) && job["needs"].sort == %w[policy version], "#{name} must directly wait for policy and version")
     assert(job["if"] == LANE_IF, "#{name} must always materialize as a required check")
     assert(!job.key?("continue-on-error"), "#{name} must not tolerate a failing version guard")
@@ -394,6 +395,7 @@ def validate(workflow)
       exit 1
     SHELL
     job.fetch("steps").drop(1).each do |step|
+      next if name == "macos" && step["name"] == "Upload E2E evidence"
       assert(!step.key?("if"), "#{name} normal steps must retain implicit success gating after the guard")
     end
     ci_checkout = action_step(job, CHECKOUT_ACTION)
@@ -405,9 +407,10 @@ def validate(workflow)
   end
 
   assert(macos["runs-on"] == "macos-15" && !macos.key?("container"), "macos runner must remain macos-15")
+  assert(macos["timeout-minutes"] == 30, "macos quality and GUI checks must have a bounded timeout")
   assert(action_step(macos, "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020") == {
     "uses" => "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-    "with" => { "node-version" => 20 },
+    "with" => { "node-version" => 24 },
   }, "macos Node tooling must not share an npm cache across trust lanes")
   assert(action_step(macos, "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9") == {
     "uses" => "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
@@ -419,6 +422,24 @@ def validate(workflow)
   }, "macos Swift cache must be isolated by trust lane")
   assert(named_step(macos, "Install shellcheck")["run"] == "brew install shellcheck", "macos shellcheck installation must remain unchanged")
   assert(named_step(macos, "Quality gate")["run"] == "SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh", "macos quality gate command must remain unchanged")
+  app_test = named_step(macos, "Test packaged app")
+  assert(app_test == {
+    "name" => "Test packaged app",
+    "run" => 'bash Scripts/app-e2e.sh dist/UpdateBar.app "$RUNNER_TEMP/updatebar-app-e2e.xcresult"',
+  }, "macos must execute packaged UI tests without tolerating failures")
+  evidence = named_step(macos, "Upload E2E evidence")
+  assert(evidence == {
+    "name" => "Upload E2E evidence",
+    "if" => "${{ always() }}",
+    "uses" => "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "with" => {
+      "name" => "packaged-app-e2e-#{CI_REF}",
+      "path" => "${{ runner.temp }}/updatebar-app-e2e.xcresult",
+      "if-no-files-found" => "warn",
+      "retention-days" => 7,
+    },
+  }, "macos must retain exact-SHA E2E evidence even on failure with read-only permissions")
+  assert(macos.fetch("steps").last(3) == [named_step(macos, "Quality gate"), app_test, evidence], "packaged UI tests must follow the quality gate that builds the app and block CI/release on failure")
 
   assert(linux["runs-on"] == "ubuntu-latest" && linux["container"] == "swift:6.0", "linux runner and Swift container must remain unchanged")
   assert(action_step(linux, "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9") == {
@@ -432,13 +453,71 @@ def validate(workflow)
   assert(named_step(linux, "Install quality gate dependencies")["run"] == "apt-get update\napt-get install -y nodejs ruby shellcheck\n", "linux quality dependencies must remain unchanged")
   assert(named_step(linux, "Trust the checked-out workspace")["run"] == 'git config --global --add safe.directory "$GITHUB_WORKSPACE"', "linux safe-directory command must remain unchanged")
   assert(named_step(linux, "Quality gate")["run"] == "SKIP_MENUBAR_SMOKE=1 SKIP_TUI_SMOKE=1 SKIP_TUI_INPUT=1 SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh", "linux quality gate command must remain unchanged")
+
+  assert(tui["runs-on"] == "ubuntu-24.04", "TUI runtime checks must use an isolated Linux runner")
+  assert(tui["timeout-minutes"] == 10, "TUI runtime checks must have a bounded timeout")
+  assert(tui["strategy"] == {
+    "fail-fast" => false,
+    "matrix" => { "node-version" => ["22.13.0", "22.x", "24.x", "26.x"] },
+  }, "TUI must test its minimum Node runtime and every supported release line independently")
+  assert(tui.fetch("steps").length == 4, "TUI runtime checks must only guard, checkout, install Node, and run the smoke")
+  assert(action_step(tui, "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020") == {
+    "uses" => "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    "with" => { "node-version" => "${{ matrix.node-version }}" },
+  }, "TUI must use each matrix runtime without sharing an npm cache")
+  assert(named_step(tui, "TUI runtime checks") == {
+    "name" => "TUI runtime checks",
+    "run" => "bash Scripts/tui-smoke-test.sh",
+  }, "TUI matrix must execute the real install, typecheck, tests, lint, build, and package checks")
 end
 
 workflow = Psych.safe_load(File.binread(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false)
+root = File.expand_path("../..", File.dirname(ARGV.fetch(0)))
+package = JSON.parse(File.binread(File.join(root, "tui/package.json")))
+lock = JSON.parse(File.binread(File.join(root, "tui/package-lock.json")))
+assert(package.fetch("engines") == { "node" => "^22.13.0 || >=24.0.0" }, "TUI Node support must satisfy the locked runtime and development dependencies")
+assert(lock.fetch("packages").fetch("").fetch("engines") == package.fetch("engines"), "TUI lockfile and package runtime requirements must agree")
 validate(workflow)
 run_runtime_probes(workflow)
 
 mutations = {
+  "unbounded packaged UI job" => ->(value) {
+    value.fetch("jobs").fetch("macos").delete("timeout-minutes")
+  },
+  "packaged UI tests omitted" => ->(value) {
+    value.fetch("jobs").fetch("macos").fetch("steps").reject! { |step| step["name"] == "Test packaged app" }
+  },
+  "packaged UI failure tolerated" => ->(value) {
+    named_step(value.fetch("jobs").fetch("macos"), "Test packaged app")["continue-on-error"] = true
+  },
+  "packaged UI bypasses failed build" => ->(value) {
+    named_step(value.fetch("jobs").fetch("macos"), "Test packaged app")["if"] = "${{ always() }}"
+  },
+  "packaged UI runs before packaging" => ->(value) {
+    steps = value.fetch("jobs").fetch("macos").fetch("steps")
+    steps[-3], steps[-2] = steps[-2], steps[-3]
+  },
+  "failed UI evidence omitted" => ->(value) {
+    named_step(value.fetch("jobs").fetch("macos"), "Upload E2E evidence").delete("if")
+  },
+  "unpinned E2E upload" => ->(value) {
+    named_step(value.fetch("jobs").fetch("macos"), "Upload E2E evidence")["uses"] = "actions/upload-artifact@v4"
+  },
+  "unsupported macOS Node runtime" => ->(value) {
+    action_step(value.fetch("jobs").fetch("macos"), "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020").fetch("with")["node-version"] = 20
+  },
+  "missing minimum Node runtime" => ->(value) {
+    value.fetch("jobs").fetch("tui").fetch("strategy").fetch("matrix").fetch("node-version").delete("22.13.0")
+  },
+  "fail-fast hides runtime failures" => ->(value) {
+    value.fetch("jobs").fetch("tui").fetch("strategy")["fail-fast"] = true
+  },
+  "TUI merge-ref checkout" => ->(value) {
+    action_step(value.fetch("jobs").fetch("tui"), CHECKOUT_ACTION).fetch("with")["ref"] = "${{ github.ref }}"
+  },
+  "TUI smoke omitted" => ->(value) {
+    named_step(value.fetch("jobs").fetch("tui"), "TUI runtime checks")["run"] = "npm --prefix tui run build"
+  },
   "PR target branch" => ->(value) { value.fetch("on").fetch("pull_request")["branches"] = ["develop"] },
   "PR activity list" => ->(value) { value.fetch("on").fetch("pull_request")["types"].delete("labeled") },
   "workflow write permission" => ->(value) { value.fetch("permissions")["contents"] = "write" },

@@ -9,3 +9,6 @@ tui/node_modules/
 /node_modules/
 exported.json
 *.xcodeproj
+!Tests/PackagedAppE2E/PackagedAppE2E.xcodeproj/
+Tests/PackagedAppE2E/PackagedAppE2E.xcodeproj/project.xcworkspace/
+Tests/PackagedAppE2E/PackagedAppE2E.xcodeproj/xcuserdata/

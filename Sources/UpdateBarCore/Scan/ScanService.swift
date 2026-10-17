@@ -81,7 +81,7 @@ public struct ScanService {
                 versionScheme: .calver,
                 check: .command("brew list --versions \(ShellQuote.single(name))"),
                 latest: LatestSpec(strategy: .brew, cmd: nil, pattern: nil),
-                versionParse: .regex("([0-9][0-9A-Za-z._+-]*)"),
+                versionParse: .regex(#"^\S+\s+([0-9][0-9A-Za-z._+-]*)"#),
                 update: UpdateSpec(cmd: "brew upgrade \(ShellQuote.single(name))", cwd: nil),
                 pin: nil,
                 enabled: true,

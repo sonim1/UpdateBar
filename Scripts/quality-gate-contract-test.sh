@@ -17,8 +17,8 @@ if ! grep -Fq 'bash Scripts/quality-gate.sh' "$CI_WORKFLOW"; then
   exit 1
 fi
 
-if ! grep -Fq 'actions/setup-node' "$CI_WORKFLOW" || ! grep -Fq 'node-version: 20' "$CI_WORKFLOW"; then
-  echo "ci.yml must install the TUI Node 20 toolchain before quality-gate.sh" >&2
+if ! grep -Fq 'actions/setup-node' "$CI_WORKFLOW" || ! grep -Fq 'node-version: 24' "$CI_WORKFLOW"; then
+  echo "ci.yml must install the TUI Node 24 toolchain before quality-gate.sh" >&2
   exit 1
 fi
 
@@ -40,6 +40,7 @@ fi
 ruby -e '
   quality_gate = File.binread(ARGV.fetch(0))
   expected_contracts = %w[
+    Scripts/app-e2e-test.sh
     Scripts/landing-contract-test.sh
     Scripts/prepare-pr-version-test.sh
     Scripts/plan-release-test.sh
@@ -330,7 +331,7 @@ if grep -Fq 'name: Format' "$CI_WORKFLOW"; then
   exit 1
 fi
 
-if grep -Fq 'name: Build' "$CI_WORKFLOW" || grep -Fq 'name: Test' "$CI_WORKFLOW"; then
+if grep -Eq '^[[:space:]]*- name: (Build|Test)[[:space:]]*$' "$CI_WORKFLOW"; then
   echo "ci.yml must rely on quality-gate.sh for Swift build and test checks" >&2
   exit 1
 fi
