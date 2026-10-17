@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd -P)"
 cd "$ROOT_DIR/tui"
 
-npm ci --no-audit --no-fund
+npm ci --engine-strict --no-audit --no-fund
 npm run typecheck
 npm test
 npm run lint

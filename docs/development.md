@@ -8,7 +8,7 @@ This guide covers local builds and verification. See
 
 - Swift 6 toolchain
 - Xcode 16 or later with Swift 6 for macOS development
-- Node.js and npm for the optional Ink TUI
+- Node.js 22.13+ (22.x) or 24+ and npm for the optional Ink TUI
 - Apple Silicon macOS for packaging the distributed app DMG
 
 The Swift package supports macOS 13 or later. CLI tests and release builds also
@@ -77,6 +77,11 @@ public signing, notarization, Sparkle keys, and DMG publication are documented
 in [release.md](release.md).
 
 ## Run The Ink TUI
+
+The TUI's runtime requirement is `^22.13.0 || >=24.0.0`, matching its locked
+runtime and development dependencies. CI checks a strict clean install,
+typechecking, tests, lint, build, and package contents on Node 22.13.0 and
+the latest Node 22, 24, and 26 releases. Node 20 and 23 are unsupported.
 
 ```bash
 swift build --product updatebar

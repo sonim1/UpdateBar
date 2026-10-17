@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$ROOT/.github/workflows/ci.yml"
 [[ -f "$WORKFLOW" ]] || { echo "CI workflow is missing" >&2; exit 1; }
 
-ruby -rpsych -ropen3 -rtmpdir -rfileutils -rshellwords - "$WORKFLOW" <<'RUBY'
+ruby -rpsych -rjson -ropen3 -rtmpdir -rfileutils -rshellwords - "$WORKFLOW" <<'RUBY'
 CHECKOUT_ACTION = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 TOKEN_ACTION = "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1"
 LANE_IF = "${{ always() }}"
@@ -208,7 +208,7 @@ def validate(workflow)
   }, "concurrency must cancel superseded runs per pull request or push ref")
 
   jobs = workflow.fetch("jobs")
-  assert(jobs.keys == %w[policy version macos linux], "job graph must be policy, version, macos, and linux")
+  assert(jobs.keys == %w[policy version macos linux tui], "job graph must include the isolated TUI runtime matrix")
   jobs.each_value do |job|
     job.fetch("steps", []).each do |step|
       next unless step.key?("uses")
@@ -221,6 +221,7 @@ def validate(workflow)
   version = jobs.fetch("version")
   macos = jobs.fetch("macos")
   linux = jobs.fetch("linux")
+  tui = jobs.fetch("tui")
 
   assert(!policy.key?("needs"), "policy must be the first job in the PR dependency graph")
   assert(policy["if"] == "${{ github.event_name == 'pull_request' }}", "policy must be PR-only")
@@ -374,7 +375,7 @@ def validate(workflow)
   assert(commit_run.index('git ls-remote') < commit_run.index('git add --'), "the exact remote head must be validated before staging")
   assert(commit_run.index('git ls-remote') < commit_run.index(expected_push), "the exact remote head must be validated before compare-and-swap push")
 
-  { "macos" => macos, "linux" => linux }.each do |name, job|
+  { "macos" => macos, "linux" => linux, "tui" => tui }.each do |name, job|
     assert(job["needs"].is_a?(Array) && job["needs"].sort == %w[policy version], "#{name} must directly wait for policy and version")
     assert(job["if"] == LANE_IF, "#{name} must always materialize as a required check")
     assert(!job.key?("continue-on-error"), "#{name} must not tolerate a failing version guard")
@@ -407,7 +408,7 @@ def validate(workflow)
   assert(macos["runs-on"] == "macos-15" && !macos.key?("container"), "macos runner must remain macos-15")
   assert(action_step(macos, "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020") == {
     "uses" => "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-    "with" => { "node-version" => 20 },
+    "with" => { "node-version" => 24 },
   }, "macos Node tooling must not share an npm cache across trust lanes")
   assert(action_step(macos, "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9") == {
     "uses" => "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
@@ -432,13 +433,49 @@ def validate(workflow)
   assert(named_step(linux, "Install quality gate dependencies")["run"] == "apt-get update\napt-get install -y nodejs ruby shellcheck\n", "linux quality dependencies must remain unchanged")
   assert(named_step(linux, "Trust the checked-out workspace")["run"] == 'git config --global --add safe.directory "$GITHUB_WORKSPACE"', "linux safe-directory command must remain unchanged")
   assert(named_step(linux, "Quality gate")["run"] == "SKIP_MENUBAR_SMOKE=1 SKIP_TUI_SMOKE=1 SKIP_TUI_INPUT=1 SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh", "linux quality gate command must remain unchanged")
+
+  assert(tui["runs-on"] == "ubuntu-24.04", "TUI runtime checks must use an isolated Linux runner")
+  assert(tui["timeout-minutes"] == 10, "TUI runtime checks must have a bounded timeout")
+  assert(tui["strategy"] == {
+    "fail-fast" => false,
+    "matrix" => { "node-version" => ["22.13.0", "22.x", "24.x", "26.x"] },
+  }, "TUI must test its minimum Node runtime and every supported release line independently")
+  assert(tui.fetch("steps").length == 4, "TUI runtime checks must only guard, checkout, install Node, and run the smoke")
+  assert(action_step(tui, "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020") == {
+    "uses" => "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    "with" => { "node-version" => "${{ matrix.node-version }}" },
+  }, "TUI must use each matrix runtime without sharing an npm cache")
+  assert(named_step(tui, "TUI runtime checks") == {
+    "name" => "TUI runtime checks",
+    "run" => "bash Scripts/tui-smoke-test.sh",
+  }, "TUI matrix must execute the real install, typecheck, tests, lint, build, and package checks")
 end
 
 workflow = Psych.safe_load(File.binread(ARGV.fetch(0)), permitted_classes: [], permitted_symbols: [], aliases: false)
+root = File.expand_path("../..", File.dirname(ARGV.fetch(0)))
+package = JSON.parse(File.binread(File.join(root, "tui/package.json")))
+lock = JSON.parse(File.binread(File.join(root, "tui/package-lock.json")))
+assert(package.fetch("engines") == { "node" => "^22.13.0 || >=24.0.0" }, "TUI Node support must satisfy the locked runtime and development dependencies")
+assert(lock.fetch("packages").fetch("").fetch("engines") == package.fetch("engines"), "TUI lockfile and package runtime requirements must agree")
 validate(workflow)
 run_runtime_probes(workflow)
 
 mutations = {
+  "unsupported macOS Node runtime" => ->(value) {
+    action_step(value.fetch("jobs").fetch("macos"), "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020").fetch("with")["node-version"] = 20
+  },
+  "missing minimum Node runtime" => ->(value) {
+    value.fetch("jobs").fetch("tui").fetch("strategy").fetch("matrix").fetch("node-version").delete("22.13.0")
+  },
+  "fail-fast hides runtime failures" => ->(value) {
+    value.fetch("jobs").fetch("tui").fetch("strategy")["fail-fast"] = true
+  },
+  "TUI merge-ref checkout" => ->(value) {
+    action_step(value.fetch("jobs").fetch("tui"), CHECKOUT_ACTION).fetch("with")["ref"] = "${{ github.ref }}"
+  },
+  "TUI smoke omitted" => ->(value) {
+    named_step(value.fetch("jobs").fetch("tui"), "TUI runtime checks")["run"] = "npm --prefix tui run build"
+  },
   "PR target branch" => ->(value) { value.fetch("on").fetch("pull_request")["branches"] = ["develop"] },
   "PR activity list" => ->(value) { value.fetch("on").fetch("pull_request")["types"].delete("labeled") },
   "workflow write permission" => ->(value) { value.fetch("permissions")["contents"] = "write" },

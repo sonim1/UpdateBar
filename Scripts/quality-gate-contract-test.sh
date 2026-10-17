@@ -17,8 +17,8 @@ if ! grep -Fq 'bash Scripts/quality-gate.sh' "$CI_WORKFLOW"; then
   exit 1
 fi
 
-if ! grep -Fq 'actions/setup-node' "$CI_WORKFLOW" || ! grep -Fq 'node-version: 20' "$CI_WORKFLOW"; then
-  echo "ci.yml must install the TUI Node 20 toolchain before quality-gate.sh" >&2
+if ! grep -Fq 'actions/setup-node' "$CI_WORKFLOW" || ! grep -Fq 'node-version: 24' "$CI_WORKFLOW"; then
+  echo "ci.yml must install the TUI Node 24 toolchain before quality-gate.sh" >&2
   exit 1
 fi
 

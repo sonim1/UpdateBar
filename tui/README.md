@@ -2,6 +2,12 @@
 
 Ink terminal UI for UpdateBar.
 
+Requires Node.js `^22.13.0 || >=24.0.0` and npm for both source builds and
+running the built TUI. CI checks the minimum Node 22.13.0 runtime and the
+latest Node 22, 24, and 26 releases with strict dependency engine validation.
+Node 20 and 23 are unsupported. The Swift CLI and menu bar app do not require
+Node.js.
+
 ## Run From Source
 
 From the repository root:
