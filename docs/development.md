@@ -109,6 +109,9 @@ The normal quality gate checks the E2E runner and workflow contracts without
 requiring GUI access. The E2E command and the macOS CI job perform the actual
 packaged UI tests. These checks do not require or exercise VoiceOver.
 
+See the [runtime and packaged E2E report](runtime-packaged-e2e-2026-10-17.md)
+for the covered scenarios, the Brew version regression, and verification limits.
+
 ## Run The Ink TUI
 
 The TUI's runtime requirement is `^22.13.0 || >=24.0.0`, matching its locked

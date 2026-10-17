@@ -56,7 +56,7 @@ final class PackagedAppE2ETests: XCTestCase {
         XCTAssertFalse(try XCTUnwrap(event.error).isEmpty)
         showHistory(fixture, outcome: "failed")
         click(fixture.app.tables["Update history"].staticTexts["brew.e2e-fixture failed"])
-        let detail = fixture.app.textViews["logs-failure-detail"]
+        let detail = fixture.app.scrollViews["logs-failure-detail"].textViews.firstMatch
         XCTAssertTrue(detail.waitForExistence(timeout: 10))
         XCTAssertTrue((detail.value as? String)?.contains("Exit code: 0") == true)
         fixture.capture("verified-noop-failure")
@@ -76,7 +76,12 @@ final class PackagedAppE2ETests: XCTestCase {
         XCTAssertEqual(try fixture.status().items.count, 0)
         fixture.capture("scan-without-registration")
 
+        let previousCalls = try fixture.brewCalls()
         click(fixture.app.buttons["Scan for installed tools"])
+        try fixture.wait("completed repeated scan") {
+            let scan = fixture.app.buttons["Scan for installed tools"]
+            return try fixture.brewCalls() != previousCalls && scan.exists && scan.isEnabled
+        }
         XCTAssertTrue(fixture.app.checkBoxes["Enable e2e-fixture"].waitForExistence(timeout: 15))
         XCTAssertEqual(try fixture.status().items.count, 0)
         XCTAssertEqual(try fixture.updates().count, 0)

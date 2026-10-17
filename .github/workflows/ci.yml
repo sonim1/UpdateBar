@@ -270,6 +270,7 @@ jobs:
     needs: [policy, version]
     if: ${{ always() }}
     runs-on: macos-15
+    timeout-minutes: 30
     steps:
       - name: Enforce pull request version gate
         if: ${{ always() && github.event_name == 'pull_request' && (needs.policy.result != 'success' || (needs.policy.outputs.trusted == 'true' && (needs.version.result != 'success' || needs.version.outputs.ready != 'true'))) }}

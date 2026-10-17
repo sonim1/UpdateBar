@@ -407,6 +407,7 @@ def validate(workflow)
   end
 
   assert(macos["runs-on"] == "macos-15" && !macos.key?("container"), "macos runner must remain macos-15")
+  assert(macos["timeout-minutes"] == 30, "macos quality and GUI checks must have a bounded timeout")
   assert(action_step(macos, "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020") == {
     "uses" => "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
     "with" => { "node-version" => 24 },
@@ -480,6 +481,9 @@ validate(workflow)
 run_runtime_probes(workflow)
 
 mutations = {
+  "unbounded packaged UI job" => ->(value) {
+    value.fetch("jobs").fetch("macos").delete("timeout-minutes")
+  },
   "packaged UI tests omitted" => ->(value) {
     value.fetch("jobs").fetch("macos").fetch("steps").reject! { |step| step["name"] == "Test packaged app" }
   },

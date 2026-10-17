@@ -8,7 +8,7 @@
 
 - Align TUI Node requirements with the locked dependencies and check strict
   installs, tests, lint, builds, and packaging on Node 22.13, 22, 24, and 26.
-- Parse installed Homebrew versions after the complete formula name, including
+- Generate Homebrew version parsers that skip the complete formula name, including
   names containing digits such as `node@22` and `python@3.13`.
 
 ### Changed

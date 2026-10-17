@@ -76,3 +76,10 @@ scans without introducing a production test bypass for PATH discovery.
 ## Environment note
 
 Initial Node smoke and workflow baseline attempts encountered `ENOSPC`. The workflow baseline passed after removing only the repository's regenerable Swift index cache. Local installs/builds require additional disk space; do not misreport an environment failure as an application regression or a successful verification.
+
+The local full gate also hit `ENOSPC` during compilation. Task-created Clang
+modules and incomplete task builds/installs were removed; the root compiled
+cache and user app were preserved. Final verification uses fresh remote builds.
+Implementation details and evidence limits are documented in
+`docs/runtime-packaged-e2e-2026-10-17.md`; delivery evidence is kept in the local
+task ledger and the exact-head PR checks.
