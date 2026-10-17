@@ -13,9 +13,6 @@
         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="000000000000000000000004" BuildableName="PackagedAppE2E.xctest" BlueprintName="PackagedAppE2E" ReferencedContainer="container:PackagedAppE2E.xcodeproj"/>
       </TestableReference>
     </Testables>
-    <EnvironmentVariables>
-      <EnvironmentVariable key="UPDATEBAR_E2E_APP_PATH" value="$(UPDATEBAR_E2E_APP_PATH)" isEnabled="YES"/>
-    </EnvironmentVariables>
   </TestAction>
   <AnalyzeAction buildConfiguration="Debug"/>
 </Scheme>

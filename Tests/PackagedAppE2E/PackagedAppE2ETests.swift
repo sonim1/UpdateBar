@@ -174,7 +174,9 @@ private final class AppFixture {
     private var launched = false
 
     init(includeBrew: Bool = true) throws {
-        guard let path = ProcessInfo.processInfo.environment["UPDATEBAR_E2E_APP_PATH"],
+        guard
+            let path = Bundle(for: PackagedAppE2ETests.self)
+                .object(forInfoDictionaryKey: "UpdateBarE2EAppPath") as? String,
             path.hasPrefix("/"),
             let bundle = Bundle(url: URL(fileURLWithPath: path)),
             let identifier = bundle.bundleIdentifier
