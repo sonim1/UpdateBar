@@ -1,0 +1,39 @@
+name: App E2E
+
+"on":
+  push:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packaged-app:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Package app for E2E
+        env:
+          SPARKLE_PUBLIC_ED_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+          UPDATEBAR_PACKAGE_SKIP_LAUNCH_SMOKE: '1'
+        run: bash Scripts/package-app.sh
+      - name: Test packaged app
+        run: bash Scripts/app-e2e.sh dist/UpdateBar.app "$RUNNER_TEMP/updatebar-app-e2e.xcresult"
+      - name: Upload E2E evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: packaged-app-e2e-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/updatebar-app-e2e.xcresult
+          if-no-files-found: warn
+          retention-days: 7
