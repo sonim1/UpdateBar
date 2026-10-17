@@ -183,7 +183,7 @@ bash Scripts/build-app-dmg-test.sh
 echo "running app signing behavior check"
 bash Scripts/package-app-signing-test.sh
 
-echo "running packaged app E2E runner and workflow checks"
+echo "running packaged app E2E runner checks"
 bash Scripts/app-e2e-test.sh
 
 echo "running archive smoke test"

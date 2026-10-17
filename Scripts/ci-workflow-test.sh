@@ -395,6 +395,7 @@ def validate(workflow)
       exit 1
     SHELL
     job.fetch("steps").drop(1).each do |step|
+      next if name == "macos" && step["name"] == "Upload E2E evidence"
       assert(!step.key?("if"), "#{name} normal steps must retain implicit success gating after the guard")
     end
     ci_checkout = action_step(job, CHECKOUT_ACTION)
@@ -420,6 +421,24 @@ def validate(workflow)
   }, "macos Swift cache must be isolated by trust lane")
   assert(named_step(macos, "Install shellcheck")["run"] == "brew install shellcheck", "macos shellcheck installation must remain unchanged")
   assert(named_step(macos, "Quality gate")["run"] == "SKIP_SIGNED_APPCAST=1 bash Scripts/quality-gate.sh", "macos quality gate command must remain unchanged")
+  app_test = named_step(macos, "Test packaged app")
+  assert(app_test == {
+    "name" => "Test packaged app",
+    "run" => 'bash Scripts/app-e2e.sh dist/UpdateBar.app "$RUNNER_TEMP/updatebar-app-e2e.xcresult"',
+  }, "macos must execute packaged UI tests without tolerating failures")
+  evidence = named_step(macos, "Upload E2E evidence")
+  assert(evidence == {
+    "name" => "Upload E2E evidence",
+    "if" => "${{ always() }}",
+    "uses" => "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "with" => {
+      "name" => "packaged-app-e2e-#{CI_REF}",
+      "path" => "${{ runner.temp }}/updatebar-app-e2e.xcresult",
+      "if-no-files-found" => "warn",
+      "retention-days" => 7,
+    },
+  }, "macos must retain exact-SHA E2E evidence even on failure with read-only permissions")
+  assert(macos.fetch("steps").last(3) == [named_step(macos, "Quality gate"), app_test, evidence], "packaged UI tests must follow the quality gate that builds the app and block CI/release on failure")
 
   assert(linux["runs-on"] == "ubuntu-latest" && linux["container"] == "swift:6.0", "linux runner and Swift container must remain unchanged")
   assert(action_step(linux, "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9") == {
@@ -461,6 +480,25 @@ validate(workflow)
 run_runtime_probes(workflow)
 
 mutations = {
+  "packaged UI tests omitted" => ->(value) {
+    value.fetch("jobs").fetch("macos").fetch("steps").reject! { |step| step["name"] == "Test packaged app" }
+  },
+  "packaged UI failure tolerated" => ->(value) {
+    named_step(value.fetch("jobs").fetch("macos"), "Test packaged app")["continue-on-error"] = true
+  },
+  "packaged UI bypasses failed build" => ->(value) {
+    named_step(value.fetch("jobs").fetch("macos"), "Test packaged app")["if"] = "${{ always() }}"
+  },
+  "packaged UI runs before packaging" => ->(value) {
+    steps = value.fetch("jobs").fetch("macos").fetch("steps")
+    steps[-3], steps[-2] = steps[-2], steps[-3]
+  },
+  "failed UI evidence omitted" => ->(value) {
+    named_step(value.fetch("jobs").fetch("macos"), "Upload E2E evidence").delete("if")
+  },
+  "unpinned E2E upload" => ->(value) {
+    named_step(value.fetch("jobs").fetch("macos"), "Upload E2E evidence")["uses"] = "actions/upload-artifact@v4"
+  },
   "unsupported macOS Node runtime" => ->(value) {
     action_step(value.fetch("jobs").fetch("macos"), "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020").fetch("with")["node-version"] = 20
   },

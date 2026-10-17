@@ -88,22 +88,25 @@ SPARKLE_PUBLIC_ED_KEY="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=" UPDATEBAR_P
 bash Scripts/app-e2e.sh dist/UpdateBar.app
 ```
 
-The suite creates temporary profiles and a synthetic Homebrew command. It
+The suite creates temporary profiles and shadows discovered tools with fixture
+executables, including a synthetic Homebrew command. It
 drives scan, registration, explicit command review, checking, updating, Logs,
 and relaunch through the real UI. Read-only calls to the bundled CLI verify
 the saved state. Registration alone must not approve or update a tool; an
-exit-zero update that leaves the installed version unchanged must fail. An
-empty scan must support retry without silently registering anything.
+exit-zero update that leaves the installed version unchanged must fail. A
+repeated scan must not silently register or approve anything.
 
 The suite removes its temporary profiles and terminates only its own app
 instance. It preserves screenshots, UI trees, registry/state snapshots, command
 calls, and history as attachments in the `.xcresult` bundle printed by the
 runner. Pass a second argument to choose a new result bundle path; existing
-results are never overwritten. The `App E2E` workflow runs this against the
-exact push/PR head and uploads results for seven days, including failed runs.
+results are never overwritten. The required `macos` CI job runs this against
+the exact push/PR head after the quality gate packages the app, then uploads
+results for seven days, including failed runs. A UI test failure blocks CI and
+the release workflow.
 
 The normal quality gate checks the E2E runner and workflow contracts without
-requiring GUI access. The separate E2E command/workflow performs the actual
+requiring GUI access. The E2E command and the macOS CI job perform the actual
 packaged UI tests. These checks do not require or exercise VoiceOver.
 
 ## Run The Ink TUI

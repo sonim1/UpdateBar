@@ -331,7 +331,7 @@ if grep -Fq 'name: Format' "$CI_WORKFLOW"; then
   exit 1
 fi
 
-if grep -Fq 'name: Build' "$CI_WORKFLOW" || grep -Fq 'name: Test' "$CI_WORKFLOW"; then
+if grep -Eq '^[[:space:]]*- name: (Build|Test)[[:space:]]*$' "$CI_WORKFLOW"; then
   echo "ci.yml must rely on quality-gate.sh for Swift build and test checks" >&2
   exit 1
 fi

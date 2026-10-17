@@ -62,9 +62,9 @@ final class PackagedAppE2ETests: XCTestCase {
         fixture.capture("verified-noop-failure")
     }
 
-    func testEmptyScanCanBeRetriedWithoutRegisteringOrApprovingAnything() throws {
+    func testRepeatedScanDoesNotRegisterOrApproveAnything() throws {
         continueAfterFailure = false
-        let fixture = try makeFixture(includeBrew: false)
+        let fixture = try makeFixture()
         fixture.launch()
         openDashboard(fixture)
         selectSection("Items", in: fixture)
@@ -72,11 +72,10 @@ final class PackagedAppE2ETests: XCTestCase {
         XCTAssertTrue(
             fixture.app.staticTexts["scan-guidance-initial"].waitForExistence(timeout: 10))
         click(fixture.app.buttons["Scan for installed tools"])
-        XCTAssertTrue(fixture.app.staticTexts["scan-guidance-empty"].waitForExistence(timeout: 15))
+        XCTAssertTrue(fixture.app.checkBoxes["Enable e2e-fixture"].waitForExistence(timeout: 15))
         XCTAssertEqual(try fixture.status().items.count, 0)
-        fixture.capture("empty-scan")
+        fixture.capture("scan-without-registration")
 
-        try fixture.installBrew()
         click(fixture.app.buttons["Scan for installed tools"])
         XCTAssertTrue(fixture.app.checkBoxes["Enable e2e-fixture"].waitForExistence(timeout: 15))
         XCTAssertEqual(try fixture.status().items.count, 0)
@@ -128,8 +127,8 @@ final class PackagedAppE2ETests: XCTestCase {
         XCTAssertFalse(try fixture.brewCalls().contains("upgrade"))
     }
 
-    private func makeFixture(includeBrew: Bool = true) throws -> AppFixture {
-        let fixture = try AppFixture(includeBrew: includeBrew)
+    private func makeFixture() throws -> AppFixture {
+        let fixture = try AppFixture()
         addTeardownBlock { await fixture.finish() }
         return fixture
     }
@@ -173,7 +172,7 @@ private final class AppFixture {
     private let environment: [String: String]
     private var launched = false
 
-    init(includeBrew: Bool = true) throws {
+    init() throws {
         let path =
             Bundle(for: PackagedAppE2ETests.self)
             .object(forInfoDictionaryKey: "UpdateBarE2EAppPath") as? String
@@ -207,7 +206,23 @@ private final class AppFixture {
         try "1.0.0\n".write(
             to: root.appendingPathComponent("installed-version"), atomically: true, encoding: .utf8)
         try setUpdateMode("success")
-        if includeBrew { try installBrew() }
+        try installBrew()
+        for tool in [
+            "rtk", "gstack", "openclaw", "hermes", "gh", "claude", "codex", "node", "swift",
+        ] {
+            try installCommand(
+                tool, script: "#!/bin/sh\n[ \"$1\" = --version ] || exit 64\nprintf '0.0.0\\n'\n")
+        }
+        try installCommand(
+            "npm",
+            script: """
+                #!/bin/sh
+                case "$1" in
+                  --version) printf '0.0.0\\n' ;;
+                  ls) printf '{"dependencies":{}}\\n' ;;
+                  *) exit 64 ;;
+                esac
+                """)
         app.launchEnvironment = environment
         app.launchArguments = ["-ApplePersistenceIgnoreState", "YES", "-AppleLanguages", "(en)"]
     }
@@ -217,7 +232,7 @@ private final class AppFixture {
         app.launch()
     }
 
-    func installBrew() throws {
+    private func installBrew() throws {
         let script = """
             #!/bin/sh
             set -eu
@@ -238,7 +253,11 @@ private final class AppFixture {
               *) printf 'Unsupported fixture brew operation\\n' >&2; exit 64 ;;
             esac
             """
-        let path = root.appendingPathComponent("bin/brew")
+        try installCommand("brew", script: script)
+    }
+
+    private func installCommand(_ name: String, script: String) throws {
+        let path = root.appendingPathComponent("bin/\(name)")
         try script.write(to: path, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path.path)
     }

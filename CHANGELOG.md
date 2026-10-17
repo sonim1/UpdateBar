@@ -8,12 +8,15 @@
 
 - Align TUI Node requirements with the locked dependencies and check strict
   installs, tests, lint, builds, and packaging on Node 22.13, 22, 24, and 26.
+- Parse installed Homebrew versions after the complete formula name, including
+  names containing digits such as `node@22` and `python@3.13`.
 
 ### Changed
 
 - Exercise first-use registration, exact-command approval, updates, history,
-  relaunch persistence, empty-scan retry, and unchanged-version failures through
-  the packaged macOS app in an isolated XCUITest workflow.
+  relaunch persistence, repeated scans, and unchanged-version failures through
+  the packaged macOS app with isolated XCUITest fixtures in the required macOS
+  CI job before release.
 
 ## 0.6.33 - 2026-10-15
 
