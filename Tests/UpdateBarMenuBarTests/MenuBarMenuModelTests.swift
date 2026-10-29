@@ -3,6 +3,191 @@ import UpdateBarMenuBar
 import XCTest
 
 final class MenuBarMenuModelTests: XCTestCase {
+    func testCheckingDoesNotShowAnEmptyCounterOrContradictoryIdleSummary() {
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: stateWithOutdated(ids: []), approvalStatuses: [:], updateHistory: .empty,
+            activeActionTitle: "Checking for updates", supportsStopAfterCurrent: false
+        )
+
+        XCTAssertEqual(model.entries.labels.first, "Checking for updates…")
+        XCTAssertFalse(model.entries.labels.contains { $0.contains("(0/0)") })
+        XCTAssertFalse(model.entries.labels.contains("0 update(s) available"))
+        XCTAssertFalse(model.entries.actions.contains(.stopCurrentAction))
+        XCTAssertNil(model.entries.item(titled: "Update All")?.action)
+        guard case .item(let summary) = model.entries.first else {
+            return XCTFail("Expected a native summary row")
+        }
+        XCTAssertEqual(summary.id, "summary")
+    }
+
+    func testMenuCommandsStayInPlaceWhenAnUpdateStartsOrStops() {
+        let builder = MenuBarMenuModelBuilder()
+        let state = stateWithOutdated(ids: ["alpha"])
+        let idle = builder.makeMenu(state: state, approvalStatuses: [:], updateHistory: .empty)
+        let busy = builder.makeMenu(
+            state: state, approvalStatuses: [:], updateHistory: .empty,
+            activeActionTitle: "Updating alpha"
+        )
+        let stopping = builder.makeMenu(
+            state: state, approvalStatuses: [:], updateHistory: .empty,
+            activeActionTitle: "Updating alpha", isStopRequested: true
+        )
+        for title in ["Check Now", "Refresh Status", "Dashboard", "Quit"] {
+            let index = idle.entries.firstIndex { entry in
+                if case .item(let item) = entry { return item.title == title }
+                return false
+            }
+            XCTAssertEqual(
+                busy.entries.firstIndex {
+                    if case .item(let item) = $0 { return item.title == title }
+                    return false
+                }, index, title)
+            XCTAssertEqual(
+                stopping.entries.firstIndex {
+                    if case .item(let item) = $0 { return item.title == title }
+                    return false
+                }, index, title)
+        }
+        XCTAssertEqual(
+            idle.entries.labels.firstIndex(of: "Update All"),
+            busy.entries.labels.firstIndex(of: "Stop After Current"))
+    }
+
+    func testOverflowKeepsRunningUpdatesReachableWithoutReorderingTheList() throws {
+        var progress = MenuBarItemProgress()
+        progress.plannedIDs = (1...9).map { "tool-\($0)" }
+        progress.inFlightIDs = ["tool-9"]
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: stateWithOutdated(ids: progress.plannedIDs.reversed()),
+            approvalStatuses: [:], updateHistory: .empty,
+            activeActionTitle: "Updating approved items", activeItemProgress: progress
+        )
+        let overflow = try XCTUnwrap(model.entries.submenu(titled: "More Updates (3)"))
+
+        XCTAssertEqual(
+            overflow.items.map(\.id), ["update:tool-7", "update:tool-8", "update:tool-9"])
+        XCTAssertEqual(overflow.items.last?.systemSymbolName, "arrow.triangle.2.circlepath")
+        XCTAssertTrue(overflow.items.last?.title.hasSuffix("— updating…") == true)
+        XCTAssertTrue(overflow.items.allSatisfy { $0.action == nil })
+    }
+
+    func testActiveUpdateListSurvivesARefreshThatRemovesFinishedItems() {
+        let original = stateWithOutdated(ids: ["bravo", "alpha"]).outdatedItems
+        var progress = MenuBarItemProgress()
+        progress.plannedIDs = ["alpha", "bravo"]
+        progress.finishedIDs = ["alpha"]
+        progress.inFlightIDs = ["bravo"]
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: stateWithOutdated(ids: []), approvalStatuses: [:], updateHistory: .empty,
+            activeActionTitle: "Updating approved items", activeItemProgress: progress,
+            activeUpdateItems: original
+        )
+        let rows = model.entries.compactMap { entry -> MenuBarMenuItem? in
+            guard case .item(let item) = entry, item.id.hasPrefix("update:") else { return nil }
+            return item
+        }
+
+        XCTAssertEqual(rows.map(\.id), ["update:alpha", "update:bravo"])
+        XCTAssertTrue(rows[0].title.hasSuffix("— done"))
+        XCTAssertTrue(rows[1].title.hasSuffix("— updating…"))
+    }
+
+    func testUpdateRowsStayInNameOrderWhenSnapshotOrderChanges() {
+        let builder = MenuBarMenuModelBuilder()
+        let first = builder.makeMenu(
+            state: stateWithOutdated(ids: ["zulu", "alpha", "bravo"]),
+            approvalStatuses: [:], updateHistory: .empty
+        )
+        let second = builder.makeMenu(
+            state: stateWithOutdated(ids: ["bravo", "zulu", "alpha"]),
+            approvalStatuses: [:], updateHistory: .empty
+        )
+
+        XCTAssertEqual(first, second)
+        XCTAssertEqual(
+            first.entries.actions.compactMap { action -> String? in
+                if case .update(let id) = action { return id }
+                return nil
+            },
+            ["alpha", "bravo", "zulu"]
+        )
+    }
+
+    func testProgressStatesHaveDistinctIconsAndFailedItemsAreNotMarkedDone() {
+        var progress = MenuBarItemProgress()
+        progress.plannedIDs = ["alpha", "bravo", "charlie", "delta"]
+        progress.inFlightIDs = ["alpha"]
+        for (id, outcome) in [("charlie", UpdateOutcome.updated), ("delta", .failed)] {
+            progress.apply(
+                .itemFinished(
+                    UpdateResult(
+                        id: id, name: id, outcome: outcome, current: "1.0.0", latest: "1.1.0",
+                        error: nil, commandFingerprint: nil
+                    )))
+        }
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: stateWithOutdated(ids: progress.plannedIDs),
+            approvalStatuses: [:], updateHistory: .empty,
+            activeActionTitle: "Updating approved items", activeItemProgress: progress
+        )
+
+        for (id, suffix, symbol) in [
+            ("alpha", "updating…", "arrow.triangle.2.circlepath"),
+            ("bravo", "queued", "clock"),
+            ("charlie", "done", "checkmark.circle"),
+            ("delta", "failed", "exclamationmark.triangle"),
+        ] {
+            let row = model.entries.compactMap { entry -> MenuBarMenuItem? in
+                guard case .item(let item) = entry, item.title.hasPrefix("\(id) ") else {
+                    return nil
+                }
+                return item
+            }.first
+            XCTAssertEqual(row?.systemSymbolName, symbol, id)
+            XCTAssertTrue(row?.title.hasSuffix("— \(suffix)") == true, id)
+        }
+    }
+
+    func testMenuCommandsKeepTheirIconsWhileBusy() throws {
+        let builder = MenuBarMenuModelBuilder()
+        let idle = builder.makeMenu(
+            state: stateWithOutdated(ids: ["alpha"]),
+            approvalStatuses: [:], updateHistory: .empty
+        )
+        let busy = builder.makeMenu(
+            state: stateWithOutdated(ids: ["alpha"]),
+            approvalStatuses: [:], updateHistory: .empty, activeActionTitle: "Updating alpha"
+        )
+
+        for title in ["Check Now", "Refresh Status", "Dashboard", "Quit"] {
+            let idleSymbol = try XCTUnwrap(idle.entries.item(titled: title)?.systemSymbolName)
+            XCTAssertEqual(busy.entries.item(titled: title)?.systemSymbolName, idleSymbol)
+        }
+        XCTAssertEqual(idle.entries.item(titled: "Quit")?.systemSymbolName, "power")
+    }
+
+    func testStoppedAndSkippedUpdatesAreNotLabeledAsFailures() {
+        var progress = MenuBarItemProgress()
+        progress.plannedIDs = ["alpha", "bravo"]
+        for (id, outcome) in [("alpha", UpdateOutcome.cancelled), ("bravo", .skippedNotOutdated)] {
+            progress.apply(
+                .itemFinished(
+                    UpdateResult(
+                        id: id, name: id, outcome: outcome, current: nil, latest: nil,
+                        error: nil, commandFingerprint: nil
+                    )))
+        }
+        let model = MenuBarMenuModelBuilder().makeMenu(
+            state: stateWithOutdated(ids: progress.plannedIDs), approvalStatuses: [:],
+            updateHistory: .empty, activeActionTitle: "Updating approved items",
+            activeItemProgress: progress
+        )
+
+        XCTAssertTrue(model.entries.labels.contains { $0.hasSuffix("— stopped") })
+        XCTAssertTrue(model.entries.labels.contains { $0.hasSuffix("— skipped") })
+        XCTAssertFalse(model.entries.labels.contains { $0.hasSuffix("— failed") })
+    }
+
     func testBuildsCompactMenuForFreshStateWithoutRepeatedSeparators() {
         let state = MenuBarState(
             title: "Up to date",
@@ -140,7 +325,7 @@ final class MenuBarMenuModelTests: XCTestCase {
             lastActionNotice: "Finished: Update sk-or-v1-secret-value"
         )
 
-        XCTAssertTrue(activeModel.entries.labels.contains("Update [REDACTED]… (0/0)"))
+        XCTAssertTrue(activeModel.entries.labels.contains("Update [REDACTED]…"))
         XCTAssertTrue(finishedModel.entries.labels.contains("Finished: Update [REDACTED]"))
         XCTAssertFalse(activeModel.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
         XCTAssertFalse(
@@ -199,15 +384,12 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertEqual(
             model.entries.labels,
             [
-                "Updating Old Tool… (0/0)",
-                "Stop After Current",
-                "---",
-                "Needs attention",
+                "Updating Old Tool…",
                 "1 needs attention",
                 "---",
                 "Check Now",
                 "Refresh Status",
-                "Update All",
+                "Stop After Current",
                 "---",
                 "Updates (1)",
                 "Old Tool 1.0.0 -> 1.1.0",
@@ -757,7 +939,7 @@ final class MenuBarMenuModelTests: XCTestCase {
         XCTAssertFalse(model.entries.labels.contains { $0.contains("sk-or-v1-secret-value") })
     }
 
-    func testBuildsCompactMenuWithOverflowSummaries() {
+    func testBuildsCompactMenuWithReachableOverflowSubmenus() {
         let outdated = Array(1...8).map {
             statusItem(
                 id: "old-\($0)",
@@ -798,8 +980,8 @@ final class MenuBarMenuModelTests: XCTestCase {
             updateHistory: .empty
         )
 
-        XCTAssertTrue(model.entries.labels.contains("and 1 more"))
-        XCTAssertEqual(model.entries.labels.filter { $0 == "and 1 more" }.count, 1)
+        XCTAssertEqual(model.entries.submenu(titled: "More Updates (2)")?.items.count, 2)
+        XCTAssertEqual(model.entries.submenu(titled: "More Errors (1)")?.items.count, 1)
     }
 
     func testActiveActionKeepsItemRowsAndFooterVisible() {

@@ -41,6 +41,23 @@ public enum MenuBarMenuAction: Equatable, Sendable {
         }
     }
 
+    public var systemSymbolName: String {
+        switch self {
+        case .refreshStatus: "arrow.clockwise"
+        case .checkNow: "magnifyingglass"
+        case .updateAllApprovedOutdated: "arrow.down.circle"
+        case .openTUI: "terminal"
+        case .overview: "square.grid.2x2"
+        case .manageItems: "list.bullet"
+        case .scanAndAdd: "plus.magnifyingglass"
+        case .openConfig: "gearshape"
+        case .about: "info.circle"
+        case .viewLogs: "doc.text"
+        case .checkForUpdates: "arrow.triangle.2.circlepath"
+        case .quit: "power"
+        }
+    }
+
     public static let footer: [MenuBarMenuAction] = [
         .overview,
         .checkForUpdates,

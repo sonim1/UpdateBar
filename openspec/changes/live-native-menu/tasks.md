@@ -1,0 +1,7 @@
+- [x] Add regression coverage for row order, progress icons, and native menu updates.
+- [x] Preserve native menu identity and monitor state during tracking.
+- [x] Verify open-menu updates on the real AppKit surface.
+- [x] Build the initial release app and pass the menu bar launch smoke test.
+- [x] Review usability and fix shifting controls, empty counters, and unreachable overflow.
+- [x] Rebuild the final usability changes as a release app and repeat the launch smoke test with an isolated nine-item fixture.
+- [x] Complete `Scripts/quality-gate.sh` in one run without skips after local disk space becomes available (see `BLOCKERS.md`).

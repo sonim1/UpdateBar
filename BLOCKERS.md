@@ -14,6 +14,24 @@ CI jobs already route around it via `SKIP_SIGNED_APPCAST=1` (`a7ebfd7`,
 `40e4f0d`), so local gate runs need the same skip until the fixture builds its
 own DMG. This is unrelated to release credential wiring.
 
+## Local menu verification — 2026-10-29
+
+The earlier live-menu and usability checks were blocked by local disk exhaustion,
+including `databaseFull` and `No space left on device` during packaging and Swift
+index writes. On 2026-10-29, the data volume had 19 GiB available and verification
+resumed without further cache cleanup.
+
+`Scripts/quality-gate.sh` completed with exit 0 in one run, with no gate skips:
+998 Swift tests, 152 TUI tests, formatting, CLI/script checks, final release-mode
+app packaging, and menu bar launch smoke all passed. A separate launch smoke with
+nine synthetic outdated recipes in an isolated `UPDATEBAR_HOME` also passed.
+Independent code review approved the production changes with no blocking findings.
+
+All 22 menu SF Symbols were available through AppKit on the local macOS system.
+Native AppKit tests verify updates during actual menu tracking. Computer-use
+access to the menu-bar-only QA app still timed out, so native menu screenshots
+and theme verification remain unavailable; no visual approval is claimed.
+
 Ignored build outputs and local tool state are intentionally retained. A
 `git clean -ndX` preview includes Swift dependency checkouts, `.omo/`,
 `.superpowers/`, `dist/`, and `tui/node_modules/`; deleting these is local

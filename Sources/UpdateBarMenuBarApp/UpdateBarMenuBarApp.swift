@@ -10,9 +10,9 @@
     final class UpdateBarMenuBarApp: NSObject, NSApplicationDelegate {
         private static var bootstrapDelegate: UpdateBarMenuBarApp?
         private var statusItem: NSStatusItem?
-        private var secondaryMenu = NSMenu() {
-            didSet { statusItem?.menu = secondaryMenu }
-        }
+        private let secondaryMenu = NSMenu()
+        private var hasLoadedSnapshot = false
+        private var activeUpdateItems: [StatusItem] = []
         private var isRefreshing = false
         private var popoverError: String?
         private var itemsModel = MenuBarPopoverModel()
@@ -104,6 +104,7 @@
             service = Self.makeService(cliPath: useCLIAdapter ? cliPath : nil)
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             statusItem = item
+            item.menu = secondaryMenu
             item.autosaveName = "UpdateBarStatusItem"
             item.isVisible = true
             guard let statusButton = item.button else {
@@ -444,10 +445,10 @@
             let presentationMode = MenuBarRefreshPolicy.presentationMode(
                 activeActionTitle: actionCoordinator.activeAction?.title
             )
-            if presentationMode == .showLoading {
+            if presentationMode == .showLoading && !hasLoadedSnapshot {
                 setStatusIcon(.checking, accessibilityLabel: "UpdateBar checking")
                 let loadingMenu = menuBuilder.makeLoadingMenu()
-                secondaryMenu = makeMenu(from: loadingMenu)
+                applyMenu(from: loadingMenu)
             }
             DispatchQueue.global(qos: .userInitiated).async {
                 [service, formatter, dashboardModel] in
@@ -469,6 +470,7 @@
                     DispatchQueue.main.async {
                         guard self.refreshGenerationGate.isCurrent(refreshToken) else { return }
                         self.latestState = state
+                        self.hasLoadedSnapshot = true
                         self.approvalStatuses = approvals
                         self.latestUpdateHistory = updateHistory
                         self.isRefreshing = false
@@ -487,14 +489,17 @@
 
         private func startMonitoringExternalStateChanges() {
             stateChangeTimer?.invalidate()
-            stateChangeTimer = Timer.scheduledTimer(
+            let timer = Timer(
                 timeInterval: 0.5,
                 target: self,
                 selector: #selector(refreshExternalStateIfNeeded),
                 userInfo: nil,
                 repeats: true
             )
-            stateChangeTimer?.tolerance = 0.1
+            timer.tolerance = 0.1
+            RunLoop.main.add(timer, forMode: .common)
+            RunLoop.main.add(timer, forMode: .eventTracking)
+            stateChangeTimer = timer
         }
 
         @objc private func refreshExternalStateIfNeeded() {
@@ -514,6 +519,7 @@
             refreshGenerationGate.invalidate()
             isRefreshing = false
             popoverError = nil
+            activeUpdateItems = isUpdate ? latestState.outdatedItems : []
             rebuildMenu()
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
@@ -603,10 +609,13 @@
                 updateHistory: latestUpdateHistory,
                 activeActionTitle: activeAction?.title,
                 activeItemProgress: activeAction?.progress,
+                activeUpdateItems: activeAction?.isUpdate == true ? activeUpdateItems : nil,
                 isStopRequested: activeAction?.isStopRequested ?? false,
+                supportsStopAfterCurrent: activeAction?.isUpdate == true
+                    && !(service is UpdateBarCLIClient),
                 lastActionNotice: activeAction == nil ? actionCoordinator.lastActionNotice : nil
             )
-            secondaryMenu = makeMenu(from: model)
+            applyMenu(from: model)
             updateItemsModel()
         }
 
@@ -626,16 +635,32 @@
             dashboardPanelController?.applyItemsModel(itemsModel)
         }
 
+        private func applyMenu(from model: MenuBarMenuModel) {
+            NativeMenuUpdater.apply(makeMenu(from: model), to: secondaryMenu)
+        }
+
         private func makeMenu(from model: MenuBarMenuModel) -> NSMenu {
             let menu = NSMenu()
+            menu.autoenablesItems = false
+            var occurrences: [String: Int] = [:]
+            func identify(_ item: NSMenuItem, _ id: String) {
+                let occurrence = occurrences[id, default: 0]
+                occurrences[id] = occurrence + 1
+                item.identifier = NSUserInterfaceItemIdentifier("\(id)#\(occurrence)")
+            }
             for entry in model.entries {
                 switch entry {
                 case .separator:
-                    menu.addItem(.separator())
+                    let item = NSMenuItem.separator()
+                    identify(item, "separator:\(menu.items.last?.identifier?.rawValue ?? "start")")
+                    menu.addItem(item)
                 case .item(let item):
-                    menu.addItem(menuItem(from: item))
+                    let row = menuItem(from: item)
+                    identify(row, "item:\(item.id)")
+                    menu.addItem(row)
                 case .submenu(let submenu):
                     let parent = NSMenuItem(title: submenu.title, action: nil, keyEquivalent: "")
+                    identify(parent, "item:\(submenu.id)")
                     MenuBarSystemImageRenderer.apply(
                         systemSymbolName: submenu.systemSymbolName,
                         applicationIcon: nil,
@@ -643,13 +668,17 @@
                         to: parent
                     )
                     let child = NSMenu(title: submenu.title)
+                    child.autoenablesItems = false
                     for item in submenu.items {
-                        child.addItem(menuItem(from: item))
+                        let row = menuItem(from: item)
+                        row.identifier = NSUserInterfaceItemIdentifier(item.id)
+                        child.addItem(row)
                     }
                     parent.submenu = child
                     menu.addItem(parent)
                 case .updateHistory(let history):
                     let item = NSMenuItem()
+                    identify(item, "history")
                     item.view = MenuBarUpdateHistoryView(history: history)
                     item.isEnabled = false
                     menu.addItem(item)
@@ -723,7 +752,7 @@
             let model = menuBuilder.makeErrorMenu(
                 errorDescription: errorDescription
             )
-            secondaryMenu = makeMenu(from: model)
+            applyMenu(from: model)
             updateItemsModel()
             dashboardPanelController?.showErrorIfShown(error)
         }
