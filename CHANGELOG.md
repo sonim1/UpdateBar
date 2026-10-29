@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 0.6.35 - 2026-10-29
+
+### Fixed
+
+- Refresh the native menu while it stays open, including saved state changes and
+  live update progress.
+- Keep recipe order and primary controls stable during updates, retain completed
+  rows until the batch finishes, and expose additional updates and errors through
+  native submenus.
+- Omit empty progress counters and offer Stop After Current only for supported
+  update operations.
+
+### Changed
+
+- Add native icons for menu commands and distinct queued, updating, successful,
+  failed, stopped, and skipped states.
+
 ## 0.6.34 - 2026-10-17
 
 ### Fixed

@@ -3,7 +3,7 @@
     import UpdateBarMenuBar
 
     final class MenuBarUpdateHistoryView: NSView {
-        private let history: MenuBarUpdateHistory
+        private(set) var history: MenuBarUpdateHistory
 
         init(history: MenuBarUpdateHistory) {
             self.history = history
@@ -15,6 +15,13 @@
         }
 
         required init?(coder: NSCoder) { nil }
+
+        func apply(_ history: MenuBarUpdateHistory) {
+            guard self.history != history else { return }
+            self.history = history
+            setAccessibilityValue(Self.accessibilitySummary(for: history))
+            needsDisplay = true
+        }
 
         static func accessibilitySummary(for history: MenuBarUpdateHistory) -> String {
             let totalNoun = history.totalUpdates == 1 ? "update" : "updates"

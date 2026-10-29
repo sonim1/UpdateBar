@@ -152,7 +152,6 @@ final class SourceHygieneTests: XCTestCase {
                 "guardactionCoordinator.activeAction==nilelse{rebuildMenu()return}"
             )
         )
-        XCTAssertTrue(refreshSource.contains("secondaryMenu=makeMenu("))
         XCTAssertTrue(refreshSource.contains("isRefreshing=trueupdateItemsModel()"))
         XCTAssertTrue(refreshSource.contains("self.isRefreshing=falseself.popoverError=nil"))
         XCTAssertFalse(refreshSource.contains("latestState=MenuBarState("))
@@ -297,7 +296,7 @@ final class SourceHygieneTests: XCTestCase {
                 fileURLWithPath: "Sources/UpdateBarMenuBarApp/UpdateBarMenuBarApp.swift"),
             encoding: .utf8
         )
-        XCTAssertTrue(source.contains("didSet { statusItem?.menu = secondaryMenu }"))
+        XCTAssertTrue(source.contains("item.menu = secondaryMenu"))
         XCTAssertFalse(source.contains("statusButton.action ="))
         XCTAssertFalse(source.contains("statusButton.sendAction("))
         XCTAssertFalse(source.contains("popoverController.toggle("))
@@ -310,7 +309,6 @@ final class SourceHygieneTests: XCTestCase {
             in: source
         )
         XCTAssertTrue(rebuildSource.contains("letmodel=menuBuilder.makeMenu("))
-        XCTAssertTrue(rebuildSource.contains("secondaryMenu=makeMenu(from:model)"))
         XCTAssertTrue(rebuildSource.contains("updateItemsModel()"))
 
         let errorSource = try functionSource(
@@ -319,7 +317,6 @@ final class SourceHygieneTests: XCTestCase {
             in: source
         )
         XCTAssertTrue(errorSource.contains("letmodel=menuBuilder.makeErrorMenu("))
-        XCTAssertTrue(errorSource.contains("secondaryMenu=makeMenu(from:model)"))
         XCTAssertTrue(errorSource.contains("popoverError=errorDescription"))
         XCTAssertTrue(errorSource.contains("updateItemsModel()"))
     }
