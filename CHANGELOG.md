@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.35 - 2026-10-29
+
 ### Fixed
 
 - Refresh the native menu while it stays open, including saved state changes and
