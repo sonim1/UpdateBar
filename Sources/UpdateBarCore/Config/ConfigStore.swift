@@ -98,6 +98,10 @@ public struct ConfigStore {
         [update]
         max_concurrent = \(config.update.maxConcurrent)
 
+        [schedule]
+        mode = "\(config.schedule.mode.rawValue)"
+        time = "\(config.schedule.time)"
+
         """
     }
 

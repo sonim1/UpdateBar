@@ -308,19 +308,88 @@ final class UpdateBarCLIClientTests: XCTestCase {
     }
 
     func testLoadConfigReadsStoredConcurrency() throws {
-        let runner = RecordingRunner(
-            result: CommandResult(
+        let runner = SequencedRecordingRunner(results: [
+            CommandResult(
                 exitCode: 0,
                 stdout:
                     #"{"refresh":{"interval":"6h"},"security":{"require_https_source":true},"update":{"max_concurrent":8}}"#,
                 stderr: ""
-            )
-        )
+            ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"key":"schedule.mode","value":"check"}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"key":"schedule.time","value":"18:30"}"#,
+                stderr: ""
+            ),
+        ])
         let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
 
         let config = try client.loadConfig()
 
         XCTAssertEqual(config.update.maxConcurrent, 8)
+        XCTAssertEqual(config.schedule.mode, .check)
+        XCTAssertEqual(config.schedule.time, "18:30")
+        XCTAssertEqual(
+            runner.calls.map(\.arguments),
+            [
+                ["config", "get", "--json"],
+                ["config", "get", "schedule.mode", "--json"],
+                ["config", "get", "schedule.time", "--json"],
+            ])
+    }
+
+    func testScheduleConfigRoundTripsThroughCLIAdapter() throws {
+        let payload =
+            #"{"refresh":{"interval":"6h"},"security":{"require_https_source":true},"update":{"max_concurrent":3}}"#
+        let runner = SequencedRecordingRunner(results: [
+            CommandResult(exitCode: 0, stdout: payload, stderr: ""),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"key":"schedule.mode","value":"off"}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"key":"schedule.time","value":"18:30"}"#,
+                stderr: ""
+            ),
+            CommandResult(exitCode: 0, stdout: payload, stderr: ""),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"key":"schedule.mode","value":"off"}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"key":"schedule.time","value":"18:30"}"#,
+                stderr: ""
+            ),
+            CommandResult(exitCode: 0, stdout: "{}", stderr: ""),
+            CommandResult(exitCode: 0, stdout: "{}", stderr: ""),
+        ])
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+        var config = try client.loadConfig()
+        XCTAssertEqual(config.schedule.mode, .off)
+        XCTAssertEqual(config.schedule.time, "18:30")
+        config.schedule.mode = .checkAndUpdate
+        config.schedule.time = "23:45"
+        try client.saveConfig(config)
+        XCTAssertEqual(
+            runner.calls.map(\.arguments),
+            [
+                ["config", "get", "--json"],
+                ["config", "get", "schedule.mode", "--json"],
+                ["config", "get", "schedule.time", "--json"],
+                ["config", "get", "--json"],
+                ["config", "get", "schedule.mode", "--json"],
+                ["config", "get", "schedule.time", "--json"],
+                ["config", "set", "schedule.mode", "check_and_update", "--json"],
+                ["config", "set", "schedule.time", "23:45", "--json"],
+            ])
     }
 
     func testSaveConfigUpdatesOnlyChangedConcurrency() throws {
@@ -331,11 +400,22 @@ final class UpdateBarCLIClientTests: XCTestCase {
                     #"{"refresh":{"interval":"6h"},"security":{"require_https_source":true},"update":{"max_concurrent":3}}"#,
                 stderr: ""
             ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"key":"schedule.mode","value":"off"}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"key":"schedule.time","value":"09:00"}"#,
+                stderr: ""
+            ),
             CommandResult(exitCode: 0, stdout: "{}", stderr: ""),
         ])
         let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
         var config = Config.default
         config.update.maxConcurrent = 8
+        config.schedule.mode = .off
 
         try client.saveConfig(config)
 
@@ -343,8 +423,86 @@ final class UpdateBarCLIClientTests: XCTestCase {
             runner.calls.map(\.arguments),
             [
                 ["config", "get", "--json"],
+                ["config", "get", "schedule.mode", "--json"],
+                ["config", "get", "schedule.time", "--json"],
                 ["config", "set", "update.max_concurrent", "8", "--json"],
             ])
+    }
+
+    func testLoadConfigFallsBackToDisabledScheduleForOlderCLI() throws {
+        let runner = SequencedRecordingRunner(results: [
+            CommandResult(
+                exitCode: 0,
+                stdout:
+                    #"{"refresh":{"interval":"6h"},"security":{"require_https_source":false},"update":{"max_concurrent":8}}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 1,
+                stdout:
+                    #"{"ok":false,"code":"config_error","errors":["schedule.mode: unknown config key"]}"#,
+                stderr: ""
+            ),
+        ])
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        let config = try client.loadConfig()
+
+        XCTAssertEqual(config.refresh.interval, Duration(hours: 6))
+        XCTAssertFalse(config.security.requireHTTPSSource)
+        XCTAssertEqual(config.update.maxConcurrent, 8)
+        XCTAssertEqual(config.schedule.mode, .off)
+        XCTAssertEqual(config.schedule.time, "09:00")
+        XCTAssertEqual(
+            runner.calls.map(\.arguments),
+            [
+                ["config", "get", "--json"],
+                ["config", "get", "schedule.mode", "--json"],
+            ])
+    }
+
+    func testSaveConfigRejectsScheduleChangeForOlderCLI() throws {
+        let runner = SequencedRecordingRunner(results: [
+            CommandResult(
+                exitCode: 0,
+                stdout:
+                    #"{"refresh":{"interval":"6h"},"security":{"require_https_source":true},"update":{"max_concurrent":3}}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 1,
+                stdout:
+                    #"{"ok":false,"code":"config_error","errors":["schedule.mode: unknown config key"]}"#,
+                stderr: ""
+            ),
+        ])
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+        var config = Config.default
+        config.schedule.mode = .check
+
+        XCTAssertThrowsError(try client.saveConfig(config)) { error in
+            XCTAssertEqual(
+                String(describing: error),
+                "installed updatebar CLI does not support scheduled maintenance configuration"
+            )
+        }
+    }
+
+    func testLoadConfigPropagatesScheduleQueryFailure() throws {
+        let runner = SequencedRecordingRunner(results: [
+            CommandResult(
+                exitCode: 0,
+                stdout:
+                    #"{"refresh":{"interval":"6h"},"security":{"require_https_source":true},"update":{"max_concurrent":3}}"#,
+                stderr: ""
+            ),
+            CommandResult(exitCode: 1, stdout: "", stderr: "corrupt config"),
+        ])
+        let client = UpdateBarCLIClient(executablePath: "/tmp/updatebar", runner: runner)
+
+        XCTAssertThrowsError(try client.loadConfig()) { error in
+            XCTAssertEqual(String(describing: error), "updatebar exited 1: corrupt config")
+        }
     }
 
     func testSetPinnedUsesExistingPinAndUnpinCommands() throws {
@@ -376,7 +534,27 @@ final class UpdateBarCLIClientTests: XCTestCase {
             ),
             CommandResult(
                 exitCode: 0,
+                stdout: #"{"key":"schedule.mode","value":"off"}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"key":"schedule.time","value":"09:00"}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 0,
                 stdout: #"{"refresh":{"interval":"6h"},"security":{"require_https_source":true}}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"key":"schedule.mode","value":"off"}"#,
+                stderr: ""
+            ),
+            CommandResult(
+                exitCode: 0,
+                stdout: #"{"key":"schedule.time","value":"09:00"}"#,
                 stderr: ""
             ),
             CommandResult(
@@ -420,7 +598,19 @@ final class UpdateBarCLIClientTests: XCTestCase {
                     arguments: ["config", "get", "--json"]),
                 CommandCall(
                     executablePath: "/tmp/updatebar",
+                    arguments: ["config", "get", "schedule.mode", "--json"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["config", "get", "schedule.time", "--json"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
                     arguments: ["config", "get", "--json"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["config", "get", "schedule.mode", "--json"]),
+                CommandCall(
+                    executablePath: "/tmp/updatebar",
+                    arguments: ["config", "get", "schedule.time", "--json"]),
                 CommandCall(
                     executablePath: "/tmp/updatebar",
                     arguments: ["config", "set", "refresh.interval", "30m", "--json"]),

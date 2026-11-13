@@ -7,6 +7,94 @@ import XCTest
 final class CoreMenuBarServiceTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800)
 
+    func testScheduledModesCheckBeforeUpdatingAndRespectApprovals() throws {
+        for mode in ScheduleMode.allCases {
+            let root = try temporaryDirectory()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let paths = AppPaths(homeDirectory: root)
+            var unapproved = recipe(
+                id: "blocked", updateCommand: "blocked update", currentCommand: "blocked current")
+            unapproved.trust.approvedCommands.removeValue(forKey: "update.cmd")
+            try ManifestStore(paths: paths).save(
+                manifest(items: [
+                    recipe(
+                        id: "tool", updateCommand: "tool update", currentCommand: "tool current"),
+                    unapproved,
+                ]))
+            let commands = RecordingCommandRunner(results: [
+                "tool current": CommandResult(exitCode: 0, stdout: "1.0.0", stderr: ""),
+                "tool latest": CommandResult(exitCode: 0, stdout: "2.0.0", stderr: ""),
+                "tool update": CommandResult(exitCode: 0, stdout: "updated", stderr: ""),
+                "blocked current": CommandResult(exitCode: 0, stdout: "1.0.0", stderr: ""),
+                "blocked latest": CommandResult(exitCode: 0, stdout: "2.0.0", stderr: ""),
+            ])
+            let service = CoreMenuBarService(paths: paths, commandRunner: commands)
+
+            try service.performScheduledMaintenance(mode: mode)
+
+            let executed = commands.commands.map(\.command)
+            if mode == .off {
+                XCTAssertTrue(executed.isEmpty)
+            } else {
+                XCTAssertEqual(Array(executed.prefix(2)), ["tool current", "tool latest"])
+                XCTAssertEqual(executed.contains("tool update"), mode == .checkAndUpdate)
+            }
+            XCTAssertFalse(executed.contains("blocked update"))
+            XCTAssertFalse(
+                try service.approvals(id: "blocked").first { $0.field == "update.cmd" }!.approved)
+        }
+    }
+
+    func testStoppedOrCancelledScheduleDoesNotStartUpdates() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(homeDirectory: root)
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(id: "tool", updateCommand: "tool update", currentCommand: "tool current")
+            ]))
+        let commands = RecordingCommandRunner(results: [
+            "tool current": CommandResult(exitCode: 0, stdout: "1.0.0", stderr: ""),
+            "tool latest": CommandResult(exitCode: 0, stdout: "2.0.0", stderr: ""),
+        ])
+        let service = CoreMenuBarService(paths: paths, commandRunner: commands)
+        let stop = UpdateStopSignal()
+        stop.requestStop()
+        try service.performScheduledMaintenance(mode: .checkAndUpdate, stopSignal: stop)
+        XCTAssertFalse(commands.commands.map(\.command).contains("tool update"))
+        let count = commands.commands.count
+        let cancellation = CancellationToken()
+        cancellation.cancel()
+        try service.performScheduledMaintenance(
+            mode: .checkAndUpdate, cancellationToken: cancellation)
+        XCTAssertEqual(commands.commands.count, count)
+    }
+
+    func testFailedFreshCheckCannotUpdateFromStaleOutdatedState() throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = AppPaths(homeDirectory: root)
+        try ManifestStore(paths: paths).save(
+            manifest(items: [
+                recipe(id: "tool", updateCommand: "tool update", currentCommand: "tool current")
+            ]))
+        try StateStore(paths: paths).save(
+            State(
+                schemaVersion: 1, generatedAt: now,
+                items: [
+                    "tool": ItemState(
+                        current: "1.0.0", latest: "2.0.0", status: .outdated, lastChecked: now,
+                        error: nil, backoffUntil: nil)
+                ]))
+        let commands = RecordingCommandRunner(results: [
+            "tool current": CommandResult(exitCode: 1, stdout: "", stderr: "check failed")
+        ])
+        let service = CoreMenuBarService(paths: paths, commandRunner: commands)
+        try service.performScheduledMaintenance(mode: .checkAndUpdate)
+        XCTAssertFalse(commands.commands.map(\.command).contains("tool update"))
+        XCTAssertEqual(try service.status().items.first?.status, .error)
+    }
+
     func testCoreServiceScansTheUserHomeInsteadOfTheUpdateBarDataDirectory() throws {
         let root = try temporaryDirectory()
         let dataDirectory = root.appendingPathComponent("data", isDirectory: true)

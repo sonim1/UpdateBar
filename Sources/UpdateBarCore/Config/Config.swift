@@ -4,11 +4,14 @@ public struct Config: Equatable, Sendable {
     public var refresh: RefreshConfig
     public var security: SecurityConfig
     public var update: UpdateConfig
+    public var schedule: ScheduleConfig = .default
 
     public static let knownKeys = [
         "refresh.interval",
         "security.require_https_source",
         "update.max_concurrent",
+        "schedule.mode",
+        "schedule.time",
     ]
 
     public static let `default` = Config(
@@ -29,6 +32,16 @@ public struct Config: Equatable, Sendable {
             security.requireHTTPSSource = try parseBool(key: key, value: value)
         case "update.max_concurrent":
             update.maxConcurrent = try parseConcurrency(key: key, value: value)
+        case "schedule.mode":
+            guard let mode = ScheduleMode(rawValue: value) else {
+                throw ConfigError.invalidValue(key: key, value: value)
+            }
+            schedule.mode = mode
+        case "schedule.time":
+            guard ScheduleConfig.components(for: value) != nil else {
+                throw ConfigError.invalidValue(key: key, value: value)
+            }
+            schedule.time = value
         default:
             throw ConfigError.unknownKey(key)
         }
@@ -39,6 +52,8 @@ public struct Config: Equatable, Sendable {
         case "refresh.interval": refresh.interval.description
         case "security.require_https_source": String(security.requireHTTPSSource)
         case "update.max_concurrent": String(update.maxConcurrent)
+        case "schedule.mode": schedule.mode.rawValue
+        case "schedule.time": schedule.time
         default: nil
         }
     }
@@ -56,6 +71,34 @@ public struct Config: Equatable, Sendable {
             throw ConfigError.invalidValue(key: key, value: value)
         }
         return parsed
+    }
+}
+
+public enum ScheduleMode: String, CaseIterable, Sendable {
+    case off
+    case check
+    case checkAndUpdate = "check_and_update"
+}
+
+public struct ScheduleConfig: Equatable, Sendable {
+    public var mode: ScheduleMode
+    public var time: String
+
+    public static let `default` = ScheduleConfig(mode: .check, time: "09:00")
+
+    public init(mode: ScheduleMode, time: String) {
+        self.mode = mode
+        self.time = time
+    }
+
+    public static func components(for time: String) -> DateComponents? {
+        let bytes = Array(time.utf8)
+        guard bytes.count == 5, bytes[2] == 58,
+            [bytes[0], bytes[1], bytes[3], bytes[4]].allSatisfy({ (48...57).contains($0) }),
+            let hour = Int(time.prefix(2)), let minute = Int(time.suffix(2)),
+            hour < 24, minute < 60
+        else { return nil }
+        return DateComponents(hour: hour, minute: minute, second: 0)
     }
 }
 
