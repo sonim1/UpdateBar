@@ -482,7 +482,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 "Old Tool 1.0.0 -> 1.1.0",
                 "---",
                 "Command Approval Required (1)",
-                "Fresh Tool >",
+                "Fresh Tool — 1 approval needed >",
                 "---",
                 "Errors (1)",
                 "Broken Tool: command failed",
@@ -504,7 +504,7 @@ final class MenuBarMenuModelTests: XCTestCase {
                 .menu(.quit),
             ])
         XCTAssertTrue(model.entries.labels.contains("Command Approval Required (1)"))
-        XCTAssertTrue(model.entries.labels.contains("Fresh Tool >"))
+        XCTAssertTrue(model.entries.labels.contains("Fresh Tool — 1 approval needed >"))
         XCTAssertFalse(model.entries.labels.contains { $0.contains("fresh update") })
         XCTAssertFalse(
             model.entries.actions.contains(.approve(id: "fresh", reviewed: freshApprovals[0]))
@@ -513,8 +513,8 @@ final class MenuBarMenuModelTests: XCTestCase {
             model.entries.actions.contains(.revoke(id: "fresh", reviewed: freshApprovals[1]))
         )
 
-        let submenu = model.entries.submenu(titled: "Fresh Tool")
-        XCTAssertEqual(submenu?.systemSymbolName, "circle.lefthalf.filled")
+        let submenu = model.entries.submenu(titled: "Fresh Tool — 1 approval needed")
+        XCTAssertEqual(submenu?.systemSymbolName, "exclamationmark.circle")
         XCTAssertEqual(submenu?.items.map(\.title), ["Approve Update", "Revoke Check"])
         XCTAssertEqual(
             submenu?.items.map(\.action),
@@ -687,7 +687,7 @@ final class MenuBarMenuModelTests: XCTestCase {
             updateHistory: .empty
         )
 
-        let submenu = try XCTUnwrap(model.entries.submenu(titled: "Tool"))
+        let submenu = try XCTUnwrap(model.entries.submenu(titled: "Tool — 1 approval needed"))
         let approvalItem = try XCTUnwrap(submenu.items.first)
 
         XCTAssertEqual(approvalItem.title, "Approve Update")
@@ -1121,8 +1121,9 @@ final class MenuBarMenuModelTests: XCTestCase {
         // both directions guards against a regression that unconditionally
         // disables the row (which would make the busy-only assertion pass
         // for the wrong reason).
-        XCTAssertNotNil(idle.entries.submenu(titled: "alpha")?.items.first?.action)
-        XCTAssertNil(busy.entries.submenu(titled: "alpha")?.items.first?.action)
+        XCTAssertNotNil(
+            idle.entries.submenu(titled: "alpha — 1 approval needed")?.items.first?.action)
+        XCTAssertNil(busy.entries.submenu(titled: "alpha — 1 approval needed")?.items.first?.action)
     }
 
     private func statusItem(

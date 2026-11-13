@@ -352,18 +352,17 @@ public struct MenuBarMenuModelBuilder: Sendable {
                 continue
             }
 
-            let approvedStates = Set(approvals.map(\.approved))
-            let systemSymbolName =
-                approvedStates.count == 2
-                ? "circle.lefthalf.filled" : "exclamationmark.circle"
+            let pendingCount = approvals.filter { !$0.approved }.count
+            let approvalLabel =
+                pendingCount == 1 ? "1 approval needed" : "\(pendingCount) approvals needed"
             entries.append(
                 .submenu(
                     MenuBarSubmenu(
-                        title: SecretRedactor.redact(item.name),
+                        title: "\(SecretRedactor.redact(item.name)) — \(approvalLabel)",
                         items: approvals.map {
                             approvalMenuItem(for: item, approval: $0, isBusy: isBusy)
                         },
-                        systemSymbolName: systemSymbolName,
+                        systemSymbolName: "exclamationmark.circle",
                         id: "approval:\(item.id)"
                     )
                 )
