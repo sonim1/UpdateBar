@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.36 - 2026-11-13
+
 ### Added
 
 - Schedule daily recipe maintenance at a chosen local time, with check-only as
