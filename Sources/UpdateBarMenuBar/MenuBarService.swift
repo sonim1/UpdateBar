@@ -66,6 +66,21 @@ extension MenuBarServicing {
         try checkNow(cancellationToken: nil)
     }
 
+    public func performScheduledMaintenance(
+        mode: ScheduleMode,
+        cancellationToken: CancellationToken? = nil,
+        onEvent: UpdateProgressHandler? = nil,
+        stopSignal: UpdateStopSignal? = nil
+    ) throws {
+        guard mode != .off, cancellationToken?.isCancelled != true else { return }
+        try checkNow(cancellationToken: cancellationToken)
+        guard mode == .checkAndUpdate, cancellationToken?.isCancelled != true,
+            stopSignal?.isStopRequested != true
+        else { return }
+        try updateAllApproved(
+            cancellationToken: cancellationToken, onEvent: onEvent, stopSignal: stopSignal)
+    }
+
     public func update(id: String) throws {
         try update(ids: [id], cancellationToken: nil, onEvent: nil, stopSignal: nil)
     }

@@ -9,6 +9,38 @@
 
     @MainActor
     final class SettingsViewControllerTests: XCTestCase {
+        func testScheduleLoadsAndSavesWithoutOverwritingExternalSettings() async throws {
+            let paths = temporaryPaths()
+            defer { try? FileManager.default.removeItem(at: paths.homeDirectory) }
+            var initial = Config.default
+            try initial.set("schedule.mode", value: "off")
+            try initial.set("schedule.time", value: "18:30")
+            try ConfigStore(paths: paths).save(initial)
+            let saved = expectation(description: "schedule saved")
+            let controller = SettingsViewController(
+                service: CoreMenuBarService(paths: paths), onSaved: { saved.fulfill() },
+                onCheckForUpdates: {})
+            await load(controller)
+            XCTAssertEqual(controller.model.scheduleMode, .off)
+            let pickerCalendar = SettingsViewModel.timePickerCalendar
+            XCTAssertEqual(
+                pickerCalendar.component(.hour, from: controller.model.scheduleTime), 18)
+            XCTAssertEqual(
+                pickerCalendar.component(.minute, from: controller.model.scheduleTime), 30)
+            var external = initial
+            external.update.maxConcurrent = 8
+            try ConfigStore(paths: paths).save(external)
+            controller.model.scheduleMode = .checkAndUpdate
+            controller.model.scheduleTime = pickerCalendar.date(
+                from: DateComponents(year: 2001, month: 1, day: 1, hour: 2, minute: 30))!
+            controller.model.onSave()
+            await fulfillment(of: [saved], timeout: 2)
+            let result = try ConfigStore(paths: paths).load()
+            XCTAssertEqual(result.schedule.mode, .checkAndUpdate)
+            XCTAssertEqual(result.schedule.time, "02:30")
+            XCTAssertEqual(result.update.maxConcurrent, 8)
+        }
+
         func testEnteringSettingsLoadsPersistedConfiguration() async throws {
             let paths = temporaryPaths()
             defer { try? FileManager.default.removeItem(at: paths.homeDirectory) }

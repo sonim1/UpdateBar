@@ -3,6 +3,26 @@ import XCTest
 
 @MainActor
 final class PackagedAppE2ETests: XCTestCase {
+    func testDailyScheduleSettingsRunApprovedUpdates() throws {
+        continueAfterFailure = false
+        let fixture = try makeFixture()
+        try registerAndApprove(fixture, reviewMenu: true)
+        selectSection("Settings", in: fixture)
+        let mode = fixture.app.popUpButtons["settings-schedule-mode"]
+        XCTAssertFalse(fixture.app.datePickers["settings-schedule-time"].isEnabled)
+        click(mode)
+        click(fixture.app.menuItems["Check and update approved items"])
+        XCTAssertTrue(fixture.app.datePickers["settings-schedule-time"].exists)
+        fixture.capture("daily-maintenance-settings")
+        click(fixture.app.buttons["Save"])
+        try fixture.wait("scheduled approved update", timeout: 50) {
+            try fixture.updates().last?.outcome == "updated"
+        }
+        XCTAssertEqual(try fixture.installedVersion(), "2.0.0")
+        XCTAssertEqual(try fixture.updates().count, 1)
+        fixture.capture("scheduled-update-completed")
+    }
+
     func testFirstRunUpdateAndPersistedHistory() throws {
         continueAfterFailure = false
         let fixture = try makeFixture()
@@ -89,7 +109,7 @@ final class PackagedAppE2ETests: XCTestCase {
         fixture.capture("scan-retry-without-mutation")
     }
 
-    private func registerAndApprove(_ fixture: AppFixture) throws {
+    private func registerAndApprove(_ fixture: AppFixture, reviewMenu: Bool = false) throws {
         fixture.launch()
         openDashboard(fixture)
         XCTAssertEqual(try fixture.status().items.count, 0)
@@ -106,6 +126,18 @@ final class PackagedAppE2ETests: XCTestCase {
         XCTAssertEqual(try fixture.installedVersion(), "1.0.0")
         XCTAssertEqual(try fixture.updates().count, 0)
         XCTAssertFalse(try fixture.brewCalls().contains("upgrade"))
+
+        if reviewMenu {
+            click(
+                fixture.app.descendants(matching: .any).matching(
+                    identifier: "updatebar-status-button"
+                ).firstMatch)
+            XCTAssertTrue(
+                fixture.app.menuItems["e2e-fixture — 2 approvals needed"].waitForExistence(
+                    timeout: 10))
+            fixture.capture("pending-command-approvals")
+            fixture.app.typeKey(.escape, modifierFlags: [])
+        }
 
         selectSection("Items", in: fixture)
         XCTAssertFalse(fixture.app.buttons["items-update"].isEnabled)
@@ -211,6 +243,9 @@ private final class AppFixture {
         try "1.0.0\n".write(
             to: root.appendingPathComponent("installed-version"), atomically: true, encoding: .utf8)
         try setUpdateMode("success")
+        // Isolate manual-action scenarios from the app's default daily check.
+        try "[schedule]\nmode = \"off\"\ntime = \"00:00\"\n".write(
+            to: root.appendingPathComponent("config.toml"), atomically: true, encoding: .utf8)
         try installBrew()
         for tool in [
             "rtk", "gstack", "openclaw", "hermes", "gh", "claude", "codex", "node", "swift",
@@ -294,8 +329,10 @@ private final class AppFixture {
         return events.filter { $0.event == "update_finished" }
     }
 
-    func wait(_ description: String, until condition: () throws -> Bool) throws {
-        let deadline = Date().addingTimeInterval(20)
+    func wait(_ description: String, timeout: TimeInterval = 20, until condition: () throws -> Bool)
+        throws
+    {
+        let deadline = Date().addingTimeInterval(timeout)
         repeat {
             if try condition() { return }
             Thread.sleep(forTimeInterval: 0.1)

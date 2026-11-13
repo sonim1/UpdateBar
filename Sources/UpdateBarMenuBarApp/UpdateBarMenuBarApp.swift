@@ -46,6 +46,12 @@
         private var refreshGenerationGate = MenuBarRefreshGenerationGate()
         private var stateChangeMonitor = MenuBarStateChangeMonitor()
         private var stateChangeTimer: Timer?
+        private var maintenanceTimer: Timer?
+        private var isLoadingMaintenanceConfig = false
+        private lazy var dailyScheduler = MenuBarDailyScheduler(
+            defaults: .standard,
+            storageKey: "dailyMaintenance.lastAttempt.\(AppPaths().homeDirectory.path)"
+        )
         private var dashboardPanelController: DashboardPanelController?
         private var latestState = MenuBarState(
             title: "Checking...",
@@ -121,6 +127,7 @@
             ProcessInfo.processInfo.disableAutomaticTermination("UpdateBar menu bar app running")
             refreshStatus(refresh: false)
             startMonitoringExternalStateChanges()
+            startScheduledMaintenance()
         }
 
         func applicationWillTerminate(_ notification: Notification) {
@@ -131,6 +138,8 @@
             )
             stateChangeTimer?.invalidate()
             stateChangeTimer = nil
+            maintenanceTimer?.invalidate()
+            maintenanceTimer = nil
             ProcessInfo.processInfo.enableAutomaticTermination("UpdateBar menu bar app terminated")
             Self.bootstrapDelegate = nil
         }
@@ -507,6 +516,55 @@
             refreshStatus(refresh: false)
         }
 
+        private func startScheduledMaintenance() {
+            let timer = Timer(
+                timeInterval: 30, target: self,
+                selector: #selector(runScheduledMaintenanceIfDue), userInfo: nil, repeats: true
+            )
+            timer.tolerance = 1
+            RunLoop.main.add(timer, forMode: .common)
+            RunLoop.main.add(timer, forMode: .eventTracking)
+            maintenanceTimer = timer
+            runScheduledMaintenanceIfDue()
+        }
+
+        @objc private func runScheduledMaintenanceIfDue() {
+            guard let service, actionCoordinator.activeAction == nil,
+                !isLoadingMaintenanceConfig
+            else { return }
+            isLoadingMaintenanceConfig = true
+            DispatchQueue.global(qos: .utility).async {
+                do {
+                    let config = try service.loadConfig()
+                    DispatchQueue.main.async {
+                        self.isLoadingMaintenanceConfig = false
+                        guard
+                            let mode = self.dailyScheduler.claimDueRun(
+                                config.schedule,
+                                isBusy: self.actionCoordinator.activeAction != nil
+                            )
+                        else { return }
+                        let isUpdate = mode == .checkAndUpdate
+                        self.runAction(
+                            isUpdate ? "Scheduled check and update" : "Scheduled check",
+                            isUpdate: isUpdate
+                        ) { action in
+                            try service.performScheduledMaintenance(
+                                mode: mode, cancellationToken: action.token,
+                                onEvent: self.progressHandler(for: action),
+                                stopSignal: action.stopSignal
+                            )
+                        }
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        self.isLoadingMaintenanceConfig = false
+                        self.showError(error)
+                    }
+                }
+            }
+        }
+
         private func runAction(
             _ title: String,
             isUpdate: Bool = false,
@@ -558,6 +616,16 @@
         ) -> @Sendable (UpdateProgressEvent) -> Void {
             { event in
                 DispatchQueue.main.async {
+                    if case .planned(let plan) = event {
+                        // A scheduled check can discover updates absent from the previous snapshot.
+                        self.activeUpdateItems = plan.filter { $0.decision == .willUpdate }.map {
+                            StatusItem(
+                                id: $0.id, name: $0.name, category: "",
+                                current: $0.current, latest: $0.latest, status: .outdated,
+                                pinned: false, lastChecked: nil, error: nil
+                            )
+                        }
+                    }
                     activeAction.apply(event)
                     self.scheduleThrottledMenuRebuild()
                 }

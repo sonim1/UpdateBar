@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added
+
+- Schedule daily recipe maintenance at a chosen local time, with check-only as
+  the default at 09:00, optional updates of approved items, and an Off option.
+- Catch up missed scheduled runs after sleep or an active task, and retain the
+  daily run limit across menu bar app restarts.
+
+### Changed
+
+- Replace the half-filled command approval icon with a warning icon and an
+  explicit pending approval count.
+- Separate scheduled maintenance from status cache freshness and UpdateBar app
+  updates, and keep Save and Reload visible in compact settings windows.
+
 ## 0.6.35 - 2026-10-29
 
 ### Fixed

@@ -36,3 +36,38 @@ Ignored build outputs and local tool state are intentionally retained. A
 `git clean -ndX` preview includes Swift dependency checkouts, `.omo/`,
 `.superpowers/`, `dist/`, and `tui/node_modules/`; deleting these is local
 housekeeping and is not required to build, test, or release UpdateBar.
+
+## Daily maintenance UI automation — 2026-11-12
+
+The full quality gate passed without skips: 1,011 Swift tests, 152 TUI tests,
+formatting, script/CLI checks, release-mode packaging, and menu bar launch smoke.
+The packaged app was also launched against isolated approved fixture recipes:
+check-only retained version 1.0.0 and check-and-update installed 2.0.0. Native
+settings views were rendered and inspected in light mode and compact dark mode;
+Save and Reload remain visible at a 420-point window height.
+
+Packaged XCUITest click-through verification is inconclusive on this host.
+With `CODE_SIGNING_ALLOWED=NO`, the generated runner fails signature verification
+(`code has no resources but signature indicates they must be present`). A second
+run using local ad-hoc signing passes signature verification, but the runner
+still does not reach test execution. `DevToolsSecurity -status` reports developer
+mode disabled; the remaining runner-start stall has not been conclusively
+diagnosed. No system security setting was changed. The existing installed app
+was left running; a separate bundle identifier was used for the QA copy.
+
+Evidence, exact commands, screenshots, and runtime results are retained under
+`.omo/evidence/daily-maintenance/`. The new packaged UI scenario must be rerun on
+a host where the XCTest runner can start; it is not counted as a passing check.
+
+On 2026-11-13, an isolated native settings window was also exposed through a
+temporary XCTest fixture for Orca manual interaction. Orca reported Accessibility
+and Screenshots permissions granted, but its app-state request failed with
+`permission_denied`: the xctest process had a visible window but no accessible
+AX window. No setting was changed, the temporary harness was removed, and this
+attempt is not counted as UI click-through coverage. Packaged UI tests remain a
+required macOS CI check before merging the release PR.
+
+The isolated release worktree subsequently passed the full quality gate without
+skips: 1,014 Swift tests and 152 TUI tests. The CLI aggregate JSON shape is
+unchanged; schedule values use per-key config queries with a disabled fallback
+for unsupported older CLIs. Independent code re-review approved the correction.

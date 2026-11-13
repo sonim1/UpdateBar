@@ -3,6 +3,20 @@ import UpdateBarCore
 import XCTest
 
 final class ConfigCommandTests: XCTestCase {
+    func testConfigJSONPreservesLegacyPayloadShapeWhenScheduleIsPersisted() throws {
+        let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
+        var config = Config.default
+        try config.set("schedule.mode", value: "check_and_update")
+        try config.set("schedule.time", value: "23:45")
+        try ConfigStore(paths: AppPaths(homeDirectory: home)).save(config)
+        let result = try CLIProcess.run(["config", "get", "--json"], home: home)
+        XCTAssertEqual(result.exitCode, 0)
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(result.stdout.utf8)) as? [String: Any])
+        XCTAssertEqual(Set(payload.keys), ["refresh", "security", "update"])
+        XCTAssertNil(payload["schedule"])
+    }
+
     func testConfigGetDoesNotCreateDefaultConfigFile() throws {
         let home = try makeTemporaryHome(prefix: "updatebar-cli-config-tests")
         let paths = AppPaths(homeDirectory: home)

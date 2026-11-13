@@ -113,7 +113,15 @@
                 ),
                 ("security.require_https_source", String(model.requireHTTPS)),
                 ("update.max_concurrent", String(model.maxConcurrent)),
+                ("schedule.mode", model.scheduleMode.rawValue),
+                ("schedule.time", scheduleTimeValue),
             ].filter { loadedConfig.get($0.0) != $0.1 }
+        }
+
+        private var scheduleTimeValue: String {
+            let parts = SettingsViewModel.timePickerCalendar.dateComponents(
+                [.hour, .minute], from: model.scheduleTime)
+            return String(format: "%02d:%02d", parts.hour ?? 9, parts.minute ?? 0)
         }
 
         private func apply(_ config: Config) {
@@ -121,6 +129,15 @@
             model.refreshInterval = config.refresh.interval.description
             model.requireHTTPS = config.security.requireHTTPSSource
             model.maxConcurrent = config.update.maxConcurrent
+            model.scheduleMode = config.schedule.mode
+            if let parts = ScheduleConfig.components(for: config.schedule.time),
+                let time = SettingsViewModel.timePickerCalendar.date(
+                    from: DateComponents(
+                        year: 2001, month: 1, day: 1, hour: parts.hour, minute: parts.minute)
+                )
+            {
+                model.scheduleTime = time
+            }
         }
 
         private func finish(_ error: Error) {

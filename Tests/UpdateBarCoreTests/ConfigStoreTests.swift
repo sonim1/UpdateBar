@@ -2,6 +2,33 @@ import UpdateBarCore
 import XCTest
 
 final class ConfigStoreTests: XCTestCase {
+    func testDailyScheduleDefaultsAndRoundTrip() throws {
+        XCTAssertEqual(Config.default.get("schedule.mode"), "check")
+        XCTAssertEqual(Config.default.get("schedule.time"), "09:00")
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ConfigStore(paths: AppPaths(homeDirectory: root))
+        var config = Config.default
+        try config.set("schedule.mode", value: "check_and_update")
+        try config.set("schedule.time", value: "23:45")
+        try store.save(config)
+
+        XCTAssertEqual(try store.load(), config)
+        XCTAssertEqual(try store.load().get("schedule.time"), "23:45")
+        for mode in ["off", "check", "check_and_update"] {
+            try config.set("schedule.mode", value: mode)
+            XCTAssertEqual(config.get("schedule.mode"), mode)
+        }
+    }
+
+    func testScheduleRejectsInvalidModeAndTime() throws {
+        var config = Config.default
+        for time in ["24:00", "09:60", "9:00", "09:0", "-1:00", "12:30:00", "ab:cd"] {
+            XCTAssertThrowsError(try config.set("schedule.time", value: time))
+        }
+        XCTAssertThrowsError(try config.set("schedule.mode", value: "update"))
+    }
+
     func testDefaultConfigMatchesV1Decisions() {
         let config = Config.default
 

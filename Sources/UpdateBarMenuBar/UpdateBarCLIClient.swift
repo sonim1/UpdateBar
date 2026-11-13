@@ -122,6 +122,34 @@ public struct UpdateBarCLIClient: Sendable {
     }
 
     public func loadConfig() throws -> Config {
+        try loadConfigWithScheduleSupport().config
+    }
+
+    public func saveConfig(_ config: Config) throws {
+        let current = try loadConfigWithScheduleSupport()
+        if !current.scheduleSupported, config.schedule != current.config.schedule {
+            throw UpdateBarCLIClientError.unsupportedScheduleConfiguration
+        }
+        var values = [
+            ("refresh.interval", config.refresh.interval.description),
+            ("security.require_https_source", String(config.security.requireHTTPSSource)),
+            ("update.max_concurrent", String(config.update.maxConcurrent)),
+        ]
+        if current.scheduleSupported {
+            values += [
+                ("schedule.mode", config.schedule.mode.rawValue),
+                ("schedule.time", config.schedule.time),
+            ]
+        }
+        for (key, value) in values.filter({ current.config.get($0.0) != $0.1 }) {
+            let result = try run(arguments: ["config", "set", key, value, "--json"])
+            try ensureSuccess(result, allowedExitCodes: [0])
+        }
+    }
+
+    private func loadConfigWithScheduleSupport() throws -> (
+        config: Config, scheduleSupported: Bool
+    ) {
         let result = try run(arguments: ["config", "get", "--json"])
         try ensureSuccess(result, allowedExitCodes: [0])
         let payload = try JSONDecoder.updateBar.decode(
@@ -137,19 +165,25 @@ public struct UpdateBarCLIClient: Sendable {
         if let update = payload.update {
             try config.set("update.max_concurrent", value: String(update.maxConcurrent))
         }
-        return config
-    }
-
-    public func saveConfig(_ config: Config) throws {
-        let current = try loadConfig()
-        for (key, value) in [
-            ("refresh.interval", config.refresh.interval.description),
-            ("security.require_https_source", String(config.security.requireHTTPSSource)),
-            ("update.max_concurrent", String(config.update.maxConcurrent)),
-        ].filter({ current.get($0.0) != $0.1 }) {
-            let result = try run(arguments: ["config", "set", key, value, "--json"])
-            try ensureSuccess(result, allowedExitCodes: [0])
+        let modeResult = try run(arguments: ["config", "get", "schedule.mode", "--json"])
+        if Self.isUnknownConfigKey(modeResult, key: "schedule.mode") {
+            try config.set("schedule.mode", value: "off")
+            return (config, false)
         }
+        try ensureSuccess(modeResult, allowedExitCodes: [0])
+        let mode = try JSONDecoder.updateBar.decode(
+            ConfigValuePayload.self,
+            from: Data(modeResult.stdout.utf8)
+        )
+        let timeResult = try run(arguments: ["config", "get", "schedule.time", "--json"])
+        try ensureSuccess(timeResult, allowedExitCodes: [0])
+        let time = try JSONDecoder.updateBar.decode(
+            ConfigValuePayload.self,
+            from: Data(timeResult.stdout.utf8)
+        )
+        try config.set("schedule.mode", value: mode.value)
+        try config.set("schedule.time", value: time.value)
+        return (config, true)
     }
 
     public func checkNow(cancellationToken: CancellationToken? = nil) throws {
@@ -306,10 +340,33 @@ public struct UpdateBarCLIClient: Sendable {
         return nil
     }
 
+    private static func isUnknownConfigKey(_ result: CommandResult, key: String) -> Bool {
+        struct ConfigErrorPayload: Decodable {
+            var code: String
+            var errors: [String]
+        }
+
+        guard result.exitCode != 0,
+            let payload = try? JSONDecoder.updateBar.decode(
+                ConfigErrorPayload.self,
+                from: Data(result.stdout.utf8)
+            )
+        else {
+            return false
+        }
+        return payload.code == "config_error"
+            && payload.errors.contains("\(key): unknown config key")
+    }
+
     private struct InitResultPayload: Decodable {
         var added: [String]
         var replaced: [String]
         var skipped: [String]
+    }
+
+    private struct ConfigValuePayload: Decodable {
+        var key: String
+        var value: String
     }
 
     private struct ConfigDumpPayload: Decodable {
@@ -341,6 +398,7 @@ public struct UpdateBarCLIClient: Sendable {
 
 public enum UpdateBarCLIClientError: Error, CustomStringConvertible, Equatable, Sendable {
     case failed(exitCode: Int32, stderr: String)
+    case unsupportedScheduleConfiguration
     case timedOut
     case cancelled
 
@@ -351,6 +409,8 @@ public enum UpdateBarCLIClientError: Error, CustomStringConvertible, Equatable, 
                 stderr.trimmingCharacters(in: .whitespacesAndNewlines))
             return detail.isEmpty
                 ? "updatebar exited \(exitCode)" : "updatebar exited \(exitCode): \(detail)"
+        case .unsupportedScheduleConfiguration:
+            return "installed updatebar CLI does not support scheduled maintenance configuration"
         case .timedOut:
             return "updatebar timed out"
         case .cancelled:
